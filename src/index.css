@@ -1,0 +1,152 @@
+@import 'tailwindcss';
+
+/* ============================================================
+   TRIP — Design tokens (from design spec)
+   Clean, airy, Notion/Linear-like. Green accent #1D9E75.
+   ============================================================ */
+@theme {
+  /* Fonts */
+  --font-sans: 'Inter', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand / accent */
+  --color-brand: #1d9e75;
+  --color-brand-dark: #085041;
+  --color-brand-mid: #0f6e56;
+  --color-brand-soft: #e1f5ee;
+  --color-brand-border: #9fe1cb;
+
+  /* Surfaces */
+  --color-surface: #ffffff; /* cards, top bar */
+  --color-surface-2: #f5f4f0; /* secondary, chips */
+  --color-canvas: #fafaf7; /* page background */
+
+  /* Text / ink */
+  --color-ink: #1a1a17; /* primary text */
+  --color-ink-2: #5f5e5a; /* secondary text */
+  --color-ink-3: #8a8980; /* tertiary / labels */
+
+  /* Borders */
+  --color-line: #e8e7e1; /* hairline */
+  --color-line-2: #d4d3cc; /* stronger */
+
+  /* Functional */
+  --color-booking: #185fa5; /* booking ID text */
+  --color-booking-bg: #e6f1fb;
+
+  /* Metro line colors */
+  --color-metro-blue: #185fa5;
+  --color-metro-cyan: #378add;
+  --color-metro-orange: #ef9f27;
+  --color-metro-purple: #7f77dd;
+  --color-metro-gray: #888780;
+
+  /* Radius */
+  --radius-chip: 8px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+/* Dark mode tokens kept for later (spec mentions possible future dark mode) */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  /* 0.5px hairline border (spec: 0.5px solid) */
+  .hairline {
+    border: 0.5px solid var(--color-line);
+  }
+  .hairline-t {
+    border-top: 0.5px solid var(--color-line);
+  }
+  .hairline-b {
+    border-bottom: 0.5px solid var(--color-line);
+  }
+
+  /* Card: white surface, hairline, 12px radius */
+  .card {
+    background: var(--color-surface);
+    border: 0.5px solid var(--color-line);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Primary button */
+  .btn-primary {
+    background: var(--color-brand);
+    color: #fff;
+    border-radius: var(--radius-md);
+    padding: 7px 14px;
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .btn-primary:hover {
+    background: var(--color-brand-mid);
+  }
+
+  /* Text-link button (เพิ่มคน / แนบไฟล์) */
+  .btn-link {
+    color: var(--color-brand-mid);
+    font-weight: 500;
+    font-size: 13px;
+  }
+
+  /* Icon button: 32px square, hairline */
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0.5px solid var(--color-line);
+    border-radius: var(--radius-md);
+    color: var(--color-ink-2);
+    background: var(--color-surface);
+  }
+  .btn-icon:hover {
+    background: var(--color-surface-2);
+  }
+
+  /* Chip / tag: pill, tiny */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 20px;
+    font-size: 11px;
+    padding: 2px 9px;
+    background: var(--color-surface-2);
+    color: var(--color-ink-2);
+  }
+
+  /* Booking ID: blue text, no background */
+  .booking-id {
+    color: var(--color-booking);
+    font-weight: 500;
+  }
+}
+
+/* Hide scrollbars on horizontal tab strips while keeping scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
