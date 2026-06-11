@@ -47,7 +47,7 @@ export function Sidebar() {
             )}
           </div>
           <div className="flex items-center justify-between mt-2.5">
-            <AvatarStack people={travelers.map((t) => ({ name: t.nickname }))} size={22} />
+            <AvatarStack people={travelers.map((t, i) => ({ name: t.nickname, color: ['av1', 'av2', 'av3', 'av4'][i % 4] }))} size={22} />
             <span className="btn-icon !size-6 !rounded-full border-dashed">
               <IconPlus size={13} />
             </span>

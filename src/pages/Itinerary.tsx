@@ -8,12 +8,13 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   IconGripVertical, IconDots, IconPlus, IconMapPin, IconPencil, IconTrash,
-  IconCalendarPlus, IconClock,
+  IconCalendarPlus, IconRoute,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { MetroRoute } from '@/components/MetroRoute'
 import { StopEditor } from '@/components/StopEditor'
 import { DayEditor } from '@/components/DayEditor'
+import { TransitEditor } from '@/components/TransitEditor'
 import { openMap } from '@/lib/maps'
 import { formatLongDate } from '@/lib/format'
 import {
@@ -53,33 +54,36 @@ function PopMenu({ items }: { items: { label: string; icon: React.ReactNode; onC
 }
 
 function SortableStop({
-  stop, onEdit, onDelete,
+  stop, onEdit, onDelete, onEditRoute,
 }: {
   stop: ItineraryStop
   onEdit: () => void
   onDelete: () => void
+  onEditRoute: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
   return (
-    <div ref={setNodeRef} style={style} className="flex gap-2">
+    <div ref={setNodeRef} style={style} className="flex gap-2.5">
       <button
         {...attributes}
         {...listeners}
-        className="mt-1 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0"
+        className="mt-0.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0"
         aria-label="ลากจัดเรียง"
       >
         <IconGripVertical size={16} />
       </button>
+
+      {/* Time column (left) */}
+      <div className="w-11 shrink-0 pt-0.5">
+        {stop.time && <div className="text-[13px] font-medium tabular-nums">{stop.time}</div>}
+      </div>
+
+      {/* Content (right) */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            {stop.time && (
-              <div className="flex items-center gap-1 text-[11px] text-ink-3">
-                <IconClock size={12} /> {stop.time}
-              </div>
-            )}
             <button
               onClick={() => openMap(stop.map_url)}
               disabled={!stop.map_url}
@@ -88,20 +92,21 @@ function SortableStop({
               {stop.place_name}
             </button>
             {stop.map_url && (
-              <span className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] text-brand-mid align-middle">
-                <IconMapPin size={11} /> แผนที่
-              </span>
+              <button onClick={() => openMap(stop.map_url)} className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] text-brand-mid align-middle">
+                <IconMapPin size={11} /> ดูแผนที่
+              </button>
             )}
             {stop.note && <div className="text-[12px] text-ink-2 mt-0.5">{stop.note}</div>}
           </div>
           <PopMenu
             items={[
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
+              { label: stop.transit ? 'แก้ไขเส้นทาง' : 'เพิ่มเส้นทางรถไฟฟ้า', icon: <IconRoute size={15} />, onClick: onEditRoute },
               { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
             ]}
           />
         </div>
-        {stop.transit && <MetroRoute transit={stop.transit} />}
+        {stop.transit && <MetroRoute transit={stop.transit} onEdit={onEditRoute} />}
       </div>
     </div>
   )
@@ -112,6 +117,7 @@ export default function Itinerary() {
   const [local, setLocal] = useState<ItineraryStop[]>(stops)
   const [editor, setEditor] = useState<{ dayId: string; stop?: ItineraryStop } | null>(null)
   const [dayEdit, setDayEdit] = useState<{ id: string; label: string | null; day_date: string | null } | null>(null)
+  const [routeEdit, setRouteEdit] = useState<ItineraryStop | null>(null)
 
   useEffect(() => setLocal(stops), [stops])
 
@@ -155,6 +161,12 @@ export default function Itinerary() {
   async function removeStop(id: string) {
     if (!confirm('ลบจุดแวะนี้?')) return
     await deleteStop(id)
+    await reload()
+  }
+
+  async function saveRoute(transit: Parameters<typeof updateStop>[1]['transit']) {
+    if (!routeEdit) return
+    await updateStop(routeEdit.id, { transit })
     await reload()
   }
 
@@ -217,6 +229,7 @@ export default function Itinerary() {
                         stop={s}
                         onEdit={() => setEditor({ dayId: day.id, stop: s })}
                         onDelete={() => removeStop(s.id)}
+                        onEditRoute={() => setRouteEdit(s)}
                       />
                     ))}
                   </div>
@@ -252,6 +265,12 @@ export default function Itinerary() {
         onClose={() => setDayEdit(null)}
         initial={dayEdit}
         onSave={saveDay}
+      />
+      <TransitEditor
+        open={!!routeEdit}
+        onClose={() => setRouteEdit(null)}
+        initial={routeEdit?.transit ?? null}
+        onSave={saveRoute}
       />
     </div>
   )

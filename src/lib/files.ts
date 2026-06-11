@@ -4,6 +4,11 @@ import type { TravelerFileKind } from './database.types'
 const BUCKET = 'trip-files'
 const SIGNED_TTL = 600 // ~10 minutes, per spec
 
+/** Sample seed files have a recognizable path and no real object behind them. */
+export function isSampleFile(storagePath: string | null | undefined): boolean {
+  return !!storagePath && storagePath.startsWith('sample/')
+}
+
 /** Create a short-lived signed URL to view a private file. */
 export async function getSignedUrl(storagePath: string): Promise<string | null> {
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, SIGNED_TTL)
@@ -35,4 +40,19 @@ export async function uploadTravelerFile(opts: {
     storage_path: path,
   })
   return { error: ins.error?.message ?? null }
+}
+
+/** Attach a booking file to a flight or hotel (single storage_path column). */
+export async function uploadEntityFile(opts: {
+  table: 'flights' | 'hotels'
+  id: string
+  tripId: string
+  file: File
+}): Promise<{ error: string | null }> {
+  const ext = opts.file.name.split('.').pop() ?? 'bin'
+  const path = `${opts.tripId}/${opts.table}-${opts.id}-${crypto.randomUUID()}.${ext}`
+  const up = await supabase.storage.from(BUCKET).upload(path, opts.file, { upsert: false })
+  if (up.error) return { error: up.error.message }
+  const upd = await supabase.from(opts.table).update({ storage_path: path }).eq('id', opts.id)
+  return { error: upd.error?.message ?? null }
 }

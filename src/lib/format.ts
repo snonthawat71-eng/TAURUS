@@ -63,6 +63,38 @@ export function baht(n: number | null | undefined): string {
   return '฿' + Math.round(n).toLocaleString('en-US')
 }
 
+/** "5h 50m" from "09:45" -> "15:35" (clock difference; wraps past midnight) */
+export function flightDuration(dep: string | null, arr: string | null): string {
+  if (!dep || !arr) return ''
+  const [dh, dm] = dep.split(':').map(Number)
+  const [ah, am] = arr.split(':').map(Number)
+  if ([dh, dm, ah, am].some((n) => isNaN(n))) return ''
+  let mins = ah * 60 + am - (dh * 60 + dm)
+  if (mins < 0) mins += 24 * 60
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return `${h}h${m ? ` ${m}m` : ''}`
+}
+
+/** "Wed 12 Mar 2025" */
+export function formatFlightDate(d: string | null): string {
+  const dt = d ? new Date(d) : null
+  if (!dt || isNaN(dt.getTime())) return ''
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${days[dt.getDay()]} ${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`
+}
+
+/** "12 Mar · 15:00" from an ISO timestamp */
+export function formatCheckTime(d: string | null): string {
+  const dt = d ? new Date(d) : null
+  if (!dt || isNaN(dt.getTime())) return ''
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const hh = String(dt.getHours()).padStart(2, '0')
+  const mm = String(dt.getMinutes()).padStart(2, '0')
+  return `${dt.getDate()} ${months[dt.getMonth()]} · ${hh}:${mm}`
+}
+
 /** "¥17,114" given a baht amount and rate (baht per yuan) */
 export function yuanFromBaht(bahtAmount: number, bahtPerYuan: number): string {
   if (!bahtPerYuan) return ''

@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
-import { createSampleTrip, seedTripContent } from '@/lib/seed'
+import { backfillSample, createSampleTrip, seedTripContent } from '@/lib/seed'
 import { useAuth } from './AuthContext'
 import type {
   Expense, Flight, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
-  Profile, Traveler, Trip,
+  Profile, Traveler, TravelerFile, Trip,
 } from '@/lib/database.types'
 
 interface TripData {
@@ -13,6 +13,7 @@ interface TripData {
   trip: Trip | null
   profile: Profile | null
   travelers: Traveler[]
+  travelerFiles: TravelerFile[]
   flights: Flight[]
   hotels: Hotel[]
   days: ItineraryDay[]
@@ -27,7 +28,7 @@ interface TripData {
 const TripContext = createContext<TripData | undefined>(undefined)
 
 const empty = {
-  trip: null, profile: null, travelers: [], flights: [], hotels: [], days: [],
+  trip: null, profile: null, travelers: [], travelerFiles: [], flights: [], hotels: [], days: [],
   stops: [], places: [], interests: [], expenses: [], memberProfiles: [],
 }
 
@@ -85,12 +86,28 @@ export function TripProvider({ children }: { children: ReactNode }) {
         await seedTripContent(trip_id, user.id)
       }
 
+      // Top up trips seeded by earlier versions (sample file tags, 2nd hotel, names)
+      if (trip.name === 'Beijing · Tianjin') {
+        const [tvRows, tfCount, htCount] = await Promise.all([
+          supabase.from('travelers').select('id,nickname,full_name').eq('trip_id', trip_id),
+          supabase.from('traveler_files').select('id', { count: 'exact', head: true }).eq('trip_id', trip_id),
+          supabase.from('hotels').select('id', { count: 'exact', head: true }).eq('trip_id', trip_id),
+        ])
+        await backfillSample({
+          trip_id,
+          travelers: tvRows.data ?? [],
+          travelerFilesCount: tfCount.count ?? 0,
+          hotelsCount: htCount.count ?? 0,
+        })
+      }
+
       const [
-        profileRes, travelersRes, flightsRes, hotelsRes, daysRes, stopsRes,
+        profileRes, travelersRes, travelerFilesRes, flightsRes, hotelsRes, daysRes, stopsRes,
         placesRes, expensesRes, membersRes,
       ] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('travelers').select('*').eq('trip_id', trip_id).order('created_at'),
+        supabase.from('traveler_files').select('*').eq('trip_id', trip_id).order('created_at'),
         supabase.from('flights').select('*').eq('trip_id', trip_id).order('flight_date'),
         supabase.from('hotels').select('*').eq('trip_id', trip_id).order('checkin'),
         supabase.from('itinerary_days').select('*').eq('trip_id', trip_id).order('position'),
@@ -115,6 +132,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
         trip,
         profile: (profileRes.data as Profile) ?? null,
         travelers: travelersRes.data ?? [],
+        travelerFiles: (travelerFilesRes.data ?? []) as TravelerFile[],
         flights: flightsRes.data ?? [],
         hotels: (hotelsRes.data ?? []) as Hotel[],
         days: daysRes.data ?? [],
