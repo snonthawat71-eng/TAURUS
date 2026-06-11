@@ -18,6 +18,10 @@ function emptyLeg(): TransitLeg {
   return { line: '', color: PALETTE[0].color, from: '', to: '', direction: '', stops: undefined, minutes: undefined }
 }
 
+function isPreset(color: string) {
+  return PALETTE.some((p) => p.color.toLowerCase() === color.toLowerCase())
+}
+
 export function TransitEditor({
   open, onClose, initial, onSave,
 }: {
@@ -72,11 +76,20 @@ export function TransitEditor({
             <div>
               <div className={lbl}>ชื่อสาย</div>
               <input className={field} value={leg.line} onChange={(e) => patch(i, { line: e.target.value })} placeholder="เช่น Line 5 / Airport Express" />
-              <div className="flex gap-1.5 mt-2">
+              <div className="flex items-center gap-1.5 mt-2">
                 {PALETTE.map((p) => (
                   <button key={p.color} onClick={() => patch(i, { color: p.color })} title={p.name}
-                    className="size-6 rounded-full" style={{ background: p.color, outline: leg.color === p.color ? '2px solid var(--color-ink)' : 'none', outlineOffset: 2 }} />
+                    className="size-6 rounded-full" style={{ background: p.color, outline: leg.color.toLowerCase() === p.color.toLowerCase() ? '2px solid var(--color-ink)' : 'none', outlineOffset: 2 }} />
                 ))}
+                <span className="w-px h-5 bg-line mx-0.5" />
+                {/* custom color */}
+                <label className="size-6 rounded-full grid place-items-center cursor-pointer relative overflow-hidden"
+                  title="เลือกสีเอง"
+                  style={{ background: 'conic-gradient(red, orange, yellow, lime, aqua, blue, magenta, red)', outline: !isPreset(leg.color) ? '2px solid var(--color-ink)' : 'none', outlineOffset: 2 }}>
+                  <input type="color" value={leg.color} onChange={(e) => patch(i, { color: e.target.value })}
+                    className="absolute inset-0 opacity-0 cursor-pointer" />
+                </label>
+                <span className="text-[11px] text-ink-3 tabular-nums">{leg.color.toUpperCase()}</span>
               </div>
             </div>
 

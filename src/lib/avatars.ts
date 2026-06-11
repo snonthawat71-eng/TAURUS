@@ -8,7 +8,12 @@ export const AVATAR_COLORS: Record<AvatarColor, { bg: string; fg: string }> = {
   av4: { bg: '#D4537E', fg: '#FBEAF0' }, // pink
 }
 
-const ORDER: AvatarColor[] = ['av1', 'av2', 'av3', 'av4']
+export const ORDER: AvatarColor[] = ['av1', 'av2', 'av3', 'av4']
+
+/** Persisted avatar_color if present, otherwise a stable color by list position. */
+export function travelerColor(t: { avatar_color?: string | null }, index: number): string {
+  return t.avatar_color && t.avatar_color in AVATAR_COLORS ? t.avatar_color : ORDER[index % ORDER.length]
+}
 
 /** Deterministic color from an id/name so a person looks the same everywhere. */
 export function colorForKey(key: string): { bg: string; fg: string } {

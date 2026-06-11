@@ -34,6 +34,8 @@ export interface Traveler {
   nickname: string | null
   full_name: string | null
   passport_last4: string | null
+  /** optional — only present after the avatar_color migration is run */
+  avatar_color?: string | null
   created_at: string
 }
 

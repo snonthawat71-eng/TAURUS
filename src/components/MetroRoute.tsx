@@ -1,59 +1,62 @@
 import { type ReactNode } from 'react'
 import { IconTrain, IconWalk, IconDoorExit, IconPencil } from '@tabler/icons-react'
-import type { Transit } from '@/lib/database.types'
+import type { Transit, TransitLeg } from '@/lib/database.types'
 
 /**
  * AMap-style metro route.
- * - board station = filled circle (line color) + white train icon
- * - alight station = hollow circle (ring in line color)
- * - colored bar    = the line you ride
- * - transfer       = dashed connector with a walking icon
- * - line tag sits on the meta line under the board station name
- * - exit           = green tag at the end
+ * Smaller circles + thicker colored bars for better proportion; the transfer
+ * walking icon sits on the same row as its text.
  */
 
-type Conn = 'solid' | 'dashed' | 'none'
+type Line = 'solid' | 'dashed' | 'none'
 
-function Node({
-  filled, color, connector, children,
-}: {
-  filled: boolean
-  color: string
-  connector: Conn
-  children: ReactNode
-}) {
+function Row({ marker, color, line, children }: { marker: 'board' | 'alight' | 'walk'; color: string; line: Line; children: ReactNode }) {
   return (
-    <div className="flex gap-3 items-stretch">
-      <div className="w-6 flex flex-col items-center shrink-0">
-        {filled ? (
-          <span className="size-6 rounded-full grid place-items-center text-white shrink-0" style={{ background: color }}>
-            <IconTrain size={13} />
-          </span>
-        ) : (
-          <span className="size-6 rounded-full bg-surface shrink-0" style={{ border: `3px solid ${color}` }} />
-        )}
-        {connector === 'solid' && (
-          <span className="flex-1 my-1" style={{ width: 5, background: color, borderRadius: 3 }} />
-        )}
-        {connector === 'dashed' && (
-          <span className="relative flex-1 my-1 grid place-items-center">
-            <span className="absolute inset-y-0" style={{ borderLeft: '2px dashed var(--color-line-2)' }} />
-            <span className="relative size-5 rounded-full bg-surface grid place-items-center text-ink-3"
-              style={{ border: '0.5px solid var(--color-line)' }}>
-              <IconWalk size={12} />
-            </span>
+    <div className="flex gap-2.5 items-stretch">
+      <div className="w-5 flex flex-col items-center shrink-0">
+        {marker === 'board' && (
+          <span className="size-4 rounded-full grid place-items-center text-white shrink-0" style={{ background: color }}>
+            <IconTrain size={10} />
           </span>
         )}
+        {marker === 'alight' && (
+          <span className="size-4 rounded-full bg-surface shrink-0" style={{ border: `3px solid ${color}` }} />
+        )}
+        {marker === 'walk' && (
+          <span className="size-4 rounded-full bg-surface grid place-items-center text-ink-3 shrink-0" style={{ border: '0.5px solid var(--color-line)' }}>
+            <IconWalk size={11} />
+          </span>
+        )}
+        {line === 'solid' && <span className="flex-1 my-1" style={{ width: 7, background: color, borderRadius: 4 }} />}
+        {line === 'dashed' && <span className="flex-1 my-1" style={{ borderLeft: '2.5px dashed var(--color-line-2)' }} />}
       </div>
       <div className="flex-1 min-w-0 pb-3">{children}</div>
     </div>
   )
 }
 
+function BoardContent({ leg }: { leg: TransitLeg }) {
+  return (
+    <>
+      <div className="text-[13px] font-medium leading-tight">{leg.from}</div>
+      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[11px] text-ink-3">
+        <span className="inline-flex items-center rounded-[6px] px-2 py-0.5 font-medium text-white" style={{ background: leg.color }}>
+          {leg.line}
+        </span>
+        <span>
+          → {leg.direction}
+          {leg.stops != null && ` · ${leg.stops} สถานี`}
+          {leg.minutes != null && ` · ${leg.minutes} นาที`}
+        </span>
+      </div>
+    </>
+  )
+}
+
 export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () => void }) {
   const { legs, exit } = transit
   if (!legs?.length) return null
-  const lastLeg = legs.length - 1
+  const last = legs.length - 1
 
   return (
     <div className="mt-2.5 rounded-[10px] bg-surface-2/40 p-3.5 relative" style={{ border: '0.5px solid var(--color-line)' }}>
@@ -64,38 +67,27 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
       )}
       {legs.map((leg, i) => (
         <div key={i}>
-          {/* Board */}
-          <Node filled color={leg.color} connector="solid">
-            <div className="text-[13px] font-medium leading-tight">{leg.from}</div>
-            <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[11px] text-ink-3">
-              <span className="inline-flex items-center rounded-[6px] px-2 py-0.5 font-medium text-white" style={{ background: leg.color }}>
-                {leg.line}
-              </span>
-              <span>
-                → {leg.direction}
-                {leg.stops != null && ` · ${leg.stops} สถานี`}
-                {leg.minutes != null && ` · ${leg.minutes} นาที`}
-              </span>
-            </div>
-          </Node>
-
-          {/* Alight */}
-          <Node filled={false} color={leg.color} connector={i < lastLeg ? 'dashed' : 'none'}>
-            <div className="text-[13px] font-medium leading-tight">{leg.to}</div>
-            {leg.transferAfter && (
-              <div className="mt-1 text-[11px] text-ink-3">
-                เปลี่ยนสาย · เดินในสถานี
-                {leg.transferAfter.walkMeters != null && ` ${leg.transferAfter.walkMeters}m`}
-                {leg.transferAfter.minutes != null && ` · ~${leg.transferAfter.minutes} นาที`}
-              </div>
-            )}
-            {i === lastLeg && exit && (
+          <Row marker="board" color={leg.color} line="solid">
+            <BoardContent leg={leg} />
+          </Row>
+          <Row marker="alight" color={leg.color} line={i < last ? 'dashed' : 'none'}>
+            <div className="text-[13px] font-medium leading-tight pt-0.5">{leg.to}</div>
+            {i === last && exit && (
               <div className="mt-2 inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[11px] font-medium"
                 style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
                 <IconDoorExit size={13} /> ออก {exit.label}{exit.note && ` · ${exit.note}`}
               </div>
             )}
-          </Node>
+          </Row>
+          {i < last && (
+            <Row marker="walk" color={leg.color} line="dashed">
+              <div className="text-[11px] text-ink-3 pt-0.5">
+                เปลี่ยนสาย · เดินในสถานี
+                {leg.transferAfter?.walkMeters != null && ` ${leg.transferAfter.walkMeters}m`}
+                {leg.transferAfter?.minutes != null && ` · ~${leg.transferAfter.minutes} นาที`}
+              </div>
+            </Row>
+          )}
         </div>
       ))}
     </div>

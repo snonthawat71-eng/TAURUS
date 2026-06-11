@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import {
   IconId, IconQrcode, IconFileText, IconClipboardCheck, IconPaperclip,
-  IconTrash, IconLoader2, IconExternalLink,
+  IconTrash, IconLoader2, IconExternalLink, IconPencil,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
@@ -19,13 +19,15 @@ export const KIND_META: Record<string, { label: string; icon: typeof IconId }> =
 }
 
 export function TravelerDrawer({
-  traveler, tripId, files, open, onClose,
+  traveler, tripId, files, color, open, onClose, onEdit,
 }: {
   traveler: Traveler | null
   tripId: string
   files: TravelerFile[]
+  color?: string
   open: boolean
   onClose: () => void
+  onEdit?: () => void
 }) {
   const { reload } = useTrip()
   const [uploading, setUploading] = useState(false)
@@ -71,11 +73,14 @@ export function TravelerDrawer({
   return (
     <Drawer open={open} onClose={onClose} title="ไฟล์ของผู้เดินทาง">
       <div className="flex items-center gap-3">
-        <Avatar name={traveler.nickname} size={42} ring={false} />
-        <div>
+        <Avatar name={traveler.nickname} color={color} size={42} ring={false} />
+        <div className="flex-1 min-w-0">
           <div className="text-[15px] font-medium">{traveler.nickname}</div>
-          {traveler.full_name && <div className="text-[12px] text-ink-3">{traveler.full_name}</div>}
+          {traveler.full_name && <div className="text-[12px] text-ink-3 truncate">{traveler.full_name}</div>}
         </div>
+        {onEdit && (
+          <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไขข้อมูล"><IconPencil size={15} /></button>
+        )}
       </div>
 
       <div className="flex items-center justify-between mt-5 mb-2">

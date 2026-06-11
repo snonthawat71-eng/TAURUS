@@ -1,0 +1,78 @@
+import { useEffect, useState } from 'react'
+import { IconTrash } from '@tabler/icons-react'
+import { Drawer } from './Drawer'
+import type { Flight, FlightDirection } from '@/lib/database.types'
+import type { FlightInput } from '@/lib/tripMutations'
+
+const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
+const lbl = 'text-[11px] text-ink-3'
+
+export function FlightEditor({
+  open, onClose, initial, onSave, onDelete,
+}: {
+  open: boolean
+  onClose: () => void
+  initial: Flight | null
+  onSave: (fields: FlightInput) => Promise<void>
+  onDelete?: () => Promise<void>
+}) {
+  const [v, setV] = useState<FlightInput>({})
+  const [busy, setBusy] = useState(false)
+  const set = (p: FlightInput) => setV((s) => ({ ...s, ...p }))
+
+  useEffect(() => {
+    if (open) {
+      setV(initial
+        ? { ...initial }
+        : { direction: 'outbound', airline: '', flight_no: '', dep_code: '', dep_name: '', dep_time: '', arr_code: '', arr_name: '', arr_time: '', flight_date: '', booking_ref: '' })
+    }
+  }, [open, initial])
+
+  async function save() {
+    setBusy(true)
+    await onSave(v)
+    setBusy(false)
+    onClose()
+  }
+  async function del() {
+    if (!onDelete || !confirm('ลบไฟลต์นี้?')) return
+    setBusy(true); await onDelete(); setBusy(false); onClose()
+  }
+
+  return (
+    <Drawer open={open} onClose={onClose} title={initial ? 'แก้ไขไฟลต์' : 'เพิ่มไฟลต์'}>
+      <div className="space-y-3">
+        <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2">
+          {(['outbound', 'return'] as FlightDirection[]).map((d) => (
+            <button key={d} onClick={() => set({ direction: d })}
+              className={['px-3 h-7 rounded-[6px] text-[12px] font-medium', v.direction === d ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>
+              {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><div className={lbl}>สายการบิน</div><input className={field} value={v.airline ?? ''} onChange={(e) => set({ airline: e.target.value })} placeholder="Thai Airways" /></div>
+          <div><div className={lbl}>เที่ยวบิน</div><input className={field} value={v.flight_no ?? ''} onChange={(e) => set({ flight_no: e.target.value })} placeholder="TG614" /></div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div><div className={lbl}>รหัสต้นทาง</div><input className={field} value={v.dep_code ?? ''} onChange={(e) => set({ dep_code: e.target.value })} placeholder="BKK" /></div>
+          <div className="col-span-2"><div className={lbl}>ชื่อต้นทาง</div><input className={field} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="Suvarnabhumi" /></div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div><div className={lbl}>เวลาออก</div><input className={field} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} placeholder="09:45" /></div>
+          <div><div className={lbl}>รหัสปลายทาง</div><input className={field} value={v.arr_code ?? ''} onChange={(e) => set({ arr_code: e.target.value })} placeholder="PEK" /></div>
+          <div><div className={lbl}>เวลาถึง</div><input className={field} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} placeholder="15:35" /></div>
+        </div>
+        <div><div className={lbl}>ชื่อปลายทาง</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><div className={lbl}>วันที่บิน</div><input type="date" className={field} value={v.flight_date ?? ''} onChange={(e) => set({ flight_date: e.target.value })} /></div>
+          <div><div className={lbl}>รหัสจอง</div><input className={field} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="XKQP34" /></div>
+        </div>
+        <button onClick={save} disabled={busy} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+        {initial && onDelete && (
+          <button onClick={del} disabled={busy} className="w-full h-10 flex items-center justify-center gap-1.5 text-[13px] text-[#D85A30]"><IconTrash size={15} /> ลบไฟลต์</button>
+        )}
+      </div>
+    </Drawer>
+  )
+}
