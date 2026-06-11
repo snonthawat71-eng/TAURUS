@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
-import { seedSampleTrip } from '@/lib/seed'
+import { createSampleTrip, seedTripContent } from '@/lib/seed'
 import { useAuth } from './AuthContext'
 import type {
   Expense, Flight, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
@@ -42,33 +42,48 @@ export function TripProvider({ children }: { children: ReactNode }) {
     setError(null)
     try {
       // Ensure a profile row exists for this user
-      await supabase
+      const profUpsert = await supabase
         .from('profiles')
         .upsert(
           { id: user.id, nickname: user.email?.split('@')[0] ?? 'me', avatar_color: 'av3' },
           { onConflict: 'id', ignoreDuplicates: true },
         )
+      if (profUpsert.error) throw new Error(`[โปรไฟล์] ${profUpsert.error.message}`)
 
-      // Find a trip the user belongs to; seed the sample one if none yet
-      let { data: trips } = await supabase
+      // Find a trip the user belongs to
+      const tripsRes = await supabase
         .from('trips')
         .select('*')
         .order('created_at', { ascending: true })
         .limit(1)
+      if (tripsRes.error) throw new Error(`[อ่านทริป] ${tripsRes.error.message}`)
 
-      if (!trips || trips.length === 0) {
-        await seedSampleTrip(user.id)
-        const res = await supabase
-          .from('trips').select('*').order('created_at', { ascending: true }).limit(1)
-        trips = res.data
+      let trip = tripsRes.data?.[0] ?? null
+
+      // No trip yet → create the sample one
+      if (!trip) {
+        const newId = await createSampleTrip(user.id)
+        const fetched = await supabase.from('trips').select('*').eq('id', newId).maybeSingle()
+        trip = fetched.data ?? {
+          id: newId, name: 'Beijing · Tianjin', country: 'China',
+          start_date: '2025-03-12', end_date: '2025-03-18',
+          owner_id: user.id, created_at: new Date().toISOString(),
+        }
       }
-
-      const trip = trips?.[0] ?? null
       if (!trip) {
         setData(empty)
         return
       }
       const trip_id = trip.id
+
+      // Populate content if the trip looks empty (fresh, or a half-finished seed)
+      const travCount = await supabase
+        .from('travelers')
+        .select('id', { count: 'exact', head: true })
+        .eq('trip_id', trip_id)
+      if ((travCount.count ?? 0) === 0) {
+        await seedTripContent(trip_id, user.id)
+      }
 
       const [
         profileRes, travelersRes, flightsRes, hotelsRes, daysRes, stopsRes,
@@ -110,6 +125,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
         memberProfiles: (memberProfilesRes.data ?? []) as Profile[],
       })
     } catch (e) {
+      console.error('TripContext load failed:', e)
       setError(e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ')
     }
   }, [user])
