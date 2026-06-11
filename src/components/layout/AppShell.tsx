@@ -3,6 +3,7 @@ import { IconPlane, IconAlertTriangle } from '@tabler/icons-react'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { TopBar } from './TopBar'
+import { OfflineBanner } from '@/components/OfflineBanner'
 import { useTrip } from '@/contexts/TripContext'
 
 export function AppShell() {
@@ -36,6 +37,7 @@ export function AppShell() {
         <Sidebar />
       </div>
       <main className="flex-1 min-w-0 flex flex-col pb-14 md:pb-0">
+        <OfflineBanner />
         <TopBar />
         <div className="flex-1 px-5 md:px-6 py-5 max-w-[860px] w-full mx-auto">
           <Outlet />

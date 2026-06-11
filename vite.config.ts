@@ -25,17 +25,29 @@ export default defineConfig({
         ],
       },
       workbox: {
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/rest/, /^\/auth/, /^\/storage/, /^\/realtime/],
         // Cache app shell + Supabase API/storage responses for offline viewing
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/rest/v1'),
             handler: 'NetworkFirst',
-            options: { cacheName: 'supabase-api', expiration: { maxAgeSeconds: 60 * 60 * 24 } },
+            options: { cacheName: 'supabase-api', networkTimeoutSeconds: 5, expiration: { maxAgeSeconds: 60 * 60 * 24 } },
           },
           {
             urlPattern: ({ url }) => url.pathname.includes('/storage/v1/object'),
             handler: 'CacheFirst',
-            options: { cacheName: 'supabase-files', expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 7 } },
+            options: { cacheName: 'supabase-files', expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 7 } },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'google-fonts-css' },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === 'https://fonts.gstatic.com',
+            handler: 'CacheFirst',
+            options: { cacheName: 'google-fonts-webfonts', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },
           },
         ],
       },

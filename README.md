@@ -39,8 +39,14 @@ VITE_SUPABASE_ANON_KEY=eyJ....
 ## สถานะการพัฒนา
 
 - [x] ขั้น 1 — ตั้งโปรเจกต์ + ระบบดีไซน์ (สี/ฟอนต์ตาม spec) + ระบบ login (Google / อีเมล)
-- [ ] ขั้น 2 — โครงหน้าแอป (sidebar + bottom nav มือถือ) + ดึงข้อมูลทริปจาก Supabase
-- [ ] ขั้น 3 — หน้า Itinerary (drag จัดเรียง + metro route)
-- [ ] ขั้น 4 — Places / Food & café / All plans
-- [ ] ขั้น 5 — Trip info (ไฟล์ลับ + signed URL) + Budget
-- [ ] ขั้น 6 — Realtime sync + map deep links + ขัดเกลา PWA
+- [x] ขั้น 2 — โครงหน้าแอป (sidebar + bottom nav มือถือ) + ดึงข้อมูลทริปจาก Supabase + หลายทริป
+- [x] ขั้น 3 — หน้า Itinerary (drag จัดเรียงวัน/จุดแวะ + metro route แก้ไขได้)
+- [x] ขั้น 4 — Places / Food & café / All plans
+- [x] ขั้น 5 — Personal Information (ไฟล์ลับ + signed URL) + Budget
+- [x] ขั้น 6 — Realtime sync + map deep links + PWA/offline
+
+## ฐานข้อมูล
+
+รัน `supabase/extra_columns.sql` ใน Supabase SQL Editor (รันซ้ำได้ ปลอดภัย) เพื่อเปิดใช้:
+สี avatar, รายละเอียดไฟล์ต (class/seats/status), รูปโรงแรม/สถานที่, ธงทริป,
+พฤติกรรมแตะจุดแวะ และฟังก์ชันรับคำเชิญ (owner-controlled sharing)

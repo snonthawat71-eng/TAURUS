@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { backfillSample, createSampleTrip, seedTripContent } from '@/lib/seed'
 import { useAuth } from './AuthContext'
 import type {
@@ -162,6 +162,20 @@ export function TripProvider({ children }: { children: ReactNode }) {
     load().finally(() => active && setLoading(false))
     return () => { active = false }
   }, [load])
+
+  // Realtime: refresh when a teammate edits the current trip (tables enabled in
+  // the schema's supabase_realtime publication). Debounced to collapse bursts.
+  useEffect(() => {
+    if (!currentTripId || !isSupabaseConfigured) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const bump = () => { clearTimeout(timer); timer = setTimeout(() => { load() }, 500) }
+    const channel = supabase.channel(`trip-${currentTripId}`)
+    for (const table of ['itinerary_days', 'itinerary_stops', 'places', 'expenses', 'travelers']) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `trip_id=eq.${currentTripId}` }, bump)
+    }
+    channel.subscribe()
+    return () => { clearTimeout(timer); supabase.removeChannel(channel) }
+  }, [currentTripId, load])
 
   return (
     <TripContext.Provider value={{ loading, error, trips, currentTripId, switchTrip, reload: load, ...data }}>
