@@ -108,6 +108,7 @@ export function PlaceGrid({
         open={editor !== null}
         onClose={() => setEditor(null)}
         group={group}
+        tripId={trip?.id ?? ''}
         initial={editor && editor !== 'new' ? editor : null}
         onSave={async (fields) => {
           if (editor === 'new' || !editor) await addPlace(trip!.id, fields)

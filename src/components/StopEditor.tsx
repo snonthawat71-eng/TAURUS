@@ -60,15 +60,18 @@ export function StopEditor({
         </div>
         <div>
           <label className="text-[11px] text-ink-3">เมื่อแตะชื่อสถานที่</label>
-          <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2 mt-1">
-            {([['map', 'เปิดแผนที่'], ['detail', 'ดูรายละเอียด']] as const).map(([v, label]) => (
+          <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+            {([['map', 'เปิดแผนที่'], ['detail', 'ดูรายละเอียด'], ['none', 'ไม่มี']] as const).map(([v, label]) => (
               <button key={v} onClick={() => setLinkMode(v)}
-                className={['px-3 h-8 rounded-[6px] text-[12px] font-medium', linkMode === v ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>
+                className="h-9 rounded-md text-[12px] font-medium transition-colors"
+                style={linkMode === v
+                  ? { background: 'var(--color-brand)', color: '#fff' }
+                  : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
                 {label}
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-ink-3 mt-1">"ดูรายละเอียด" ใช้ได้เมื่อชื่อตรงกับสถานที่ในหน้า Places/Food</p>
+          <p className="text-[11px] text-ink-3 mt-1.5">"ดูรายละเอียด" ใช้ได้เมื่อชื่อตรงกับสถานที่ในหน้า Places/Food</p>
         </div>
         <button onClick={save} disabled={busy || !place} className="btn-primary w-full h-10 disabled:opacity-50">
           {busy ? 'กำลังบันทึก...' : 'บันทึก'}

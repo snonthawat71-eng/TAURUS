@@ -1,6 +1,7 @@
 import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
+import { SignedImage } from './SignedImage'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import type { Interested } from './PlaceCard'
@@ -25,9 +26,10 @@ export function PlaceDetail({
   return (
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
       <div className="-m-4 mb-0">
-        <div className="h-32 grid place-items-center relative" style={{ background: meta.bg }}>
-          <Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />
-          <span className="absolute bottom-2 right-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: '#fff', color: meta.fg }}>
+        <div className="h-36 relative grid place-items-center overflow-hidden" style={{ background: meta.bg }}>
+          <SignedImage path={place.photo_path} alt={place.name ?? ''} className="absolute inset-0 w-full h-full object-cover"
+            fallback={<Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />} />
+          <span className="absolute bottom-2 right-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium z-10" style={{ background: '#fff', color: meta.fg }}>
             {meta.label}
           </span>
         </div>
@@ -63,7 +65,8 @@ export function PlaceDetail({
             {place.in_plan ? <><IconCheck size={15} /> อยู่ในแพลนแล้ว</> : <><IconPlus size={15} /> เพิ่มในแพลน</>}
           </button>
           <button onClick={() => openMap(place.map_url)} disabled={!place.map_url}
-            className="btn-icon !h-10 gap-1.5 text-[13px] disabled:opacity-50 whitespace-nowrap px-2">
+            className="h-10 rounded-md bg-surface flex items-center justify-center gap-1.5 text-[13px] text-ink-2 disabled:opacity-50 whitespace-nowrap px-2 hover:bg-surface-2"
+            style={{ border: '0.5px solid var(--color-line)' }}>
             <IconMapPin size={15} /> เปิดแผนที่
           </button>
         </div>

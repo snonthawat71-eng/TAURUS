@@ -3,12 +3,26 @@ import type { Place } from './database.types'
 
 export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
 
+// photo_path is optional (added by extra_columns.sql); strip it if the column
+// isn't there yet so older databases still work.
+function stripPhoto(payload: Record<string, unknown>) {
+  const { photo_path: _omit, ...rest } = payload
+  void _omit
+  return rest
+}
+
 export async function addPlace(trip_id: string, input: PlaceInput) {
-  return supabase.from('places').insert({ id: crypto.randomUUID(), trip_id, in_plan: false, ...input })
+  const payload: Record<string, unknown> = { id: crypto.randomUUID(), trip_id, in_plan: false, ...input }
+  let res = await supabase.from('places').insert(payload)
+  if (res.error && res.error.message.includes('photo_path')) res = await supabase.from('places').insert(stripPhoto(payload))
+  return res
 }
 
 export async function updatePlace(id: string, fields: PlaceInput) {
-  return supabase.from('places').update(fields).eq('id', id)
+  const payload: Record<string, unknown> = { ...fields }
+  let res = await supabase.from('places').update(payload).eq('id', id)
+  if (res.error && res.error.message.includes('photo_path')) res = await supabase.from('places').update(stripPhoto(payload)).eq('id', id)
+  return res
 }
 
 export async function deletePlace(id: string) {

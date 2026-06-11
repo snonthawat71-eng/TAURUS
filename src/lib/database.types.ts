@@ -155,6 +155,8 @@ export interface Place {
   map_url: string | null
   note: string | null
   in_plan: boolean
+  /** optional — present after the extra_columns migration */
+  photo_path?: string | null
   created_at: string
 }
 

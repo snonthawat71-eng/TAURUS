@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
-import { IconTrash } from '@tabler/icons-react'
+import { useEffect, useRef, useState } from 'react'
+import { IconTrash, IconPhoto, IconLoader2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
-import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES } from '@/lib/placeMeta'
+import { SignedImage } from './SignedImage'
+import { uploadImage } from '@/lib/files'
+import { catMeta, CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES } from '@/lib/placeMeta'
 import type { Place, PlaceGroup } from '@/lib/database.types'
 import type { PlaceInput } from '@/lib/placeMutations'
 
@@ -10,11 +12,12 @@ const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outli
 const lbl = 'text-[11px] text-ink-3'
 
 export function PlaceEditor({
-  open, onClose, group, initial, onSave, onDelete,
+  open, onClose, group, tripId, initial, onSave, onDelete,
 }: {
   open: boolean
   onClose: () => void
   group: PlaceGroup
+  tripId: string
   initial: Place | null
   onSave: (fields: PlaceInput) => Promise<void>
   onDelete?: () => Promise<void>
@@ -27,7 +30,10 @@ export function PlaceEditor({
   const [station, setStation] = useState('')
   const [mapUrl, setMapUrl] = useState('')
   const [note, setNote] = useState('')
+  const [photoPath, setPhotoPath] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
+  const photoInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -38,17 +44,29 @@ export function PlaceEditor({
     setStation(initial?.station_name ?? '')
     setMapUrl(initial?.map_url ?? '')
     setNote(initial?.note ?? '')
+    setPhotoPath(initial?.photo_path ?? null)
   }, [open, initial]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const { path } = await uploadImage(tripId, 'place-photo', file)
+    if (path) setPhotoPath(path)
+    setUploading(false)
+    if (photoInput.current) photoInput.current.value = ''
+  }
 
   async function save() {
     setBusy(true)
     await onSave({
       group_type: group, name, category, station_line: line, station_color: color,
-      station_name: station, map_url: mapUrl, note,
+      station_name: station, map_url: mapUrl, note, photo_path: photoPath,
     })
     setBusy(false)
     onClose()
   }
+  const meta = catMeta(category)
   async function del() {
     if (!onDelete || !confirm('ลบรายการนี้?')) return
     setBusy(true); await onDelete(); setBusy(false); onClose()
@@ -57,6 +75,21 @@ export function PlaceEditor({
   return (
     <Drawer open={open} onClose={onClose} title={initial ? 'แก้ไขรายการ' : (group === 'food' ? 'เพิ่มร้าน' : 'เพิ่มสถานที่')}>
       <div className="space-y-3">
+        {/* Photo */}
+        <div className="flex items-center gap-3">
+          <div className="w-20 h-16 rounded-md overflow-hidden shrink-0 grid place-items-center" style={{ background: meta.bg }}>
+            <SignedImage path={photoPath} className="w-full h-full object-cover"
+              fallback={<meta.icon size={22} style={{ color: meta.fg, opacity: 0.85 }} />} />
+          </div>
+          <div>
+            <button onClick={() => photoInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
+              {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />}
+              {photoPath ? 'เปลี่ยนรูป' : 'เพิ่มรูปสถานที่'}
+            </button>
+            {photoPath && <button onClick={() => setPhotoPath(null)} className="btn-link text-[12px] ml-2">เอาออก</button>}
+            <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPickPhoto} />
+          </div>
+        </div>
         <div><div className={lbl}>ชื่อ</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Forbidden City" /></div>
         <div>
           <div className={lbl}>หมวด</div>

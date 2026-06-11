@@ -34,9 +34,10 @@ function isImage(path: string) {
 }
 
 /** Quick QR tile — renders the actual image so it can be scanned at a glance. */
-function QrTile({ file, onOpen, onReplace, onDelete }: {
+function QrTile({ file, onOpen, onRename, onReplace, onDelete }: {
   file: TravelerFile
   onOpen: (url: string) => void
+  onRename: () => void
   onReplace: () => void
   onDelete: () => void
 }) {
@@ -51,8 +52,9 @@ function QrTile({ file, onOpen, onReplace, onDelete }: {
   return (
     <div className="card overflow-hidden relative w-[130px]">
       <div className="absolute top-1.5 right-1.5 flex gap-1 z-10">
-        <button onClick={onReplace} className="size-6 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm" aria-label="เปลี่ยน"><IconRefresh size={13} /></button>
-        <button onClick={onDelete} className="size-6 rounded-full bg-white/90 grid place-items-center text-[#D85A30] shadow-sm" aria-label="ลบ"><IconTrash size={13} /></button>
+        <button onClick={onRename} className="size-6 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm" aria-label="แก้ชื่อ"><IconPencil size={12} /></button>
+        <button onClick={onReplace} className="size-6 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm" aria-label="เปลี่ยนรูป"><IconRefresh size={12} /></button>
+        <button onClick={onDelete} className="size-6 rounded-full bg-white/90 grid place-items-center text-[#D85A30] shadow-sm" aria-label="ลบ"><IconTrash size={12} /></button>
       </div>
       <button onClick={() => (url ? onOpen(url) : alert('นี่เป็นตัวอย่าง — อัปโหลด QR จริงเพื่อแสดงเต็มจอ'))} className="block w-full text-left">
         <div className="aspect-square bg-surface-2 grid place-items-center">
@@ -129,6 +131,12 @@ export function TravelerDrawer({
     await supabase.from('traveler_files').delete().eq('id', f.id)
     await reload()
   }
+  async function rename(f: TravelerFile) {
+    const label = prompt('ตั้งชื่อ QR / เอกสารนี้', f.label ?? '')
+    if (label == null) return
+    await supabase.from('traveler_files').update({ label: label.trim() || 'QR' }).eq('id', f.id)
+    await reload()
+  }
 
   if (!traveler) return null
   const quick = files.filter((f) => QUICK_KINDS.has(f.kind ?? ''))
@@ -161,6 +169,7 @@ export function TravelerDrawer({
         <div className="flex justify-center gap-2.5 flex-wrap">
           {quick.slice(0, 2).map((f) => (
             <QrTile key={f.id} file={f} onOpen={setLightbox}
+              onRename={() => rename(f)}
               onReplace={() => { setReplacing(f); qrReplaceInput.current?.click() }}
               onDelete={() => remove(f)} />
           ))}

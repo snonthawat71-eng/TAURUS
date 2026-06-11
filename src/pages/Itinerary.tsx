@@ -38,7 +38,9 @@ function SortableStop({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
-  const detailMode = stop.link_mode === 'detail' && matchedPlace
+  const mode = stop.link_mode ?? 'map'
+  const detailMode = mode === 'detail' && !!matchedPlace
+  const tapAction = mode === 'none' ? null : detailMode ? () => onOpenDetail(matchedPlace!) : () => openMap(stop.map_url)
 
   return (
     <div ref={setNodeRef} style={style} className="flex gap-2.5">
@@ -52,8 +54,8 @@ function SortableStop({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <button
-              onClick={() => (detailMode && matchedPlace ? onOpenDetail(matchedPlace) : openMap(stop.map_url))}
-              disabled={!matchedPlace && !stop.map_url}
+              onClick={() => tapAction?.()}
+              disabled={!tapAction || (mode === 'map' && !stop.map_url)}
               className="text-[14px] font-medium text-left leading-snug enabled:hover:text-brand-mid">
               {stop.place_name}
             </button>

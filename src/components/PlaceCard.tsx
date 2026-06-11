@@ -1,6 +1,7 @@
 import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, IconHeartFilled } from '@tabler/icons-react'
 import { AvatarStack } from './Avatar'
 import { PopMenu } from './PopMenu'
+import { SignedImage } from './SignedImage'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import type { Place } from '@/lib/database.types'
@@ -21,21 +22,21 @@ export function PlaceCard({
 }) {
   const meta = catMeta(place.category)
   const Icon = meta.icon
-  const dimmed = place.in_plan
+  const placeholder = (
+    <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}>
+      <Icon size={32} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />
+    </div>
+  )
 
   return (
-    <div className="card overflow-hidden flex flex-col" style={dimmed ? { background: 'var(--color-surface-2)' } : undefined}>
-      {/* Header image area */}
-      <div className="relative h-24 grid place-items-center" style={{ background: dimmed ? 'var(--color-surface-2)' : meta.bg }}>
-        <Icon size={32} stroke={1.4} style={{ color: meta.fg, opacity: dimmed ? 0.4 : 0.85 }} />
-        <div className="absolute top-2 left-2">
-          <PopMenu size={28} items={[
-            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
-            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
-          ]} />
-        </div>
+    <div className="card overflow-hidden flex flex-col relative">
+      {/* Header image */}
+      <div className="relative h-24">
+        {place.photo_path
+          ? <SignedImage path={place.photo_path} alt={place.name ?? ''} className="w-full h-full object-cover" fallback={placeholder} />
+          : placeholder}
         <button onClick={onTogglePlan} aria-label="เพิ่มในแพลน"
-          className="absolute top-2 right-2 h-7 px-2.5 rounded-full grid place-items-center shadow-sm transition-colors text-[11px] font-medium gap-1 inline-flex"
+          className="absolute top-2 right-2 h-7 px-2.5 rounded-full inline-flex items-center gap-1 shadow-sm transition-colors text-[11px] font-medium z-20"
           style={place.in_plan
             ? { background: 'var(--color-brand)', color: '#fff' }
             : { background: 'rgba(255,255,255,.92)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
@@ -47,7 +48,11 @@ export function PlaceCard({
       <div className="p-3.5 flex-1 flex flex-col">
         <div className="flex items-center gap-1.5 text-[11px] text-ink-3">
           <span className="size-2 rounded-full shrink-0" style={{ background: place.station_color ?? '#888780' }} />
-          <span className="truncate">{place.station_line}{place.station_name ? ` · ${place.station_name}` : ''}</span>
+          <span className="truncate flex-1">{place.station_line}{place.station_name ? ` · ${place.station_name}` : ''}</span>
+          <PopMenu size={24} items={[
+            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
+            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
+          ]} />
         </div>
         <button onClick={onOpen} className="text-[14px] font-medium text-left leading-snug mt-1 hover:text-brand-mid">
           {place.name}
@@ -72,6 +77,9 @@ export function PlaceCard({
           </span>
         </div>
       </div>
+
+      {/* In-plan grey overlay (info still visible underneath) */}
+      {place.in_plan && <div className="absolute inset-0 rounded-[12px] pointer-events-none" style={{ background: 'rgba(120,118,110,0.16)' }} />}
     </div>
   )
 }
