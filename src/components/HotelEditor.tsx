@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
-import { IconTrash, IconPlus } from '@tabler/icons-react'
+import { useEffect, useRef, useState } from 'react'
+import { IconTrash, IconPlus, IconPhoto, IconLoader2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { HotelPhoto } from './HotelPhoto'
+import { uploadImage } from '@/lib/files'
 import type { Hotel, HotelRoom } from '@/lib/database.types'
 import type { HotelInput } from '@/lib/tripMutations'
 
@@ -17,11 +19,12 @@ function toLocal(ts: string | null | undefined) {
 }
 
 export function HotelEditor({
-  open, onClose, initial, onSave, onDelete,
+  open, onClose, initial, tripId, onSave, onDelete,
 }: {
   open: boolean
   onClose: () => void
   initial: Hotel | null
+  tripId: string
   onSave: (fields: HotelInput) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
@@ -33,7 +36,10 @@ export function HotelEditor({
   const [checkin, setCheckin] = useState('')
   const [checkout, setCheckout] = useState('')
   const [rooms, setRooms] = useState<HotelRoom[]>([])
+  const [photoPath, setPhotoPath] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
+  const photoInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -45,7 +51,18 @@ export function HotelEditor({
     setCheckin(toLocal(initial?.checkin))
     setCheckout(toLocal(initial?.checkout))
     setRooms(initial?.rooms?.length ? initial.rooms.map((r) => ({ ...r })) : [{ name: 'Room 1', members: [] }])
+    setPhotoPath(initial?.photo_path ?? null)
   }, [open, initial])
+
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const { path } = await uploadImage(tripId, 'hotel-photo', file)
+    if (path) setPhotoPath(path)
+    setUploading(false)
+    if (photoInput.current) photoInput.current.value = ''
+  }
 
   async function save() {
     setBusy(true)
@@ -54,6 +71,7 @@ export function HotelEditor({
       checkin: checkin ? new Date(checkin).toISOString() : null,
       checkout: checkout ? new Date(checkout).toISOString() : null,
       rooms: rooms.filter((r) => r.name),
+      photo_path: photoPath,
     })
     setBusy(false)
     onClose()
@@ -66,6 +84,18 @@ export function HotelEditor({
   return (
     <Drawer open={open} onClose={onClose} title={initial ? 'แก้ไขที่พัก' : 'เพิ่มที่พัก'}>
       <div className="space-y-3">
+        {/* Photo */}
+        <div className="flex items-center gap-3">
+          <HotelPhoto photoPath={photoPath} name={name} size={64} radius={12} />
+          <div>
+            <button onClick={() => photoInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
+              {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />}
+              {photoPath ? 'เปลี่ยนรูป' : 'เพิ่มรูปโรงแรม'}
+            </button>
+            <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPickPhoto} />
+            <div className="text-[10px] text-ink-3 mt-1">รูปจะแสดงในหน้าภาพรวม</div>
+          </div>
+        </div>
         <div><div className={lbl}>ชื่อที่พัก</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Beijing Wangfujing Grand Hotel" /></div>
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>เมือง</div><input className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Beijing" /></div>

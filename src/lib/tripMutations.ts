@@ -1,6 +1,61 @@
 import { supabase } from './supabase'
 import type { Flight, HotelRoom } from './database.types'
 
+// Columns added by supabase/extra_columns.sql — the app still works before the
+// migration is run by stripping any column the API reports as unknown.
+const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path']
+
+function stripMentioned(payload: Record<string, unknown>, msg: string) {
+  const copy = { ...payload }
+  let changed = false
+  for (const k of OPTIONAL_COLS) {
+    if (k in copy && msg.includes(k)) {
+      delete copy[k]
+      changed = true
+    }
+  }
+  return changed ? copy : null
+}
+
+async function insertGraceful(table: string, payload: Record<string, unknown>) {
+  let res = await supabase.from(table).insert(payload)
+  if (res.error) {
+    const stripped = stripMentioned(payload, res.error.message)
+    if (stripped) res = await supabase.from(table).insert(stripped)
+  }
+  return res
+}
+
+async function updateGraceful(table: string, id: string, payload: Record<string, unknown>) {
+  let res = await supabase.from(table).update(payload).eq('id', id)
+  if (res.error) {
+    const stripped = stripMentioned(payload, res.error.message)
+    if (stripped) res = await supabase.from(table).update(stripped).eq('id', id)
+  }
+  return res
+}
+
+// ---------- Trips ----------
+
+export interface TripInput {
+  name?: string | null
+  country?: string | null
+  start_date?: string | null
+  end_date?: string | null
+}
+
+export async function createTrip(owner_id: string, input: TripInput) {
+  const id = crypto.randomUUID()
+  const { error } = await supabase.from('trips').insert({ id, owner_id, name: input.name || 'ทริปใหม่', ...input })
+  return { id, error }
+}
+export async function updateTrip(id: string, fields: TripInput) {
+  return supabase.from('trips').update(fields).eq('id', id)
+}
+export async function deleteTrip(id: string) {
+  return supabase.from('trips').delete().eq('id', id)
+}
+
 // ---------- Travelers ----------
 
 export interface TravelerInput {
@@ -8,33 +63,12 @@ export interface TravelerInput {
   full_name?: string | null
   avatar_color?: string | null
 }
-
-/** Returns true if a PostgREST error is "column avatar_color does not exist". */
-function isMissingAvatarCol(err: { message?: string } | null) {
-  return !!err?.message && /avatar_color/i.test(err.message) && /column|schema/i.test(err.message)
-}
-
 export async function addTraveler(trip_id: string, input: TravelerInput) {
-  const full = { id: crypto.randomUUID(), trip_id, ...input }
-  let res = await supabase.from('travelers').insert(full)
-  if (res.error && isMissingAvatarCol(res.error)) {
-    const { avatar_color: _omit, ...rest } = full
-    void _omit
-    res = await supabase.from('travelers').insert(rest)
-  }
-  return res
+  return insertGraceful('travelers', { id: crypto.randomUUID(), trip_id, ...input })
 }
-
 export async function updateTraveler(id: string, fields: TravelerInput) {
-  let res = await supabase.from('travelers').update(fields).eq('id', id)
-  if (res.error && isMissingAvatarCol(res.error)) {
-    const { avatar_color: _omit, ...rest } = fields
-    void _omit
-    res = await supabase.from('travelers').update(rest).eq('id', id)
-  }
-  return res
+  return updateGraceful('travelers', id, { ...fields })
 }
-
 export async function deleteTraveler(id: string) {
   return supabase.from('travelers').delete().eq('id', id)
 }
@@ -44,10 +78,10 @@ export async function deleteTraveler(id: string) {
 export type FlightInput = Partial<Omit<Flight, 'id' | 'trip_id' | 'created_at'>>
 
 export async function addFlight(trip_id: string, input: FlightInput) {
-  return supabase.from('flights').insert({ id: crypto.randomUUID(), trip_id, ...input })
+  return insertGraceful('flights', { id: crypto.randomUUID(), trip_id, ...input })
 }
 export async function updateFlight(id: string, fields: FlightInput) {
-  return supabase.from('flights').update(fields).eq('id', id)
+  return updateGraceful('flights', id, { ...fields })
 }
 export async function deleteFlight(id: string) {
   return supabase.from('flights').delete().eq('id', id)
@@ -64,13 +98,13 @@ export interface HotelInput {
   checkin?: string | null
   checkout?: string | null
   rooms?: HotelRoom[]
+  photo_path?: string | null
 }
-
 export async function addHotel(trip_id: string, input: HotelInput) {
-  return supabase.from('hotels').insert({ id: crypto.randomUUID(), trip_id, ...input })
+  return insertGraceful('hotels', { id: crypto.randomUUID(), trip_id, ...input })
 }
 export async function updateHotel(id: string, fields: HotelInput) {
-  return supabase.from('hotels').update(fields).eq('id', id)
+  return updateGraceful('hotels', id, { ...fields })
 }
 export async function deleteHotel(id: string) {
   return supabase.from('hotels').delete().eq('id', id)

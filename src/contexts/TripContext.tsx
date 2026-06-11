@@ -10,7 +10,10 @@ import type {
 interface TripData {
   loading: boolean
   error: string | null
+  trips: Trip[]
   trip: Trip | null
+  currentTripId: string | null
+  switchTrip: (id: string) => void
   profile: Profile | null
   travelers: Traveler[]
   travelerFiles: TravelerFile[]
@@ -32,11 +35,22 @@ const empty = {
   stops: [], places: [], interests: [], expenses: [], memberProfiles: [],
 }
 
+const STORAGE_KEY = 'trip:currentId'
+
 export function TripProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [data, setData] = useState<Omit<TripData, 'loading' | 'error' | 'reload'>>(empty)
+  const [trips, setTrips] = useState<Trip[]>([])
+  const [currentTripId, setCurrentTripId] = useState<string | null>(
+    () => localStorage.getItem(STORAGE_KEY),
+  )
+  const [data, setData] = useState<Omit<TripData, 'loading' | 'error' | 'reload' | 'trips' | 'currentTripId' | 'switchTrip'>>(empty)
+
+  const switchTrip = useCallback((id: string) => {
+    localStorage.setItem(STORAGE_KEY, id)
+    setCurrentTripId(id)
+  }, [])
 
   const load = useCallback(async () => {
     if (!user) return
@@ -51,54 +65,44 @@ export function TripProvider({ children }: { children: ReactNode }) {
         )
       if (profUpsert.error) throw new Error(`[โปรไฟล์] ${profUpsert.error.message}`)
 
-      // Find a trip the user belongs to
-      const tripsRes = await supabase
-        .from('trips')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(1)
+      // Fetch all trips the user belongs to
+      let tripsRes = await supabase.from('trips').select('*').order('created_at', { ascending: true })
       if (tripsRes.error) throw new Error(`[อ่านทริป] ${tripsRes.error.message}`)
+      let allTrips = tripsRes.data ?? []
 
-      let trip = tripsRes.data?.[0] ?? null
-
-      // No trip yet → create the sample one
-      if (!trip) {
+      // Seed the sample trip if the user has none at all
+      if (allTrips.length === 0) {
         const newId = await createSampleTrip(user.id)
-        const fetched = await supabase.from('trips').select('*').eq('id', newId).maybeSingle()
-        trip = fetched.data ?? {
+        await seedTripContent(newId, user.id).catch(() => {})
+        tripsRes = await supabase.from('trips').select('*').order('created_at', { ascending: true })
+        allTrips = tripsRes.data ?? [{
           id: newId, name: 'Beijing · Tianjin', country: 'China',
-          start_date: '2025-03-12', end_date: '2025-03-18',
-          owner_id: user.id, created_at: new Date().toISOString(),
-        }
+          start_date: '2025-03-12', end_date: '2025-03-18', owner_id: user.id, created_at: new Date().toISOString(),
+        }]
       }
-      if (!trip) {
-        setData(empty)
-        return
-      }
-      const trip_id = trip.id
+      setTrips(allTrips)
 
-      // Populate content if the trip looks empty (fresh, or a half-finished seed)
-      const travCount = await supabase
-        .from('travelers')
-        .select('id', { count: 'exact', head: true })
-        .eq('trip_id', trip_id)
-      if ((travCount.count ?? 0) === 0) {
-        await seedTripContent(trip_id, user.id)
+      // Pick the current trip (saved, else first)
+      const current = allTrips.find((t) => t.id === currentTripId) ?? allTrips[0]
+      if (!current) { setData(empty); return }
+      if (current.id !== currentTripId) {
+        localStorage.setItem(STORAGE_KEY, current.id)
+        setCurrentTripId(current.id)
       }
+      const trip_id = current.id
 
-      // Top up trips seeded by earlier versions (sample file tags, 2nd hotel, names)
-      if (trip.name === 'Beijing · Tianjin') {
+      // Fill content if a sample trip looks empty (fresh / half-finished seed)
+      const travCount = await supabase.from('travelers').select('id', { count: 'exact', head: true }).eq('trip_id', trip_id)
+      if ((travCount.count ?? 0) === 0 && current.name === 'Beijing · Tianjin') {
+        await seedTripContent(trip_id, user.id).catch(() => {})
+      }
+      if (current.name === 'Beijing · Tianjin') {
         const [tvRows, tfCount, htCount] = await Promise.all([
           supabase.from('travelers').select('id,nickname,full_name').eq('trip_id', trip_id),
           supabase.from('traveler_files').select('id', { count: 'exact', head: true }).eq('trip_id', trip_id),
           supabase.from('hotels').select('id', { count: 'exact', head: true }).eq('trip_id', trip_id),
         ])
-        await backfillSample({
-          trip_id,
-          travelers: tvRows.data ?? [],
-          travelerFilesCount: tfCount.count ?? 0,
-          hotelsCount: htCount.count ?? 0,
-        })
+        await backfillSample({ trip_id, travelers: tvRows.data ?? [], travelerFilesCount: tfCount.count ?? 0, hotelsCount: htCount.count ?? 0 })
       }
 
       const [
@@ -129,7 +133,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
         : { data: [] as Profile[] }
 
       setData({
-        trip,
+        trip: current,
         profile: (profileRes.data as Profile) ?? null,
         travelers: travelersRes.data ?? [],
         travelerFiles: (travelerFilesRes.data ?? []) as TravelerFile[],
@@ -146,19 +150,17 @@ export function TripProvider({ children }: { children: ReactNode }) {
       console.error('TripContext load failed:', e)
       setError(e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ')
     }
-  }, [user])
+  }, [user, currentTripId])
 
   useEffect(() => {
     let active = true
     setLoading(true)
     load().finally(() => active && setLoading(false))
-    return () => {
-      active = false
-    }
+    return () => { active = false }
   }, [load])
 
   return (
-    <TripContext.Provider value={{ loading, error, ...data, reload: load }}>
+    <TripContext.Provider value={{ loading, error, trips, currentTripId, switchTrip, reload: load, ...data }}>
       {children}
     </TripContext.Provider>
   )

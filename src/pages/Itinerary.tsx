@@ -7,8 +7,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash,
-  IconCalendarPlus, IconRoute,
+  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { MetroRoute } from '@/components/MetroRoute'
@@ -19,10 +18,10 @@ import { PopMenu } from '@/components/PopMenu'
 import { openMap } from '@/lib/maps'
 import { formatLongDate } from '@/lib/format'
 import {
-  addDay, updateDay, deleteDay, addStop, updateStop, deleteStop, persistStopOrder,
+  addDay, updateDay, deleteDay, addStop, updateStop, deleteStop, persistStopOrder, persistDayOrder,
   type StopInput,
 } from '@/lib/mutations'
-import type { ItineraryStop } from '@/lib/database.types'
+import type { ItineraryDay, ItineraryStop } from '@/lib/database.types'
 
 function SortableStop({
   stop, onEdit, onDelete, onEditRoute,
@@ -37,29 +36,17 @@ function SortableStop({
 
   return (
     <div ref={setNodeRef} style={style} className="flex gap-2.5">
-      <button
-        {...attributes}
-        {...listeners}
-        className="mt-0.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0"
-        aria-label="ลากจัดเรียง"
-      >
+      <button {...attributes} {...listeners} className="mt-0.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากจัดเรียง">
         <IconGripVertical size={16} />
       </button>
-
-      {/* Time column (left) */}
       <div className="w-11 shrink-0 pt-0.5">
         {stop.time && <div className="text-[13px] font-medium tabular-nums">{stop.time}</div>}
       </div>
-
-      {/* Content (right) */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <button
-              onClick={() => openMap(stop.map_url)}
-              disabled={!stop.map_url}
-              className="text-[14px] font-medium text-left leading-snug enabled:hover:text-brand-mid"
-            >
+            <button onClick={() => openMap(stop.map_url)} disabled={!stop.map_url}
+              className="text-[14px] font-medium text-left leading-snug enabled:hover:text-brand-mid">
               {stop.place_name}
             </button>
             {stop.map_url && (
@@ -69,13 +56,11 @@ function SortableStop({
             )}
             {stop.note && <div className="text-[12px] text-ink-2 mt-0.5">{stop.note}</div>}
           </div>
-          <PopMenu
-            items={[
-              { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
-              { label: stop.transit ? 'แก้ไขเส้นทาง' : 'เพิ่มเส้นทางรถไฟฟ้า', icon: <IconRoute size={15} />, onClick: onEditRoute },
-              { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
-            ]}
-          />
+          <PopMenu items={[
+            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
+            { label: stop.transit ? 'แก้ไขเส้นทาง' : 'เพิ่มเส้นทางรถไฟฟ้า', icon: <IconRoute size={15} />, onClick: onEditRoute },
+            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
+          ]} />
         </div>
         {stop.transit && <MetroRoute transit={stop.transit} onEdit={onEditRoute} />}
       </div>
@@ -83,28 +68,84 @@ function SortableStop({
   )
 }
 
+function DayCard({
+  day, index, stops, onEditDay, onDeleteDay, onAddStop, onStopDragEnd, onEditStop, onDeleteStop, onEditRoute,
+}: {
+  day: ItineraryDay
+  index: number
+  stops: ItineraryStop[]
+  onEditDay: () => void
+  onDeleteDay: () => void
+  onAddStop: () => void
+  onStopDragEnd: (e: DragEndEvent) => void
+  onEditStop: (s: ItineraryStop) => void
+  onDeleteStop: (id: string) => void
+  onEditRoute: (s: ItineraryStop) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day.id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  return (
+    <div ref={setNodeRef} style={style} className="card">
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
+        <div className="flex items-center gap-2 min-w-0">
+          <button {...attributes} {...listeners} className="text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากย้ายวัน">
+            <IconGripVertical size={16} />
+          </button>
+          <span className="chip !bg-brand-soft !text-brand-dark !font-medium shrink-0">Day {index + 1}</span>
+          <div className="min-w-0">
+            <div className="text-[13px] font-medium truncate">{formatLongDate(day.day_date)}</div>
+            {day.label && <div className="text-[11px] text-ink-3 truncate">{day.label}</div>}
+          </div>
+        </div>
+        <PopMenu items={[
+          { label: 'แก้ไขวัน', icon: <IconPencil size={15} />, onClick: onEditDay },
+          { label: 'ลบวัน', icon: <IconTrash size={15} />, onClick: onDeleteDay, danger: true },
+        ]} />
+      </div>
+
+      <div className="p-4 space-y-3">
+        {stops.length === 0 && <div className="text-[12px] text-ink-3 text-center py-2">ยังไม่มีจุดแวะในวันนี้</div>}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onStopDragEnd}>
+          <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-3">
+              {stops.map((s) => (
+                <SortableStop key={s.id} stop={s} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+        <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>
+      </div>
+    </div>
+  )
+}
+
 export default function Itinerary() {
   const { trip, days, stops, reload } = useTrip()
-  const [local, setLocal] = useState<ItineraryStop[]>(stops)
+  const [localStops, setLocalStops] = useState<ItineraryStop[]>(stops)
+  const [localDays, setLocalDays] = useState<ItineraryDay[]>(days)
   const [editor, setEditor] = useState<{ dayId: string; stop?: ItineraryStop } | null>(null)
   const [dayEdit, setDayEdit] = useState<{ id: string; label: string | null; day_date: string | null } | null>(null)
   const [routeEdit, setRouteEdit] = useState<ItineraryStop | null>(null)
 
-  useEffect(() => setLocal(stops), [stops])
+  useEffect(() => setLocalStops(stops), [stops])
+  useEffect(() => setLocalDays(days), [days])
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const daySensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const stopsByDay = useMemo(() => {
     const map = new Map<string, ItineraryStop[]>()
-    for (const d of days) map.set(d.id, [])
-    for (const s of [...local].sort((a, b) => a.position - b.position)) {
+    for (const d of localDays) map.set(d.id, [])
+    for (const s of [...localStops].sort((a, b) => a.position - b.position)) {
       if (!map.has(s.day_id)) map.set(s.day_id, [])
       map.get(s.day_id)!.push(s)
     }
     return map
-  }, [local, days])
+  }, [localStops, localDays])
 
-  async function onDragEnd(e: DragEndEvent, dayId: string) {
+  async function onStopDragEnd(e: DragEndEvent, dayId: string) {
     const { active, over } = e
     if (!over || active.id === over.id) return
     const list = stopsByDay.get(dayId) ?? []
@@ -112,137 +153,86 @@ export default function Itinerary() {
     const newIdx = list.findIndex((s) => s.id === over.id)
     if (oldIdx < 0 || newIdx < 0) return
     const reordered = arrayMove(list, oldIdx, newIdx)
-    // optimistic: rewrite positions for this day in local state
-    const others = local.filter((s) => s.day_id !== dayId)
-    setLocal([...others, ...reordered.map((s, i) => ({ ...s, position: i }))])
+    const others = localStops.filter((s) => s.day_id !== dayId)
+    setLocalStops([...others, ...reordered.map((s, i) => ({ ...s, position: i }))])
     await persistStopOrder(reordered)
+    await reload()
+  }
+
+  async function onDayDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const oldIdx = localDays.findIndex((d) => d.id === active.id)
+    const newIdx = localDays.findIndex((d) => d.id === over.id)
+    if (oldIdx < 0 || newIdx < 0) return
+    const reordered = arrayMove(localDays, oldIdx, newIdx)
+    setLocalDays(reordered)
+    await persistDayOrder(reordered)
     await reload()
   }
 
   async function saveStop(input: StopInput) {
     if (!trip || !editor) return
     if (editor.stop) await updateStop(editor.stop.id, input)
-    else {
-      const count = stopsByDay.get(editor.dayId)?.length ?? 0
-      await addStop(trip.id, editor.dayId, count, input)
-    }
+    else await addStop(trip.id, editor.dayId, stopsByDay.get(editor.dayId)?.length ?? 0, input)
     await reload()
   }
-
   async function removeStop(id: string) {
     if (!confirm('ลบจุดแวะนี้?')) return
-    await deleteStop(id)
-    await reload()
+    await deleteStop(id); await reload()
   }
-
   async function saveRoute(transit: Parameters<typeof updateStop>[1]['transit']) {
     if (!routeEdit) return
-    await updateStop(routeEdit.id, { transit })
-    await reload()
+    await updateStop(routeEdit.id, { transit }); await reload()
   }
-
   async function onAddDay() {
     if (!trip) return
-    const last = days[days.length - 1]
+    const last = localDays[localDays.length - 1]
     const nextDate = last?.day_date
       ? new Date(new Date(last.day_date).getTime() + 86400000).toISOString().slice(0, 10)
       : trip.start_date
-    await addDay(trip.id, days.length, nextDate)
-    await reload()
+    await addDay(trip.id, localDays.length, nextDate); await reload()
   }
-
   async function saveDay(fields: { label: string; day_date: string | null }) {
     if (!dayEdit) return
-    await updateDay(dayEdit.id, fields)
-    await reload()
+    await updateDay(dayEdit.id, fields); await reload()
   }
-
   async function removeDay(id: string) {
     if (!confirm('ลบวันนี้และจุดแวะทั้งหมดในวัน?')) return
-    await deleteDay(id)
-    await reload()
+    await deleteDay(id); await reload()
   }
 
   return (
     <div className="space-y-4">
-      {days.map((day, idx) => {
-        const list = stopsByDay.get(day.id) ?? []
-        return (
-          <div key={day.id} className="card">
-            {/* Day header strip */}
-            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="chip !bg-brand-soft !text-brand-dark !font-medium shrink-0">Day {idx + 1}</span>
-                <div className="min-w-0">
-                  <div className="text-[13px] font-medium truncate">{formatLongDate(day.day_date)}</div>
-                  {day.label && <div className="text-[11px] text-ink-3 truncate">{day.label}</div>}
-                </div>
-              </div>
-              <PopMenu
-                items={[
-                  { label: 'แก้ไขวัน', icon: <IconPencil size={15} />, onClick: () => setDayEdit({ id: day.id, label: day.label, day_date: day.day_date }) },
-                  { label: 'ลบวัน', icon: <IconTrash size={15} />, onClick: () => removeDay(day.id), danger: true },
-                ]}
+      <DndContext sensors={daySensors} collisionDetection={closestCenter} onDragEnd={onDayDragEnd}>
+        <SortableContext items={localDays.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-4">
+            {localDays.map((day, idx) => (
+              <DayCard
+                key={day.id}
+                day={day}
+                index={idx}
+                stops={stopsByDay.get(day.id) ?? []}
+                onEditDay={() => setDayEdit({ id: day.id, label: day.label, day_date: day.day_date })}
+                onDeleteDay={() => removeDay(day.id)}
+                onAddStop={() => setEditor({ dayId: day.id })}
+                onStopDragEnd={(e) => onStopDragEnd(e, day.id)}
+                onEditStop={(s) => setEditor({ dayId: day.id, stop: s })}
+                onDeleteStop={removeStop}
+                onEditRoute={(s) => setRouteEdit(s)}
               />
-            </div>
-
-            {/* Stops */}
-            <div className="p-4 space-y-3">
-              {list.length === 0 && (
-                <div className="text-[12px] text-ink-3 text-center py-2">ยังไม่มีจุดแวะในวันนี้</div>
-              )}
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => onDragEnd(e, day.id)}>
-                <SortableContext items={list.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-3">
-                    {list.map((s) => (
-                      <SortableStop
-                        key={s.id}
-                        stop={s}
-                        onEdit={() => setEditor({ dayId: day.id, stop: s })}
-                        onDelete={() => removeStop(s.id)}
-                        onEditRoute={() => setRouteEdit(s)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-
-              <button
-                onClick={() => setEditor({ dayId: day.id })}
-                className="btn-link flex items-center gap-1.5 pt-1"
-              >
-                <IconPlus size={15} /> เพิ่มกิจกรรม
-              </button>
-            </div>
+            ))}
           </div>
-        )
-      })}
+        </SortableContext>
+      </DndContext>
 
-      <button
-        onClick={onAddDay}
-        className="card w-full flex items-center justify-center gap-2 py-3 text-[13px] text-ink-2 hover:bg-surface-2/50 border-dashed"
-      >
+      <button onClick={onAddDay} className="card w-full flex items-center justify-center gap-2 py-3 text-[13px] text-ink-2 hover:bg-surface-2/50 border-dashed">
         <IconCalendarPlus size={16} /> เพิ่มวัน
       </button>
 
-      <StopEditor
-        open={!!editor}
-        onClose={() => setEditor(null)}
-        initial={editor?.stop ?? null}
-        onSave={saveStop}
-      />
-      <DayEditor
-        open={!!dayEdit}
-        onClose={() => setDayEdit(null)}
-        initial={dayEdit}
-        onSave={saveDay}
-      />
-      <TransitEditor
-        open={!!routeEdit}
-        onClose={() => setRouteEdit(null)}
-        initial={routeEdit?.transit ?? null}
-        onSave={saveRoute}
-      />
+      <StopEditor open={!!editor} onClose={() => setEditor(null)} initial={editor?.stop ?? null} onSave={saveStop} />
+      <DayEditor open={!!dayEdit} onClose={() => setDayEdit(null)} initial={dayEdit} onSave={saveDay} />
+      <TransitEditor open={!!routeEdit} onClose={() => setRouteEdit(null)} initial={routeEdit?.transit ?? null} onSave={saveRoute} />
     </div>
   )
 }

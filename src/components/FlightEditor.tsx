@@ -24,7 +24,7 @@ export function FlightEditor({
     if (open) {
       setV(initial
         ? { ...initial }
-        : { direction: 'outbound', airline: '', flight_no: '', dep_code: '', dep_name: '', dep_time: '', arr_code: '', arr_name: '', arr_time: '', flight_date: '', booking_ref: '' })
+        : { direction: 'outbound', airline: '', flight_no: '', dep_code: '', dep_name: '', dep_time: '', arr_code: '', arr_name: '', arr_time: '', flight_date: '', booking_ref: '', seat_class: 'Economy', seats: undefined, status: 'Confirmed' })
     }
   }, [open, initial])
 
@@ -67,6 +67,18 @@ export function FlightEditor({
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>วันที่บิน</div><input type="date" className={field} value={v.flight_date ?? ''} onChange={(e) => set({ flight_date: e.target.value })} /></div>
           <div><div className={lbl}>รหัสจอง</div><input className={field} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="XKQP34" /></div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div><div className={lbl}>ชั้นโดยสาร</div><input className={field} value={v.seat_class ?? ''} onChange={(e) => set({ seat_class: e.target.value })} placeholder="Economy" /></div>
+          <div><div className={lbl}>จำนวนที่นั่ง</div><input type="number" className={field} value={v.seats ?? ''} onChange={(e) => set({ seats: e.target.value ? Number(e.target.value) : null })} placeholder="4" /></div>
+          <div>
+            <div className={lbl}>สถานะ</div>
+            <select className={field} value={v.status ?? 'Confirmed'} onChange={(e) => set({ status: e.target.value })}>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Pending">Pending</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
         </div>
         <button onClick={save} disabled={busy} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
         {initial && onDelete && (

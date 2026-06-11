@@ -21,6 +21,13 @@ export async function deleteDay(id: string) {
   return supabase.from('itinerary_days').delete().eq('id', id)
 }
 
+/** Persist a new day order by writing each day's position. */
+export async function persistDayOrder(days: { id: string }[]) {
+  await Promise.all(
+    days.map((d, i) => supabase.from('itinerary_days').update({ position: i }).eq('id', d.id)),
+  )
+}
+
 // ---- Stops ----
 
 export interface StopInput {

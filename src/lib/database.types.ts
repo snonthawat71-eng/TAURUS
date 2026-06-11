@@ -39,7 +39,7 @@ export interface Traveler {
   created_at: string
 }
 
-export type TravelerFileKind = 'arrival_card' | 'visa' | 'passport' | 'ticket' | 'other'
+export type TravelerFileKind = 'arrival_card' | 'visa' | 'passport' | 'ticket' | 'boarding_pass' | 'other'
 
 export interface TravelerFile {
   id: string
@@ -68,6 +68,10 @@ export interface Flight {
   flight_date: string | null
   booking_ref: string | null
   storage_path: string | null
+  /** optional — present after the extra_columns migration */
+  seat_class?: string | null
+  seats?: number | null
+  status?: string | null
   created_at: string
 }
 
@@ -88,6 +92,8 @@ export interface Hotel {
   checkout: string | null
   rooms: HotelRoom[]
   storage_path: string | null
+  /** optional — present after the extra_columns migration */
+  photo_path?: string | null
   created_at: string
 }
 

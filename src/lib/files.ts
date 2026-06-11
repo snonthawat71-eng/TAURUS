@@ -42,6 +42,15 @@ export async function uploadTravelerFile(opts: {
   return { error: ins.error?.message ?? null }
 }
 
+/** Upload an image and return its storage path (caller saves the path). */
+export async function uploadImage(tripId: string, prefix: string, file: File): Promise<{ path: string | null; error: string | null }> {
+  const ext = file.name.split('.').pop() ?? 'jpg'
+  const path = `${tripId}/${prefix}-${crypto.randomUUID()}.${ext}`
+  const up = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
+  if (up.error) return { path: null, error: up.error.message }
+  return { path, error: null }
+}
+
 /** Attach a booking file to a flight or hotel (single storage_path column). */
 export async function uploadEntityFile(opts: {
   table: 'flights' | 'hotels'

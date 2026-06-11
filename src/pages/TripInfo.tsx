@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
-  IconBed, IconHash, IconCircleCheck, IconBuildingSkyscraper, IconPencil, IconTrash,
+  IconBed, IconHash, IconPlane, IconPencil, IconTrash,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { Avatar } from '@/components/Avatar'
@@ -9,6 +9,7 @@ import { TravelerDrawer, KIND_META } from '@/components/TravelerDrawer'
 import { TravelerEditor } from '@/components/TravelerEditor'
 import { FlightEditor } from '@/components/FlightEditor'
 import { HotelEditor } from '@/components/HotelEditor'
+import { HotelPhoto } from '@/components/HotelPhoto'
 import { AttachLink } from '@/components/AttachLink'
 import { PopMenu } from '@/components/PopMenu'
 import { openMap } from '@/lib/maps'
@@ -53,17 +54,10 @@ async function viewFile(f: TravelerFile) {
   if (url) window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-/** Soft gradient thumbnail as a sample hotel photo (offline-friendly). */
-function HotelThumb({ name }: { name: string | null }) {
-  let h = 0
-  for (const c of name ?? 'hotel') h = (h * 31 + c.charCodeAt(0)) >>> 0
-  const hue = h % 360
-  return (
-    <div className="size-12 rounded-[10px] grid place-items-center text-white/90 shrink-0"
-      style={{ background: `linear-gradient(135deg, hsl(${hue} 45% 58%), hsl(${(hue + 40) % 360} 45% 42%))` }}>
-      <IconBuildingSkyscraper size={20} stroke={1.6} />
-    </div>
-  )
+const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
+  Confirmed: { bg: 'var(--color-brand-soft)', fg: 'var(--color-brand-dark)' },
+  Pending: { bg: '#FDF1DF', fg: '#9A6212' },
+  Cancelled: { bg: '#F6E8E3', fg: '#A23E1C' },
 }
 
 function FlightCard({ flights, tripId, onEdit, onDelete }: {
@@ -77,6 +71,8 @@ function FlightCard({ flights, tripId, onEdit, onDelete }: {
   const f = flights.find((x) => (x.direction ?? 'outbound') === dir) ?? flights[0]
   if (!f) return null
   const Icon = dir === 'return' ? IconPlaneArrival : IconPlaneDeparture
+  const status = f.status || 'Confirmed'
+  const stStyle = STATUS_STYLE[status] ?? STATUS_STYLE.Confirmed
 
   return (
     <div className="card p-4">
@@ -84,9 +80,9 @@ function FlightCard({ flights, tripId, onEdit, onDelete }: {
         <div className="flex items-center gap-2 min-w-0">
           <Icon size={16} className="text-brand shrink-0" />
           <span className="text-[13px] font-medium truncate">{f.flight_no} · {f.airline}</span>
-          <span className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium text-brand-dark shrink-0"
-            style={{ background: 'var(--color-brand-soft)' }}>
-            <IconCircleCheck size={11} /> Confirmed
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0"
+            style={{ background: stStyle.bg, color: stStyle.fg }}>
+            {status}
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -117,12 +113,14 @@ function FlightCard({ flights, tripId, onEdit, onDelete }: {
         </div>
         <div className="flex-1 flex flex-col items-center pt-1">
           <div className="text-[11px] text-ink-3 tabular-nums">{flightDuration(f.dep_time, f.arr_time)}</div>
-          <div className="w-full flex items-center gap-1 my-1.5 text-ink-3">
-            <span className="size-2 rounded-full" style={{ background: 'var(--color-brand)' }} />
+          <div className="w-full flex items-center my-1.5">
+            <span className="size-2 rounded-full shrink-0" style={{ background: 'var(--color-brand)' }} />
             <span className="flex-1 h-px bg-line-2" />
-            <IconPlaneDeparture size={14} className="text-ink-2 rotate-45" />
+            <span className="size-6 rounded-full bg-surface grid place-items-center shrink-0" style={{ border: '0.5px solid var(--color-line)' }}>
+              <IconPlane size={13} className="text-brand" />
+            </span>
             <span className="flex-1 h-px bg-line-2" />
-            <span className="size-2 rounded-full ring-2 ring-[var(--color-brand)] bg-surface" />
+            <span className="size-2 rounded-full shrink-0 ring-2 bg-surface" style={{ '--tw-ring-color': 'var(--color-brand)' } as React.CSSProperties} />
           </div>
           <div className="text-[11px] text-ink-3">direct</div>
         </div>
@@ -135,7 +133,7 @@ function FlightCard({ flights, tripId, onEdit, onDelete }: {
 
       <div className="flex items-center gap-2 mt-4 flex-wrap text-[11px]" style={{ borderTop: '0.5px solid var(--color-line)', paddingTop: 12 }}>
         <span className="chip">🗓 {formatFlightDate(f.flight_date)}</span>
-        <span className="chip">Economy · {travelers.length} seats</span>
+        <span className="chip">{f.seat_class || 'Economy'} · {f.seats ?? travelers.length} seats</span>
         {f.booking_ref && (
           <span className="inline-flex items-center gap-0.5 booking-id text-[12px]"><IconHash size={12} />{f.booking_ref}</span>
         )}
@@ -216,7 +214,7 @@ export default function TripInfo() {
         {hotels.map((h) => (
           <div key={h.id} className="card p-4">
             <div className="flex items-start gap-3">
-              <HotelThumb name={h.name} />
+              <HotelPhoto photoPath={h.photo_path} name={h.name} size={56} />
               <div className="flex-1 min-w-0">
                 <div className="text-[14px] font-medium leading-tight">{h.name}</div>
                 <div className="text-[11px] text-ink-3 mt-0.5">{h.city} · {h.nights} คืน</div>
@@ -301,6 +299,7 @@ export default function TripInfo() {
         open={hotelEdit !== null}
         onClose={() => setHotelEdit(null)}
         initial={hotelEdit && hotelEdit !== 'new' ? hotelEdit : null}
+        tripId={trip?.id ?? ''}
         onSave={async (fields) => {
           if (hotelEdit === 'new' || !hotelEdit) await addHotel(trip!.id, fields)
           else await updateHotel(hotelEdit.id, fields)
