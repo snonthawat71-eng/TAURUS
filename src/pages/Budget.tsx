@@ -15,10 +15,10 @@ const AV = ['av1', 'av2', 'av3', 'av4']
 
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="card p-3.5">
-      <div className="text-[11px] text-ink-3">{label}</div>
-      <div className="text-[22px] font-medium mt-1 leading-none tabular-nums">{value}</div>
-      {sub && <div className="text-[11px] text-ink-3 mt-1.5">{sub}</div>}
+    <div className="card p-3 sm:p-3.5">
+      <div className="text-[10px] sm:text-[11px] text-ink-3">{label}</div>
+      <div className="text-[17px] sm:text-[22px] font-medium mt-1 leading-none tabular-nums">{value}</div>
+      {sub && <div className="text-[10px] sm:text-[11px] text-ink-3 mt-1.5 truncate">{sub}</div>}
     </div>
   )
 }
@@ -75,7 +75,7 @@ export default function Budget() {
 
       {/* Expense list */}
       <div className="flex items-center justify-between mt-6 mb-2.5">
-        <h2 className="text-[13px] font-medium text-ink-2 flex items-center gap-1.5"><IconReceipt size={15} /> รายการค่าใช้จ่าย</h2>
+        <h2 className="text-[13px] font-medium text-ink-2 flex items-center gap-1.5"><IconReceipt size={15} /> Expenses • รายการค่าใช้จ่าย</h2>
         <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มรายการ</button>
       </div>
 
@@ -111,7 +111,7 @@ export default function Budget() {
       {/* Settlement */}
       {settlements.length > 0 && (
         <div className="card p-4 mt-5">
-          <h3 className="text-[13px] font-medium flex items-center gap-1.5 mb-3"><IconArrowRight size={15} /> สรุปยอดที่ต้องเคลียร์</h3>
+          <h3 className="text-[13px] font-medium flex items-center gap-1.5 mb-3"><IconArrowRight size={15} /> Settlement • สรุปยอดที่ต้องเคลียร์</h3>
           <div className="space-y-2.5">
             {settlements.map((s, i) => {
               const from = personOf(s.fromId)

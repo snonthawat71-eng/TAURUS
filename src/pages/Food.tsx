@@ -8,7 +8,7 @@ export default function Food() {
     <PlaceGrid
       group="food"
       tabs={FOOD_TABS}
-      title="อาหารการกิน"
+      title="Food & café • อาหารการกิน"
       addLabel="เพิ่มร้าน"
       focusId={params.get('focus')}
     />

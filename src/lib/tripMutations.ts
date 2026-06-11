@@ -3,7 +3,7 @@ import type { Flight, HotelRoom } from './database.types'
 
 // Columns added by supabase/extra_columns.sql — the app still works before the
 // migration is run by stripping any column the API reports as unknown.
-const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path']
+const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag']
 
 function stripMentioned(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
@@ -40,20 +40,30 @@ async function updateGraceful(table: string, id: string, payload: Record<string,
 export interface TripInput {
   name?: string | null
   country?: string | null
+  flag?: string | null
   start_date?: string | null
   end_date?: string | null
 }
 
 export async function createTrip(owner_id: string, input: TripInput) {
   const id = crypto.randomUUID()
-  const { error } = await supabase.from('trips').insert({ id, owner_id, name: input.name || 'ทริปใหม่', ...input })
-  return { id, error }
+  const res = await insertGraceful('trips', { id, owner_id, name: input.name || 'ทริปใหม่', ...input })
+  return { id, error: res.error }
 }
 export async function updateTrip(id: string, fields: TripInput) {
-  return supabase.from('trips').update(fields).eq('id', id)
+  return updateGraceful('trips', id, { ...fields })
 }
 export async function deleteTrip(id: string) {
   return supabase.from('trips').delete().eq('id', id)
+}
+
+// ---------- Invites (owner-controlled sharing) ----------
+
+export async function addInvite(trip_id: string, email: string, invited_by: string) {
+  return supabase.from('trip_invites').insert({ trip_id, email: email.trim().toLowerCase(), invited_by, status: 'pending' })
+}
+export async function deleteInvite(id: string) {
+  return supabase.from('trip_invites').delete().eq('id', id)
 }
 
 // ---------- Travelers ----------

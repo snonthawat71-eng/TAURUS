@@ -6,7 +6,7 @@ interface AuthState {
   session: Session | null
   user: User | null
   loading: boolean
-  signInWithGoogle: () => Promise<void>
+  signInWithGoogle: () => Promise<{ error: string | null }>
   signInWithEmail: (email: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
@@ -33,10 +33,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
     })
+    if (error) {
+      if (/provider is not enabled|Unsupported provider/i.test(error.message)) {
+        return { error: 'ยังไม่ได้เปิด Google login ใน Supabase — ใช้เข้าทางอีเมลไปก่อนได้ หรือเปิด Google provider ในหน้า Supabase' }
+      }
+      return { error: error.message }
+    }
+    return { error: null }
   }
 
   // Passwordless "magic link" sign-in by email

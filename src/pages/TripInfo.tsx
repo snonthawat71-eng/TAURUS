@@ -165,7 +165,7 @@ export default function TripInfo() {
   return (
     <div>
       {/* Travelers */}
-      <SectionHead title="ผู้เดินทาง"
+      <SectionHead title="Travelers • ผู้เดินทาง"
         action={<button onClick={() => setTravelerEdit('new')} className="btn-link flex items-center gap-1"><IconUserPlus size={14} /> เพิ่มคน</button>} />
       <div className="grid sm:grid-cols-2 gap-2.5">
         {travelers.map((t, i) => {
@@ -198,8 +198,8 @@ export default function TripInfo() {
       </div>
 
       {/* Flights */}
-      <SectionHead title="ไฟลต์"
-        action={<button onClick={() => setFlightEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มไฟลต์</button>} />
+      <SectionHead title="Flights • ข้อมูลเที่ยวบิน"
+        action={<button onClick={() => setFlightEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มไฟล์ต</button>} />
       {flights.length === 0 ? (
         <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลไฟลต์</div>
       ) : (
@@ -208,38 +208,41 @@ export default function TripInfo() {
       )}
 
       {/* Hotels */}
-      <SectionHead title="ที่พัก"
+      <SectionHead title="Hotels • ที่พัก"
         action={<button onClick={() => setHotelEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มที่พัก</button>} />
       <div className="space-y-2.5">
         {hotels.map((h) => (
           <div key={h.id} className="card p-4">
-            <div className="flex items-start gap-3">
-              <HotelPhoto photoPath={h.photo_path} name={h.name} size={56} />
+            <div className="flex gap-3.5">
+              <HotelPhoto photoPath={h.photo_path} name={h.name} size={84} radius={12} />
               <div className="flex-1 min-w-0">
-                <div className="text-[14px] font-medium leading-tight">{h.name}</div>
-                <div className="text-[11px] text-ink-3 mt-0.5">{h.city} · {h.nights} คืน</div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <AMapPill url={h.map_url} />
-                <PopMenu items={[
-                  { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setHotelEdit(h) },
-                  { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (confirm('ลบที่พักนี้?')) { await deleteHotel(h.id); await reload() } }, danger: true },
-                ]} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 mt-3.5">
-              <div>
-                <div className="text-[10px] text-ink-3">Check-in</div>
-                <div className="text-[12px] font-medium mt-0.5">{formatCheckTime(h.checkin)}</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-ink-3">Check-out</div>
-                <div className="text-[12px] font-medium mt-0.5">{formatCheckTime(h.checkout)}</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-ink-3">Booking ID</div>
-                <div className="text-[12px] booking-id mt-0.5">{h.booking_id}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[14px] font-medium leading-tight">{h.name}</div>
+                    <div className="text-[11px] text-ink-3 mt-0.5">{h.city} · {h.nights} คืน</div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <AMapPill url={h.map_url} />
+                    <PopMenu items={[
+                      { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setHotelEdit(h) },
+                      { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (confirm('ลบที่พักนี้?')) { await deleteHotel(h.id); await reload() } }, danger: true },
+                    ]} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  <div>
+                    <div className="text-[10px] text-ink-3">Check-in</div>
+                    <div className="text-[12px] font-medium mt-0.5">{formatCheckTime(h.checkin)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-ink-3">Check-out</div>
+                    <div className="text-[12px] font-medium mt-0.5">{formatCheckTime(h.checkout)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-ink-3">Booking ID</div>
+                    <div className="text-[12px] booking-id mt-0.5">{h.booking_id}</div>
+                  </div>
+                </div>
               </div>
             </div>
 

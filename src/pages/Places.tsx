@@ -8,7 +8,7 @@ export default function Places() {
     <PlaceGrid
       group="place"
       tabs={PLACE_TABS}
-      title="สถานที่ท่องเที่ยว"
+      title="Places • สถานที่ท่องเที่ยว"
       addLabel="เพิ่มสถานที่"
       focusId={params.get('focus')}
     />

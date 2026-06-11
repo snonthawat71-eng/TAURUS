@@ -65,3 +65,9 @@ export async function uploadEntityFile(opts: {
   const upd = await supabase.from(opts.table).update({ storage_path: path }).eq('id', opts.id)
   return { error: upd.error?.message ?? null }
 }
+
+/** Remove a booking file from a flight or hotel. */
+export async function removeEntityFile(table: 'flights' | 'hotels', id: string, path: string) {
+  if (!isSampleFile(path)) await supabase.storage.from(BUCKET).remove([path])
+  return supabase.from(table).update({ storage_path: null }).eq('id', id)
+}

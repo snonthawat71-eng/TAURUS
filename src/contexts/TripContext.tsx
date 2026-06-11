@@ -65,6 +65,10 @@ export function TripProvider({ children }: { children: ReactNode }) {
         )
       if (profUpsert.error) throw new Error(`[โปรไฟล์] ${profUpsert.error.message}`)
 
+      // Accept any pending invites addressed to this user's email (owner-controlled
+      // sharing). No-op if the accept_my_invites() function hasn't been added yet.
+      await supabase.rpc('accept_my_invites') // no-op if the function isn't added yet
+
       // Fetch all trips the user belongs to
       let tripsRes = await supabase.from('trips').select('*').order('created_at', { ascending: true })
       if (tripsRes.error) throw new Error(`[อ่านทริป] ${tripsRes.error.message}`)

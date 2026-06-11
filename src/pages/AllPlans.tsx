@@ -62,9 +62,9 @@ export default function AllPlans() {
 
   return (
     <div>
-      <Section icon={<IconBuildingMonument size={15} />} title="สถานที่ท่องเที่ยว" items={sights} />
-      <Section icon={<IconToolsKitchen2 size={15} />} title="ร้านอาหาร" items={restaurants} />
-      <Section icon={<IconCake size={15} />} title="คาเฟ่ & ร้านขนม" items={cafesDesserts} />
+      <Section icon={<IconBuildingMonument size={15} />} title="Attractions • สถานที่ท่องเที่ยว" items={sights} />
+      <Section icon={<IconToolsKitchen2 size={15} />} title="Restaurants • ร้านอาหาร" items={restaurants} />
+      <Section icon={<IconCake size={15} />} title="Cafés & Desserts • คาเฟ่ & ร้านขนม" items={cafesDesserts} />
     </div>
   )
 }

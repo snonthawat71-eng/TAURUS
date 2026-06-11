@@ -60,7 +60,7 @@ export default function Login() {
           ) : (
             <>
               <button
-                onClick={signInWithGoogle}
+                onClick={async () => { const { error } = await signInWithGoogle(); if (error) setError(error) }}
                 disabled={!isSupabaseConfigured}
                 className="btn-icon w-full !h-10 gap-2 !justify-center font-medium text-[13px] text-ink disabled:opacity-50"
               >

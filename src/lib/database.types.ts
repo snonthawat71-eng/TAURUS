@@ -15,6 +15,8 @@ export interface Trip {
   id: string
   name: string
   country: string | null
+  /** optional — present after the extra_columns migration */
+  flag?: string | null
   start_date: string | null
   end_date: string | null
   owner_id: string
