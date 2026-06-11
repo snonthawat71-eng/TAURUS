@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   DndContext, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent,
 } from '@dnd-kit/core'
@@ -7,7 +8,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute,
+  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { MetroRoute } from '@/components/MetroRoute'
@@ -24,13 +25,15 @@ import {
 import type { ItineraryDay, ItineraryStop } from '@/lib/database.types'
 
 function SortableStop({
-  stop, onEdit, onDelete, onEditRoute,
+  stop, placeLink, onEdit, onDelete, onEditRoute,
 }: {
   stop: ItineraryStop
+  placeLink: string | null
   onEdit: () => void
   onDelete: () => void
   onEditRoute: () => void
 }) {
+  const navigate = useNavigate()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
@@ -45,15 +48,24 @@ function SortableStop({
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <button onClick={() => openMap(stop.map_url)} disabled={!stop.map_url}
+            <button
+              onClick={() => (placeLink ? navigate(placeLink) : openMap(stop.map_url))}
+              disabled={!placeLink && !stop.map_url}
               className="text-[14px] font-medium text-left leading-snug enabled:hover:text-brand-mid">
               {stop.place_name}
             </button>
-            {stop.map_url && (
-              <button onClick={() => openMap(stop.map_url)} className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] text-brand-mid align-middle">
-                <IconMapPin size={11} /> ดูแผนที่
-              </button>
-            )}
+            <div className="flex items-center gap-2.5">
+              {placeLink && (
+                <button onClick={() => navigate(placeLink)} className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-0.5">
+                  <IconInfoCircle size={11} /> รายละเอียด
+                </button>
+              )}
+              {stop.map_url && (
+                <button onClick={() => openMap(stop.map_url)} className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-0.5">
+                  <IconMapPin size={11} /> ดูแผนที่
+                </button>
+              )}
+            </div>
             {stop.note && <div className="text-[12px] text-ink-2 mt-0.5">{stop.note}</div>}
           </div>
           <PopMenu items={[
@@ -69,11 +81,12 @@ function SortableStop({
 }
 
 function DayCard({
-  day, index, stops, onEditDay, onDeleteDay, onAddStop, onStopDragEnd, onEditStop, onDeleteStop, onEditRoute,
+  day, index, stops, getPlaceLink, onEditDay, onDeleteDay, onAddStop, onStopDragEnd, onEditStop, onDeleteStop, onEditRoute,
 }: {
   day: ItineraryDay
   index: number
   stops: ItineraryStop[]
+  getPlaceLink: (s: ItineraryStop) => string | null
   onEditDay: () => void
   onDeleteDay: () => void
   onAddStop: () => void
@@ -111,7 +124,7 @@ function DayCard({
           <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-3">
               {stops.map((s) => (
-                <SortableStop key={s.id} stop={s} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} />
+                <SortableStop key={s.id} stop={s} placeLink={getPlaceLink(s)} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} />
               ))}
             </div>
           </SortableContext>
@@ -123,7 +136,18 @@ function DayCard({
 }
 
 export default function Itinerary() {
-  const { trip, days, stops, reload } = useTrip()
+  const { trip, days, stops, places, reload } = useTrip()
+
+  const placeByName = useMemo(() => {
+    const m = new Map<string, { id: string; group: string }>()
+    for (const p of places) if (p.name) m.set(p.name.trim().toLowerCase(), { id: p.id, group: p.group_type ?? 'place' })
+    return m
+  }, [places])
+  const getPlaceLink = (s: ItineraryStop): string | null => {
+    const match = s.place_name ? placeByName.get(s.place_name.trim().toLowerCase()) : undefined
+    if (!match) return null
+    return match.group === 'food' ? `/food?focus=${match.id}` : `/places?focus=${match.id}`
+  }
   const [localStops, setLocalStops] = useState<ItineraryStop[]>(stops)
   const [localDays, setLocalDays] = useState<ItineraryDay[]>(days)
   const [editor, setEditor] = useState<{ dayId: string; stop?: ItineraryStop } | null>(null)
@@ -213,6 +237,7 @@ export default function Itinerary() {
                 day={day}
                 index={idx}
                 stops={stopsByDay.get(day.id) ?? []}
+                getPlaceLink={getPlaceLink}
                 onEditDay={() => setDayEdit({ id: day.id, label: day.label, day_date: day.day_date })}
                 onDeleteDay={() => removeDay(day.id)}
                 onAddStop={() => setEditor({ dayId: day.id })}

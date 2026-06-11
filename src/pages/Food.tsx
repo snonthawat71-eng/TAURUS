@@ -1,15 +1,16 @@
-import { IconToolsKitchen2 } from '@tabler/icons-react'
-import { useTrip } from '@/contexts/TripContext'
-import { Placeholder } from './Placeholder'
+import { useSearchParams } from 'react-router-dom'
+import { PlaceGrid } from '@/components/PlaceGrid'
+import { FOOD_TABS } from '@/lib/placeMeta'
 
 export default function Food() {
-  const { places } = useTrip()
-  const n = places.filter((p) => p.group_type === 'food').length
+  const [params] = useSearchParams()
   return (
-    <Placeholder
-      icon={<IconToolsKitchen2 size={22} />}
-      title={`Food & café — ${n} ร้าน`}
-      detail="เหมือนหน้า Places แต่หมวด ร้านอาหาร / คาเฟ่ / ขนม — ทำพร้อมกันในขั้นถัดไป"
+    <PlaceGrid
+      group="food"
+      tabs={FOOD_TABS}
+      title="อาหารการกิน"
+      addLabel="เพิ่มร้าน"
+      focusId={params.get('focus')}
     />
   )
 }

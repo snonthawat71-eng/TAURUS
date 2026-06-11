@@ -1,15 +1,16 @@
-import { IconMapPin } from '@tabler/icons-react'
-import { useTrip } from '@/contexts/TripContext'
-import { Placeholder } from './Placeholder'
+import { useSearchParams } from 'react-router-dom'
+import { PlaceGrid } from '@/components/PlaceGrid'
+import { PLACE_TABS } from '@/lib/placeMeta'
 
 export default function Places() {
-  const { places } = useTrip()
-  const n = places.filter((p) => p.group_type === 'place').length
+  const [params] = useSearchParams()
   return (
-    <Placeholder
-      icon={<IconMapPin size={22} />}
-      title={`Places — ${n} แห่ง`}
-      detail="ขั้นถัดไปจะทำการ์ดสถานที่ (รูป, สถานี+สีสาย, โน้ต, ติ๊กเพิ่มในแพลน, อวตารคนอยากไป) พร้อมแท็บกรองหมวด"
+    <PlaceGrid
+      group="place"
+      tabs={PLACE_TABS}
+      title="สถานที่ท่องเที่ยว"
+      addLabel="เพิ่มสถานที่"
+      focusId={params.get('focus')}
     />
   )
 }
