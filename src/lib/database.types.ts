@@ -135,6 +135,8 @@ export interface ItineraryStop {
   map_url: string | null
   note: string | null
   transit: Transit | null
+  /** optional — present after the extra_columns migration ('map' | 'detail') */
+  link_mode?: string | null
   position: number
   created_at: string
 }

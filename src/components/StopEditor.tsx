@@ -16,6 +16,7 @@ export function StopEditor({
   const [place, setPlace] = useState('')
   const [note, setNote] = useState('')
   const [mapUrl, setMapUrl] = useState('')
+  const [linkMode, setLinkMode] = useState('map')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -24,12 +25,13 @@ export function StopEditor({
       setPlace(initial?.place_name ?? '')
       setNote(initial?.note ?? '')
       setMapUrl(initial?.map_url ?? '')
+      setLinkMode(initial?.link_mode ?? 'map')
     }
   }, [open, initial])
 
   async function save() {
     setBusy(true)
-    await onSave({ time: time || null, place_name: place || null, note: note || null, map_url: mapUrl || null })
+    await onSave({ time: time || null, place_name: place || null, note: note || null, map_url: mapUrl || null, link_mode: linkMode })
     setBusy(false)
     onClose()
   }
@@ -55,6 +57,18 @@ export function StopEditor({
         <div>
           <label className="text-[11px] text-ink-3">ลิงก์แผนที่ (ถ้ามี)</label>
           <input className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps.apple.com/?q=..." />
+        </div>
+        <div>
+          <label className="text-[11px] text-ink-3">เมื่อแตะชื่อสถานที่</label>
+          <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2 mt-1">
+            {([['map', 'เปิดแผนที่'], ['detail', 'ดูรายละเอียด']] as const).map(([v, label]) => (
+              <button key={v} onClick={() => setLinkMode(v)}
+                className={['px-3 h-8 rounded-[6px] text-[12px] font-medium', linkMode === v ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-ink-3 mt-1">"ดูรายละเอียด" ใช้ได้เมื่อชื่อตรงกับสถานที่ในหน้า Places/Food</p>
         </div>
         <button onClick={save} disabled={busy || !place} className="btn-primary w-full h-10 disabled:opacity-50">
           {busy ? 'กำลังบันทึก...' : 'บันทึก'}

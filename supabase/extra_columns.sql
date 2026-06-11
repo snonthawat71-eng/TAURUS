@@ -17,6 +17,9 @@ alter table hotels add column if not exists photo_path text;
 -- ธงประจำทริป (อิโมจิ)
 alter table trips add column if not exists flag text;
 
+-- พฤติกรรมเมื่อแตะชื่อจุดแวะ ('map' = เปิดแผนที่ | 'detail' = ดูรายละเอียด)
+alter table itinerary_stops add column if not exists link_mode text;
+
 -- ============================================================
 -- ระบบเชิญ: เจ้าของทริปเชิญด้วยอีเมล → ผู้ถูกเชิญพอ login จะถูกเพิ่มเป็นสมาชิก
 -- ฟังก์ชันนี้ทำงานแทนผู้ใช้ (security definer) จึงอ่าน trip_invites ได้

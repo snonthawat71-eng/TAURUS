@@ -22,9 +22,9 @@ export function Drawer({
 
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
       <div className="absolute inset-0 bg-black/25" onClick={onClose} />
-      <div className="relative bg-surface w-full sm:max-w-[420px] sm:rounded-[16px] rounded-t-[18px] max-h-[88dvh] overflow-y-auto shadow-xl animate-[slideup_.18s_ease]">
+      <div className="relative bg-surface w-full sm:max-w-[420px] sm:rounded-[16px] rounded-t-[18px] max-h-[88dvh] sm:max-h-[85dvh] overflow-y-auto shadow-xl animate-[slideup_.18s_ease]">
         <div className="sticky top-0 bg-surface/95 backdrop-blur flex items-center justify-between px-4 h-12"
           style={{ borderBottom: '0.5px solid var(--color-line)' }}>
           <div className="text-[14px] font-medium">{title}</div>

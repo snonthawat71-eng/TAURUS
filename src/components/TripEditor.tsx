@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconTrash } from '@tabler/icons-react'
+import { IconTrash, IconMoodSmile } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import type { Trip } from '@/lib/database.types'
 
@@ -24,6 +24,7 @@ export function TripEditor({
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [busy, setBusy] = useState(false)
+  const [pickFlag, setPickFlag] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -50,28 +51,34 @@ export function TripEditor({
       <div className="space-y-3">
         <div>
           <div className={lbl}>ชื่อทริป</div>
-          <div className="flex items-center gap-2">
-            <span className="text-[20px] w-10 h-10 grid place-items-center hairline rounded-md shrink-0">{flag}</span>
-            <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Beijing · Tianjin" />
-          </div>
+          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Beijing · Tianjin" />
         </div>
 
-        <div>
-          <div className={lbl}>ธงประจำทริป</div>
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            {FLAGS.map((f) => (
-              <button key={f} onClick={() => setFlag(f)}
-                className="size-9 grid place-items-center rounded-md text-[18px]"
-                style={{ background: flag === f ? 'var(--color-brand-soft)' : 'var(--color-surface-2)', outline: flag === f ? '2px solid var(--color-brand)' : 'none', outlineOffset: -1 }}>
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
+        <div className="relative">
           <div className={lbl}>ประเทศ</div>
-          <input className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="พิมพ์ชื่อประเทศ เช่น China" />
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPickFlag((v) => !v)} title="เลือกธง"
+              className="w-10 h-10 grid place-items-center hairline rounded-md shrink-0 text-[20px]">
+              {flag && flag !== '🌍' ? flag : <IconMoodSmile size={18} className="text-ink-3" />}
+            </button>
+            <input className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="พิมพ์ชื่อประเทศ เช่น China" />
+          </div>
+          {pickFlag && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setPickFlag(false)} />
+              <div className="absolute left-0 top-full mt-1 card p-2 shadow-lg z-50 w-[260px]">
+                <div className="grid grid-cols-6 gap-1">
+                  {FLAGS.map((f) => (
+                    <button key={f} onClick={() => { setFlag(f); setPickFlag(false) }}
+                      className="size-9 grid place-items-center rounded-md text-[18px] hover:bg-surface-2"
+                      style={{ background: flag === f ? 'var(--color-brand-soft)' : 'transparent' }}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-2">

@@ -16,7 +16,7 @@ export function PlaceDetail({
   onClose: () => void
   onTogglePlan: () => void
   onToggleInterest: () => void
-  onEdit: () => void
+  onEdit?: () => void
 }) {
   if (!place) return null
   const meta = catMeta(place.category)
@@ -42,7 +42,7 @@ export function PlaceDetail({
               {place.station_line}{place.station_name ? ` · ${place.station_name}` : ''}
             </div>
           </div>
-          <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไข"><IconPencil size={15} /></button>
+          {onEdit && <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไข"><IconPencil size={15} /></button>}
         </div>
 
         {place.note && <p className="text-[13px] text-ink-2 mt-3 leading-relaxed">{place.note}</p>}
@@ -56,14 +56,14 @@ export function PlaceDetail({
         </button>
 
         <div className="grid grid-cols-2 gap-2 mt-5">
-          <button onClick={onTogglePlan} className="h-10 rounded-md text-[13px] font-medium flex items-center justify-center gap-1.5"
+          <button onClick={onTogglePlan} className="h-10 rounded-md text-[13px] font-medium flex items-center justify-center gap-1.5 whitespace-nowrap px-2"
             style={place.in_plan
               ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }
               : { background: 'var(--color-brand)', color: '#fff' }}>
             {place.in_plan ? <><IconCheck size={15} /> อยู่ในแพลนแล้ว</> : <><IconPlus size={15} /> เพิ่มในแพลน</>}
           </button>
           <button onClick={() => openMap(place.map_url)} disabled={!place.map_url}
-            className="btn-icon !h-10 gap-1.5 text-[13px] disabled:opacity-50">
+            className="btn-icon !h-10 gap-1.5 text-[13px] disabled:opacity-50 whitespace-nowrap px-2">
             <IconMapPin size={15} /> เปิดแผนที่
           </button>
         </div>

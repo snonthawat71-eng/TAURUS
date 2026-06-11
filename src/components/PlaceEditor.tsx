@@ -1,20 +1,13 @@
 import { useEffect, useState } from 'react'
 import { IconTrash } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { ColorPicker } from './ColorPicker'
 import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES } from '@/lib/placeMeta'
 import type { Place, PlaceGroup } from '@/lib/database.types'
 import type { PlaceInput } from '@/lib/placeMutations'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
-
-const LINE_COLORS = [
-  { name: 'น้ำเงิน', color: '#185FA5' },
-  { name: 'ฟ้า', color: '#378ADD' },
-  { name: 'ส้ม', color: '#EF9F27' },
-  { name: 'ม่วง', color: '#7F77DD' },
-  { name: 'เทา', color: '#888780' },
-]
 
 export function PlaceEditor({
   open, onClose, group, initial, onSave, onDelete,
@@ -30,7 +23,7 @@ export function PlaceEditor({
   const [name, setName] = useState('')
   const [category, setCategory] = useState(cats[0])
   const [line, setLine] = useState('')
-  const [color, setColor] = useState(LINE_COLORS[0].color)
+  const [color, setColor] = useState('#185FA5')
   const [station, setStation] = useState('')
   const [mapUrl, setMapUrl] = useState('')
   const [note, setNote] = useState('')
@@ -41,7 +34,7 @@ export function PlaceEditor({
     setName(initial?.name ?? '')
     setCategory(initial?.category && cats.includes(initial.category) ? initial.category : cats[0])
     setLine(initial?.station_line ?? '')
-    setColor(initial?.station_color ?? LINE_COLORS[0].color)
+    setColor(initial?.station_color ?? '#185FA5')
     setStation(initial?.station_name ?? '')
     setMapUrl(initial?.map_url ?? '')
     setNote(initial?.note ?? '')
@@ -77,12 +70,7 @@ export function PlaceEditor({
         </div>
         <div>
           <div className={lbl}>สีสาย</div>
-          <div className="flex gap-1.5 mt-1">
-            {LINE_COLORS.map((c) => (
-              <button key={c.color} onClick={() => setColor(c.color)} title={c.name}
-                className="size-6 rounded-full" style={{ background: c.color, outline: color === c.color ? '2px solid var(--color-ink)' : 'none', outlineOffset: 2 }} />
-            ))}
-          </div>
+          <ColorPicker value={color} onChange={setColor} />
         </div>
         <div><div className={lbl}>โน้ต</div>
           <textarea className="hairline rounded-md text-[13px] p-3 bg-surface w-full outline-none focus:border-brand resize-none" rows={2}

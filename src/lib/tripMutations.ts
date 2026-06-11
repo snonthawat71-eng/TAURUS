@@ -66,6 +66,12 @@ export async function deleteInvite(id: string) {
   return supabase.from('trip_invites').delete().eq('id', id)
 }
 
+// ---------- Profile (the logged-in user) ----------
+
+export async function updateProfile(id: string, fields: { nickname?: string | null; full_name?: string | null; avatar_color?: string | null }) {
+  return supabase.from('profiles').update(fields).eq('id', id)
+}
+
 // ---------- Travelers ----------
 
 export interface TravelerInput {

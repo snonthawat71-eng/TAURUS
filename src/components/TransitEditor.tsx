@@ -1,21 +1,14 @@
 import { useEffect, useState } from 'react'
 import { IconPlus, IconTrash, IconArrowDown } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { ColorPicker } from './ColorPicker'
 import type { Transit, TransitLeg } from '@/lib/database.types'
-
-const PALETTE = [
-  { name: 'น้ำเงิน', color: '#185FA5' },
-  { name: 'ฟ้า', color: '#378ADD' },
-  { name: 'ส้ม', color: '#EF9F27' },
-  { name: 'ม่วง', color: '#7F77DD' },
-  { name: 'เทา', color: '#888780' },
-]
 
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[10px] text-ink-3'
 
 function emptyLeg(): TransitLeg {
-  return { line: '', color: PALETTE[0].color, from: '', to: '', direction: '', stops: undefined, minutes: undefined }
+  return { line: '', color: '#185FA5', from: '', to: '', direction: '', stops: undefined, minutes: undefined }
 }
 
 export function TransitEditor({
@@ -72,15 +65,7 @@ export function TransitEditor({
             <div>
               <div className={lbl}>ชื่อสาย</div>
               <input className={field} value={leg.line} onChange={(e) => patch(i, { line: e.target.value })} placeholder="เช่น Line 5 / Airport Express" />
-              <div className="flex items-center gap-2 mt-2">
-                <label className="size-8 rounded-full grid place-items-center cursor-pointer relative overflow-hidden shrink-0" title="เลือกสีจากวงล้อสี"
-                  style={{ background: 'conic-gradient(red, orange, yellow, lime, aqua, blue, magenta, red)' }}>
-                  <span className="size-5 rounded-full" style={{ background: leg.color, boxShadow: '0 0 0 2px #fff' }} />
-                  <input type="color" value={leg.color} onChange={(e) => patch(i, { color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" />
-                </label>
-                <span className="text-[12px] text-ink-2 tabular-nums">{leg.color.toUpperCase()}</span>
-                <span className="text-[11px] text-ink-3">แตะวงล้อเพื่อเปลี่ยนสี</span>
-              </div>
+              <ColorPicker value={leg.color} onChange={(c) => patch(i, { color: c })} />
             </div>
 
             <div className="grid grid-cols-2 gap-2">

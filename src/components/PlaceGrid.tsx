@@ -39,7 +39,10 @@ export function PlaceGrid({
   }
 
   const items = useMemo(
-    () => places.filter((p) => p.group_type === group && (tab === 'all' || p.category === tab)),
+    () => places
+      .filter((p) => p.group_type === group && (tab === 'all' || p.category === tab))
+      // in-plan items move to the end (still visible, shown dimmed)
+      .sort((a, b) => Number(a.in_plan) - Number(b.in_plan)),
     [places, group, tab],
   )
 

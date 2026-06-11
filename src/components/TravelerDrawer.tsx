@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   IconId, IconQrcode, IconFileText, IconClipboardCheck, IconPaperclip,
   IconTrash, IconLoader2, IconPencil, IconTicket, IconX, IconPlane,
-  IconShieldCheck, IconBuildingCastle, IconBuildingCarousel, IconZoomScan, IconPlus,
+  IconShieldCheck, IconBuildingCastle, IconBuildingCarousel, IconZoomScan, IconPlus, IconRefresh,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
@@ -34,7 +34,12 @@ function isImage(path: string) {
 }
 
 /** Quick QR tile — renders the actual image so it can be scanned at a glance. */
-function QrTile({ file, onOpen }: { file: TravelerFile; onOpen: (url: string) => void }) {
+function QrTile({ file, onOpen, onReplace, onDelete }: {
+  file: TravelerFile
+  onOpen: (url: string) => void
+  onReplace: () => void
+  onDelete: () => void
+}) {
   const [url, setUrl] = useState<string | null>(null)
   const sample = isSampleFile(file.storage_path)
   useEffect(() => {
@@ -44,14 +49,19 @@ function QrTile({ file, onOpen }: { file: TravelerFile; onOpen: (url: string) =>
   }, [file.storage_path, sample])
 
   return (
-    <button onClick={() => (url ? onOpen(url) : alert('นี่เป็นตัวอย่าง — อัปโหลด QR จริงเพื่อแสดงเต็มจอ'))}
-      className="card overflow-hidden text-left">
-      <div className="aspect-square bg-surface-2 grid place-items-center">
-        {url ? <img src={url} alt={file.label ?? ''} className="w-full h-full object-contain bg-white" />
-          : <IconQrcode size={40} className="text-ink-3" />}
+    <div className="card overflow-hidden relative w-[130px]">
+      <div className="absolute top-1.5 right-1.5 flex gap-1 z-10">
+        <button onClick={onReplace} className="size-6 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm" aria-label="เปลี่ยน"><IconRefresh size={13} /></button>
+        <button onClick={onDelete} className="size-6 rounded-full bg-white/90 grid place-items-center text-[#D85A30] shadow-sm" aria-label="ลบ"><IconTrash size={13} /></button>
       </div>
-      <div className="px-2.5 py-1.5 text-[11px] font-medium truncate">{file.label || 'QR'}{sample && ' · ตัวอย่าง'}</div>
-    </button>
+      <button onClick={() => (url ? onOpen(url) : alert('นี่เป็นตัวอย่าง — อัปโหลด QR จริงเพื่อแสดงเต็มจอ'))} className="block w-full text-left">
+        <div className="aspect-square bg-surface-2 grid place-items-center">
+          {url ? <img src={url} alt={file.label ?? ''} className="w-full h-full object-contain bg-white" />
+            : <IconQrcode size={40} className="text-ink-3" />}
+        </div>
+        <div className="px-2.5 py-1.5 text-[11px] font-medium truncate">{file.label || 'QR'}{sample && ' · ตัวอย่าง'}</div>
+      </button>
+    </div>
   )
 }
 
@@ -71,8 +81,10 @@ export function TravelerDrawer({
   const [uploadKind, setUploadKind] = useState<string>('arrival_card')
   const [customLabel, setCustomLabel] = useState('')
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [replacing, setReplacing] = useState<TravelerFile | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const qrInput = useRef<HTMLInputElement>(null)
+  const qrReplaceInput = useRef<HTMLInputElement>(null)
 
   async function openDoc(f: TravelerFile) {
     if (isSampleFile(f.storage_path)) { alert('นี่เป็นไฟล์ตัวอย่าง — อัปโหลดไฟล์จริงเพื่อเปิดดู'); return }
@@ -102,6 +114,15 @@ export function TravelerDrawer({
     await uploadFile('ticket', 'QR', file)
     if (qrInput.current) qrInput.current.value = ''
   }
+  async function onPickQrReplace(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !traveler || !replacing) return
+    if (!isSampleFile(replacing.storage_path)) await supabase.storage.from('trip-files').remove([replacing.storage_path])
+    await supabase.from('traveler_files').delete().eq('id', replacing.id)
+    await uploadFile('ticket', 'QR', file)
+    setReplacing(null)
+    if (qrReplaceInput.current) qrReplaceInput.current.value = ''
+  }
   async function remove(f: TravelerFile) {
     if (!confirm('ลบไฟล์นี้?')) return
     if (!isSampleFile(f.storage_path)) await supabase.storage.from('trip-files').remove([f.storage_path])
@@ -124,22 +145,29 @@ export function TravelerDrawer({
         {onEdit && <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไขข้อมูล"><IconPencil size={15} /></button>}
       </div>
 
-      {/* Quick QR — shown as images for instant scanning */}
+      {/* Quick QR — shown as images for instant scanning (max 2) */}
       <div className="flex items-center justify-between mt-5 mb-1.5">
         <span className="text-[12px] font-medium text-ink-2">QR Code · เอกสารด่วน</span>
-        <button onClick={() => qrInput.current?.click()} disabled={uploading} className="btn-link flex items-center gap-1 text-[12px] disabled:opacity-50">
-          {uploading ? <IconLoader2 size={13} className="animate-spin" /> : <IconPlus size={13} />} อัปโหลด QR
-        </button>
+        {quick.length < 2 && (
+          <button onClick={() => qrInput.current?.click()} disabled={uploading} className="btn-link flex items-center gap-1 text-[12px] disabled:opacity-50">
+            {uploading ? <IconLoader2 size={13} className="animate-spin" /> : <IconPlus size={13} />} อัปโหลด QR
+          </button>
+        )}
       </div>
-      <div className="flex items-center gap-1 text-[11px] text-ink-3 mb-2"><IconZoomScan size={13} /> แตะเพื่อแสดงเต็มจอ</div>
+      <div className="flex items-center justify-center gap-1 text-[11px] text-ink-3 mb-2"><IconZoomScan size={13} /> แตะเพื่อแสดงเต็มจอ</div>
       {quick.length === 0 ? (
-        <div className="card p-3 text-center text-[12px] text-ink-3">ยังไม่มี QR — กด "อัปโหลด QR" เพื่อเพิ่ม</div>
+        <div className="card p-3 text-center text-[12px] text-ink-3">ยังไม่มี QR — กด "อัปโหลด QR" เพื่อเพิ่ม (สูงสุด 2)</div>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
-          {quick.map((f) => <QrTile key={f.id} file={f} onOpen={setLightbox} />)}
+        <div className="flex justify-center gap-2.5 flex-wrap">
+          {quick.slice(0, 2).map((f) => (
+            <QrTile key={f.id} file={f} onOpen={setLightbox}
+              onReplace={() => { setReplacing(f); qrReplaceInput.current?.click() }}
+              onDelete={() => remove(f)} />
+          ))}
         </div>
       )}
       <input ref={qrInput} type="file" accept="image/*" hidden onChange={onPickQr} />
+      <input ref={qrReplaceInput} type="file" accept="image/*" hidden onChange={onPickQrReplace} />
 
       {/* Attached files */}
       <div className="flex items-center justify-between mt-5 mb-2">

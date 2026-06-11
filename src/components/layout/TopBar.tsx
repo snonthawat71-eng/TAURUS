@@ -1,16 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { IconSearch, IconDots, IconShare2, IconLogout } from '@tabler/icons-react'
+import { IconSearch, IconDots, IconShare2, IconLogout, IconUserCircle } from '@tabler/icons-react'
 import { NAV_ITEMS } from './nav'
 import { useAuth } from '@/contexts/AuthContext'
 import { TripSwitcher } from '@/components/TripSwitcher'
 import { ShareDialog } from '@/components/ShareDialog'
+import { ProfileEditor } from '@/components/ProfileEditor'
 
 export function TopBar() {
   const { pathname } = useLocation()
   const { user, signOut } = useAuth()
   const [menu, setMenu] = useState(false)
   const [share, setShare] = useState(false)
+  const [profile, setProfile] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   const current = NAV_ITEMS.find((n) => (n.to === '/' ? pathname === '/' : pathname.startsWith(n.to)))
@@ -37,6 +39,10 @@ export function TopBar() {
             <div className="absolute right-0 mt-1.5 w-52 card p-1 shadow-lg z-30">
               <div className="px-2.5 py-2 text-[11px] text-ink-3 truncate">{user?.email}</div>
               <div style={{ borderTop: '0.5px solid var(--color-line)' }} />
+              <button onClick={() => { setMenu(false); setProfile(true) }}
+                className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
+                <IconUserCircle size={15} /> โปรไฟล์ของฉัน
+              </button>
               <button onClick={() => { setMenu(false); signOut() }}
                 className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
                 <IconLogout size={15} /> ออกจากระบบ
@@ -51,6 +57,7 @@ export function TopBar() {
       </div>
 
       <ShareDialog open={share} onClose={() => setShare(false)} />
+      <ProfileEditor open={profile} onClose={() => setProfile(false)} />
     </header>
   )
 }
