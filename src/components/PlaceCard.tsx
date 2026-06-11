@@ -31,7 +31,7 @@ export function PlaceCard({
   return (
     <div className="card overflow-hidden flex flex-col relative">
       {/* Header image */}
-      <div className="relative h-24">
+      <div className="relative h-36">
         {place.photo_path
           ? <SignedImage path={place.photo_path} alt={place.name ?? ''} className="w-full h-full object-cover" fallback={placeholder} />
           : placeholder}
@@ -70,7 +70,7 @@ export function PlaceCard({
         <div className="flex items-center justify-between mt-3 pt-3 gap-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
           <button onClick={() => openMap(place.map_url)} disabled={!place.map_url}
             className="inline-flex items-center gap-1 text-[11px] text-ink-3 enabled:hover:text-brand-mid whitespace-nowrap shrink-0">
-            <IconMapPin size={12} /> AMap
+            <IconMapPin size={12} /> MAP
           </button>
           <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap shrink-0" style={{ background: meta.bg, color: meta.fg }}>
             {meta.label}

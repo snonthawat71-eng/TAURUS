@@ -4,6 +4,7 @@ import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { SignedImage } from './SignedImage'
 import { uploadImage } from '@/lib/files'
+import { useTrip } from '@/contexts/TripContext'
 import { catMeta, CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES } from '@/lib/placeMeta'
 import type { Place, PlaceGroup } from '@/lib/database.types'
 import type { PlaceInput } from '@/lib/placeMutations'
@@ -22,7 +23,10 @@ export function PlaceEditor({
   onSave: (fields: PlaceInput) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
+  const { trip } = useTrip()
+  const tripCities = trip?.cities ?? []
   const cats = group === 'food' ? FOOD_CATEGORIES : PLACE_CATEGORIES
+  const [city, setCity] = useState('')
   const [name, setName] = useState('')
   const [category, setCategory] = useState(cats[0])
   const [line, setLine] = useState('')
@@ -45,6 +49,7 @@ export function PlaceEditor({
     setMapUrl(initial?.map_url ?? '')
     setNote(initial?.note ?? '')
     setPhotoPath(initial?.photo_path ?? null)
+    setCity(initial?.city ?? (tripCities.length === 1 ? tripCities[0] : ''))
   }, [open, initial]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -61,7 +66,7 @@ export function PlaceEditor({
     setBusy(true)
     await onSave({
       group_type: group, name, category, station_line: line, station_color: color,
-      station_name: station, map_url: mapUrl, note, photo_path: photoPath,
+      station_name: station, map_url: mapUrl, note, photo_path: photoPath, city: city || null,
     })
     setBusy(false)
     onClose()
@@ -91,11 +96,22 @@ export function PlaceEditor({
           </div>
         </div>
         <div><div className={lbl}>ชื่อ</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Forbidden City" /></div>
-        <div>
-          <div className={lbl}>หมวด</div>
-          <select className={field} value={category} onChange={(e) => setCategory(e.target.value)}>
-            {cats.map((c) => <option key={c} value={c}>{CATEGORY[c].label}</option>)}
-          </select>
+        <div className={tripCities.length > 1 ? 'grid grid-cols-2 gap-2' : ''}>
+          <div>
+            <div className={lbl}>หมวด</div>
+            <select className={field} value={category} onChange={(e) => setCategory(e.target.value)}>
+              {cats.map((c) => <option key={c} value={c}>{CATEGORY[c].label}</option>)}
+            </select>
+          </div>
+          {tripCities.length > 1 && (
+            <div>
+              <div className={lbl}>เมือง</div>
+              <select className={field} value={city} onChange={(e) => setCity(e.target.value)}>
+                <option value="">ไม่ระบุ</option>
+                {tripCities.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>สาย / การเดินทาง</div><input className={field} value={line} onChange={(e) => setLine(e.target.value)} placeholder="Line 1 / Bus" /></div>

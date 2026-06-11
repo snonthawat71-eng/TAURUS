@@ -25,7 +25,7 @@ export function PlaceDetail({
 
   return (
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
-      <div className="-m-4 mb-0">
+      <div className="-m-5 mb-0">
         <div className="h-36 relative grid place-items-center overflow-hidden" style={{ background: meta.bg }}>
           <SignedImage path={place.photo_path} alt={place.name ?? ''} className="absolute inset-0 w-full h-full object-cover"
             fallback={<Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />} />

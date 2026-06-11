@@ -3,25 +3,27 @@ import type { Place } from './database.types'
 
 export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
 
-// photo_path is optional (added by extra_columns.sql); strip it if the column
-// isn't there yet so older databases still work.
-function stripPhoto(payload: Record<string, unknown>) {
-  const { photo_path: _omit, ...rest } = payload
-  void _omit
-  return rest
+// photo_path & city are optional (added by extra_columns.sql); strip whichever
+// the API reports as unknown so older databases still work.
+const OPTIONAL = ['photo_path', 'city']
+function stripUnknown(payload: Record<string, unknown>, msg: string) {
+  const copy = { ...payload }
+  let changed = false
+  for (const k of OPTIONAL) if (k in copy && msg.includes(k)) { delete copy[k]; changed = true }
+  return changed ? copy : null
 }
 
 export async function addPlace(trip_id: string, input: PlaceInput) {
   const payload: Record<string, unknown> = { id: crypto.randomUUID(), trip_id, in_plan: false, ...input }
   let res = await supabase.from('places').insert(payload)
-  if (res.error && res.error.message.includes('photo_path')) res = await supabase.from('places').insert(stripPhoto(payload))
+  if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').insert(s) }
   return res
 }
 
 export async function updatePlace(id: string, fields: PlaceInput) {
   const payload: Record<string, unknown> = { ...fields }
   let res = await supabase.from('places').update(payload).eq('id', id)
-  if (res.error && res.error.message.includes('photo_path')) res = await supabase.from('places').update(stripPhoto(payload)).eq('id', id)
+  if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').update(s).eq('id', id) }
   return res
 }
 

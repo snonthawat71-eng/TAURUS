@@ -23,6 +23,12 @@ alter table itinerary_stops add column if not exists link_mode text;
 -- รูปภาพสถานที่/ร้าน (เก็บ path ใน private bucket 'trip-files')
 alter table places add column if not exists photo_path text;
 
+-- เมืองของสถานที่/ร้าน (สำหรับทริปหลายเมือง)
+alter table places add column if not exists city text;
+
+-- รายชื่อเมืองของทริป (ทริปเดียว/หลายเมือง)
+alter table trips add column if not exists cities text[];
+
 -- ============================================================
 -- ระบบเชิญ: เจ้าของทริปเชิญด้วยอีเมล → ผู้ถูกเชิญพอ login จะถูกเพิ่มเป็นสมาชิก
 -- ฟังก์ชันนี้ทำงานแทนผู้ใช้ (security definer) จึงอ่าน trip_invites ได้

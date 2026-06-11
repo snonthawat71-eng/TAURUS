@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconTrash, IconMoodSmile } from '@tabler/icons-react'
+import { IconTrash, IconMoodSmile, IconPlus } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import type { Trip } from '@/lib/database.types'
 
@@ -15,7 +15,7 @@ export function TripEditor({
   open: boolean
   onClose: () => void
   initial: Trip | null
-  onSave: (fields: { name: string; country: string; flag: string; start_date: string | null; end_date: string | null }) => Promise<void>
+  onSave: (fields: { name: string; country: string; flag: string; cities: string[]; start_date: string | null; end_date: string | null }) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
   const [name, setName] = useState('')
@@ -23,6 +23,8 @@ export function TripEditor({
   const [flag, setFlag] = useState('🌍')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
+  const [multi, setMulti] = useState(false)
+  const [cities, setCities] = useState<string[]>([''])
   const [busy, setBusy] = useState(false)
   const [pickFlag, setPickFlag] = useState(false)
 
@@ -33,11 +35,17 @@ export function TripEditor({
     setFlag(initial?.flag || '🌍')
     setStart(initial?.start_date ?? '')
     setEnd(initial?.end_date ?? '')
+    const c = initial?.cities ?? []
+    setMulti(c.length > 1)
+    setCities(c.length ? c : [''])
   }, [open, initial])
+
+  function setCity(i: number, v: string) { setCities((cs) => cs.map((c, idx) => (idx === i ? v : c))) }
 
   async function save() {
     setBusy(true)
-    await onSave({ name, country, flag, start_date: start || null, end_date: end || null })
+    const cleanCities = (multi ? cities : cities.slice(0, 1)).map((c) => c.trim()).filter(Boolean)
+    await onSave({ name, country, flag, cities: cleanCities, start_date: start || null, end_date: end || null })
     setBusy(false)
     onClose()
   }
@@ -84,6 +92,34 @@ export function TripEditor({
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>วันเริ่ม</div><input type="date" className={field} value={start} onChange={(e) => setStart(e.target.value)} /></div>
           <div><div className={lbl}>วันสิ้นสุด</div><input type="date" className={field} value={end} onChange={(e) => setEnd(e.target.value)} /></div>
+        </div>
+
+        {/* Cities */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={lbl}>เมืองที่ไป</span>
+            <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2">
+              {([[false, 'เมืองเดียว'], [true, 'หลายเมือง']] as const).map(([v, label]) => (
+                <button key={label} onClick={() => { setMulti(v); if (v && cities.length < 2) setCities([cities[0] ?? '', '']) }}
+                  className={['px-2.5 h-7 rounded-[6px] text-[11px] font-medium', multi === v ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {!multi ? (
+            <input className={field} value={cities[0] ?? ''} onChange={(e) => setCity(0, e.target.value)} placeholder="เช่น Beijing" />
+          ) : (
+            <div className="space-y-2">
+              {cities.map((c, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input className={field} value={c} onChange={(e) => setCity(i, e.target.value)} placeholder={`เมืองที่ ${i + 1}`} />
+                  {cities.length > 1 && <button onClick={() => setCities((cs) => cs.filter((_, idx) => idx !== i))} className="text-ink-3 hover:text-[#D85A30] shrink-0"><IconTrash size={15} /></button>}
+                </div>
+              ))}
+              <button onClick={() => setCities((cs) => [...cs, ''])} className="btn-link flex items-center gap-1 text-[12px]"><IconPlus size={13} /> เพิ่มเมือง</button>
+            </div>
+          )}
         </div>
 
         <button onClick={save} disabled={busy || !name} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>

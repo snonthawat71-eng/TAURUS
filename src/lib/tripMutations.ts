@@ -3,7 +3,7 @@ import type { Flight, HotelRoom } from './database.types'
 
 // Columns added by supabase/extra_columns.sql — the app still works before the
 // migration is run by stripping any column the API reports as unknown.
-const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag']
+const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities']
 
 function stripMentioned(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
@@ -41,6 +41,7 @@ export interface TripInput {
   name?: string | null
   country?: string | null
   flag?: string | null
+  cities?: string[] | null
   start_date?: string | null
   end_date?: string | null
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconChevronDown, IconChevronRight, IconPlus, IconPencil, IconCheck } from '@tabler/icons-react'
+import { IconChevronDown, IconChevronRight, IconPlus, IconPencil, IconCheck, IconCalendar } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { TripEditor } from './TripEditor'
 import { AvatarStack } from './Avatar'
@@ -30,7 +30,7 @@ export function TripSwitcher({ variant }: { variant: 'sidebar' | 'topbar' }) {
             <IconChevronDown size={15} className="text-ink-3 shrink-0" />
           </div>
           <div className="flex items-center gap-2 mt-2 text-[11px] text-ink-3">
-            <span>🗓</span>
+            <IconCalendar size={12} />
             <span>{formatDateRange(trip?.start_date ?? null, trip?.end_date ?? null)}</span>
             {trip && <span className="chip !bg-brand-soft !text-brand-dark !py-0.5">{dayCount(trip.start_date, trip.end_date)} วัน</span>}
           </div>

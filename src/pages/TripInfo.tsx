@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
-  IconBed, IconHash, IconPlane, IconPencil, IconTrash,
+  IconBed, IconHash, IconPlane, IconPencil, IconTrash, IconCalendar,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { Avatar } from '@/components/Avatar'
@@ -40,7 +40,7 @@ function AMapPill({ url }: { url: string | null }) {
     <button onClick={() => openMap(url)}
       className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-brand-dark shrink-0"
       style={{ border: '0.5px solid var(--color-brand-border)', background: 'var(--color-brand-soft)' }}>
-      <IconMapPin size={12} /> AMap
+      <IconMapPin size={12} /> MAP
     </button>
   )
 }
@@ -76,32 +76,28 @@ function FlightCard({ flights, tripId, onEdit, onDelete }: {
 
   return (
     <div className="card p-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <Icon size={16} className="text-brand shrink-0" />
-          <span className="text-[13px] font-medium truncate">{f.flight_no} · {f.airline}</span>
-          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0"
-            style={{ background: stStyle.bg, color: stStyle.fg }}>
-            {status}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {/* segmented toggle */}
-          <div className="relative inline-flex rounded-full bg-surface-2 p-0.5">
-            <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
-              style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
-            {(['outbound', 'return'] as const).map((d) => (
-              <button key={d} onClick={() => setDir(d)}
-                className={['relative z-10 px-3 h-6 rounded-full text-[11px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
-                {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
-              </button>
-            ))}
-          </div>
-          <PopMenu items={[
-            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
-            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
-          ]} />
-        </div>
+      <div className="flex items-center gap-2">
+        <Icon size={16} className="text-brand shrink-0" />
+        <span className="text-[13px] font-medium truncate min-w-0 flex-1">{f.flight_no} · {f.airline}</span>
+        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0"
+          style={{ background: stStyle.bg, color: stStyle.fg }}>
+          {status}
+        </span>
+        <PopMenu items={[
+          { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
+          { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
+        ]} />
+      </div>
+      {/* outbound / return segmented toggle on its own row */}
+      <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 mt-3">
+        <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
+          style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
+        {(['outbound', 'return'] as const).map((d) => (
+          <button key={d} onClick={() => setDir(d)}
+            className={['relative z-10 px-5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
+            {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
+          </button>
+        ))}
       </div>
 
       {/* route graphic — fixed columns so ขาไป/ขากลับ don't shift */}
@@ -132,7 +128,7 @@ function FlightCard({ flights, tripId, onEdit, onDelete }: {
       </div>
 
       <div className="flex items-center gap-2 mt-4 flex-wrap text-[11px]" style={{ borderTop: '0.5px solid var(--color-line)', paddingTop: 12 }}>
-        <span className="chip">🗓 {formatFlightDate(f.flight_date)}</span>
+        <span className="chip"><IconCalendar size={12} /> {formatFlightDate(f.flight_date)}</span>
         <span className="chip">{f.seat_class || 'Economy'} · {f.seats ?? travelers.length} seats</span>
         {f.booking_ref && (
           <span className="inline-flex items-center gap-0.5 booking-id text-[12px]"><IconHash size={12} />{f.booking_ref}</span>
@@ -199,7 +195,7 @@ export default function TripInfo() {
 
       {/* Flights */}
       <SectionHead title="Flights • ข้อมูลเที่ยวบิน"
-        action={<button onClick={() => setFlightEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มไฟล์ต</button>} />
+        action={<button onClick={() => setFlightEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มเที่ยวบิน</button>} />
       {flights.length === 0 ? (
         <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลไฟลต์</div>
       ) : (

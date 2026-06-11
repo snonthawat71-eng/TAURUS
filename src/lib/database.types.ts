@@ -17,6 +17,7 @@ export interface Trip {
   country: string | null
   /** optional — present after the extra_columns migration */
   flag?: string | null
+  cities?: string[] | null
   start_date: string | null
   end_date: string | null
   owner_id: string
@@ -157,6 +158,7 @@ export interface Place {
   in_plan: boolean
   /** optional — present after the extra_columns migration */
   photo_path?: string | null
+  city?: string | null
   created_at: string
 }
 

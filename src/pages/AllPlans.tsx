@@ -34,7 +34,7 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
               </button>
               <button onClick={() => openMap(p.map_url)} disabled={!p.map_url}
                 className="inline-flex items-center gap-1 text-[11px] text-ink-3 enabled:hover:text-brand-mid shrink-0">
-                <IconMapPin size={13} /> AMap
+                <IconMapPin size={13} /> MAP
               </button>
             </div>
           )
