@@ -4,6 +4,7 @@ import {
   IconBed, IconHash, IconPlane, IconPencil, IconTrash, IconCalendar,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { Avatar } from '@/components/Avatar'
 import { TravelerDrawer, KIND_META } from '@/components/TravelerDrawer'
 import { TravelerEditor } from '@/components/TravelerEditor'
@@ -19,7 +20,7 @@ import { travelerColor, ORDER } from '@/lib/avatars'
 import {
   addTraveler, updateTraveler, deleteTraveler,
   addFlight, updateFlight, deleteFlight,
-  addHotel, updateHotel, deleteHotel,
+  addHotel, updateHotel, deleteHotel, updateProfile,
 } from '@/lib/tripMutations'
 import type { Flight, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
 
@@ -140,7 +141,8 @@ function FlightCard({ flights, tripId, onEdit, onDelete }: {
 }
 
 export default function TripInfo() {
-  const { trip, travelers, travelerFiles, flights, hotels, reload } = useTrip()
+  const { trip, travelers, travelerFiles, flights, hotels, profile, reload } = useTrip()
+  const { user } = useAuth()
   const [selected, setSelected] = useState<Traveler | null>(null)
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
   const [flightEdit, setFlightEdit] = useState<EditState<Flight>>(null)
@@ -274,7 +276,14 @@ export default function TripInfo() {
         defaultColor={travelerEdit && travelerEdit !== 'new' ? colorOf(travelerEdit) : nextColor}
         onSave={async (fields) => {
           if (travelerEdit === 'new' || !travelerEdit) await addTraveler(trip!.id, fields)
-          else await updateTraveler(travelerEdit.id, fields)
+          else {
+            await updateTraveler(travelerEdit.id, fields)
+            // if this traveler is "me", keep my profile name/colour in sync
+            if (user && profile?.nickname && travelerEdit.nickname
+              && travelerEdit.nickname.trim().toLowerCase() === profile.nickname.trim().toLowerCase()) {
+              await updateProfile(user.id, { nickname: fields.nickname, avatar_color: fields.avatar_color })
+            }
+          }
           await reload()
         }}
         onDelete={travelerEdit && travelerEdit !== 'new'
