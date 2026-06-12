@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { IconBrandGoogle, IconMail, IconCheck } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { isSupabaseConfigured } from '@/lib/supabase'
-import { TaurusMark } from '@/components/TaurusMark'
+import { TaurusLogo } from '@/components/TaurusLogo'
 
 export default function Login() {
   const { signInWithGoogle, signInWithEmail } = useAuth()
@@ -26,9 +26,8 @@ export default function Login() {
     <div className="min-h-dvh grid place-items-center px-5 bg-canvas">
       <div className="w-full max-w-[360px]">
         {/* Brand */}
-        <div className="flex items-center gap-2.5 justify-center mb-8">
-          <TaurusMark size={36} />
-          <span className="text-[18px] font-medium tracking-[0.08em]">TAURUS</span>
+        <div className="flex justify-center mb-8">
+          <TaurusLogo height={34} />
         </div>
 
         <div className="card p-6">

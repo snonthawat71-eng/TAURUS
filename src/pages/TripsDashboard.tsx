@@ -8,6 +8,7 @@ import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { TaurusMark } from '@/components/TaurusMark'
+import { TaurusLogo } from '@/components/TaurusLogo'
 import { AvatarStack } from '@/components/Avatar'
 import { PopMenu } from '@/components/PopMenu'
 import { TripEditor } from '@/components/TripEditor'
@@ -58,10 +59,7 @@ export default function TripsDashboard() {
       {/* Header */}
       <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center justify-between px-5 sm:px-8 h-16"
         style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-        <div className="flex items-center gap-2.5">
-          <TaurusMark size={30} />
-          <span className="text-[16px] font-medium tracking-[0.08em]">TAURUS</span>
-        </div>
+        <TaurusLogo height={30} />
         <div className="relative">
           <button onClick={() => setMenu((v) => !v)} className="btn-icon"><IconDots size={16} /></button>
           {menu && (
