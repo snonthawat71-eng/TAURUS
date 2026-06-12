@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
-import { IconPlus, IconTrash, IconArrowDown } from '@tabler/icons-react'
+import { IconPlus, IconTrash, IconArrowDown, IconMap2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
+import { MetroMapPicker } from './MetroMapPicker'
+import { useTrip } from '@/contexts/TripContext'
+import { getNetworkForTrip } from '@/lib/metro'
 import type { Transit, TransitLeg } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
@@ -19,10 +22,13 @@ export function TransitEditor({
   initial: Transit | null
   onSave: (transit: Transit | null) => Promise<void>
 }) {
+  const { trip } = useTrip()
+  const net = getNetworkForTrip(trip)
   const [legs, setLegs] = useState<TransitLeg[]>([])
   const [exitLabel, setExitLabel] = useState('')
   const [exitNote, setExitNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [mapOpen, setMapOpen] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -53,6 +59,13 @@ export function TransitEditor({
   return (
     <Drawer open={open} onClose={onClose} title="เส้นทางรถไฟฟ้า">
       <div className="space-y-3">
+        {net && (
+          <button onClick={() => setMapOpen(true)}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
+            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
+            <IconMap2 size={17} /> เลือกจากแผนที่ {net.name} (คำนวณจุดเปลี่ยนสายให้)
+          </button>
+        )}
         {legs.map((leg, i) => (
           <div key={i} className="card p-3 space-y-2.5">
             <div className="flex items-center justify-between">
@@ -140,6 +153,14 @@ export function TransitEditor({
           {busy ? 'กำลังบันทึก...' : 'บันทึกเส้นทาง'}
         </button>
       </div>
+
+      {net && mapOpen && (
+        <MetroMapPicker
+          net={net}
+          onClose={() => setMapOpen(false)}
+          onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setMapOpen(false) }}
+        />
+      )}
     </Drawer>
   )
 }
