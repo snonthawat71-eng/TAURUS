@@ -108,7 +108,7 @@ export function PlaceGrid({
       </div>
 
       {/* Filter / group bar */}
-      <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar items-center">
+      <div className="flex items-center gap-1.5 mb-3">
         <div className="relative shrink-0">
           <button onClick={() => setGroupMenu((v) => !v)}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium hairline bg-surface whitespace-nowrap">
@@ -129,14 +129,16 @@ export function PlaceGrid({
             </>
           )}
         </div>
-        {/* category quick filter */}
-        {tabs.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
-              tab === t.key ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2 hover:bg-surface-2/70'].join(' ')}>
-            {t.label}
-          </button>
-        ))}
+        {/* category quick filter (scrolls independently so it can't clip the menu) */}
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0">
+          {tabs.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
+                tab === t.key ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2 hover:bg-surface-2/70'].join(' ')}>
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {items.length === 0 ? (
