@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX } from '@tabler/icons-react'
+import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { PlaceCard, type Interested } from './PlaceCard'
+import { PlaceCard, type Interested, type CardMode } from './PlaceCard'
 import { PlaceEditor } from './PlaceEditor'
 import { PlaceDetail } from './PlaceDetail'
+import { SaveToTripDialog } from './SaveToTripDialog'
 import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
 import { catMeta, type CategoryTab } from '@/lib/placeMeta'
 import type { Place, PlaceGroup } from '@/lib/database.types'
@@ -20,14 +21,16 @@ export function PlaceGrid({
   addLabel: string
   focusId?: string | null
 }) {
-  const { trip, places, interests, memberProfiles, reload } = useTrip()
+  const { trip, places, interests, memberProfiles, reload, canEdit, myPermission } = useTrip()
   const { user } = useAuth()
+  const mode: CardMode = canEdit ? 'edit' : myPermission === 'places' ? 'pin' : 'view'
   const [dim, setDim] = useState<Dim>('none')
   const [chip, setChip] = useState('all')
   const [query, setQuery] = useState('')
   const [dimMenu, setDimMenu] = useState(false)
   const [editor, setEditor] = useState<'new' | Place | null>(null)
   const [detail, setDetail] = useState<Place | null>(null)
+  const [pinPlace, setPinPlace] = useState<Place | null>(null)
 
   const cities = trip?.cities ?? []
   const profilesById = useMemo(() => new Map(memberProfiles.map((p) => [p.id, p])), [memberProfiles])
@@ -97,9 +100,9 @@ export function PlaceGrid({
   const renderCard = (p: Place) => {
     const { list, mine } = interestFor(p)
     return (
-      <PlaceCard key={p.id} place={p} interested={list} mine={mine}
+      <PlaceCard key={p.id} place={p} interested={list} mine={mine} mode={mode}
         onOpen={() => setDetail(p)} onTogglePlan={() => togglePlan(p)} onToggleInterest={() => toggleWant(p)}
-        onEdit={() => setEditor(p)} onDelete={() => remove(p)} />
+        onEdit={() => setEditor(p)} onDelete={() => remove(p)} onPin={() => setPinPlace(p)} />
     )
   }
 
@@ -117,8 +120,14 @@ export function PlaceGrid({
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-[13px] font-medium text-ink-2">{title} · {filtered.length}</h2>
-        <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> {addLabel}</button>
+        {canEdit && <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> {addLabel}</button>}
       </div>
+      {mode === 'pin' && (
+        <div className="mb-3 rounded-md p-2.5 text-[12px] flex items-center gap-2"
+          style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>
+          <IconStar size={15} /> แตะ ⭐ ที่การ์ดเพื่อเซฟสถานที่นั้นไปไว้ในทริปของคุณ
+        </div>
+      )}
 
       {/* Search */}
       <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
@@ -197,11 +206,14 @@ export function PlaceGrid({
         if (!detail) return null
         const { list, mine } = interestFor(detail)
         return (
-          <PlaceDetail place={detail} interested={list} mine={mine} open={!!detail}
+          <PlaceDetail place={detail} interested={list} mine={mine} open={!!detail} canEdit={canEdit}
             onClose={() => setDetail(null)} onTogglePlan={() => togglePlan(detail)} onToggleInterest={() => toggleWant(detail)}
-            onEdit={() => { setEditor(detail); setDetail(null) }} />
+            onEdit={canEdit ? () => { setEditor(detail); setDetail(null) } : undefined}
+            onPin={mode === 'pin' ? () => { setPinPlace(detail); setDetail(null) } : undefined} />
         )
       })()}
+
+      <SaveToTripDialog place={pinPlace} open={!!pinPlace} onClose={() => setPinPlace(null)} />
     </div>
   )
 }

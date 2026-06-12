@@ -24,6 +24,8 @@ interface TripData {
   interests: PlaceInterest[]
   expenses: Expense[]
   memberProfiles: Profile[]
+  myPermission: 'owner' | 'edit' | 'places' | 'view'
+  canEdit: boolean
   reload: () => Promise<void>
 }
 
@@ -31,7 +33,7 @@ const TripContext = createContext<TripData | undefined>(undefined)
 
 const empty = {
   trip: null, profile: null, travelers: [], travelerFiles: [], flights: [], hotels: [], days: [],
-  stops: [], places: [], interests: [], expenses: [], memberProfiles: [],
+  stops: [], places: [], interests: [], expenses: [], memberProfiles: [], myPermission: 'owner' as const,
 }
 
 const STORAGE_KEY = 'trip:currentId'
@@ -44,7 +46,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const [currentTripId, setCurrentTripId] = useState<string | null>(
     () => localStorage.getItem(STORAGE_KEY),
   )
-  const [data, setData] = useState<Omit<TripData, 'loading' | 'error' | 'reload' | 'trips' | 'currentTripId' | 'switchTrip'>>(empty)
+  const [data, setData] = useState<Omit<TripData, 'loading' | 'error' | 'reload' | 'trips' | 'currentTripId' | 'switchTrip' | 'canEdit'>>(empty)
 
   const switchTrip = useCallback((id: string) => {
     localStorage.setItem(STORAGE_KEY, id)
@@ -96,7 +98,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
         supabase.from('itinerary_stops').select('*').eq('trip_id', trip_id).order('position'),
         supabase.from('places').select('*').eq('trip_id', trip_id).order('created_at'),
         supabase.from('expenses').select('*').eq('trip_id', trip_id).order('created_at'),
-        supabase.from('trip_members').select('user_id').eq('trip_id', trip_id),
+        supabase.from('trip_members').select('user_id,permission').eq('trip_id', trip_id),
       ])
 
       const places = (placesRes.data ?? []) as Place[]
@@ -105,13 +107,23 @@ export function TripProvider({ children }: { children: ReactNode }) {
         ? await supabase.from('place_interest').select('*').in('place_id', placeIds)
         : { data: [] as PlaceInterest[] }
 
-      const memberIds = (membersRes.data ?? []).map((m) => m.user_id)
+      const members = (membersRes.data ?? []) as { user_id: string; permission?: string | null }[]
+      const memberIds = members.map((m) => m.user_id)
       const memberProfilesRes = memberIds.length
         ? await supabase.from('profiles').select('*').in('id', memberIds)
         : { data: [] as Profile[] }
 
+      const myPermission: 'owner' | 'edit' | 'places' | 'view' =
+        current.owner_id === user.id
+          ? 'owner'
+          : (() => {
+              const p = members.find((m) => m.user_id === user.id)?.permission
+              return (p === 'places' || p === 'view') ? p : 'edit'
+            })()
+
       setData({
         trip: current,
+        myPermission,
         profile: (profileRes.data as Profile) ?? null,
         travelers: travelersRes.data ?? [],
         travelerFiles: (travelerFilesRes.data ?? []) as TravelerFile[],
@@ -152,7 +164,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
   }, [currentTripId, load])
 
   return (
-    <TripContext.Provider value={{ loading, error, trips, currentTripId, switchTrip, reload: load, ...data }}>
+    <TripContext.Provider value={{ loading, error, trips, currentTripId, switchTrip, reload: load, ...data, canEdit: data.myPermission === 'owner' || data.myPermission === 'edit' }}>
       {children}
     </TripContext.Provider>
   )

@@ -43,7 +43,7 @@ export default function TripsDashboard() {
     return m
   }, [travelers])
 
-  function open(t: Trip) { switchTrip(t.id); navigate('/info') }
+  function open(t: Trip) { switchTrip(t.id); navigate(t.owner_id === user?.id ? '/info' : '/places') }
   async function duplicate(t: Trip) {
     if (!user) return
     setBusyId(t.id)

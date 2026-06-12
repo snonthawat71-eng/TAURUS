@@ -31,6 +31,18 @@ export async function deletePlace(id: string) {
   return supabase.from('places').delete().eq('id', id)
 }
 
+/** Copy a place (from a shared trip) into one of the user's own trips. */
+export async function copyPlaceToTrip(place: Place, targetTripId: string) {
+  const payload: Record<string, unknown> = {
+    id: crypto.randomUUID(), trip_id: targetTripId, group_type: place.group_type, category: place.category,
+    name: place.name, station_line: place.station_line, station_color: place.station_color, station_name: place.station_name,
+    map_url: place.map_url, note: place.note, in_plan: false, photo_path: place.photo_path, city: place.city,
+  }
+  let res = await supabase.from('places').insert(payload)
+  if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').insert(s) }
+  return res
+}
+
 export async function setInPlan(id: string, in_plan: boolean) {
   return supabase.from('places').update({ in_plan }).eq('id', id)
 }

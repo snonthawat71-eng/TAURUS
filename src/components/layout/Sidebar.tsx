@@ -1,12 +1,13 @@
 import { NavLink, Link } from 'react-router-dom'
-import { NAV_ITEMS } from './nav'
+import { visibleNav } from './nav'
 import { useTrip } from '@/contexts/TripContext'
 import { FxWidget } from '@/components/FxWidget'
 import { TripSwitcher } from '@/components/TripSwitcher'
 import { TaurusMark } from '@/components/TaurusMark'
 
 export function Sidebar() {
-  const { days, places } = useTrip()
+  const { days, places, myPermission } = useTrip()
+  const items = visibleNav(myPermission)
 
   const counts = {
     itinerary: days.length,
@@ -28,7 +29,7 @@ export function Sidebar() {
         {sections.map((section) => (
           <div key={section} className="mb-4">
             <div className="px-2 mb-1.5 text-[10px] font-medium tracking-wider text-ink-3">{section}</div>
-            {NAV_ITEMS.filter((n) => n.section === section).map((item) => (
+            {items.filter((n) => n.section === section).map((item) => (
               <NavLink key={item.to} to={item.to}
                 className={({ isActive }) => [
                   'relative flex items-center gap-2.5 rounded-md px-2.5 h-9 text-[13px] mb-0.5 transition-colors',

@@ -90,11 +90,22 @@ export async function duplicateTrip(source: Trip, ownerId: string): Promise<{ id
 
 // ---------- Invites (owner-controlled sharing) ----------
 
-export async function addInvite(trip_id: string, email: string, invited_by: string) {
-  return supabase.from('trip_invites').insert({ trip_id, email: email.trim().toLowerCase(), invited_by, status: 'pending' })
+export type SharePermission = 'edit' | 'places' | 'view'
+
+export async function addInvite(trip_id: string, email: string, invited_by: string, permission: SharePermission = 'edit') {
+  const payload = { trip_id, email: email.trim().toLowerCase(), invited_by, status: 'pending', permission }
+  let res = await supabase.from('trip_invites').insert(payload)
+  if (res.error && res.error.message.includes('permission')) {
+    const { permission: _p, ...rest } = payload; void _p
+    res = await supabase.from('trip_invites').insert(rest)
+  }
+  return res
 }
 export async function deleteInvite(id: string) {
   return supabase.from('trip_invites').delete().eq('id', id)
+}
+export async function updateMemberPermission(trip_id: string, user_id: string, permission: SharePermission) {
+  return supabase.from('trip_members').update({ permission }).eq('trip_id', trip_id).eq('user_id', user_id)
 }
 
 // ---------- Profile (the logged-in user) ----------
