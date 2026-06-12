@@ -1,9 +1,9 @@
 import { supabase } from './supabase'
-import type { Flight, HotelRoom } from './database.types'
+import type { Flight, HotelRoom, Trip } from './database.types'
 
 // Columns added by supabase/extra_columns.sql — the app still works before the
 // migration is run by stripping any column the API reports as unknown.
-const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities']
+const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency']
 
 function stripMentioned(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
@@ -42,6 +42,7 @@ export interface TripInput {
   country?: string | null
   flag?: string | null
   cities?: string[] | null
+  currency?: string | null
   start_date?: string | null
   end_date?: string | null
 }
@@ -56,6 +57,35 @@ export async function updateTrip(id: string, fields: TripInput) {
 }
 export async function deleteTrip(id: string) {
   return supabase.from('trips').delete().eq('id', id)
+}
+
+/**
+ * Duplicate a trip — copies only the Places & Food/café wishlist into a brand
+ * new trip (everything else is re-entered). Returns the new trip id.
+ */
+export async function duplicateTrip(source: Trip, ownerId: string): Promise<{ id: string; error: string | null }> {
+  const id = crypto.randomUUID()
+  const created = await insertGraceful('trips', {
+    id, owner_id: ownerId, name: `${source.name} (สำเนา)`,
+    country: source.country, flag: source.flag, cities: source.cities, currency: source.currency,
+    start_date: null, end_date: null,
+  })
+  if (created.error) return { id, error: created.error.message }
+
+  const { data: places } = await supabase.from('places').select('*').eq('trip_id', source.id)
+  if (places?.length) {
+    const rows = places.map((p) => ({
+      id: crypto.randomUUID(), trip_id: id, group_type: p.group_type, category: p.category,
+      name: p.name, station_line: p.station_line, station_color: p.station_color, station_name: p.station_name,
+      map_url: p.map_url, note: p.note, in_plan: p.in_plan, photo_path: p.photo_path, city: p.city,
+    }))
+    let res = await supabase.from('places').insert(rows)
+    if (res.error && (res.error.message.includes('photo_path') || res.error.message.includes('city'))) {
+      const stripped = rows.map(({ photo_path: _p, city: _c, ...r }) => { void _p; void _c; return r })
+      res = await supabase.from('places').insert(stripped)
+    }
+  }
+  return { id, error: null }
 }
 
 // ---------- Invites (owner-controlled sharing) ----------

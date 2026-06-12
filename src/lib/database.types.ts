@@ -18,6 +18,7 @@ export interface Trip {
   /** optional — present after the extra_columns migration */
   flag?: string | null
   cities?: string[] | null
+  currency?: string | null
   start_date: string | null
   end_date: string | null
   owner_id: string

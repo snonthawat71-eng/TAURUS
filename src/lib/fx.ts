@@ -16,13 +16,14 @@ export const CURRENCIES: Currency[] = [
   { code: 'USD', symbol: '$', name: 'ดอลลาร์ (สหรัฐ)', flag: '🇺🇸' },
   { code: 'EUR', symbol: '€', name: 'ยูโร', flag: '🇪🇺' },
   { code: 'TWD', symbol: 'NT$', name: 'ดอลลาร์ไต้หวัน', flag: '🇹🇼' },
+  { code: 'HKD', symbol: 'HK$', name: 'ดอลลาร์ฮ่องกง', flag: '🇭🇰' },
   { code: 'GBP', symbol: '£', name: 'ปอนด์', flag: '🇬🇧' },
   { code: 'SGD', symbol: 'S$', name: 'ดอลลาร์สิงคโปร์', flag: '🇸🇬' },
 ]
 
 // Rough fallbacks (THB per 1 unit) used only if the API can't be reached.
 const FALLBACK: Record<string, number> = {
-  CNY: 4.92, JPY: 0.23, KRW: 0.025, USD: 35.2, EUR: 38.1, TWD: 1.1, GBP: 44.5, SGD: 26.2,
+  CNY: 4.92, JPY: 0.23, KRW: 0.025, USD: 35.2, EUR: 38.1, TWD: 1.1, HKD: 4.5, GBP: 44.5, SGD: 26.2,
 }
 
 export interface FxResult {

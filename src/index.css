@@ -8,26 +8,27 @@
   /* Fonts */
   --font-sans: 'Inter', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
 
-  /* Brand / accent */
-  --color-brand: #1d9e75;
-  --color-brand-dark: #085041;
-  --color-brand-mid: #0f6e56;
-  --color-brand-soft: #e1f5ee;
-  --color-brand-border: #9fe1cb;
+  /* Brand / accent — TAURUS (blue / navy / cyan) */
+  --color-brand: #0270fb;
+  --color-brand-dark: #022249; /* text on light-blue chips */
+  --color-brand-mid: #135fd6; /* links, text buttons */
+  --color-brand-soft: #e7f0ff; /* chip / active bg */
+  --color-brand-border: #b6d4ff;
+  --color-accent: #4bc5d9; /* cyan secondary accent */
 
-  /* Surfaces */
+  /* Surfaces (cool neutrals) */
   --color-surface: #ffffff; /* cards, top bar */
-  --color-surface-2: #f5f4f0; /* secondary, chips */
-  --color-canvas: #fafaf7; /* page background */
+  --color-surface-2: #eef1f6; /* secondary, chips */
+  --color-canvas: #f6f8fb; /* page background */
 
-  /* Text / ink */
-  --color-ink: #1a1a17; /* primary text */
-  --color-ink-2: #5f5e5a; /* secondary text */
-  --color-ink-3: #8a8980; /* tertiary / labels */
+  /* Text / ink (cool dark) */
+  --color-ink: #0c1b2a; /* primary text */
+  --color-ink-2: #4a566a; /* secondary text */
+  --color-ink-3: #8893a4; /* tertiary / labels */
 
   /* Borders */
-  --color-line: #e8e7e1; /* hairline */
-  --color-line-2: #d4d3cc; /* stronger */
+  --color-line: #e4e8ef; /* hairline */
+  --color-line-2: #ccd4e0; /* stronger */
 
   /* Functional */
   --color-booking: #185fa5; /* booking ID text */

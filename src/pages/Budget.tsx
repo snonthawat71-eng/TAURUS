@@ -57,12 +57,12 @@ export default function Budget() {
 
   // total in the sidebar-selected foreign currency
   useEffect(() => {
-    const code = localStorage.getItem('fx:currency') ?? 'CNY'
+    const code = trip?.currency ?? localStorage.getItem('fx:currency') ?? 'CNY'
     const cur = CURRENCIES.find((c) => c.code === code)
     getRateToTHB(code).then((r) => {
       if (r.rate) setEquiv(`${cur?.symbol ?? ''}${Math.round(total / r.rate).toLocaleString('en-US')}`)
     })
-  }, [total])
+  }, [total, trip?.currency])
 
   return (
     <div>

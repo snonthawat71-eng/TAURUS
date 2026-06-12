@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { IconPlane, IconPlus, IconLogout } from '@tabler/icons-react'
+import { IconPlus, IconLogout } from '@tabler/icons-react'
+import { TaurusMark } from './TaurusMark'
 import { TripEditor } from './TripEditor'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -13,9 +14,7 @@ export function NoTrip() {
   return (
     <div className="min-h-dvh grid place-items-center bg-canvas px-5">
       <div className="w-full max-w-[360px] text-center">
-        <div className="mx-auto mb-4 size-12 rounded-[12px] bg-brand grid place-items-center text-white">
-          <IconPlane size={24} stroke={1.75} />
-        </div>
+        <div className="mx-auto mb-4 w-fit"><TaurusMark size={52} /></div>
         <h1 className="text-[18px] font-medium">เริ่มทริปแรกของคุณ</h1>
         <p className="text-[13px] text-ink-2 mt-1.5 leading-relaxed">
           ยังไม่มีทริป — สร้างทริปใหม่เพื่อวางแผนการเดินทาง เพิ่มผู้ร่วมทาง ไฟล์ต ที่พัก และงบประมาณ

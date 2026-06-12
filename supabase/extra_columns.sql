@@ -29,6 +29,9 @@ alter table places add column if not exists city text;
 -- รายชื่อเมืองของทริป (ทริปเดียว/หลายเมือง)
 alter table trips add column if not exists cities text[];
 
+-- สกุลเงินหลักของทริป (เช่น CNY, JPY, HKD) ใช้กับอัตราแลกเปลี่ยน/งบ
+alter table trips add column if not exists currency text;
+
 -- ============================================================
 -- ระบบเชิญ: เจ้าของทริปเชิญด้วยอีเมล → ผู้ถูกเชิญพอ login จะถูกเพิ่มเป็นสมาชิก
 -- ฟังก์ชันนี้ทำงานแทนผู้ใช้ (security definer) จึงอ่าน trip_invites ได้

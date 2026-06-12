@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react'
 import { IconChevronDown } from '@tabler/icons-react'
 import { CURRENCIES, getRateToTHB, type FxResult } from '@/lib/fx'
+import { useTrip } from '@/contexts/TripContext'
 
 const CUR_KEY = 'fx:currency'
 
 export function FxWidget() {
+  const { trip } = useTrip()
   const [code, setCode] = useState(() => localStorage.getItem(CUR_KEY) ?? 'CNY')
   const [fx, setFx] = useState<FxResult | null>(null)
   const [open, setOpen] = useState(false)
+
+  // follow the current trip's chosen currency
+  useEffect(() => {
+    if (trip?.currency && CURRENCIES.some((c) => c.code === trip.currency)) setCode(trip.currency)
+  }, [trip?.currency])
 
   const cur = CURRENCIES.find((c) => c.code === code) ?? CURRENCIES[0]
 

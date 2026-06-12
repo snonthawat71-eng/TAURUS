@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { IconTrash, IconMoodSmile, IconPlus } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { CURRENCIES } from '@/lib/fx'
 import type { Trip } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
@@ -15,7 +16,7 @@ export function TripEditor({
   open: boolean
   onClose: () => void
   initial: Trip | null
-  onSave: (fields: { name: string; country: string; flag: string; cities: string[]; start_date: string | null; end_date: string | null }) => Promise<void>
+  onSave: (fields: { name: string; country: string; flag: string; cities: string[]; currency: string; start_date: string | null; end_date: string | null }) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
   const [name, setName] = useState('')
@@ -25,6 +26,7 @@ export function TripEditor({
   const [end, setEnd] = useState('')
   const [multi, setMulti] = useState(false)
   const [cities, setCities] = useState<string[]>([''])
+  const [currency, setCurrency] = useState('CNY')
   const [busy, setBusy] = useState(false)
   const [pickFlag, setPickFlag] = useState(false)
 
@@ -35,6 +37,7 @@ export function TripEditor({
     setFlag(initial?.flag || '🌍')
     setStart(initial?.start_date ?? '')
     setEnd(initial?.end_date ?? '')
+    setCurrency(initial?.currency ?? 'CNY')
     const c = initial?.cities ?? []
     setMulti(c.length > 1)
     setCities(c.length ? c : [''])
@@ -45,7 +48,7 @@ export function TripEditor({
   async function save() {
     setBusy(true)
     const cleanCities = (multi ? cities : cities.slice(0, 1)).map((c) => c.trim()).filter(Boolean)
-    await onSave({ name, country, flag, cities: cleanCities, start_date: start || null, end_date: end || null })
+    await onSave({ name, country, flag, cities: cleanCities, currency, start_date: start || null, end_date: end || null })
     setBusy(false)
     onClose()
   }
@@ -92,6 +95,14 @@ export function TripEditor({
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>วันเริ่ม</div><input type="date" className={field} value={start} onChange={(e) => setStart(e.target.value)} /></div>
           <div><div className={lbl}>วันสิ้นสุด</div><input type="date" className={field} value={end} onChange={(e) => setEnd(e.target.value)} /></div>
+        </div>
+
+        <div>
+          <div className={lbl}>สกุลเงินหลักของทริป</div>
+          <select className={field} value={currency} onChange={(e) => setCurrency(e.target.value)}>
+            {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.code} · {c.name}</option>)}
+          </select>
+          <p className="text-[11px] text-ink-3 mt-1">อัตราแลกเปลี่ยน/งบในเว็บจะอ้างอิงสกุลนี้</p>
         </div>
 
         {/* Cities */}

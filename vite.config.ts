@@ -13,15 +13,14 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'TRIP',
-        short_name: 'TRIP',
+        name: 'TAURUS',
+        short_name: 'TAURUS',
         description: 'Travel planner for your group trips',
-        theme_color: '#1D9E75',
-        background_color: '#FAFAF7',
+        theme_color: '#0270FB',
+        background_color: '#F6F8FB',
         display: 'standalone',
         icons: [
-          { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
       workbox: {

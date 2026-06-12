@@ -1,9 +1,10 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { IconPlane } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { TaurusMark } from '@/components/TaurusMark'
 import { TripProvider } from '@/contexts/TripContext'
 import Login from '@/pages/Login'
 import { AppShell } from '@/components/layout/AppShell'
+import TripsDashboard from '@/pages/TripsDashboard'
 import TripInfo from '@/pages/TripInfo'
 import Itinerary from '@/pages/Itinerary'
 import Places from '@/pages/Places'
@@ -17,9 +18,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="min-h-dvh grid place-items-center bg-canvas">
-        <div className="size-9 rounded-[10px] bg-brand grid place-items-center text-white animate-pulse">
-          <IconPlane size={20} stroke={1.75} />
-        </div>
+        <span className="animate-pulse"><TaurusMark size={40} /></span>
       </div>
     )
   }
@@ -30,8 +29,9 @@ export default function App() {
     <TripProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<TripsDashboard />} />
           <Route element={<AppShell />}>
-            <Route path="/" element={<TripInfo />} />
+            <Route path="/info" element={<TripInfo />} />
             <Route path="/itinerary" element={<Itinerary />} />
             <Route path="/places" element={<Places />} />
             <Route path="/food" element={<Food />} />

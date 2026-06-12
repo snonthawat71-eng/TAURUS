@@ -11,7 +11,7 @@ export function BottomNav() {
         <NavLink
           key={item.to}
           to={item.to}
-          end={item.to === '/'}
+         
           className={({ isActive }) =>
             [
               'flex flex-col items-center justify-center gap-0.5 h-14 text-[9px]',

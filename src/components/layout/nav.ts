@@ -13,7 +13,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Personal Information', icon: IconInfoCircle, section: 'PLAN' },
+  { to: '/info', label: 'Personal Information', icon: IconInfoCircle, section: 'PLAN' },
   { to: '/itinerary', label: 'Itinerary', icon: IconCalendarEvent, count: 'itinerary', section: 'PLAN' },
   { to: '/places', label: 'Places', icon: IconMapPin, count: 'places', section: 'PLAN' },
   { to: '/food', label: 'Food & café', icon: IconToolsKitchen2, count: 'food', section: 'PLAN' },
