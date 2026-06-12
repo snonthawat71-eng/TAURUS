@@ -4,10 +4,11 @@ import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { TopBar } from './TopBar'
 import { OfflineBanner } from '@/components/OfflineBanner'
+import { NoTrip } from '@/components/NoTrip'
 import { useTrip } from '@/contexts/TripContext'
 
 export function AppShell() {
-  const { loading, error } = useTrip()
+  const { loading, error, trips } = useTrip()
 
   if (loading) {
     return (
@@ -30,6 +31,8 @@ export function AppShell() {
       </div>
     )
   }
+
+  if (trips.length === 0) return <NoTrip />
 
   return (
     <div className="flex min-h-dvh bg-canvas">
