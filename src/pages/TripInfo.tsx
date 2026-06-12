@@ -55,12 +55,6 @@ async function viewFile(f: TravelerFile) {
   if (url) window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
-  Confirmed: { bg: 'var(--color-brand-soft)', fg: 'var(--color-brand-dark)' },
-  Pending: { bg: '#FDF1DF', fg: '#9A6212' },
-  Cancelled: { bg: '#F6E8E3', fg: '#A23E1C' },
-}
-
 function FlightCard({ flights, tripId, onEdit, onDelete }: {
   flights: Flight[]
   tripId: string
@@ -72,33 +66,27 @@ function FlightCard({ flights, tripId, onEdit, onDelete }: {
   const f = flights.find((x) => (x.direction ?? 'outbound') === dir) ?? flights[0]
   if (!f) return null
   const Icon = dir === 'return' ? IconPlaneArrival : IconPlaneDeparture
-  const status = f.status || 'Confirmed'
-  const stStyle = STATUS_STYLE[status] ?? STATUS_STYLE.Confirmed
 
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2">
         <Icon size={16} className="text-brand shrink-0" />
         <span className="text-[13px] font-medium truncate min-w-0 flex-1">{f.flight_no} · {f.airline}</span>
-        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0"
-          style={{ background: stStyle.bg, color: stStyle.fg }}>
-          {status}
-        </span>
+        {/* outbound / return segmented toggle (moved here, replacing the status badge) */}
+        <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
+          <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
+            style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
+          {(['outbound', 'return'] as const).map((d) => (
+            <button key={d} onClick={() => setDir(d)}
+              className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
+              {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
+            </button>
+          ))}
+        </div>
         <PopMenu items={[
           { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
           { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
         ]} />
-      </div>
-      {/* outbound / return segmented toggle on its own row */}
-      <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 mt-3">
-        <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
-          style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
-        {(['outbound', 'return'] as const).map((d) => (
-          <button key={d} onClick={() => setDir(d)}
-            className={['relative z-10 px-5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
-            {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
-          </button>
-        ))}
       </div>
 
       {/* route graphic — fixed columns so ขาไป/ขากลับ don't shift */}
