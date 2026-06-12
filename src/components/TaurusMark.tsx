@@ -10,7 +10,7 @@ export function TaurusMark({ size = 28, radius }: { size?: number; radius?: numb
   if (useImg) {
     return (
       <img
-        src="/taurus-02.png"
+        src="/taurus-01.svg"
         width={size}
         height={size}
         alt="TAURUS"

@@ -9,7 +9,7 @@ export function TaurusLogo({ height = 30 }: { height?: number }) {
   if (!err) {
     return (
       <img
-        src="/taurus-03.png"
+        src="/taurus-04.svg"
         alt="TAURUS"
         style={{ height }}
         className="w-auto object-contain"

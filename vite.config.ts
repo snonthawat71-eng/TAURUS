@@ -11,7 +11,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['taurus-01.svg', 'taurus-02.svg', 'taurus-04.svg'],
       manifest: {
         name: 'TAURUS',
         short_name: 'TAURUS',
@@ -20,7 +20,7 @@ export default defineConfig({
         background_color: '#F6F8FB',
         display: 'standalone',
         icons: [
-          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'taurus-01.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
       workbox: {
