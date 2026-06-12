@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconTrash, IconPhoto, IconLoader2, IconCheck } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
@@ -23,8 +23,14 @@ export function PlaceEditor({
   onSave: (fields: PlaceInput) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
-  const { trip } = useTrip()
-  const tripCities = trip?.cities ?? []
+  const { trip, places } = useTrip()
+  // cities to offer = trip's cities ∪ cities already used on other places
+  const tripCities = useMemo(() => {
+    const set = new Set<string>()
+    ;(trip?.cities ?? []).forEach((c) => set.add(c))
+    places.forEach((p) => { if (p.city) set.add(p.city) })
+    return Array.from(set)
+  }, [trip, places])
   const cats = group === 'food' ? FOOD_CATEGORIES : PLACE_CATEGORIES
   const [city, setCity] = useState('')
   const [name, setName] = useState('')

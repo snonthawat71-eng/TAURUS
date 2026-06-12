@@ -9,7 +9,7 @@ import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@
 import { catMeta, type CategoryTab } from '@/lib/placeMeta'
 import type { Place, PlaceGroup } from '@/lib/database.types'
 
-type Dim = 'category' | 'city'
+type Dim = 'none' | 'category' | 'city'
 
 export function PlaceGrid({
   group, tabs, title, addLabel, focusId,
@@ -22,7 +22,7 @@ export function PlaceGrid({
 }) {
   const { trip, places, interests, memberProfiles, reload } = useTrip()
   const { user } = useAuth()
-  const [dim, setDim] = useState<Dim>('category')
+  const [dim, setDim] = useState<Dim>('none')
   const [chip, setChip] = useState('all')
   const [query, setQuery] = useState('')
   const [dimMenu, setDimMenu] = useState(false)
@@ -59,21 +59,24 @@ export function PlaceGrid({
     return places
       .filter((p) => p.group_type === group)
       .filter((p) => !q || (p.name ?? '').toLowerCase().includes(q) || (p.station_name ?? '').toLowerCase().includes(q) || (p.note ?? '').toLowerCase().includes(q))
-      .filter((p) => chip === 'all' || valueOf(p) === chip)
+      .filter((p) => dim === 'none' || chip === 'all' || valueOf(p) === chip)
       .sort((a, b) => Number(a.in_plan) - Number(b.in_plan))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places, group, query, chip, dim])
 
-  // chips reflect the selected dimension
-  const chipList: CategoryTab[] = dim === 'city'
-    ? [{ key: 'all', label: 'ทั้งหมด' }, ...cityOrder.map((c) => ({ key: c, label: c }))]
-    : tabs
+  // chips reflect the selected dimension (none = no value chips)
+  const chipList: CategoryTab[] = dim === 'none'
+    ? []
+    : dim === 'city'
+      ? [{ key: 'all', label: 'ทั้งหมด' }, ...cityOrder.map((c) => ({ key: c, label: c }))]
+      : tabs
 
   const DIM_OPTIONS: { key: Dim; label: string }[] = [
+    { key: 'none', label: 'ทั้งหมด' },
     { key: 'category', label: 'ตามประเภท' },
     ...(hasCityData ? [{ key: 'city' as Dim, label: 'ตามเมือง' }] : []),
   ]
-  const dimLabel = DIM_OPTIONS.find((o) => o.key === dim)?.label ?? 'ตามประเภท'
+  const dimLabel = DIM_OPTIONS.find((o) => o.key === dim)?.label ?? 'ทั้งหมด'
 
   useEffect(() => {
     if (focusId) { const p = places.find((x) => x.id === focusId); if (p) setDetail(p) }
@@ -100,9 +103,9 @@ export function PlaceGrid({
     )
   }
 
-  // sections shown only when chip === 'all'
+  // sections shown only when grouping by a dimension and chip === 'all'
   const sections = useMemo(() => {
-    if (chip !== 'all') return []
+    if (dim === 'none' || chip !== 'all') return []
     if (dim === 'city') {
       return [...cityOrder, 'ไม่ระบุเมือง'].filter((c) => filtered.some((p) => valueOf(p) === c)).map((c) => ({ key: c, label: c }))
     }
@@ -147,7 +150,7 @@ export function PlaceGrid({
             </>
           )}
         </div>
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0" style={chipList.length === 0 ? { display: 'none' } : undefined}>
           {chipList.map((t) => (
             <button key={t.key} onClick={() => setChip(t.key)}
               className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
@@ -160,7 +163,7 @@ export function PlaceGrid({
 
       {filtered.length === 0 ? (
         <div className="card p-8 text-center text-[12px] text-ink-3">{query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</div>
-      ) : chip !== 'all' ? (
+      ) : (dim === 'none' || chip !== 'all') ? (
         <div className="grid sm:grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
       ) : (
         <div className="space-y-6">
