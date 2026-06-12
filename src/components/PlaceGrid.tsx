@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck } from '@tabler/icons-react'
+import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { PlaceCard, type Interested } from './PlaceCard'
@@ -9,7 +9,7 @@ import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@
 import { catMeta, type CategoryTab } from '@/lib/placeMeta'
 import type { Place, PlaceGroup } from '@/lib/database.types'
 
-type GroupBy = 'none' | 'city' | 'category'
+type Dim = 'category' | 'city'
 
 export function PlaceGrid({
   group, tabs, title, addLabel, focusId,
@@ -22,16 +22,16 @@ export function PlaceGrid({
 }) {
   const { trip, places, interests, memberProfiles, reload } = useTrip()
   const { user } = useAuth()
-  const [tab, setTab] = useState('all')
-  const [groupBy, setGroupBy] = useState<GroupBy>('none')
-  const [groupMenu, setGroupMenu] = useState(false)
+  const [dim, setDim] = useState<Dim>('category')
+  const [chip, setChip] = useState('all')
+  const [query, setQuery] = useState('')
+  const [dimMenu, setDimMenu] = useState(false)
   const [editor, setEditor] = useState<'new' | Place | null>(null)
   const [detail, setDetail] = useState<Place | null>(null)
 
   const cities = trip?.cities ?? []
   const profilesById = useMemo(() => new Map(memberProfiles.map((p) => [p.id, p])), [memberProfiles])
 
-  // cities actually available = trip cities ∪ cities used by this group's places
   const cityOrder = useMemo(() => {
     const set = new Set<string>()
     cities.forEach((c) => set.add(c))
@@ -39,6 +39,9 @@ export function PlaceGrid({
     return Array.from(set)
   }, [cities, places, group])
   const hasCityData = cityOrder.length > 0
+
+  // if cities disappear, fall back to category dimension
+  useEffect(() => { if (dim === 'city' && !hasCityData) { setDim('category'); setChip('all') } }, [dim, hasCityData])
 
   const interestFor = (place: Place): { list: Interested[]; mine: boolean } => {
     const rows = interests.filter((i) => i.place_id === place.id)
@@ -49,12 +52,28 @@ export function PlaceGrid({
     return { list, mine: !!user && rows.some((r) => r.user_id === user.id) }
   }
 
-  const items = useMemo(
-    () => places
-      .filter((p) => p.group_type === group && (tab === 'all' || p.category === tab))
-      .sort((a, b) => Number(a.in_plan) - Number(b.in_plan)),
-    [places, group, tab],
-  )
+  const valueOf = (p: Place) => (dim === 'city' ? (p.city || 'ไม่ระบุเมือง') : (p.category || 'อื่นๆ'))
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return places
+      .filter((p) => p.group_type === group)
+      .filter((p) => !q || (p.name ?? '').toLowerCase().includes(q) || (p.station_name ?? '').toLowerCase().includes(q) || (p.note ?? '').toLowerCase().includes(q))
+      .filter((p) => chip === 'all' || valueOf(p) === chip)
+      .sort((a, b) => Number(a.in_plan) - Number(b.in_plan))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [places, group, query, chip, dim])
+
+  // chips reflect the selected dimension
+  const chipList: CategoryTab[] = dim === 'city'
+    ? [{ key: 'all', label: 'ทั้งหมด' }, ...cityOrder.map((c) => ({ key: c, label: c }))]
+    : tabs
+
+  const DIM_OPTIONS: { key: Dim; label: string }[] = [
+    { key: 'category', label: 'ตามประเภท' },
+    ...(hasCityData ? [{ key: 'city' as Dim, label: 'ตามเมือง' }] : []),
+  ]
+  const dimLabel = DIM_OPTIONS.find((o) => o.key === dim)?.label ?? 'ตามประเภท'
 
   useEffect(() => {
     if (focusId) { const p = places.find((x) => x.id === focusId); if (p) setDetail(p) }
@@ -72,13 +91,6 @@ export function PlaceGrid({
   }
   async function remove(p: Place) { if (confirm('ลบรายการนี้?')) { await deletePlace(p.id); await reload() } }
 
-  const GROUP_OPTIONS: { key: GroupBy; label: string }[] = [
-    { key: 'none', label: 'ทั้งหมด' },
-    ...(hasCityData ? [{ key: 'city' as GroupBy, label: 'แยกตามเมือง' }] : []),
-    { key: 'category', label: 'แยกตามประเภท' },
-  ]
-  const groupLabel = GROUP_OPTIONS.find((o) => o.key === groupBy)?.label ?? 'ทั้งหมด'
-
   const renderCard = (p: Place) => {
     const { list, mine } = interestFor(p)
     return (
@@ -88,78 +100,79 @@ export function PlaceGrid({
     )
   }
 
-  // build grouped sections
-  const sections: { key: string; label: string }[] = useMemo(() => {
-    if (groupBy === 'city') {
-      const order = [...cityOrder, 'ไม่ระบุเมือง']
-      return order.filter((c) => items.some((p) => (p.city || 'ไม่ระบุเมือง') === c)).map((c) => ({ key: c, label: c }))
+  // sections shown only when chip === 'all'
+  const sections = useMemo(() => {
+    if (chip !== 'all') return []
+    if (dim === 'city') {
+      return [...cityOrder, 'ไม่ระบุเมือง'].filter((c) => filtered.some((p) => valueOf(p) === c)).map((c) => ({ key: c, label: c }))
     }
-    if (groupBy === 'category') {
-      return tabs.filter((t) => t.key !== 'all' && items.some((p) => p.category === t.key)).map((t) => ({ key: t.key, label: t.label }))
-    }
-    return []
-  }, [groupBy, items, cityOrder, tabs])
+    return tabs.filter((t) => t.key !== 'all' && filtered.some((p) => (p.category || 'อื่นๆ') === t.key)).map((t) => ({ key: t.key, label: t.label }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chip, dim, filtered, cityOrder, tabs])
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-[13px] font-medium text-ink-2">{title} · {items.length}</h2>
+        <h2 className="text-[13px] font-medium text-ink-2">{title} · {filtered.length}</h2>
         <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> {addLabel}</button>
       </div>
 
-      {/* Filter / group bar */}
+      {/* Search */}
+      <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
+        <IconSearch size={16} className="text-ink-3" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ / ร้าน / สถานี"
+          className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-ink-3" />
+        {query && <button onClick={() => setQuery('')} className="text-ink-3"><IconX size={15} /></button>}
+      </div>
+
+      {/* Filter dimension + value chips */}
       <div className="flex items-center gap-1.5 mb-3">
         <div className="relative shrink-0">
-          <button onClick={() => setGroupMenu((v) => !v)}
+          <button onClick={() => setDimMenu((v) => !v)}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium hairline bg-surface whitespace-nowrap">
-            <IconAdjustmentsHorizontal size={14} /> {groupLabel} <IconChevronDown size={13} className="text-ink-3" />
+            <IconAdjustmentsHorizontal size={14} /> {dimLabel} <IconChevronDown size={13} className="text-ink-3" />
           </button>
-          {groupMenu && (
+          {dimMenu && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setGroupMenu(false)} />
-              <div className="absolute left-0 mt-1 w-44 card p-1 shadow-lg z-50">
-                {GROUP_OPTIONS.map((o) => (
-                  <button key={o.key} onClick={() => { setGroupBy(o.key); setGroupMenu(false) }}
+              <div className="fixed inset-0 z-40" onClick={() => setDimMenu(false)} />
+              <div className="absolute left-0 mt-1 w-40 card p-1 shadow-lg z-50">
+                {DIM_OPTIONS.map((o) => (
+                  <button key={o.key} onClick={() => { setDim(o.key); setChip('all'); setDimMenu(false) }}
                     className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
                     <span className="flex-1 text-left">{o.label}</span>
-                    {groupBy === o.key && <IconCheck size={14} className="text-brand" />}
+                    {dim === o.key && <IconCheck size={14} className="text-brand" />}
                   </button>
                 ))}
               </div>
             </>
           )}
         </div>
-        {/* category quick filter (scrolls independently so it can't clip the menu) */}
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0">
-          {tabs.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
+          {chipList.map((t) => (
+            <button key={t.key} onClick={() => setChip(t.key)}
               className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
-                tab === t.key ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2 hover:bg-surface-2/70'].join(' ')}>
+                chip === t.key ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2 hover:bg-surface-2/70'].join(' ')}>
               {t.label}
             </button>
           ))}
         </div>
       </div>
 
-      {items.length === 0 ? (
-        <div className="card p-8 text-center text-[12px] text-ink-3">ยังไม่มีรายการในหมวดนี้</div>
-      ) : groupBy === 'none' ? (
-        <div className="grid sm:grid-cols-2 gap-2.5">
-          {items.map(renderCard)}
-        </div>
+      {filtered.length === 0 ? (
+        <div className="card p-8 text-center text-[12px] text-ink-3">{query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</div>
+      ) : chip !== 'all' ? (
+        <div className="grid sm:grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
       ) : (
         <div className="space-y-6">
           {sections.map((s) => {
-            const list = items.filter((p) => (groupBy === 'city' ? (p.city || 'ไม่ระบุเมือง') : p.category) === s.key)
-            const Icon = groupBy === 'category' ? catMeta(s.key).icon : null
+            const list = filtered.filter((p) => valueOf(p) === s.key)
+            const Icon = dim === 'category' ? catMeta(s.key).icon : null
             return (
               <div key={s.key}>
                 <div className="flex items-center gap-1.5 mb-2 text-[13px] font-medium text-ink-2">
                   {Icon && <Icon size={15} />}{s.label} <span className="text-ink-3 font-normal">{list.length}</span>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-2.5">
-                  {list.map(renderCard)}
-                </div>
+                <div className="grid sm:grid-cols-2 gap-2.5">{list.map(renderCard)}</div>
               </div>
             )
           })}

@@ -25,14 +25,12 @@ export function PlaceDetail({
 
   return (
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
-      <div className="-m-5 mb-0">
-        <div className="h-36 relative grid place-items-center overflow-hidden" style={{ background: meta.bg }}>
-          <SignedImage path={place.photo_path} alt={place.name ?? ''} className="absolute inset-0 w-full h-full object-cover"
-            fallback={<Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />} />
-          <span className="absolute bottom-2 right-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium z-10" style={{ background: '#fff', color: meta.fg }}>
-            {meta.label}
-          </span>
-        </div>
+      <div className="h-40 rounded-[14px] relative grid place-items-center overflow-hidden mt-1" style={{ background: meta.bg }}>
+        <SignedImage path={place.photo_path} alt={place.name ?? ''} className="absolute inset-0 w-full h-full object-cover"
+          fallback={<Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />} />
+        <span className="absolute bottom-2 right-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium z-10" style={{ background: '#fff', color: meta.fg }}>
+          {meta.label}
+        </span>
       </div>
 
       <div className="pt-4">
