@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconTrash, IconPhoto, IconLoader2 } from '@tabler/icons-react'
+import { IconTrash, IconPhoto, IconLoader2, IconCheck } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { SignedImage } from './SignedImage'
@@ -96,22 +96,29 @@ export function PlaceEditor({
           </div>
         </div>
         <div><div className={lbl}>ชื่อ</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Forbidden City" /></div>
-        <div className={tripCities.length > 1 ? 'grid grid-cols-2 gap-2' : ''}>
-          <div>
-            <div className={lbl}>หมวด</div>
-            <select className={field} value={category} onChange={(e) => setCategory(e.target.value)}>
-              {cats.map((c) => <option key={c} value={c}>{CATEGORY[c].label}</option>)}
-            </select>
-          </div>
-          {tripCities.length > 1 && (
-            <div>
-              <div className={lbl}>เมือง</div>
-              <select className={field} value={city} onChange={(e) => setCity(e.target.value)}>
-                <option value="">ไม่ระบุ</option>
-                {tripCities.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+        <div>
+          <div className={lbl}>หมวด</div>
+          <select className={field} value={category} onChange={(e) => setCategory(e.target.value)}>
+            {cats.map((c) => <option key={c} value={c}>{CATEGORY[c].label}</option>)}
+          </select>
+        </div>
+        <div>
+          <div className={lbl}>เมือง</div>
+          {tripCities.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {tripCities.map((c) => {
+                const on = city === c
+                return (
+                  <button key={c} onClick={() => setCity(on ? '' : c)}
+                    className={['chip', on ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+                    style={on ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+                    {on && <IconCheck size={12} />} {c}
+                  </button>
+                )
+              })}
             </div>
           )}
+          <input className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="พิมพ์ชื่อเมือง เช่น Beijing" />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>สาย / การเดินทาง</div><input className={field} value={line} onChange={(e) => setLine(e.target.value)} placeholder="Line 1 / Bus" /></div>

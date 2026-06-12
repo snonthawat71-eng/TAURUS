@@ -31,6 +31,15 @@ export function PlaceGrid({
   const cities = trip?.cities ?? []
   const profilesById = useMemo(() => new Map(memberProfiles.map((p) => [p.id, p])), [memberProfiles])
 
+  // cities actually available = trip cities ∪ cities used by this group's places
+  const cityOrder = useMemo(() => {
+    const set = new Set<string>()
+    cities.forEach((c) => set.add(c))
+    places.filter((p) => p.group_type === group).forEach((p) => { if (p.city) set.add(p.city) })
+    return Array.from(set)
+  }, [cities, places, group])
+  const hasCityData = cityOrder.length > 0
+
   const interestFor = (place: Place): { list: Interested[]; mine: boolean } => {
     const rows = interests.filter((i) => i.place_id === place.id)
     const list = rows.map((r) => {
@@ -65,7 +74,7 @@ export function PlaceGrid({
 
   const GROUP_OPTIONS: { key: GroupBy; label: string }[] = [
     { key: 'none', label: 'ทั้งหมด' },
-    ...(cities.length > 1 ? [{ key: 'city' as GroupBy, label: 'แยกตามเมือง' }] : []),
+    ...(hasCityData ? [{ key: 'city' as GroupBy, label: 'แยกตามเมือง' }] : []),
     { key: 'category', label: 'แยกตามประเภท' },
   ]
   const groupLabel = GROUP_OPTIONS.find((o) => o.key === groupBy)?.label ?? 'ทั้งหมด'
@@ -82,14 +91,14 @@ export function PlaceGrid({
   // build grouped sections
   const sections: { key: string; label: string }[] = useMemo(() => {
     if (groupBy === 'city') {
-      const order = [...cities, 'ไม่ระบุเมือง']
+      const order = [...cityOrder, 'ไม่ระบุเมือง']
       return order.filter((c) => items.some((p) => (p.city || 'ไม่ระบุเมือง') === c)).map((c) => ({ key: c, label: c }))
     }
     if (groupBy === 'category') {
       return tabs.filter((t) => t.key !== 'all' && items.some((p) => p.category === t.key)).map((t) => ({ key: t.key, label: t.label }))
     }
     return []
-  }, [groupBy, items, cities, tabs])
+  }, [groupBy, items, cityOrder, tabs])
 
   return (
     <div>

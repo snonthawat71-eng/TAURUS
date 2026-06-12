@@ -87,7 +87,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       setTrips(allTrips)
 
       // Pick the current trip (saved, else first)
-      const current = allTrips.find((t) => t.id === currentTripId) ?? allTrips[0]
+      let current = allTrips.find((t) => t.id === currentTripId) ?? allTrips[0]
       if (!current) { setData(empty); return }
       if (current.id !== currentTripId) {
         localStorage.setItem(STORAGE_KEY, current.id)
@@ -107,6 +107,12 @@ export function TripProvider({ children }: { children: ReactNode }) {
           supabase.from('hotels').select('id', { count: 'exact', head: true }).eq('trip_id', trip_id),
         ])
         await backfillSample({ trip_id, travelers: tvRows.data ?? [], travelerFilesCount: tfCount.count ?? 0, hotelsCount: htCount.count ?? 0 })
+        // give the sample trip its cities so the multi-city filter is demoable
+        if (!current.cities || current.cities.length === 0) {
+          await supabase.from('trips').update({ cities: ['Beijing', 'Tianjin'] }).eq('id', trip_id)
+          await supabase.from('places').update({ city: 'Beijing' }).eq('trip_id', trip_id).is('city', null)
+          current = { ...current, cities: ['Beijing', 'Tianjin'] }
+        }
       }
 
       const [
