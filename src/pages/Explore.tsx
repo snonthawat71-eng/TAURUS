@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconPlus, IconArrowLeft, IconMapPin, IconChevronDown, IconCheck, IconWorldSearch } from '@tabler/icons-react'
+import { IconPlus, IconArrowLeft, IconMapPin, IconWorldSearch } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
-import { Drawer } from '@/components/Drawer'
 import { SignedImage } from '@/components/SignedImage'
 import { ExploreCard } from '@/components/ExploreCard'
 import { ExploreEditor } from '@/components/ExploreEditor'
@@ -19,7 +18,6 @@ export default function Explore() {
   const [error, setError] = useState(false)
   const [group, setGroup] = useState<'all' | 'place' | 'food'>('all')
   const [city, setCity] = useState('all')
-  const [cityMenu, setCityMenu] = useState(false)
   const [editor, setEditor] = useState(false)
   const [fav, setFav] = useState<Place | null>(null)
 
@@ -57,18 +55,36 @@ export default function Explore() {
         </div>
         <p className="text-[13px] text-ink-3 mb-4">รวมสถานที่/ร้านที่ทุกคนแชร์ — กด ♥ เพื่อเซฟเข้าทริปของคุณ</p>
 
-        {/* filter bar */}
-        <div className="flex items-center gap-1.5 mb-4">
-          <button onClick={() => setCityMenu(true)} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium hairline bg-surface whitespace-nowrap shrink-0">
-            <IconMapPin size={14} /> {city === 'all' ? 'ทุกเมือง' : city} <IconChevronDown size={13} className="text-ink-3" />
-          </button>
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0">
-            {([['all', 'ทั้งหมด'], ['place', 'สถานที่'], ['food', 'ร้าน/คาเฟ่']] as const).map(([g, label]) => (
-              <button key={g} onClick={() => setGroup(g)}
-                className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', group === g ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{label}</button>
+        {/* type filter (places / food & cafe) */}
+        <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
+          {([['all', 'ทั้งหมด'], ['place', 'สถานที่'], ['food', 'ร้านอาหาร & คาเฟ่']] as const).map(([g, label]) => (
+            <button key={g} onClick={() => setGroup(g)}
+              className={['px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', group === g ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{label}</button>
+          ))}
+        </div>
+
+        {/* city tabs (cards, inline) */}
+        {cities.length > 0 && (
+          <div className="flex gap-2.5 overflow-x-auto no-scrollbar mb-4 pb-1">
+            <button onClick={() => setCity('all')}
+              className="shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
+              style={{ border: `1.5px solid ${city === 'all' ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
+              <div className="h-20 grid place-items-center bg-surface-2"><IconWorldSearch size={24} className="text-ink-3" /></div>
+              <div className="px-2 py-1.5 text-[12px] font-medium truncate">ทุกเมือง</div>
+            </button>
+            {cities.map((c) => (
+              <button key={c.name} onClick={() => setCity(c.name)}
+                className="shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
+                style={{ border: `1.5px solid ${city === c.name ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
+                <div className="h-20">
+                  <SignedImage url={c.photo} alt={c.name} className="w-full h-full object-cover"
+                    fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconMapPin size={20} className="text-ink-3" /></div>} />
+                </div>
+                <div className="px-2 py-1.5 text-[12px] font-medium truncate">{c.name}</div>
+              </button>
             ))}
           </div>
-        </div>
+        )}
 
         {loading ? (
           <div className="py-16 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
@@ -91,26 +107,6 @@ export default function Explore() {
         onSave={async (input) => { if (user) { await addExplore(user.id, input); load() } }} />
 
       <SaveToTripDialog place={fav} open={!!fav} onClose={() => setFav(null)} />
-
-      {/* City filter sheet */}
-      <Drawer open={cityMenu} onClose={() => setCityMenu(false)} title="เลือกเมือง">
-        <div className="grid grid-cols-2 gap-2.5">
-          <button onClick={() => { setCity('all'); setCityMenu(false) }}
-            className="card overflow-hidden text-left">
-            <div className="h-24 grid place-items-center bg-surface-2"><IconWorldSearch size={28} className="text-ink-3" /></div>
-            <div className="p-2.5 text-[13px] font-medium flex items-center justify-between">ทุกเมือง {city === 'all' && <IconCheck size={15} className="text-brand" />}</div>
-          </button>
-          {cities.map((c) => (
-            <button key={c.name} onClick={() => { setCity(c.name); setCityMenu(false) }} className="card overflow-hidden text-left">
-              <div className="h-24">
-                <SignedImage url={c.photo} alt={c.name} className="w-full h-full object-cover"
-                  fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconMapPin size={24} className="text-ink-3" /></div>} />
-              </div>
-              <div className="p-2.5 text-[13px] font-medium flex items-center justify-between">{c.name} {city === c.name && <IconCheck size={15} className="text-brand" />}</div>
-            </button>
-          ))}
-        </div>
-      </Drawer>
     </div>
   )
 }
