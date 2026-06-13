@@ -12,19 +12,19 @@ export function SaveToTripDialog({ place, open, onClose }: { place: Place | null
   const { trips } = useTrip()
   const { user } = useAuth()
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [doneId, setDoneId] = useState<string | null>(null)
+  const [done, setDone] = useState<Set<string>>(new Set())
 
   // trips the user owns (can save into)
   const myTrips = trips.filter((t) => t.owner_id === user?.id)
 
-  useEffect(() => { if (open) { setDoneId(null); setBusyId(null) } }, [open])
+  useEffect(() => { if (open) { setDone(new Set()); setBusyId(null) } }, [open])
 
   async function save(tripId: string) {
-    if (!place) return
+    if (!place || done.has(tripId)) return
     setBusyId(tripId)
     await copyPlaceToTrip(place, tripId)
     setBusyId(null)
-    setDoneId(tripId)
+    setDone((prev) => new Set(prev).add(tripId))
   }
 
   return (
@@ -39,19 +39,23 @@ export function SaveToTripDialog({ place, open, onClose }: { place: Place | null
         </div>
       ) : (
         <div className="space-y-1.5">
-          {myTrips.map((t) => (
-            <button key={t.id} onClick={() => save(t.id)} disabled={busyId === t.id || doneId === t.id}
-              className="w-full flex items-center gap-2.5 card p-3 text-left hover:bg-surface-2/40 disabled:opacity-70">
-              <span className="text-[20px] shrink-0">{t.flag || countryFlag(t.country)}</span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[14px] font-medium truncate">{t.name}</div>
-                <div className="text-[11px] text-ink-3">{formatDateRange(t.start_date, t.end_date) || t.country || '—'}</div>
-              </div>
-              {busyId === t.id ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
-                : doneId === t.id ? <span className="chip !bg-brand-soft !text-brand-dark"><IconCheck size={12} /> เซฟแล้ว</span>
-                : <span className="btn-link text-[12px]">เซฟที่นี่</span>}
-            </button>
-          ))}
+          {myTrips.map((t) => {
+            const saved = done.has(t.id)
+            return (
+              <button key={t.id} onClick={() => save(t.id)} disabled={busyId === t.id || saved}
+                className="relative w-full flex items-center gap-2.5 card p-3 text-left enabled:hover:bg-surface-2/40">
+                <span className="text-[20px] shrink-0">{t.flag || countryFlag(t.country)}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[14px] font-medium truncate">{t.name}</div>
+                  <div className="text-[11px] text-ink-3">{formatDateRange(t.start_date, t.end_date) || t.country || '—'}</div>
+                </div>
+                {busyId === t.id ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
+                  : saved ? <span className="chip !bg-brand-soft !text-brand-dark"><IconCheck size={12} /> เซฟแล้ว</span>
+                  : <span className="btn-link text-[12px]">เซฟที่นี่</span>}
+                {saved && <div className="absolute inset-0 rounded-[12px] pointer-events-none" style={{ background: 'rgba(120,118,110,0.16)' }} />}
+              </button>
+            )
+          })}
         </div>
       )}
     </Drawer>

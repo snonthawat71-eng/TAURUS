@@ -36,7 +36,12 @@ export function ExploreCard({ e, isOwner, onFav, onDelete }: {
       <div className="p-3.5">
         <div className="text-[15px] font-medium leading-snug">{e.name}</div>
         <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1">
-          {e.station_line && <><span className="size-2 rounded-full" style={{ background: e.station_color ?? '#888780' }} /><span>{e.station_line}{e.station_name ? ` · ${e.station_name}` : ''}</span></>}
+          {(e.station_line || e.station_color || e.station_name) && (
+            <>
+              <span className="size-2.5 rounded-full shrink-0" style={{ background: e.station_color ?? '#888780' }} />
+              <span className="truncate">{[e.station_line, e.station_name].filter(Boolean).join(' · ') || 'สถานี'}</span>
+            </>
+          )}
           {e.city && <span className="chip !py-0.5">{e.city}</span>}
         </div>
         {e.note && <p className="text-[12px] text-ink-2 mt-1.5 line-clamp-2">{e.note}</p>}

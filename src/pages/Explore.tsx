@@ -8,6 +8,7 @@ import { ExploreCard } from '@/components/ExploreCard'
 import { ExploreEditor } from '@/components/ExploreEditor'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, deleteExplore, exploreAsPlace } from '@/lib/exploreMutations'
+import { cityImage } from '@/lib/cityImages'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
 export default function Explore() {
@@ -33,7 +34,7 @@ export default function Explore() {
   const cities = useMemo(() => {
     const m = new Map<string, ExplorePlace>()
     for (const e of items) if (e.city && !m.has(e.city)) m.set(e.city, e)
-    return Array.from(m.entries()).map(([name, sample]) => ({ name, photo: sample.photo_url }))
+    return Array.from(m.entries()).map(([name, sample]) => ({ name, photo: cityImage(name) ?? sample.photo_url }))
   }, [items])
 
   const filtered = items
@@ -57,7 +58,7 @@ export default function Explore() {
 
         {/* type filter (places / food & cafe) */}
         <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-          {([['all', 'ทั้งหมด'], ['place', 'สถานที่'], ['food', 'ร้านอาหาร & คาเฟ่']] as const).map(([g, label]) => (
+          {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food and Cafe']] as const).map(([g, label]) => (
             <button key={g} onClick={() => setGroup(g)}
               className={['px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', group === g ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{label}</button>
           ))}
