@@ -24,7 +24,7 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 }
 
 export default function Budget() {
-  const { trip, expenses, travelers, memberProfiles, reload } = useTrip()
+  const { trip, expenses, travelers, memberProfiles, reload, canEdit } = useTrip()
   const [editor, setEditor] = useState<'new' | Expense | null>(null)
   const [equiv, setEquiv] = useState<string | null>(null)
 
@@ -76,7 +76,7 @@ export default function Budget() {
       {/* Expense list */}
       <div className="flex items-center justify-between mt-6 mb-2.5">
         <h2 className="text-[13px] font-medium text-ink-2 flex items-center gap-1.5"><IconReceipt size={15} /> Expenses • รายการค่าใช้จ่าย</h2>
-        <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มรายการ</button>
+        {canEdit && <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มรายการ</button>}
       </div>
 
       <div className="space-y-2.5">
@@ -99,10 +99,12 @@ export default function Budget() {
                 <div className="text-[11px] text-ink-3 tabular-nums">{baht((e.total ?? 0) / n)}/คน</div>
               </div>
               <SlipButton path={e.receipt_path} />
-              <PopMenu items={[
-                { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(e) },
-                { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (confirm('ลบรายการนี้?')) { await deleteExpense(e.id); await reload() } }, danger: true },
-              ]} />
+              {canEdit && (
+                <PopMenu items={[
+                  { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(e) },
+                  { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (confirm('ลบรายการนี้?')) { await deleteExpense(e.id); await reload() } }, danger: true },
+                ]} />
+              )}
             </div>
           )
         })}

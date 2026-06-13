@@ -5,7 +5,7 @@ import { useTrip } from '@/contexts/TripContext'
 import { PopMenu } from './PopMenu'
 
 export function AttachLink({
-  table, id, tripId, storagePath, attachLabel = 'แนบไฟล์จอง', viewLabel = 'ไฟล์จอง',
+  table, id, tripId, storagePath, attachLabel = 'แนบไฟล์จอง', viewLabel = 'ไฟล์จอง', canEdit = true,
 }: {
   table: 'flights' | 'hotels'
   id: string
@@ -13,6 +13,7 @@ export function AttachLink({
   storagePath: string | null
   attachLabel?: string
   viewLabel?: string
+  canEdit?: boolean
 }) {
   const { reload } = useTrip()
   const [busy, setBusy] = useState(false)
@@ -44,6 +45,7 @@ export function AttachLink({
     await reload()
   }
 
+  if (!canEdit && !hasFile) return null
   return (
     <span className="inline-flex items-center gap-1">
       {hasFile ? (
@@ -51,11 +53,13 @@ export function AttachLink({
           <button onClick={view} disabled={busy} className="btn-link flex items-center gap-1 text-[12px] disabled:opacity-50">
             {busy ? <IconLoader2 size={14} className="animate-spin" /> : <IconFileCheck size={14} />} {viewLabel}
           </button>
-          <PopMenu size={24} items={[
-            { label: 'เปิดดู', icon: <IconEye size={15} />, onClick: view },
-            { label: 'เปลี่ยนไฟล์', icon: <IconRefresh size={15} />, onClick: () => input.current?.click() },
-            { label: 'ลบไฟล์', icon: <IconTrash size={15} />, onClick: del, danger: true },
-          ]} />
+          {canEdit && (
+            <PopMenu size={24} items={[
+              { label: 'เปิดดู', icon: <IconEye size={15} />, onClick: view },
+              { label: 'เปลี่ยนไฟล์', icon: <IconRefresh size={15} />, onClick: () => input.current?.click() },
+              { label: 'ลบไฟล์', icon: <IconTrash size={15} />, onClick: del, danger: true },
+            ]} />
+          )}
         </>
       ) : (
         <button onClick={() => input.current?.click()} disabled={busy} className="btn-link flex items-center gap-1 text-[12px] disabled:opacity-50">

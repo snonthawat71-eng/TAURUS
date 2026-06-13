@@ -34,8 +34,9 @@ function isImage(path: string) {
 }
 
 /** Quick QR tile — renders the actual image so it can be scanned at a glance. */
-function QrTile({ file, onOpen, onRename, onReplace, onDelete }: {
+function QrTile({ file, canEdit, onOpen, onRename, onReplace, onDelete }: {
   file: TravelerFile
+  canEdit: boolean
   onOpen: (url: string) => void
   onRename: () => void
   onReplace: () => void
@@ -51,11 +52,13 @@ function QrTile({ file, onOpen, onRename, onReplace, onDelete }: {
 
   return (
     <div className="card overflow-hidden relative w-[130px]">
-      <div className="absolute top-1.5 right-1.5 flex gap-1 z-10">
-        <button onClick={onRename} className="size-6 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm" aria-label="แก้ชื่อ"><IconPencil size={12} /></button>
-        <button onClick={onReplace} className="size-6 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm" aria-label="เปลี่ยนรูป"><IconRefresh size={12} /></button>
-        <button onClick={onDelete} className="size-6 rounded-full bg-white/90 grid place-items-center text-[#D85A30] shadow-sm" aria-label="ลบ"><IconTrash size={12} /></button>
-      </div>
+      {canEdit && (
+        <div className="absolute top-1.5 right-1.5 flex gap-1 z-10">
+          <button onClick={onRename} className="size-6 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm" aria-label="แก้ชื่อ"><IconPencil size={12} /></button>
+          <button onClick={onReplace} className="size-6 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm" aria-label="เปลี่ยนรูป"><IconRefresh size={12} /></button>
+          <button onClick={onDelete} className="size-6 rounded-full bg-white/90 grid place-items-center text-[#D85A30] shadow-sm" aria-label="ลบ"><IconTrash size={12} /></button>
+        </div>
+      )}
       <button onClick={() => (url ? onOpen(url) : alert('นี่เป็นตัวอย่าง — อัปโหลด QR จริงเพื่อแสดงเต็มจอ'))} className="block w-full text-left">
         <div className="aspect-square bg-surface-2 grid place-items-center">
           {url ? <img src={url} alt={file.label ?? ''} className="w-full h-full object-contain bg-white" />
@@ -68,13 +71,14 @@ function QrTile({ file, onOpen, onRename, onReplace, onDelete }: {
 }
 
 export function TravelerDrawer({
-  traveler, tripId, files, color, open, onClose, onEdit,
+  traveler, tripId, files, color, open, canEdit = true, onClose, onEdit,
 }: {
   traveler: Traveler | null
   tripId: string
   files: TravelerFile[]
   color?: string
   open: boolean
+  canEdit?: boolean
   onClose: () => void
   onEdit?: () => void
 }) {
@@ -156,19 +160,19 @@ export function TravelerDrawer({
       {/* Quick QR — shown as images for instant scanning (max 2) */}
       <div className="flex items-center justify-between mt-5 mb-1.5">
         <span className="text-[12px] font-medium text-ink-2">QR Code · เอกสารด่วน</span>
-        {quick.length < 2 && (
+        {canEdit && quick.length < 2 && (
           <button onClick={() => qrInput.current?.click()} disabled={uploading} className="btn-link flex items-center gap-1 text-[12px] disabled:opacity-50">
             {uploading ? <IconLoader2 size={13} className="animate-spin" /> : <IconPlus size={13} />} อัปโหลด QR
           </button>
         )}
       </div>
-      <div className="flex items-center justify-center gap-1 text-[11px] text-ink-3 mb-2"><IconZoomScan size={13} /> แตะเพื่อแสดงเต็มจอ</div>
+      {quick.length > 0 && <div className="flex items-center justify-center gap-1 text-[11px] text-ink-3 mb-2"><IconZoomScan size={13} /> แตะเพื่อแสดงเต็มจอ</div>}
       {quick.length === 0 ? (
-        <div className="card p-3 text-center text-[12px] text-ink-3">ยังไม่มี QR — กด "อัปโหลด QR" เพื่อเพิ่ม (สูงสุด 2)</div>
+        <div className="card p-3 text-center text-[12px] text-ink-3">{canEdit ? 'ยังไม่มี QR — กด "อัปโหลด QR" เพื่อเพิ่ม (สูงสุด 2)' : 'ยังไม่มี QR'}</div>
       ) : (
         <div className="flex justify-center gap-2.5 flex-wrap">
           {quick.slice(0, 2).map((f) => (
-            <QrTile key={f.id} file={f} onOpen={setLightbox}
+            <QrTile key={f.id} file={f} canEdit={canEdit} onOpen={setLightbox}
               onRename={() => rename(f)}
               onReplace={() => { setReplacing(f); qrReplaceInput.current?.click() }}
               onDelete={() => remove(f)} />
@@ -193,30 +197,34 @@ export function TravelerDrawer({
                 <button onClick={() => openDoc(f)} className="flex-1 text-left text-[13px] hover:text-brand-mid truncate">
                   {f.label || meta.label}{isSampleFile(f.storage_path) && <span className="text-ink-3 text-[11px]"> · ตัวอย่าง</span>}
                 </button>
-                <button onClick={() => remove(f)} className="text-ink-3 hover:text-[#D85A30]"><IconTrash size={15} /></button>
+                {canEdit && <button onClick={() => remove(f)} className="text-ink-3 hover:text-[#D85A30]"><IconTrash size={15} /></button>}
               </div>
             )
           })}
         </div>
       )}
 
+      {attached.length === 0 && !canEdit && <div className="card p-3 text-center text-[12px] text-ink-3">ยังไม่มีไฟล์แนบ</div>}
+
       {/* Attached uploader (dropdown) */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <select value={uploadKind} onChange={(e) => setUploadKind(e.target.value)} className="hairline rounded-md text-[12px] h-9 px-2 bg-surface flex-1">
-            {ATTACH_KINDS.map((k) => <option key={k} value={k}>{KIND_META[k].label}</option>)}
-          </select>
-          <button onClick={() => fileInput.current?.click()} disabled={uploading || (uploadKind === 'other' && !customLabel.trim())}
-            className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
-            {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPaperclip size={14} />} แนบไฟล์
-          </button>
+      {canEdit && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <select value={uploadKind} onChange={(e) => setUploadKind(e.target.value)} className="hairline rounded-md text-[12px] h-9 px-2 bg-surface flex-1">
+              {ATTACH_KINDS.map((k) => <option key={k} value={k}>{KIND_META[k].label}</option>)}
+            </select>
+            <button onClick={() => fileInput.current?.click()} disabled={uploading || (uploadKind === 'other' && !customLabel.trim())}
+              className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
+              {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPaperclip size={14} />} แนบไฟล์
+            </button>
+          </div>
+          {uploadKind === 'other' && (
+            <input value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} placeholder="ระบุชื่อเอกสาร"
+              className="hairline rounded-md text-[13px] h-9 px-3 bg-surface w-full outline-none focus:border-brand" />
+          )}
+          <input ref={fileInput} type="file" accept="image/*,application/pdf" hidden onChange={onPickAttach} />
         </div>
-        {uploadKind === 'other' && (
-          <input value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} placeholder="ระบุชื่อเอกสาร"
-            className="hairline rounded-md text-[13px] h-9 px-3 bg-surface w-full outline-none focus:border-brand" />
-        )}
-        <input ref={fileInput} type="file" accept="image/*,application/pdf" hidden onChange={onPickAttach} />
-      </div>
+      )}
 
       {/* Lightbox */}
       {lightbox && (

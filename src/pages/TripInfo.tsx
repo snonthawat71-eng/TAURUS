@@ -55,9 +55,10 @@ async function viewFile(f: TravelerFile) {
   if (url) window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-function FlightCard({ flights, tripId, onEdit, onDelete }: {
+function FlightCard({ flights, tripId, canEdit, onEdit, onDelete }: {
   flights: Flight[]
   tripId: string
+  canEdit: boolean
   onEdit: (f: Flight) => void
   onDelete: (f: Flight) => void
 }) {
@@ -83,10 +84,12 @@ function FlightCard({ flights, tripId, onEdit, onDelete }: {
             </button>
           ))}
         </div>
-        <PopMenu items={[
-          { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
-          { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
-        ]} />
+        {canEdit && (
+          <PopMenu items={[
+            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
+            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
+          ]} />
+        )}
       </div>
 
       {/* route graphic — fixed columns so ขาไป/ขากลับ don't shift */}
@@ -122,14 +125,14 @@ function FlightCard({ flights, tripId, onEdit, onDelete }: {
         {f.booking_ref && (
           <span className="inline-flex items-center gap-0.5 booking-id text-[12px]"><IconHash size={12} />{f.booking_ref}</span>
         )}
-        <span className="ml-auto"><AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} /></span>
+        <span className="ml-auto"><AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} /></span>
       </div>
     </div>
   )
 }
 
 export default function TripInfo() {
-  const { trip, travelers, travelerFiles, flights, hotels, profile, reload } = useTrip()
+  const { trip, travelers, travelerFiles, flights, hotels, profile, reload, canEdit } = useTrip()
   const { user } = useAuth()
   const [selected, setSelected] = useState<Traveler | null>(null)
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
@@ -152,7 +155,7 @@ export default function TripInfo() {
     <div>
       {/* Travelers */}
       <SectionHead title="Travelers • ผู้เดินทาง"
-        action={<button onClick={() => setTravelerEdit('new')} className="btn-link flex items-center gap-1"><IconUserPlus size={14} /> เพิ่มคน</button>} />
+        action={canEdit ? <button onClick={() => setTravelerEdit('new')} className="btn-link flex items-center gap-1"><IconUserPlus size={14} /> เพิ่มคน</button> : undefined} />
       <div className="grid sm:grid-cols-2 gap-2.5">
         {travelers.map((t, i) => {
           const files = filesByTraveler.get(t.id) ?? []
@@ -174,9 +177,11 @@ export default function TripInfo() {
                     </span>
                   )
                 })}
-                <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
-                  <IconPlus size={12} /> เพิ่มไฟล์
-                </span>
+                {canEdit && (
+                  <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
+                    <IconPlus size={12} /> เพิ่มไฟล์
+                  </span>
+                )}
               </div>
             </button>
           )
@@ -185,17 +190,17 @@ export default function TripInfo() {
 
       {/* Flights */}
       <SectionHead title="Flights • ข้อมูลเที่ยวบิน"
-        action={<button onClick={() => setFlightEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มเที่ยวบิน</button>} />
+        action={canEdit ? <button onClick={() => setFlightEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มเที่ยวบิน</button> : undefined} />
       {flights.length === 0 ? (
         <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลไฟลต์</div>
       ) : (
-        <FlightCard flights={flights} tripId={trip?.id ?? ''} onEdit={(f) => setFlightEdit(f)}
+        <FlightCard flights={flights} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(f) => setFlightEdit(f)}
           onDelete={async (f) => { if (confirm('ลบไฟลต์นี้?')) { await deleteFlight(f.id); await reload() } }} />
       )}
 
       {/* Hotels */}
       <SectionHead title="Hotels • ที่พัก"
-        action={<button onClick={() => setHotelEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มที่พัก</button>} />
+        action={canEdit ? <button onClick={() => setHotelEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มที่พัก</button> : undefined} />
       <div className="space-y-2.5">
         {hotels.map((h) => (
           <div key={h.id} className="card p-4">
@@ -209,10 +214,12 @@ export default function TripInfo() {
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <AMapPill url={h.map_url} />
-                    <PopMenu items={[
-                      { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setHotelEdit(h) },
-                      { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (confirm('ลบที่พักนี้?')) { await deleteHotel(h.id); await reload() } }, danger: true },
-                    ]} />
+                    {canEdit && (
+                      <PopMenu items={[
+                        { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setHotelEdit(h) },
+                        { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (confirm('ลบที่พักนี้?')) { await deleteHotel(h.id); await reload() } }, danger: true },
+                      ]} />
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 mt-3">
@@ -238,7 +245,7 @@ export default function TripInfo() {
                   <span key={i} className="chip"><IconBed size={12} /> {r.name} · {r.members.join(', ')}</span>
                 ))}
               </div>
-              {trip && <AttachLink table="hotels" id={h.id} tripId={trip.id} storagePath={h.storage_path} attachLabel="ใบจอง" viewLabel="ดูใบจอง" />}
+              {trip && <AttachLink table="hotels" id={h.id} tripId={trip.id} storagePath={h.storage_path} attachLabel="ใบจอง" viewLabel="ดูใบจอง" canEdit={canEdit} />}
             </div>
           </div>
         ))}
@@ -252,8 +259,9 @@ export default function TripInfo() {
         color={selected ? colorOf(selected) : undefined}
         files={selected ? (filesByTraveler.get(selected.id) ?? []) : []}
         open={!!selected}
+        canEdit={canEdit}
         onClose={() => setSelected(null)}
-        onEdit={() => { if (selected) { setTravelerEdit(selected); setSelected(null) } }}
+        onEdit={canEdit ? () => { if (selected) { setTravelerEdit(selected); setSelected(null) } } : undefined}
       />
 
       {/* Editors */}
