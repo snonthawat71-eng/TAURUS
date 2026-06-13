@@ -107,6 +107,9 @@ export async function deleteInvite(id: string) {
 export async function updateMemberPermission(trip_id: string, user_id: string, permission: SharePermission) {
   return supabase.from('trip_members').update({ permission }).eq('trip_id', trip_id).eq('user_id', user_id)
 }
+export async function removeMember(trip_id: string, user_id: string) {
+  return supabase.from('trip_members').delete().eq('trip_id', trip_id).eq('user_id', user_id)
+}
 
 // ---------- Profile (the logged-in user) ----------
 

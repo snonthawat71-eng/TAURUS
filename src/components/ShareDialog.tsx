@@ -5,7 +5,7 @@ import { Avatar } from './Avatar'
 import { supabase } from '@/lib/supabase'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { addInvite, deleteInvite, updateMemberPermission, type SharePermission } from '@/lib/tripMutations'
+import { addInvite, deleteInvite, updateMemberPermission, removeMember, type SharePermission } from '@/lib/tripMutations'
 
 interface Invite { id: string; email: string; status: string; permission?: string | null }
 interface Member { user_id: string; permission?: string | null }
@@ -18,7 +18,7 @@ export const PERMS: { key: SharePermission; label: string; desc: string }[] = [
 const permLabel = (p?: string | null) => PERMS.find((x) => x.key === p)?.label ?? 'แชร์และแก้ไข'
 
 export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { trip, memberProfiles } = useTrip()
+  const { trip, memberProfiles, reload } = useTrip()
   const { user } = useAuth()
   const isOwner = !!trip && !!user && trip.owner_id === user.id
 
@@ -64,10 +64,14 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
                 {trip?.owner_id === m.id ? (
                   <span className="chip !bg-brand-soft !text-brand-dark"><IconCrown size={12} /> เจ้าของ</span>
                 ) : isOwner ? (
-                  <select value={permOf(m.id)} onChange={async (e) => { await updateMemberPermission(trip!.id, m.id, e.target.value as SharePermission); loadData() }}
-                    className="hairline rounded-md text-[11px] h-7 px-1.5 bg-surface">
-                    {PERMS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-                  </select>
+                  <>
+                    <select value={permOf(m.id)} onChange={async (e) => { await updateMemberPermission(trip!.id, m.id, e.target.value as SharePermission); loadData(); reload() }}
+                      className="hairline rounded-md text-[11px] h-7 px-1.5 bg-surface">
+                      {PERMS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+                    </select>
+                    <button onClick={async () => { if (confirm(`นำ "${m.nickname ?? 'สมาชิกคนนี้'}" ออกจากทริป?`)) { await removeMember(trip!.id, m.id); await reload(); loadData() } }}
+                      className="text-ink-3 hover:text-[#D85A30] shrink-0" aria-label="ลบสมาชิก"><IconTrash size={15} /></button>
+                  </>
                 ) : (
                   <span className="chip">{permLabel(permOf(m.id))}</span>
                 )}
