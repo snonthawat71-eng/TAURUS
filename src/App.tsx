@@ -5,6 +5,7 @@ import { TripProvider } from '@/contexts/TripContext'
 import Login from '@/pages/Login'
 import { AppShell } from '@/components/layout/AppShell'
 import TripsDashboard from '@/pages/TripsDashboard'
+import Explore from '@/pages/Explore'
 import TripInfo from '@/pages/TripInfo'
 import Itinerary from '@/pages/Itinerary'
 import Places from '@/pages/Places'
@@ -30,6 +31,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<TripsDashboard />} />
+          <Route path="/explore" element={<Explore />} />
           <Route element={<AppShell />}>
             <Route path="/info" element={<TripInfo />} />
             <Route path="/itinerary" element={<Itinerary />} />

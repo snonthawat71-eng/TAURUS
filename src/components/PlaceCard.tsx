@@ -37,8 +37,8 @@ export function PlaceCard({
     <div className="card overflow-hidden flex flex-col relative">
       {/* Header image */}
       <div className="relative h-36">
-        {place.photo_path
-          ? <SignedImage path={place.photo_path} alt={place.name ?? ''} className="w-full h-full object-cover" fallback={placeholder} />
+        {place.photo_url || place.photo_path
+          ? <SignedImage url={place.photo_url} path={place.photo_path} alt={place.name ?? ''} className="w-full h-full object-cover" fallback={placeholder} />
           : placeholder}
 
         {mode === 'edit' && (

@@ -1,21 +1,27 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
 
-/** Renders a private image via a short-lived signed URL; shows `fallback` until/if unavailable. */
-export function SignedImage({ path, alt, className, fallback }: {
-  path: string | null | undefined
+/**
+ * Renders an image. Priority: external `url` → private `path` (signed) → `fallback`.
+ * `url` is used directly (e.g. Explore pool photos); `path` is a private bucket
+ * object served via a short-lived signed URL.
+ */
+export function SignedImage({ url, path, alt, className, fallback }: {
+  url?: string | null
+  path?: string | null
   alt?: string
   className?: string
   fallback?: ReactNode
 }) {
-  const [url, setUrl] = useState<string | null>(null)
+  const [signed, setSigned] = useState<string | null>(null)
   useEffect(() => {
     let active = true
-    setUrl(null)
-    if (path && !isSampleFile(path)) getSignedUrl(path).then((u) => active && setUrl(u))
+    setSigned(null)
+    if (!url && path && !isSampleFile(path)) getSignedUrl(path).then((u) => active && setSigned(u))
     return () => { active = false }
-  }, [path])
+  }, [url, path])
 
-  if (!url) return <>{fallback ?? null}</>
-  return <img src={url} alt={alt ?? ''} className={className} />
+  const src = url || signed
+  if (!src) return <>{fallback ?? null}</>
+  return <img src={src} alt={alt ?? ''} className={className} />
 }

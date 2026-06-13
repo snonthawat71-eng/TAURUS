@@ -159,7 +159,26 @@ export interface Place {
   in_plan: boolean
   /** optional — present after the extra_columns migration */
   photo_path?: string | null
+  photo_url?: string | null
   city?: string | null
+  created_at: string
+}
+
+/** Community pool item (explore_places table) */
+export interface ExplorePlace {
+  id: string
+  group_type: PlaceGroup | string | null
+  category: string | null
+  name: string | null
+  city: string | null
+  country: string | null
+  station_line: string | null
+  station_color: string | null
+  station_name: string | null
+  map_url: string | null
+  note: string | null
+  photo_url: string | null
+  created_by: string | null
   created_at: string
 }
 

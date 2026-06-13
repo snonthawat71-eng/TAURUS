@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   IconPlus, IconPencil, IconTrash, IconCopy, IconDownload, IconCalendar, IconCrown,
-  IconUserCircle, IconLogout, IconDots, IconArrowRight,
+  IconUserCircle, IconLogout, IconDots, IconArrowRight, IconWorldSearch,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -60,8 +60,12 @@ export default function TripsDashboard() {
       <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center justify-between px-5 sm:px-8 h-16"
         style={{ borderBottom: '0.5px solid var(--color-line)' }}>
         <TaurusLogo height={30} />
-        <div className="relative">
-          <button onClick={() => setMenu((v) => !v)} className="btn-icon"><IconDots size={16} /></button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/explore')} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium">
+            <IconWorldSearch size={16} /> <span className="max-sm:hidden">Explore</span>
+          </button>
+          <div className="relative">
+            <button onClick={() => setMenu((v) => !v)} className="btn-icon"><IconDots size={16} /></button>
           {menu && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
@@ -74,6 +78,7 @@ export default function TripsDashboard() {
               </div>
             </>
           )}
+          </div>
         </div>
       </header>
 
