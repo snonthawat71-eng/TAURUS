@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { IconPhoto, IconLoader2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
+import { uploadPublicImage } from '@/lib/files'
 import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES } from '@/lib/placeMeta'
 import type { ExploreInput } from '@/lib/exploreMutations'
 import type { PlaceGroup } from '@/lib/database.types'
@@ -25,7 +27,9 @@ export function ExploreEditor({ open, onClose, onSave }: {
   const [mapUrl, setMapUrl] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
   const [note, setNote] = useState('')
+  const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
+  const photoInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -36,6 +40,16 @@ export function ExploreEditor({ open, onClose, onSave }: {
   function changeGroup(g: PlaceGroup) {
     setGroup(g)
     setCategory((g === 'food' ? FOOD_CATEGORIES : PLACE_CATEGORIES)[0])
+  }
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const { url } = await uploadPublicImage(file)
+    if (url) setPhotoUrl(url)
+    setUploading(false)
+    if (photoInput.current) photoInput.current.value = ''
   }
 
   async function save() {
@@ -74,7 +88,22 @@ export function ExploreEditor({ open, onClose, onSave }: {
           <div><div className={lbl}>สถานี</div><input className={field} value={station} onChange={(e) => setStation(e.target.value)} placeholder="Namba" /></div>
         </div>
         <div><div className={lbl}>สีสาย</div><ColorPicker value={color} onChange={setColor} /></div>
-        <div><div className={lbl}>รูป (วาง URL รูปภาพ)</div><input className={field} value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://...jpg" /></div>
+        <div>
+          <div className={lbl}>รูปภาพ</div>
+          <div className="flex items-center gap-3 mt-1">
+            <div className="w-20 h-16 rounded-md overflow-hidden shrink-0 bg-surface-2 grid place-items-center">
+              {photoUrl ? <img src={photoUrl} alt="" className="w-full h-full object-cover" /> : <IconPhoto size={20} className="text-ink-3" />}
+            </div>
+            <div>
+              <button onClick={() => photoInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
+                {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />} {photoUrl ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}
+              </button>
+              {photoUrl && <button onClick={() => setPhotoUrl('')} className="btn-link text-[12px] ml-2">เอาออก</button>}
+              <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPick} />
+            </div>
+          </div>
+          <input className={`${field} mt-2`} value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="หรือวาง URL รูปภาพ" />
+        </div>
         <div><div className={lbl}>ลิงก์แผนที่</div><input className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps..." /></div>
         <div><div className={lbl}>โน้ต</div>
           <textarea className="hairline rounded-md text-[13px] p-3 bg-surface w-full outline-none focus:border-brand resize-none" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="แนะนำสั้นๆ" />

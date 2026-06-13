@@ -41,6 +41,7 @@ export function PlaceEditor({
   const [mapUrl, setMapUrl] = useState('')
   const [note, setNote] = useState('')
   const [photoPath, setPhotoPath] = useState<string | null>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
@@ -55,6 +56,7 @@ export function PlaceEditor({
     setMapUrl(initial?.map_url ?? '')
     setNote(initial?.note ?? '')
     setPhotoPath(initial?.photo_path ?? null)
+    setPhotoUrl(initial?.photo_url ?? null)
     setCity(initial?.city ?? (tripCities.length === 1 ? tripCities[0] : ''))
   }, [open, initial]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -63,7 +65,7 @@ export function PlaceEditor({
     if (!file) return
     setUploading(true)
     const { path } = await uploadImage(tripId, 'place-photo', file)
-    if (path) setPhotoPath(path)
+    if (path) { setPhotoPath(path); setPhotoUrl(null) }
     setUploading(false)
     if (photoInput.current) photoInput.current.value = ''
   }
@@ -72,7 +74,7 @@ export function PlaceEditor({
     setBusy(true)
     await onSave({
       group_type: group, name, category, station_line: line, station_color: color,
-      station_name: station, map_url: mapUrl, note, photo_path: photoPath, city: city || null,
+      station_name: station, map_url: mapUrl, note, photo_path: photoPath, photo_url: photoUrl, city: city || null,
     })
     setBusy(false)
     onClose()
@@ -89,15 +91,15 @@ export function PlaceEditor({
         {/* Photo */}
         <div className="flex items-center gap-3">
           <div className="w-20 h-16 rounded-md overflow-hidden shrink-0 grid place-items-center" style={{ background: meta.bg }}>
-            <SignedImage path={photoPath} className="w-full h-full object-cover"
+            <SignedImage url={photoUrl} path={photoPath} className="w-full h-full object-cover"
               fallback={<meta.icon size={22} style={{ color: meta.fg, opacity: 0.85 }} />} />
           </div>
           <div>
             <button onClick={() => photoInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
               {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />}
-              {photoPath ? 'เปลี่ยนรูป' : 'เพิ่มรูปสถานที่'}
+              {(photoPath || photoUrl) ? 'เปลี่ยนรูป' : 'เพิ่มรูปสถานที่'}
             </button>
-            {photoPath && <button onClick={() => setPhotoPath(null)} className="btn-link text-[12px] ml-2">เอาออก</button>}
+            {(photoPath || photoUrl) && <button onClick={() => { setPhotoPath(null); setPhotoUrl(null) }} className="btn-link text-[12px] ml-2">เอาออก</button>}
             <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPickPhoto} />
           </div>
         </div>

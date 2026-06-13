@@ -33,3 +33,17 @@ create policy "explore delete" on explore_places for delete using (auth.uid() = 
 
 -- ให้สถานที่ในทริปเก็บรูปจาก URL ได้ (ตอน fav จาก Explore เข้าทริป รูปจะติดไปด้วย)
 alter table places add column if not exists photo_url text;
+
+-- ============================================================
+-- Public bucket สำหรับรูป Explore (อัปโหลดเองได้ + เปิดดูสาธารณะ)
+-- ============================================================
+insert into storage.buckets (id, name, public) values ('explore-photos', 'explore-photos', true)
+on conflict (id) do nothing;
+
+drop policy if exists "explore photos read"   on storage.objects;
+drop policy if exists "explore photos insert" on storage.objects;
+drop policy if exists "explore photos delete" on storage.objects;
+create policy "explore photos read"   on storage.objects for select using (bucket_id = 'explore-photos');
+create policy "explore photos insert" on storage.objects for insert with check (bucket_id = 'explore-photos' and auth.uid() is not null);
+create policy "explore photos delete" on storage.objects for delete using (bucket_id = 'explore-photos' and owner = auth.uid());
+

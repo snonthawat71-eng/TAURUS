@@ -51,6 +51,16 @@ export async function uploadImage(tripId: string, prefix: string, file: File): P
   return { path, error: null }
 }
 
+/** Upload an image to the public Explore bucket and return a permanent public URL. */
+export async function uploadPublicImage(file: File): Promise<{ url: string | null; error: string | null }> {
+  const ext = file.name.split('.').pop() ?? 'jpg'
+  const path = `explore/${crypto.randomUUID()}.${ext}`
+  const up = await supabase.storage.from('explore-photos').upload(path, file, { upsert: false })
+  if (up.error) return { url: null, error: up.error.message }
+  const { data } = supabase.storage.from('explore-photos').getPublicUrl(path)
+  return { url: data.publicUrl, error: null }
+}
+
 /** Attach a booking file to a flight or hotel (single storage_path column). */
 export async function uploadEntityFile(opts: {
   table: 'flights' | 'hotels'
