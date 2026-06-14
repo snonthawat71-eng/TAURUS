@@ -78,7 +78,7 @@ export function TransitEditor({
           <button onClick={() => setHkOpen(true)}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
             style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
-            <IconMap2 size={17} /> ดูแผนที่ MTR ฮ่องกง
+            <IconMap2 size={17} /> เลือกจากแผนที่ MTR ฮ่องกง (คำนวณจุดเปลี่ยนสายให้)
           </button>
         )}
         {legs.map((leg, i) => (
@@ -176,7 +176,8 @@ export function TransitEditor({
           onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setMapOpen(false) }}
         />
       )}
-      {hk && hkOpen && <HKMapViewer onClose={() => setHkOpen(false)} />}
+      {hk && hkOpen && <HKMapViewer onClose={() => setHkOpen(false)}
+        onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setHkOpen(false) }} />}
     </Drawer>
   )
 }
