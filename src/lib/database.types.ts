@@ -182,6 +182,25 @@ export interface ExplorePlace {
   created_at: string
 }
 
+/** Comment on an Explore pool item (explore_comments table) */
+export interface ExploreComment {
+  id: string
+  explore_id: string
+  user_id: string | null
+  author_name: string | null
+  author_color: string | null
+  body: string
+  created_at: string
+}
+
+/** Recommend (1) / not-recommend (-1) vote on an Explore item (explore_votes table) */
+export interface ExploreVote {
+  explore_id: string
+  user_id: string
+  vote: number
+  created_at: string
+}
+
 export interface PlaceInterest {
   place_id: string
   user_id: string

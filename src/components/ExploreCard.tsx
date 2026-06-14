@@ -4,56 +4,62 @@ import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
 
-export function ExploreCard({ e, isOwner, saved, onFav, onDelete }: {
+export function ExploreCard({ e, isOwner, saved, onFav, onDelete, onOpen }: {
   e: ExplorePlace
   isOwner: boolean
   saved: boolean
   onFav: () => void
   onDelete: () => void
+  onOpen: () => void
 }) {
   const meta = catMeta(e.category)
   const Icon = meta.icon
 
   return (
-    <div className="card overflow-hidden relative flex">
-      {/* image on the left (large) */}
-      <div className="relative w-36 sm:w-44 shrink-0 self-stretch min-h-[148px]">
-        <SignedImage url={e.photo_url} alt={e.name ?? ''} className="w-full h-full object-cover"
-          fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
-        <span className="absolute bottom-2 left-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium shadow-sm" style={{ background: '#fff', color: meta.fg }}>
-          {meta.label}
-        </span>
-      </div>
-
-      {/* content on the right */}
-      <div className="flex-1 min-w-0 p-3.5 pr-12">
-        <div className="text-[15px] font-medium leading-snug line-clamp-2">{e.name}</div>
-        <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1.5 flex-wrap">
-          {(e.station_line || e.station_color || e.station_name) && (
-            <span className="inline-flex items-center gap-1.5 min-w-0">
-              <span className="size-2.5 rounded-full shrink-0" style={{ background: e.station_color ?? '#888780' }} />
-              <span className="truncate">{[e.station_line, e.station_name].filter(Boolean).join(' · ') || 'สถานี'}</span>
-            </span>
-          )}
-          {e.city && <span className="chip !py-0.5">{e.city}</span>}
+    <div className="card relative overflow-hidden">
+      {/* whole card opens the detail view */}
+      <div onClick={onOpen} role="button" tabIndex={0}
+        onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && onOpen()}
+        className="flex gap-3.5 p-3 cursor-pointer">
+        {/* image on the left (separated, rounded) */}
+        <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-[10px] overflow-hidden shrink-0 bg-surface-2">
+          <SignedImage url={e.photo_url} alt={e.name ?? ''} className="w-full h-full object-cover"
+            fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
         </div>
-        {e.note && <p className="text-[12px] text-ink-2 mt-1.5 line-clamp-2">{e.note}</p>}
-        {e.map_url && (
-          <button onClick={() => openMap(e.map_url)} className="inline-flex items-center gap-1 text-[11px] text-ink-3 hover:text-brand-mid mt-2">
-            <IconMapPin size={12} /> MAP
-          </button>
-        )}
+
+        {/* text on the right */}
+        <div className="flex-1 min-w-0 pr-9">
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: meta.bg, color: meta.fg }}>
+            {meta.label}
+          </span>
+          <div className="text-[15px] font-medium leading-snug line-clamp-2 mt-1.5">{e.name}</div>
+          <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1.5 flex-wrap">
+            {(e.station_line || e.station_color || e.station_name) && (
+              <span className="inline-flex items-center gap-1.5 min-w-0">
+                <span className="size-2.5 rounded-full shrink-0" style={{ background: e.station_color ?? '#888780' }} />
+                <span className="truncate">{[e.station_line, e.station_name].filter(Boolean).join(' · ') || 'สถานี'}</span>
+              </span>
+            )}
+            {e.city && <span className="chip !py-0.5">{e.city}</span>}
+          </div>
+          {e.note && <p className="text-[12px] text-ink-2 mt-1.5 line-clamp-2">{e.note}</p>}
+          {e.map_url && (
+            <button onClick={(ev) => { ev.stopPropagation(); openMap(e.map_url) }} className="inline-flex items-center gap-1 text-[11px] text-ink-3 hover:text-brand-mid mt-2">
+              <IconMapPin size={12} /> MAP
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* fav toggle (top-right of card) */}
-      <button onClick={onFav} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'} title={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'}
+      {/* fav toggle — on the text side, never over the image */}
+      <button onClick={(ev) => { ev.stopPropagation(); onFav() }} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'} title={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'}
         className="absolute top-2.5 right-2.5 size-9 rounded-full grid place-items-center shadow-sm z-20"
         style={{ background: saved ? 'var(--color-brand)' : 'rgba(255,255,255,.95)', color: saved ? '#fff' : 'var(--color-brand)' }}>
         {saved ? <IconHeartFilled size={19} /> : <IconHeart size={19} />}
       </button>
       {isOwner && (
-        <button onClick={onDelete} aria-label="ลบ" className="absolute top-2.5 left-2.5 size-8 rounded-full grid place-items-center shadow-sm z-20"
-          style={{ background: 'rgba(255,255,255,.92)', color: '#D85A30' }}>
+        <button onClick={(ev) => { ev.stopPropagation(); onDelete() }} aria-label="ลบ"
+          className="absolute bottom-2.5 right-2.5 size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line z-20" style={{ color: '#D85A30' }}>
           <IconTrash size={15} />
         </button>
       )}

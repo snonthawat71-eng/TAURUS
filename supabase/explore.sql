@@ -50,3 +50,47 @@ create policy "explore photos read"   on storage.objects for select using (bucke
 create policy "explore photos insert" on storage.objects for insert with check (bucket_id = 'explore-photos' and auth.uid() is not null);
 create policy "explore photos delete" on storage.objects for delete using (bucket_id = 'explore-photos' and owner = auth.uid());
 
+-- ============================================================
+-- คอมเมนต์ใน Explore (เก็บชื่อผู้เขียนในแถวเลย เพื่อให้แสดงได้โดยไม่ต้องอ่าน profiles)
+-- ============================================================
+create table if not exists explore_comments (
+  id           uuid primary key default gen_random_uuid(),
+  explore_id   uuid references explore_places on delete cascade,
+  user_id      uuid references auth.users on delete set null,
+  author_name  text,
+  author_color text,
+  body         text not null,
+  created_at   timestamptz default now()
+);
+
+alter table explore_comments enable row level security;
+
+drop policy if exists "explore comments read"   on explore_comments;
+drop policy if exists "explore comments insert" on explore_comments;
+drop policy if exists "explore comments delete" on explore_comments;
+create policy "explore comments read"   on explore_comments for select using (auth.uid() is not null);
+create policy "explore comments insert" on explore_comments for insert with check (auth.uid() = user_id);
+create policy "explore comments delete" on explore_comments for delete using (auth.uid() = user_id);
+
+-- ============================================================
+-- โหวต แนะนำ (1) / ไม่แนะนำ (-1) — คนละ 1 เสียงต่อรายการ
+-- ============================================================
+create table if not exists explore_votes (
+  explore_id uuid references explore_places on delete cascade,
+  user_id    uuid references auth.users on delete cascade,
+  vote       smallint not null,         -- 1 = แนะนำ, -1 = ไม่แนะนำ
+  created_at timestamptz default now(),
+  primary key (explore_id, user_id)
+);
+
+alter table explore_votes enable row level security;
+
+drop policy if exists "explore votes read"   on explore_votes;
+drop policy if exists "explore votes insert" on explore_votes;
+drop policy if exists "explore votes update" on explore_votes;
+drop policy if exists "explore votes delete" on explore_votes;
+create policy "explore votes read"   on explore_votes for select using (auth.uid() is not null);
+create policy "explore votes insert" on explore_votes for insert with check (auth.uid() = user_id);
+create policy "explore votes update" on explore_votes for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "explore votes delete" on explore_votes for delete using (auth.uid() = user_id);
+

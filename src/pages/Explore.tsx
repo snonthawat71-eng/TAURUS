@@ -6,6 +6,7 @@ import { useTrip } from '@/contexts/TripContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { SignedImage } from '@/components/SignedImage'
 import { ExploreCard } from '@/components/ExploreCard'
+import { ExploreDetail } from '@/components/ExploreDetail'
 import { ExploreEditor } from '@/components/ExploreEditor'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, deleteExplore, exploreAsPlace } from '@/lib/exploreMutations'
@@ -24,7 +25,13 @@ export default function Explore() {
   const [city, setCity] = useState('all')
   const [editor, setEditor] = useState(false)
   const [fav, setFav] = useState<Place | null>(null)
+  const [detail, setDetail] = useState<ExplorePlace | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
+
+  function toggleFav(e: ExplorePlace) {
+    if (savedSet.has(e.id)) { removeExploreCopies(e.id, myTripIds).then(refreshSaved) }
+    else setFav(exploreAsPlace(e))
+  }
 
   const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
 
@@ -108,10 +115,8 @@ export default function Explore() {
           <div className="space-y-3">
             {filtered.map((e) => (
               <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)}
-                onFav={async () => {
-                  if (savedSet.has(e.id)) { await removeExploreCopies(e.id, myTripIds); refreshSaved() }
-                  else setFav(exploreAsPlace(e))
-                }}
+                onOpen={() => setDetail(e)}
+                onFav={() => toggleFav(e)}
                 onDelete={async () => { if (confirm('ลบรายการนี้ออกจาก Explore?')) { await deleteExplore(e.id); load() } }} />
             ))}
           </div>
@@ -120,6 +125,9 @@ export default function Explore() {
 
       <ExploreEditor open={editor} onClose={() => setEditor(false)}
         onSave={async (input) => { if (user) { await addExplore(user.id, input); load() } }} />
+
+      <ExploreDetail e={detail} open={!!detail} saved={detail ? savedSet.has(detail.id) : false}
+        onClose={() => setDetail(null)} onFav={() => detail && toggleFav(detail)} />
 
       <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
         onClose={() => setFav(null)} onChanged={refreshSaved} />
