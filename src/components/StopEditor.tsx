@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { IconCheck } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { SignedImage } from './SignedImage'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import type { StopInput } from '@/lib/mutations'
@@ -21,6 +23,7 @@ export function StopEditor({
   const [mapUrl, setMapUrl] = useState('')
   const [linkMode, setLinkMode] = useState('map')
   const [busy, setBusy] = useState(false)
+  const [pickedId, setPickedId] = useState<string | null>(null)
 
   // places the group has already added to the plan (from Places/Food/All)
   const inPlan = useMemo(() => places.filter((p) => p.in_plan && p.name), [places])
@@ -32,12 +35,15 @@ export function StopEditor({
       setNote(initial?.note ?? '')
       setMapUrl(initial?.map_url ?? '')
       setLinkMode(initial?.link_mode ?? 'map')
+      setPickedId(null)
     }
   }, [open, initial])
 
   function pickPlanned(id: string) {
     const p = inPlan.find((x) => x.id === id)
     if (!p) return
+    if (pickedId === id) { setPickedId(null); return } // tap again to deselect
+    setPickedId(id)
     setPlace(p.name ?? '')
     setMapUrl(p.map_url ?? '')
     setNote(p.note ?? '')
@@ -56,13 +62,31 @@ export function StopEditor({
       <div className="space-y-3">
         {inPlan.length > 0 && (
           <div>
-            <label className="text-[11px] text-ink-3">ดึงจากสถานที่ในแพลน</label>
-            <select className={field} value="" onChange={(e) => { pickPlanned(e.target.value); e.target.value = '' }}>
-              <option value="">— เลือกสถานที่ที่กดเพิ่มในแพลนไว้ —</option>
-              {inPlan.map((p) => (
-                <option key={p.id} value={p.id}>{catMeta(p.category).label} · {p.name}</option>
-              ))}
-            </select>
+            <label className="text-[11px] text-ink-3">ดึงจากสถานที่ในแพลน — แตะเพื่อเติมข้อมูล</label>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar mt-1.5 -mx-1 px-1 pb-1">
+              {inPlan.map((p) => {
+                const meta = catMeta(p.category)
+                const Icon = meta.icon
+                const sel = pickedId === p.id
+                return (
+                  <button key={p.id} onClick={() => pickPlanned(p.id)}
+                    className="relative shrink-0 w-[104px] rounded-[10px] overflow-hidden text-left bg-surface transition"
+                    style={{ border: `1.5px solid ${sel ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
+                    <div className="h-[68px] relative">
+                      <SignedImage url={p.photo_url} path={p.photo_path} alt={p.name ?? ''} className="w-full h-full object-cover"
+                        fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={22} style={{ color: meta.fg }} /></div>} />
+                      {sel && <div className="absolute inset-0 grid place-items-center" style={{ background: 'rgba(2,112,251,0.35)' }}><span className="size-6 rounded-full bg-brand grid place-items-center"><IconCheck size={15} className="text-white" /></span></div>}
+                    </div>
+                    <div className="p-1.5">
+                      <div className="text-[11px] font-medium leading-tight line-clamp-2">{p.name}</div>
+                      <div className="flex items-center gap-1 text-[10px] mt-0.5" style={{ color: meta.fg }}>
+                        <Icon size={11} /> <span className="truncate">{meta.label}</span>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
         <div>
