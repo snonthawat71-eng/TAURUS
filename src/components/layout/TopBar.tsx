@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { IconSearch, IconDots, IconShare2, IconLogout, IconUserCircle, IconLayoutGrid, IconWorldSearch } from '@tabler/icons-react'
+import { IconDots, IconShare2, IconLogout, IconUserCircle, IconLayoutGrid, IconWorldSearch } from '@tabler/icons-react'
 import { NAV_ITEMS } from './nav'
 import { useAuth } from '@/contexts/AuthContext'
 import { TripSwitcher } from '@/components/TripSwitcher'
@@ -32,26 +32,32 @@ export function TopBar() {
       <h1 className="text-[16px] font-medium max-md:hidden">{title}</h1>
       <div className="md:hidden min-w-0"><TripSwitcher variant="topbar" /></div>
 
-      <div className="flex items-center gap-2 shrink-0">
-        <button className="btn-icon" aria-label="ค้นหา"><IconSearch size={16} /></button>
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Explore — highlighted so it stands out */}
+        <button onClick={() => navigate('/explore')} aria-label="Explore"
+          className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium !border-0 text-white shadow-sm"
+          style={{ background: 'linear-gradient(120deg, #0270FB, #4BC5D9)' }}>
+          <IconWorldSearch size={16} /> <span className="max-md:hidden">Explore</span>
+        </button>
+        {/* ทริปทั้งหมด */}
+        <button onClick={() => navigate('/')} className="btn-icon" aria-label="ทริปทั้งหมด" title="ทริปทั้งหมด">
+          <IconLayoutGrid size={16} />
+        </button>
+        {/* โปรไฟล์ของฉัน */}
+        <button onClick={() => setProfile(true)} className="btn-icon" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
+          <IconUserCircle size={16} />
+        </button>
+        {/* แชร์ทริป */}
+        <button onClick={() => setShare(true)} className="btn-icon" aria-label="แชร์ทริป" title="แชร์ทริป">
+          <IconShare2 size={16} />
+        </button>
+        {/* overflow: account + sign out */}
         <div className="relative" ref={ref}>
           <button className="btn-icon" aria-label="เพิ่มเติม" onClick={() => setMenu((v) => !v)}><IconDots size={16} /></button>
           {menu && (
             <div className="absolute right-0 mt-1.5 w-52 card p-1 shadow-lg z-30">
               <div className="px-2.5 py-2 text-[11px] text-ink-3 truncate">{user?.email}</div>
               <div style={{ borderTop: '0.5px solid var(--color-line)' }} />
-              <button onClick={() => { setMenu(false); navigate('/') }}
-                className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
-                <IconLayoutGrid size={15} /> ทริปทั้งหมด
-              </button>
-              <button onClick={() => { setMenu(false); navigate('/explore') }}
-                className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
-                <IconWorldSearch size={15} /> Explore
-              </button>
-              <button onClick={() => { setMenu(false); setProfile(true) }}
-                className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
-                <IconUserCircle size={15} /> โปรไฟล์ของฉัน
-              </button>
               <button onClick={() => { setMenu(false); signOut() }}
                 className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
                 <IconLogout size={15} /> ออกจากระบบ
@@ -59,10 +65,6 @@ export function TopBar() {
             </div>
           )}
         </div>
-        <button onClick={() => setShare(true)} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium">
-          <IconShare2 size={15} />
-          <span className="max-md:hidden">แชร์ทริป</span>
-        </button>
       </div>
 
       <ShareDialog open={share} onClose={() => setShare(false)} />
