@@ -7,7 +7,7 @@ import { PlaceEditor } from './PlaceEditor'
 import { PlaceDetail } from './PlaceDetail'
 import { SaveToTripDialog } from './SaveToTripDialog'
 import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
-import { catMeta, type CategoryTab } from '@/lib/placeMeta'
+import { catMeta, foodGroupKey, type CategoryTab } from '@/lib/placeMeta'
 import type { Place, PlaceGroup } from '@/lib/database.types'
 
 type Dim = 'none' | 'category' | 'city'
@@ -55,7 +55,10 @@ export function PlaceGrid({
     return { list, mine: !!user && rows.some((r) => r.user_id === user.id) }
   }
 
-  const valueOf = (p: Place) => (dim === 'city' ? (p.city || 'ไม่ระบุเมือง') : (p.category || 'อื่นๆ'))
+  const valueOf = (p: Place) =>
+    dim === 'city' ? (p.city || 'ไม่ระบุเมือง')
+      : group === 'food' ? foodGroupKey(p.category)
+      : (p.category || 'อื่นๆ')
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -112,7 +115,7 @@ export function PlaceGrid({
     if (dim === 'city') {
       return [...cityOrder, 'ไม่ระบุเมือง'].filter((c) => filtered.some((p) => valueOf(p) === c)).map((c) => ({ key: c, label: c }))
     }
-    return tabs.filter((t) => t.key !== 'all' && filtered.some((p) => (p.category || 'อื่นๆ') === t.key)).map((t) => ({ key: t.key, label: t.label }))
+    return tabs.filter((t) => t.key !== 'all' && filtered.some((p) => valueOf(p) === t.key)).map((t) => ({ key: t.key, label: t.label }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chip, dim, filtered, cityOrder, tabs])
 

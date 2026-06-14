@@ -3,7 +3,7 @@ import { IconPhoto, IconLoader2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { uploadPublicImage } from '@/lib/files'
-import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES } from '@/lib/placeMeta'
+import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
 import type { ExploreInput } from '@/lib/exploreMutations'
 import type { PlaceGroup } from '@/lib/database.types'
 
@@ -76,7 +76,13 @@ export function ExploreEditor({ open, onClose, onSave }: {
         <div>
           <div className={lbl}>หมวด</div>
           <select className={field} value={category} onChange={(e) => setCategory(e.target.value)}>
-            {cats.map((c) => <option key={c} value={c}>{CATEGORY[c].label}</option>)}
+            {group === 'food'
+              ? FOOD_GROUPS.map((g) => (
+                  <optgroup key={g.key} label={g.label}>
+                    {g.cats.map((c) => <option key={c} value={c}>{CATEGORY[c].label}</option>)}
+                  </optgroup>
+                ))
+              : cats.map((c) => <option key={c} value={c}>{CATEGORY[c].label}</option>)}
           </select>
         </div>
         <div className="grid grid-cols-2 gap-2">
