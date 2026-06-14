@@ -12,6 +12,7 @@ import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, deleteExplore, exploreAsPlace, allVoteStats, type VoteStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
 import { cityImage } from '@/lib/cityImages'
+import { PLACE_TABS, FOOD_TABS, foodGroupKey } from '@/lib/placeMeta'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
 export default function Explore() {
@@ -22,6 +23,7 @@ export default function Explore() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [group, setGroup] = useState<'all' | 'place' | 'food'>('all')
+  const [cat, setCat] = useState('all')
   const [city, setCity] = useState('all')
   const [editor, setEditor] = useState(false)
   const [fav, setFav] = useState<Place | null>(null)
@@ -60,8 +62,11 @@ export default function Explore() {
     return Array.from(m.entries()).map(([name, sample]) => ({ name, photo: cityImage(name) ?? sample.photo_url }))
   }, [items])
 
+  const catTabs = group === 'place' ? PLACE_TABS : group === 'food' ? FOOD_TABS : []
+
   const filtered = items
     .filter((e) => group === 'all' || e.group_type === group)
+    .filter((e) => cat === 'all' || (group === 'food' ? foodGroupKey(e.category) === cat : e.category === cat))
     .filter((e) => city === 'all' || e.city === city)
 
   return (
@@ -82,10 +87,20 @@ export default function Explore() {
         {/* type filter (places / food & cafe) */}
         <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
           {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food and Cafe']] as const).map(([g, label]) => (
-            <button key={g} onClick={() => setGroup(g)}
+            <button key={g} onClick={() => { setGroup(g); setCat('all') }}
               className={['px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', group === g ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{label}</button>
           ))}
         </div>
+
+        {/* category filter (by type, like Places / Food pages) */}
+        {catTabs.length > 0 && (
+          <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
+            {catTabs.map((t) => (
+              <button key={t.key} onClick={() => setCat(t.key)}
+                className={['px-3 h-7 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', cat === t.key ? 'bg-brand text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{t.label}</button>
+            ))}
+          </div>
+        )}
 
         {/* city tabs (cards, inline) */}
         {cities.length > 0 && (

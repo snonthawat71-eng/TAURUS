@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { IconSearch, IconDots, IconShare2, IconLogout, IconUserCircle, IconLayoutGrid } from '@tabler/icons-react'
+import { IconSearch, IconDots, IconShare2, IconLogout, IconUserCircle, IconLayoutGrid, IconWorldSearch } from '@tabler/icons-react'
 import { NAV_ITEMS } from './nav'
 import { useAuth } from '@/contexts/AuthContext'
 import { TripSwitcher } from '@/components/TripSwitcher'
@@ -43,6 +43,10 @@ export function TopBar() {
               <button onClick={() => { setMenu(false); navigate('/') }}
                 className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
                 <IconLayoutGrid size={15} /> ทริปทั้งหมด
+              </button>
+              <button onClick={() => { setMenu(false); navigate('/explore') }}
+                className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
+                <IconWorldSearch size={15} /> Explore
               </button>
               <button onClick={() => { setMenu(false); setProfile(true) }}
                 className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">

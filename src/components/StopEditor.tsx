@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Drawer } from './Drawer'
+import { useTrip } from '@/contexts/TripContext'
+import { catMeta } from '@/lib/placeMeta'
 import type { StopInput } from '@/lib/mutations'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
@@ -12,12 +14,16 @@ export function StopEditor({
   initial: (StopInput & { id?: string }) | null
   onSave: (input: StopInput) => Promise<void>
 }) {
+  const { places } = useTrip()
   const [time, setTime] = useState('')
   const [place, setPlace] = useState('')
   const [note, setNote] = useState('')
   const [mapUrl, setMapUrl] = useState('')
   const [linkMode, setLinkMode] = useState('map')
   const [busy, setBusy] = useState(false)
+
+  // places the group has already added to the plan (from Places/Food/All)
+  const inPlan = useMemo(() => places.filter((p) => p.in_plan && p.name), [places])
 
   useEffect(() => {
     if (open) {
@@ -29,6 +35,15 @@ export function StopEditor({
     }
   }, [open, initial])
 
+  function pickPlanned(id: string) {
+    const p = inPlan.find((x) => x.id === id)
+    if (!p) return
+    setPlace(p.name ?? '')
+    setMapUrl(p.map_url ?? '')
+    setNote(p.note ?? '')
+    setLinkMode('detail')
+  }
+
   async function save() {
     setBusy(true)
     await onSave({ time: time || null, place_name: place || null, note: note || null, map_url: mapUrl || null, link_mode: linkMode })
@@ -39,6 +54,17 @@ export function StopEditor({
   return (
     <Drawer open={open} onClose={onClose} title={initial?.id ? 'แก้ไขจุดแวะ' : 'เพิ่มจุดแวะ'}>
       <div className="space-y-3">
+        {inPlan.length > 0 && (
+          <div>
+            <label className="text-[11px] text-ink-3">ดึงจากสถานที่ในแพลน</label>
+            <select className={field} value="" onChange={(e) => { pickPlanned(e.target.value); e.target.value = '' }}>
+              <option value="">— เลือกสถานที่ที่กดเพิ่มในแพลนไว้ —</option>
+              {inPlan.map((p) => (
+                <option key={p.id} value={p.id}>{catMeta(p.category).label} · {p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="text-[11px] text-ink-3">เวลา</label>
           <input className={field} value={time} onChange={(e) => setTime(e.target.value)} placeholder="เช่น 09:00" />
