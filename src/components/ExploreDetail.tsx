@@ -79,23 +79,23 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
   if (!e) return null
 
   return (
-    <Drawer open={open} onClose={onClose}>
-      {/* cover */}
-      <div className="relative -mx-5 -mt-3 mb-3 h-56 overflow-hidden">
-        <SignedImage url={e.photo_url} alt={e.name ?? ''} className="w-full h-full object-cover"
+    <Drawer open={open} onClose={onClose} title="รายละเอียด">
+      {/* cover (contained card so the drag handle stays usable) */}
+      <div className="relative h-52 rounded-[14px] overflow-hidden mt-1 bg-surface-2">
+        <SignedImage url={e.photo_url} alt={e.name ?? ''} className="absolute inset-0 w-full h-full object-cover"
           fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={52} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
         <button onClick={onFav} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'}
-          className="absolute bottom-3 right-3 size-10 rounded-full grid place-items-center shadow-md"
+          className="absolute bottom-2.5 right-2.5 size-10 rounded-full grid place-items-center shadow-md z-10"
           style={{ background: saved ? 'var(--color-brand)' : 'rgba(255,255,255,.95)', color: saved ? '#fff' : 'var(--color-brand)' }}>
           {saved ? <IconHeartFilled size={20} /> : <IconHeart size={20} />}
         </button>
-        <span className="absolute bottom-3 left-3 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium shadow-sm" style={{ background: '#fff', color: meta.fg }}>
+        <span className="absolute bottom-2.5 left-2.5 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium shadow-sm z-10" style={{ background: '#fff', color: meta.fg }}>
           {meta.label}
         </span>
       </div>
 
       {/* info */}
-      <div className="text-[18px] font-medium leading-snug">{e.name}</div>
+      <div className="text-[18px] font-medium leading-snug mt-3.5">{e.name}</div>
       <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1.5 flex-wrap">
         {(e.station_line || e.station_color || e.station_name) && (
           <span className="inline-flex items-center gap-1.5 min-w-0">
