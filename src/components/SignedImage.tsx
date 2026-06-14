@@ -14,14 +14,16 @@ export function SignedImage({ url, path, alt, className, fallback }: {
   fallback?: ReactNode
 }) {
   const [signed, setSigned] = useState<string | null>(null)
+  // a "path" that's already a full URL (e.g. Cloudinary) is used as-is
+  const isHttp = !!path && /^https?:\/\//.test(path)
   useEffect(() => {
     let active = true
     setSigned(null)
-    if (!url && path && !isSampleFile(path)) getSignedUrl(path).then((u) => active && setSigned(u))
+    if (!url && path && !isHttp && !isSampleFile(path)) getSignedUrl(path).then((u) => active && setSigned(u))
     return () => { active = false }
-  }, [url, path])
+  }, [url, path, isHttp])
 
-  const src = url || signed
+  const src = url || (isHttp ? path : signed)
   if (!src) return <>{fallback ?? null}</>
   return <img src={src} alt={alt ?? ''} className={className} />
 }

@@ -58,6 +58,7 @@ export function ExpenseEditor({
   async function viewSlip() {
     if (!receipt) return
     if (isSampleFile(receipt)) { alert('สลิปตัวอย่าง'); return }
+    if (/^https?:\/\//.test(receipt)) { window.open(receipt, '_blank', 'noopener,noreferrer'); return }
     const url = await getSignedUrl(receipt)
     if (url) window.open(url, '_blank', 'noopener,noreferrer')
   }

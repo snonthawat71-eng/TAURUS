@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { isCloudinaryConfigured, uploadToCloudinary } from './cloudinary'
 import type { TravelerFileKind } from './database.types'
 
 const BUCKET = 'trip-files'
@@ -42,8 +43,14 @@ export async function uploadTravelerFile(opts: {
   return { error: ins.error?.message ?? null }
 }
 
-/** Upload an image and return its storage path (caller saves the path). */
+/** Upload an image and return a reference the caller stores (in a photo/path
+ *  column). With Cloudinary configured this is a public CDN URL; otherwise a
+ *  Supabase storage path. SignedImage renders either transparently. */
 export async function uploadImage(tripId: string, prefix: string, file: File): Promise<{ path: string | null; error: string | null }> {
+  if (isCloudinaryConfigured) {
+    const { url, error } = await uploadToCloudinary(file, `taurus/${prefix}`)
+    return { path: url, error }
+  }
   const ext = file.name.split('.').pop() ?? 'jpg'
   const path = `${tripId}/${prefix}-${crypto.randomUUID()}.${ext}`
   const up = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
@@ -51,8 +58,10 @@ export async function uploadImage(tripId: string, prefix: string, file: File): P
   return { path, error: null }
 }
 
-/** Upload an image to the public Explore bucket and return a permanent public URL. */
+/** Upload an image for the public Explore pool and return a permanent URL
+ *  (Cloudinary CDN if configured, else the Supabase public bucket). */
 export async function uploadPublicImage(file: File): Promise<{ url: string | null; error: string | null }> {
+  if (isCloudinaryConfigured) return uploadToCloudinary(file, 'taurus/explore')
   const ext = file.name.split('.').pop() ?? 'jpg'
   const path = `explore/${crypto.randomUUID()}.${ext}`
   const up = await supabase.storage.from('explore-photos').upload(path, file, { upsert: false })
