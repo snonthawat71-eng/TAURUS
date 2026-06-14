@@ -61,9 +61,6 @@ export default function TripsDashboard() {
         style={{ borderBottom: '0.5px solid var(--color-line)' }}>
         <TaurusLogo height={30} />
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/explore')} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium">
-            <IconWorldSearch size={16} /> <span className="max-sm:hidden">Explore</span>
-          </button>
           <div className="relative">
             <button onClick={() => setMenu((v) => !v)} className="btn-icon"><IconDots size={16} /></button>
           {menu && (
@@ -85,14 +82,14 @@ export default function TripsDashboard() {
       <main className="max-w-[960px] mx-auto px-5 sm:px-8 py-7">
         {/* Prominent Explore banner */}
         <button onClick={() => navigate('/explore')}
-          className="w-full rounded-[14px] p-4 mb-5 flex items-center gap-3.5 text-left text-white shadow-sm"
+          className="w-full rounded-[16px] p-5 sm:p-6 mb-6 flex items-center gap-4 text-left text-white shadow-sm"
           style={{ background: 'linear-gradient(120deg, #0270FB, #4BC5D9)' }}>
-          <span className="size-12 rounded-[12px] bg-white/20 grid place-items-center shrink-0"><IconWorldSearch size={26} /></span>
+          <span className="size-14 rounded-[14px] bg-white/20 grid place-items-center shrink-0"><IconWorldSearch size={30} /></span>
           <div className="min-w-0 flex-1">
-            <div className="text-[16px] font-medium">Explore สถานที่ & ร้านเด็ด</div>
-            <div className="text-[12px] text-white/85 mt-0.5">รวมที่เที่ยว/ร้านที่ทุกคนแชร์ — กด ♥ เซฟเข้าทริปของคุณ</div>
+            <div className="text-[19px] font-semibold">Explore สถานที่ & ร้านเด็ด</div>
+            <div className="text-[13px] text-white/85 mt-1">รวมที่เที่ยว/ร้านที่ทุกคนแชร์ — กด ♥ เซฟเข้าทริปของคุณ</div>
           </div>
-          <IconArrowRight size={20} className="shrink-0" />
+          <IconArrowRight size={22} className="shrink-0" />
         </button>
 
         <div className="flex items-center justify-between mb-5">

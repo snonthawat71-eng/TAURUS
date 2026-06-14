@@ -3,12 +3,18 @@ import { IconCheck, IconLoader2, IconStarFilled } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { copyPlaceToTrip } from '@/lib/placeMutations'
+import { copyPlaceToTrip, exploreSavedInTrips } from '@/lib/placeMutations'
 import { countryFlag } from '@/lib/countries'
 import { formatDateRange } from '@/lib/format'
 import type { Place } from '@/lib/database.types'
 
-export function SaveToTripDialog({ place, open, onClose }: { place: Place | null; open: boolean; onClose: () => void }) {
+export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChanged }: {
+  place: Place | null
+  open: boolean
+  sourceExploreId?: string
+  onClose: () => void
+  onChanged?: () => void
+}) {
   const { trips } = useTrip()
   const { user } = useAuth()
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -17,14 +23,23 @@ export function SaveToTripDialog({ place, open, onClose }: { place: Place | null
   // trips the user owns (can save into)
   const myTrips = trips.filter((t) => t.owner_id === user?.id)
 
-  useEffect(() => { if (open) { setDone(new Set()); setBusyId(null) } }, [open])
+  useEffect(() => {
+    if (!open) return
+    setBusyId(null)
+    setDone(new Set())
+    if (sourceExploreId) {
+      exploreSavedInTrips(sourceExploreId, myTrips.map((t) => t.id)).then((ids) => setDone(new Set(ids)))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sourceExploreId])
 
   async function save(tripId: string) {
     if (!place || done.has(tripId)) return
     setBusyId(tripId)
-    await copyPlaceToTrip(place, tripId)
+    await copyPlaceToTrip(place, tripId, sourceExploreId)
     setBusyId(null)
     setDone((prev) => new Set(prev).add(tripId))
+    onChanged?.()
   }
 
   return (

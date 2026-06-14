@@ -2,17 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconPlus, IconArrowLeft, IconMapPin, IconWorldSearch } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTrip } from '@/contexts/TripContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { SignedImage } from '@/components/SignedImage'
 import { ExploreCard } from '@/components/ExploreCard'
 import { ExploreEditor } from '@/components/ExploreEditor'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, deleteExplore, exploreAsPlace } from '@/lib/exploreMutations'
+import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
 import { cityImage } from '@/lib/cityImages'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
 export default function Explore() {
   const { user } = useAuth()
+  const { trips } = useTrip()
   const navigate = useNavigate()
   const [items, setItems] = useState<ExplorePlace[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,6 +24,13 @@ export default function Explore() {
   const [city, setCity] = useState('all')
   const [editor, setEditor] = useState(false)
   const [fav, setFav] = useState<Place | null>(null)
+  const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
+
+  const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
+
+  async function refreshSaved() {
+    setSavedSet(await savedExploreIds(myTripIds))
+  }
 
   async function load() {
     setLoading(true)
@@ -30,6 +40,7 @@ export default function Explore() {
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+  useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cities = useMemo(() => {
     const m = new Map<string, ExplorePlace>()
@@ -71,7 +82,7 @@ export default function Explore() {
               className="shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
               style={{ border: `1.5px solid ${city === 'all' ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
               <div className="h-20 grid place-items-center bg-surface-2"><IconWorldSearch size={24} className="text-ink-3" /></div>
-              <div className="px-2 py-1.5 text-[12px] font-medium truncate">ทุกเมือง</div>
+              <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">ทุกเมือง</div>
             </button>
             {cities.map((c) => (
               <button key={c.name} onClick={() => setCity(c.name)}
@@ -81,7 +92,7 @@ export default function Explore() {
                   <SignedImage url={c.photo} alt={c.name} className="w-full h-full object-cover"
                     fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconMapPin size={20} className="text-ink-3" /></div>} />
                 </div>
-                <div className="px-2 py-1.5 text-[12px] font-medium truncate">{c.name}</div>
+                <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">{c.name}</div>
               </button>
             ))}
           </div>
@@ -96,8 +107,11 @@ export default function Explore() {
         ) : (
           <div className="space-y-3">
             {filtered.map((e) => (
-              <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id}
-                onFav={() => setFav(exploreAsPlace(e))}
+              <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)}
+                onFav={async () => {
+                  if (savedSet.has(e.id)) { await removeExploreCopies(e.id, myTripIds); refreshSaved() }
+                  else setFav(exploreAsPlace(e))
+                }}
                 onDelete={async () => { if (confirm('ลบรายการนี้ออกจาก Explore?')) { await deleteExplore(e.id); load() } }} />
             ))}
           </div>
@@ -107,7 +121,8 @@ export default function Explore() {
       <ExploreEditor open={editor} onClose={() => setEditor(false)}
         onSave={async (input) => { if (user) { await addExplore(user.id, input); load() } }} />
 
-      <SaveToTripDialog place={fav} open={!!fav} onClose={() => setFav(null)} />
+      <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
+        onClose={() => setFav(null)} onChanged={refreshSaved} />
     </div>
   )
 }

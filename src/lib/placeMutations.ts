@@ -5,7 +5,7 @@ export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
 
 // photo_path & city are optional (added by extra_columns.sql); strip whichever
 // the API reports as unknown so older databases still work.
-const OPTIONAL = ['photo_path', 'photo_url', 'city']
+const OPTIONAL = ['photo_path', 'photo_url', 'city', 'source_explore_id']
 function stripUnknown(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
   let changed = false
@@ -31,16 +31,38 @@ export async function deletePlace(id: string) {
   return supabase.from('places').delete().eq('id', id)
 }
 
-/** Copy a place (from a shared trip) into one of the user's own trips. */
-export async function copyPlaceToTrip(place: Place, targetTripId: string) {
+/** Copy a place (from a shared trip / Explore) into one of the user's own trips. */
+export async function copyPlaceToTrip(place: Place, targetTripId: string, sourceExploreId?: string) {
   const payload: Record<string, unknown> = {
     id: crypto.randomUUID(), trip_id: targetTripId, group_type: place.group_type, category: place.category,
     name: place.name, station_line: place.station_line, station_color: place.station_color, station_name: place.station_name,
     map_url: place.map_url, note: place.note, in_plan: false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, city: place.city,
+    source_explore_id: sourceExploreId ?? null,
   }
   let res = await supabase.from('places').insert(payload)
   if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').insert(s) }
   return res
+}
+
+/** Which of my trips have saved a given Explore item (returns trip_ids). */
+export async function exploreSavedInTrips(exploreId: string, tripIds: string[]) {
+  if (!tripIds.length) return [] as string[]
+  const { data } = await supabase.from('places').select('trip_id').eq('source_explore_id', exploreId).in('trip_id', tripIds)
+  return (data ?? []).map((r) => r.trip_id as string)
+}
+
+/** Fetch the set of Explore ids already saved into any of my trips. */
+export async function savedExploreIds(tripIds: string[]) {
+  if (!tripIds.length) return new Set<string>()
+  const { data, error } = await supabase.from('places').select('source_explore_id').in('trip_id', tripIds).not('source_explore_id', 'is', null)
+  if (error) return new Set<string>()
+  return new Set((data ?? []).map((r) => r.source_explore_id as string))
+}
+
+/** Remove all copies of an Explore item from my trips (unsave). */
+export async function removeExploreCopies(exploreId: string, tripIds: string[]) {
+  if (!tripIds.length) return
+  return supabase.from('places').delete().eq('source_explore_id', exploreId).in('trip_id', tripIds)
 }
 
 export async function setInPlan(id: string, in_plan: boolean) {

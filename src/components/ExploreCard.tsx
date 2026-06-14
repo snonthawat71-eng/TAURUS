@@ -1,12 +1,13 @@
-import { IconHeart, IconMapPin, IconTrash } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
 
-export function ExploreCard({ e, isOwner, onFav, onDelete }: {
+export function ExploreCard({ e, isOwner, saved, onFav, onDelete }: {
   e: ExplorePlace
   isOwner: boolean
+  saved: boolean
   onFav: () => void
   onDelete: () => void
 }) {
@@ -14,17 +15,17 @@ export function ExploreCard({ e, isOwner, onFav, onDelete }: {
   const Icon = meta.icon
 
   return (
-    <div className="card overflow-hidden">
+    <div className="card overflow-hidden relative">
       <div className="relative h-48 sm:h-56">
         <SignedImage url={e.photo_url} alt={e.name ?? ''} className="w-full h-full object-cover"
           fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={44} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
-        <button onClick={onFav} aria-label="เซฟเข้าทริปของฉัน" title="เซฟเข้าทริปของฉัน"
-          className="absolute top-2.5 right-2.5 size-9 rounded-full grid place-items-center shadow-sm"
-          style={{ background: 'rgba(255,255,255,.95)', color: 'var(--color-brand)' }}>
-          <IconHeart size={19} />
+        <button onClick={onFav} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'} title={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'}
+          className="absolute top-2.5 right-2.5 size-9 rounded-full grid place-items-center shadow-sm z-20"
+          style={{ background: saved ? 'var(--color-brand)' : 'rgba(255,255,255,.95)', color: saved ? '#fff' : 'var(--color-brand)' }}>
+          {saved ? <IconHeartFilled size={19} /> : <IconHeart size={19} />}
         </button>
         {isOwner && (
-          <button onClick={onDelete} aria-label="ลบ" className="absolute top-2.5 left-2.5 size-8 rounded-full grid place-items-center shadow-sm"
+          <button onClick={onDelete} aria-label="ลบ" className="absolute top-2.5 left-2.5 size-8 rounded-full grid place-items-center shadow-sm z-20"
             style={{ background: 'rgba(255,255,255,.92)', color: '#D85A30' }}>
             <IconTrash size={15} />
           </button>
@@ -51,6 +52,7 @@ export function ExploreCard({ e, isOwner, onFav, onDelete }: {
           </button>
         )}
       </div>
+      {saved && <div className="absolute inset-0 rounded-[12px] pointer-events-none z-10" style={{ background: 'rgba(120,118,110,0.16)' }} />}
     </div>
   )
 }

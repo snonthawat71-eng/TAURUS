@@ -34,6 +34,9 @@ create policy "explore delete" on explore_places for delete using (auth.uid() = 
 -- ให้สถานที่ในทริปเก็บรูปจาก URL ได้ (ตอน fav จาก Explore เข้าทริป รูปจะติดไปด้วย)
 alter table places add column if not exists photo_url text;
 
+-- ผูกสำเนาที่ fav มาเข้ากับรายการต้นทางใน Explore (ใช้เช็ค "เซฟแล้ว" + เอาออก)
+alter table places add column if not exists source_explore_id uuid;
+
 -- ============================================================
 -- Public bucket สำหรับรูป Explore (อัปโหลดเองได้ + เปิดดูสาธารณะ)
 -- ============================================================
