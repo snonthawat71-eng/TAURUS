@@ -440,3 +440,31 @@ export const GEO_CIRCLES: { code: string; x: number; y: number; color: string }[
   { code: 'HK69', x: 486.4, y: 153.2, color: '#7C2128' },
   { code: 'HK70', x: 501.3, y: 135.8, color: '#7C2128' },
 ]
+
+// Interchange groups (codes at one physical station) — from the official map's
+// white interchange squares + the Midosuji/Yotsubashi corridor stations.
+export const GEO_INTERCHANGES: string[][] = [
+  ['I14', 'T13'],
+  ['K11', 'T18'],
+  ['K13', 'T21'],
+  ['I18', 'N23'],
+  ['C15', 'S13'],
+  ['C17', 'K15'],
+  ['C18', 'T23'],
+  ['C19', 'N20'],
+  ['C20', 'I20'],
+  ['N13', 'S14'],
+  ['K16', 'N16'],
+  ['C10', 'P09'],
+  ['K17', 'S17'],
+  ['S18', 'T25'],
+  ['I21', 'S20'],
+  ['K19', 'M22'],
+  ['M23', 'T27'],
+  ['P18', 'Y21'],
+  ['M16', 'T20', 'Y11'],
+  ['C16', 'M18', 'Y13'],
+  ['M20', 'S16', 'Y15'],
+  ['M21', 'Y16'],
+  ['M19', 'N15'],
+]
