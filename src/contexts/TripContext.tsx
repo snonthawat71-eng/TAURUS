@@ -140,7 +140,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       console.error('TripContext load failed:', e)
       setError(e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ')
     }
-  }, [user, currentTripId])
+  }, [user?.id, currentTripId])
 
   useEffect(() => {
     let active = true
