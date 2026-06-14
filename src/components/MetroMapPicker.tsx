@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { IconX, IconSearch, IconPlus, IconMinus, IconMapPin, IconFlag } from '@tabler/icons-react'
 import { createPortal } from 'react-dom'
 import { MetroRoute } from './MetroRoute'
+import { OsakaMetroMap } from './OsakaMetroMap'
 import { computeRoute, type BuiltNetwork } from '@/lib/metro'
 import type { Transit } from '@/lib/database.types'
 
@@ -60,29 +61,7 @@ export function MetroMapPicker({ net, onClose, onResult }: {
 
       {/* map */}
       <div className="flex-1 overflow-auto relative bg-surface-2/40">
-        <svg width={net.width * zoom} height={net.height * zoom} viewBox={`0 0 ${net.width} ${net.height}`} className="block">
-          {net.lines.map((line) => (
-            <polyline key={line.id} fill="none" stroke={line.color} strokeWidth={6} strokeLinejoin="round" strokeLinecap="round" opacity={0.9}
-              points={line.stations.map((st) => { const n = net.stationById[st.id]; return `${n.x},${n.y}` }).join(' ')} />
-          ))}
-          {net.stations.map((sn) => {
-            const sel = sn.id === from ? 'from' : sn.id === to ? 'to' : null
-            const interchange = sn.lineIds.length > 1
-            const r = interchange ? 7 : 5
-            return (
-              <g key={sn.id} onClick={() => tap(sn.id)} style={{ cursor: 'pointer' }}>
-                <circle cx={sn.x} cy={sn.y} r={r + 6} fill="transparent" />
-                <circle cx={sn.x} cy={sn.y} r={r}
-                  fill={interchange ? '#fff' : net.lineById[sn.lineIds[0]].color}
-                  stroke={sel === 'from' ? '#0270fb' : sel === 'to' ? '#e5006d' : (interchange ? '#3a4452' : '#fff')}
-                  strokeWidth={sel ? 3.5 : 2} />
-                {(sel || interchange) && (
-                  <text x={sn.x + r + 3} y={sn.y + 3} fontSize={9} fill="#0c1b2a" style={{ pointerEvents: 'none' }}>{sn.name}</text>
-                )}
-              </g>
-            )
-          })}
-        </svg>
+        <OsakaMetroMap net={net} from={from} to={to} zoom={zoom} onTap={tap} />
         <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
           <button onClick={() => setZoom((z) => Math.min(2.2, z + 0.25))} className="btn-icon bg-surface shadow"><IconPlus size={16} /></button>
           <button onClick={() => setZoom((z) => Math.max(0.6, z - 0.25))} className="btn-icon bg-surface shadow"><IconMinus size={16} /></button>
