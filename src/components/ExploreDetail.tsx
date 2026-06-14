@@ -6,11 +6,12 @@ import {
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { Avatar } from './Avatar'
+import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
-import { listComments, addComment, deleteComment, getVotes, setVote } from '@/lib/exploreMutations'
+import { listComments, addComment, deleteComment, getVotes, setVote, ratingFrom } from '@/lib/exploreMutations'
 import type { ExplorePlace, ExploreComment } from '@/lib/database.types'
 
 function timeAgo(iso: string) {
@@ -113,8 +114,17 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
         </button>
       )}
 
+      {/* star rating summary (from likes / unlikes) */}
+      <div className="flex items-center gap-2 mt-4">
+        <span className="text-[20px] font-semibold tabular-nums">{ratingFrom(votes.up, votes.down).toFixed(1)}</span>
+        <StarRating rating={ratingFrom(votes.up, votes.down)} size={17} />
+        <span className="text-[12px] text-ink-3">
+          {votes.up + votes.down > 0 ? `จาก ${votes.up + votes.down} รีวิว` : 'ยังไม่มีรีวิว'}
+        </span>
+      </div>
+
       {/* recommend / not recommend */}
-      <div className="flex gap-2 mt-4">
+      <div className="flex gap-2 mt-2.5">
         <button onClick={() => vote(1)}
           className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[10px] text-[13px] font-medium transition"
           style={votes.mine === 1

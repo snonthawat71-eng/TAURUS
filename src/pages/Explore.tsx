@@ -9,7 +9,7 @@ import { ExploreCard } from '@/components/ExploreCard'
 import { ExploreDetail } from '@/components/ExploreDetail'
 import { ExploreEditor } from '@/components/ExploreEditor'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
-import { listExplore, addExplore, deleteExplore, exploreAsPlace } from '@/lib/exploreMutations'
+import { listExplore, addExplore, deleteExplore, exploreAsPlace, allVoteStats, type VoteStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
 import { cityImage } from '@/lib/cityImages'
 import type { ExplorePlace, Place } from '@/lib/database.types'
@@ -27,6 +27,11 @@ export default function Explore() {
   const [fav, setFav] = useState<Place | null>(null)
   const [detail, setDetail] = useState<ExplorePlace | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
+  const [stats, setStats] = useState<Map<string, VoteStat>>(new Map())
+
+  async function refreshStats() {
+    setStats(await allVoteStats())
+  }
 
   function toggleFav(e: ExplorePlace) {
     if (savedSet.has(e.id)) { removeExploreCopies(e.id, myTripIds).then(refreshSaved) }
@@ -46,7 +51,7 @@ export default function Explore() {
     setItems((data ?? []) as ExplorePlace[])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); refreshStats() }, [])
   useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cities = useMemo(() => {
@@ -114,7 +119,7 @@ export default function Explore() {
         ) : (
           <div className="space-y-3">
             {filtered.map((e) => (
-              <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)}
+              <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)} stat={stats.get(e.id)}
                 onOpen={() => setDetail(e)}
                 onFav={() => toggleFav(e)}
                 onDelete={async () => { if (confirm('ลบรายการนี้ออกจาก Explore?')) { await deleteExplore(e.id); load() } }} />
@@ -127,7 +132,7 @@ export default function Explore() {
         onSave={async (input) => { if (user) { await addExplore(user.id, input); load() } }} />
 
       <ExploreDetail e={detail} open={!!detail} saved={detail ? savedSet.has(detail.id) : false}
-        onClose={() => setDetail(null)} onFav={() => detail && toggleFav(detail)} />
+        onClose={() => { setDetail(null); refreshStats() }} onFav={() => detail && toggleFav(detail)} />
 
       <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
         onClose={() => setFav(null)} onChanged={refreshSaved} />

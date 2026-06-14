@@ -44,6 +44,28 @@ export async function getVotes(exploreId: string, userId?: string) {
   return { up, down, mine }
 }
 
+export interface VoteStat { up: number; down: number; rating: number; count: number }
+
+/** A 0–5 star rating from like/unlike counts (share of likes × 5). */
+export function ratingFrom(up: number, down: number): number {
+  const total = up + down
+  if (!total) return 0
+  return Math.round((up / total) * 5 * 10) / 10
+}
+
+/** Aggregate votes for every Explore item → Map<explore_id, VoteStat>. */
+export async function allVoteStats() {
+  const map = new Map<string, VoteStat>()
+  const { data } = await supabase.from('explore_votes').select('explore_id,vote')
+  for (const r of data ?? []) {
+    const s = map.get(r.explore_id) ?? { up: 0, down: 0, rating: 0, count: 0 }
+    if (r.vote === 1) s.up++; else if (r.vote === -1) s.down++
+    map.set(r.explore_id, s)
+  }
+  for (const s of map.values()) { s.count = s.up + s.down; s.rating = ratingFrom(s.up, s.down) }
+  return map
+}
+
 /** Set my vote; sending the same value again clears it (toggle off). */
 export async function setVote(exploreId: string, userId: string, vote: 1 | -1, current: number) {
   if (current === vote) {

@@ -1,13 +1,16 @@
 import { IconHeart, IconHeartFilled, IconMapPin, IconTrash } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
+import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
+import type { VoteStat } from '@/lib/exploreMutations'
 
-export function ExploreCard({ e, isOwner, saved, onFav, onDelete, onOpen }: {
+export function ExploreCard({ e, isOwner, saved, stat, onFav, onDelete, onOpen }: {
   e: ExplorePlace
   isOwner: boolean
   saved: boolean
+  stat?: VoteStat
   onFav: () => void
   onDelete: () => void
   onOpen: () => void
@@ -33,6 +36,12 @@ export function ExploreCard({ e, isOwner, saved, onFav, onDelete, onOpen }: {
             {meta.label}
           </span>
           <div className="text-[15px] font-medium leading-snug line-clamp-2 mt-1.5">{e.name}</div>
+          <div className="flex items-center gap-1.5 mt-1">
+            <StarRating rating={stat?.rating ?? 0} size={13} />
+            {stat && stat.count > 0
+              ? <span className="text-[11px] text-ink-3">{stat.rating.toFixed(1)} ({stat.count})</span>
+              : <span className="text-[11px] text-ink-3">ยังไม่มีรีวิว</span>}
+          </div>
           <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1.5 flex-wrap">
             {(e.station_line || e.station_color || e.station_name) && (
               <span className="inline-flex items-center gap-1.5 min-w-0">
