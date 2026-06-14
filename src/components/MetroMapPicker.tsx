@@ -61,7 +61,7 @@ export function MetroMapPicker({ net, onClose, onResult }: {
 
       {/* map */}
       <div className="flex-1 overflow-auto relative bg-surface-2/40">
-        <OsakaMetroMap net={net} from={from} to={to} zoom={zoom} onTap={tap} />
+        <OsakaMetroMap zoom={zoom} />
         <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
           <button onClick={() => setZoom((z) => Math.min(2.2, z + 0.25))} className="btn-icon bg-surface shadow"><IconPlus size={16} /></button>
           <button onClick={() => setZoom((z) => Math.max(0.6, z - 0.25))} className="btn-icon bg-surface shadow"><IconMinus size={16} /></button>
