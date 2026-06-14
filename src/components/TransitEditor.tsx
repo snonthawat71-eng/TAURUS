@@ -3,12 +3,18 @@ import { IconPlus, IconTrash, IconArrowDown, IconMap2 } from '@tabler/icons-reac
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { MetroMapPicker } from './MetroMapPicker'
+import { HKMapViewer } from './HKMapViewer'
 import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip } from '@/lib/metro'
 import type { Transit, TransitLeg } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[10px] text-ink-3'
+
+function isHongKong(hay: string) {
+  const s = hay.toLowerCase()
+  return ['hong kong', 'hongkong', 'ฮ่องกง', ' hk', 'mtr'].some((k) => s.includes(k))
+}
 
 function emptyLeg(): TransitLeg {
   return { line: '', color: '#185FA5', from: '', to: '', direction: '', stops: undefined, minutes: undefined }
@@ -24,11 +30,13 @@ export function TransitEditor({
 }) {
   const { trip } = useTrip()
   const net = getNetworkForTrip(trip)
+  const hk = isHongKong([trip?.country ?? '', ...(trip?.cities ?? []), trip?.name ?? ''].join(' '))
   const [legs, setLegs] = useState<TransitLeg[]>([])
   const [exitLabel, setExitLabel] = useState('')
   const [exitNote, setExitNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
+  const [hkOpen, setHkOpen] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -64,6 +72,13 @@ export function TransitEditor({
             className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
             style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
             <IconMap2 size={17} /> เลือกจากแผนที่ {net.name} (คำนวณจุดเปลี่ยนสายให้)
+          </button>
+        )}
+        {hk && (
+          <button onClick={() => setHkOpen(true)}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
+            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
+            <IconMap2 size={17} /> ดูแผนที่ MTR ฮ่องกง
           </button>
         )}
         {legs.map((leg, i) => (
@@ -161,6 +176,7 @@ export function TransitEditor({
           onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setMapOpen(false) }}
         />
       )}
+      {hk && hkOpen && <HKMapViewer onClose={() => setHkOpen(false)} />}
     </Drawer>
   )
 }
