@@ -10,9 +10,11 @@ export const CITY_IMAGES: Record<string, string> = {
   'Taipei': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781508672/beautiful-architecture-building-taipei-city_flisiw.jpg',
 }
 
+const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
+
 export function cityImage(name: string): string | undefined {
   if (!name) return undefined
-  const keys = Object.keys(CITY_IMAGES)
-  const hit = keys.find((k) => k.toLowerCase() === name.trim().toLowerCase())
+  const target = norm(name)
+  const hit = Object.keys(CITY_IMAGES).find((k) => norm(k) === target)
   return hit ? CITY_IMAGES[hit] : undefined
 }
