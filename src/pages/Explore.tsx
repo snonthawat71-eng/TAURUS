@@ -12,6 +12,7 @@ import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, type VoteStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
 import { cityImage } from '@/lib/cityImages'
+import { hscroll } from '@/lib/hscroll'
 import { PLACE_TABS, FOOD_TABS, foodGroupKey } from '@/lib/placeMeta'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
@@ -85,7 +86,7 @@ export default function Explore() {
         <p className="text-[13px] text-ink-3 mb-4">รวมสถานที่/ร้านที่ทุกคนแชร์ — กด ♥ เพื่อเซฟเข้าทริปของคุณ</p>
 
         {/* type filter (places / food & cafe) */}
-        <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar md:flex-wrap md:overflow-visible">
+        <div ref={hscroll} className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
           {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food and Cafe']] as const).map(([g, label]) => (
             <button key={g} onClick={() => { setGroup(g); setCat('all') }}
               className={['px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', group === g ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{label}</button>
@@ -94,7 +95,7 @@ export default function Explore() {
 
         {/* category filter (by type, like Places / Food pages) */}
         {catTabs.length > 0 && (
-          <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar md:flex-wrap md:overflow-visible">
+          <div ref={hscroll} className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
             {catTabs.map((t) => (
               <button key={t.key} onClick={() => setCat(t.key)}
                 className={['px-3 h-7 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', cat === t.key ? 'bg-brand text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{t.label}</button>
