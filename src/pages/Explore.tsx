@@ -145,7 +145,7 @@ export default function Explore() {
         )}
       </main>
 
-      <ExploreEditor open={!!editor} initial={editor && editor !== 'new' ? editor : null} onClose={() => setEditor(null)}
+      <ExploreEditor open={!!editor} initial={editor && editor !== 'new' ? editor : null} existing={items} onClose={() => setEditor(null)}
         onSave={async (input) => {
           if (editor && editor !== 'new') await updateExplore(editor.id, input)
           else if (user) await addExplore(user.id, input)

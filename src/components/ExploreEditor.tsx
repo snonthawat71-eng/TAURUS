@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconPhoto, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
@@ -12,10 +12,11 @@ const lbl = 'text-[11px] text-ink-3'
 
 function emptyRoute(): ExploreRoute { return { line: '', color: '#185FA5', station: '' } }
 
-export function ExploreEditor({ open, onClose, initial, onSave }: {
+export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   open: boolean
   onClose: () => void
   initial?: ExplorePlace | null
+  existing?: ExplorePlace[]
   onSave: (input: ExploreInput) => Promise<void>
 }) {
   const editing = !!initial
@@ -32,6 +33,22 @@ export function ExploreEditor({ open, onClose, initial, onSave }: {
   const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
+
+  // suggestions from what was entered before (so you don't retype every time)
+  const sugg = useMemo(() => {
+    const cities = new Set<string>(), countries = new Set<string>(), stations = new Set<string>(), lines = new Set<string>()
+    const lineColor: Record<string, string> = {}
+    for (const e of existing ?? []) {
+      if (e.city) cities.add(e.city)
+      if (e.country) countries.add(e.country)
+      const rs = e.routes?.length ? e.routes : [{ line: e.station_line, color: e.station_color, station: e.station_name }]
+      for (const r of rs) {
+        if (r?.station) stations.add(r.station)
+        if (r?.line) { lines.add(r.line); if (r.color && !lineColor[r.line]) lineColor[r.line] = r.color }
+      }
+    }
+    return { cities: [...cities], countries: [...countries], stations: [...stations], lines: [...lines], lineColor }
+  }, [existing])
 
   useEffect(() => {
     if (!open) return
@@ -84,6 +101,10 @@ export function ExploreEditor({ open, onClose, initial, onSave }: {
 
   return (
     <Drawer open={open} onClose={onClose} title={editing ? 'แก้ไขสถานที่' : 'เพิ่มลง Explore'}>
+      <datalist id="exp-cities">{sugg.cities.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="exp-countries">{sugg.countries.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="exp-lines">{sugg.lines.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="exp-stations">{sugg.stations.map((c) => <option key={c} value={c} />)}</datalist>
       <div className="space-y-3">
         <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2">
           {([['place', 'สถานที่'], ['food', 'ร้านอาหาร/คาเฟ่']] as const).map(([g, label]) => (
@@ -105,8 +126,8 @@ export function ExploreEditor({ open, onClose, initial, onSave }: {
           </select>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div><div className={lbl}>เมือง</div><input className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Osaka" /></div>
-          <div><div className={lbl}>ประเทศ</div><input className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Japan" /></div>
+          <div><div className={lbl}>เมือง</div><input list="exp-cities" className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Osaka" /></div>
+          <div><div className={lbl}>ประเทศ</div><input list="exp-countries" className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Japan" /></div>
         </div>
 
         {/* multiple ways to get there */}
@@ -124,8 +145,10 @@ export function ExploreEditor({ open, onClose, initial, onSave }: {
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <input className={field} value={r.line ?? ''} onChange={(e) => patchRoute(i, { line: e.target.value })} placeholder="สาย เช่น Midosuji" />
-                  <input className={field} value={r.station ?? ''} onChange={(e) => patchRoute(i, { station: e.target.value })} placeholder="สถานี เช่น Namba" />
+                  <input list="exp-lines" className={field} value={r.line ?? ''}
+                    onChange={(e) => { const v = e.target.value; patchRoute(i, { line: v, ...(sugg.lineColor[v] ? { color: sugg.lineColor[v] } : {}) }) }}
+                    placeholder="สาย เช่น Midosuji" />
+                  <input list="exp-stations" className={field} value={r.station ?? ''} onChange={(e) => patchRoute(i, { station: e.target.value })} placeholder="สถานี เช่น Namba" />
                 </div>
                 <ColorPicker value={r.color ?? '#185FA5'} onChange={(c) => patchRoute(i, { color: c })} />
               </div>
