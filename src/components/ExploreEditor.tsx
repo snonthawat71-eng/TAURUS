@@ -159,8 +159,8 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
           </div>
         )}
         <div className="grid grid-cols-2 gap-2">
-          <div><div className={lbl}>เมือง</div><input list="exp-cities" className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Osaka" /></div>
-          <div><div className={lbl}>ประเทศ</div><input list="exp-countries" className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Japan" /></div>
+          <div><div className={lbl}>เมือง (ไม่บังคับ)</div><input list="exp-cities" className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Osaka" /></div>
+          <div><div className={lbl}>ประเทศ (ไม่บังคับ)</div><input list="exp-countries" className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Japan" /></div>
         </div>
 
         {/* multiple ways to get there */}

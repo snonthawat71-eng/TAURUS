@@ -93,8 +93,8 @@ export function TripEditor({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div><div className={lbl}>วันเริ่ม</div><input type="date" className={field} value={start} onChange={(e) => setStart(e.target.value)} /></div>
-          <div><div className={lbl}>วันสิ้นสุด</div><input type="date" className={field} value={end} onChange={(e) => setEnd(e.target.value)} /></div>
+          <div><div className={lbl}>วันเริ่ม</div><input type="date" className={field} value={start} onChange={(e) => { setStart(e.target.value); if (end && e.target.value && end < e.target.value) setEnd(e.target.value) }} /></div>
+          <div><div className={lbl}>วันสิ้นสุด</div><input type="date" className={field} value={end} min={start || undefined} onChange={(e) => setEnd(e.target.value)} /></div>
         </div>
 
         <div>
