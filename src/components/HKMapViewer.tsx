@@ -53,7 +53,7 @@ export function HKMapViewer({ onClose, onResult }: { onClose: () => void; onResu
       {/* map */}
       <div className="flex-1 relative min-h-0">
         <div className="absolute inset-0 overflow-auto bg-surface-2/40">
-          <HKMetroMap zoom={zoom} />
+          <HKMetroMap zoom={zoom} from={from} to={to} onTap={pick} />
         </div>
         <div className="absolute bottom-3 right-3 flex flex-col gap-1.5 z-10">
           <button onClick={() => setZoom((z) => Math.min(3, z + 0.3))} className="btn-icon bg-surface shadow"><IconPlus size={16} /></button>
@@ -74,7 +74,7 @@ export function HKMapViewer({ onClose, onResult }: { onClose: () => void; onResu
             {onResult && <button onClick={() => onResult(transit)} className="btn-primary w-full h-10 mt-3">ใช้เส้นทางนี้ (กรอกเวลา/ทางออกเพิ่มได้)</button>}
           </>
         ) : (
-          <p className="text-[12px] text-ink-3 mt-2">ค้นหาและเลือกสถานีต้นทาง + ปลายทาง ระบบจะคำนวณจุดเปลี่ยนสายให้</p>
+          <p className="text-[12px] text-ink-3 mt-2">แตะสถานีบนแผนที่ (หรือค้นหา) เลือกต้นทาง + ปลายทาง ระบบจะคำนวณจุดเปลี่ยนสายให้</p>
         )}
       </div>
     </div>,
