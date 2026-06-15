@@ -18,16 +18,16 @@ export function HKMetroMap({ zoom = 1, from, to, onTap }: {
       {HK_STATIONS.filter((s) => !s.xc).map((s, i) => (
         <circle key={`s${i}`} cx={s.x} cy={s.y} r={3.4} fill="#fff" stroke={s.color} strokeWidth={1.8} />
       ))}
-      {/* interchanges: one clear white pill */}
+      {/* interchanges: one clear white capsule (the interchange symbol) */}
       {HK_STATIONS.filter((s) => s.xc).map((s, i) => {
         const w = Math.max(7, s.w), h = Math.max(7, s.h)
         return <rect key={`x${i}`} x={s.x - w / 2} y={s.y - h / 2} width={w} height={h} rx={Math.min(w, h) / 2}
           fill="#fff" stroke="#001F50" strokeWidth={2} />
       })}
-      {/* station name labels (small, like the printed map) */}
+      {/* station name labels — offset to the open side so they don't cross lines */}
       {HK_NAMED.map((s, i) => (
-        <text key={`l${i}`} x={s.x} y={s.y - (s.xc ? 6 : 5)} fontSize={4.2} fontWeight={500}
-          textAnchor="middle" fill="#1b2430" stroke="#fff" strokeWidth={1} paintOrder="stroke"
+        <text key={`l${i}`} x={s.lx} y={s.ly} fontSize={4.2} fontWeight={500}
+          textAnchor={s.a as 'start' | 'middle' | 'end'} fill="#1b2430" stroke="#fff" strokeWidth={1} paintOrder="stroke"
           style={{ pointerEvents: 'none' }}>{s.name}</text>
       ))}
       {/* selection highlight */}
