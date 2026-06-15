@@ -129,7 +129,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
               className={['px-3 h-8 rounded-[6px] text-[12px] font-medium', group === g ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>{label}</button>
           ))}
         </div>
-        <div><div className={lbl}>ชื่อ</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Farmily" /></div>
+        <div><div className={lbl}>ชื่อ *</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Farmily" /></div>
         <div>
           <div className={lbl}>หมวด</div>
           <select className={field} value={category} onChange={(e) => setCategory(e.target.value)}>
@@ -159,8 +159,8 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
           </div>
         )}
         <div className="grid grid-cols-2 gap-2">
-          <div><div className={lbl}>เมือง (ไม่บังคับ)</div><input list="exp-cities" className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Osaka" /></div>
-          <div><div className={lbl}>ประเทศ (ไม่บังคับ)</div><input list="exp-countries" className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Japan" /></div>
+          <div><div className={lbl}>เมือง *</div><input list="exp-cities" className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Osaka" /></div>
+          <div><div className={lbl}>ประเทศ *</div><input list="exp-countries" className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Japan" /></div>
         </div>
 
         {/* multiple ways to get there */}
@@ -212,7 +212,10 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
         <div><div className={lbl}>โน้ต</div>
           <textarea className="hairline rounded-md text-[13px] p-3 bg-surface w-full outline-none focus:border-brand resize-none" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="แนะนำสั้นๆ" />
         </div>
-        <button onClick={save} disabled={busy || !name} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : editing ? 'บันทึกการแก้ไข' : 'เพิ่มลง Explore'}</button>
+        {(!name.trim() || !city.trim() || !country.trim()) && (
+          <p className="text-[11px] text-[#D85A30]">กรอก ชื่อ · เมือง · ประเทศ ให้ครบก่อนบันทึก (เพื่อให้ค้นหา/กรองเจอ)</p>
+        )}
+        <button onClick={save} disabled={busy || !name.trim() || !city.trim() || !country.trim()} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : editing ? 'บันทึกการแก้ไข' : 'เพิ่มลง Explore'}</button>
       </div>
     </Drawer>
   )
