@@ -1,5 +1,5 @@
-// Auto-extracted from the official MTR line-map PDF (colored lines only).
-export const VIEW = { x: 93.7, y: 111.6, w: 866.0, h: 549.0 }
+// Auto-extracted from the official MTR PDFs (12 colored lines + station dots).
+export const VIEW = { x: 64.3, y: 58.6, w: 895.4, h: 602.0 }
 export const HK_LINES: { id: string; color: string; w: number; points: string }[] = [
   { id: 'CS0', color: '#5DB7E8', w: 4.1, points: '614.3,163.5 617.9,163.5 628.8,174.4 628.8,179.5 618.3,190.4 614.3,190.4' },
   { id: 'CS3', color: '#9C2E00', w: 4.1, points: '534.1,468.6 564.4,468.6 579.9,462.2 589.1,452.9' },
@@ -25,6 +25,15 @@ export const HK_LINES: { id: string; color: string; w: number; points: string }[
   { id: 'CS3', color: '#9C2E00', w: 4.1, points: '635.0,415.7 671.8,415.7 687.2,409.3 692.3,404.2' },
   { id: 'CS3', color: '#9C2E00', w: 4.1, points: '509.5,468.6 534.1,468.6' },
   { id: 'CS0', color: '#5DB7E8', w: 4.1, points: '612.4,426.0 612.4,430.9 609.2,438.6 522.5,525.4 507.4,531.6 492.7,531.6' },
+  { id: 'CS0', color: '#9C948B', w: 4.1, points: '423.1,443.7 423.1,229.4 401.2,207.5 280.1,207.5 258.3,185.7 258.3,72.6' },
+  { id: 'CS1', color: '#DBB400', w: 1.7, points: '109.6,187.3 81.1,187.3 78.3,190.1 78.3,257.0 81.1,259.8 104.8,259.8 107.7,257.0 107.7,236.0' },
+  { id: 'CS1', color: '#DBB400', w: 1.7, points: '124.4,125.6 113.9,115.1 113.2,113.2 113.2,105.6 112.2,103.5 108.1,99.4 106.0,98.5 81.1,98.5 78.3,101.3 78.3,122.7 81.1,125.6 121.3,125.6 126.4,130.7 126.4,182.1 121.3,187.3 109.7,187.3' },
+  { id: 'CS1', color: '#DBB400', w: 1.7, points: '126.5,159.3 130.2,159.3 133.0,162.1 133.0,184.4 135.8,187.2 141.2,187.2' },
+  { id: 'CS1', color: '#DBB400', w: 1.5, points: '113.2,112.1 78.3,112.1' },
+  { id: 'CS1', color: '#DBB400', w: 1.7, points: '105.6,236.0 78.3,236.0' },
+  { id: 'CS1', color: '#DBB400', w: 1.7, points: '109.7,187.3 118.1,195.6 118.9,197.7 118.9,225.6 118.1,227.7 109.8,236.0' },
+  { id: 'CS1', color: '#DBB400', w: 1.7, points: '100.5,211.6 78.3,211.6' },
+  { id: 'CS1', color: '#DBB400', w: 1.7, points: '109.8,187.2 101.4,195.5 100.5,197.7 100.5,225.5 101.4,227.6 109.7,236.0' },
 ]
 
 export const HK_STATIONS: { x: number; y: number; w: number; h: number; color: string; xc: boolean }[] = [
@@ -113,6 +122,7 @@ export const HK_STATIONS: { x: number; y: number; w: number; h: number; color: s
   { x: 465.1, y: 604.4, w: 6.7, h: 6.7, color: '#CBD300', xc: false },
   { x: 391.5, y: 634.6, w: 6.7, h: 6.7, color: '#CBD300', xc: false },
   { x: 327.4, y: 634.6, w: 6.7, h: 6.7, color: '#CBD300', xc: false },
+  { x: 423.1, y: 443.7, w: 6.7, h: 6.7, color: '#9C948B', xc: false },
   { x: 467.6, y: 443.7, w: 6.7, h: 6.7, color: '#9C2E00', xc: false },
   { x: 284.0, y: 335.0, w: 7.6, h: 7.6, color: '#001F50', xc: true },
   { x: 444.9, y: 525.5, w: 6.7, h: 10.7, color: '#001F50', xc: true },
