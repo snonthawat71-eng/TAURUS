@@ -24,6 +24,12 @@ export function HKMetroMap({ zoom = 1, from, to, onTap }: {
         return <rect key={`x${i}`} x={s.x - w / 2} y={s.y - h / 2} width={w} height={h} rx={Math.min(w, h) / 2}
           fill="#fff" stroke="#001F50" strokeWidth={2} />
       })}
+      {/* station name labels (small, like the printed map) */}
+      {HK_NAMED.map((s, i) => (
+        <text key={`l${i}`} x={s.x} y={s.y - (s.xc ? 6 : 5)} fontSize={4.2} fontWeight={500}
+          textAnchor="middle" fill="#1b2430" stroke="#fff" strokeWidth={1} paintOrder="stroke"
+          style={{ pointerEvents: 'none' }}>{s.name}</text>
+      ))}
       {/* selection highlight */}
       {HK_NAMED.filter((s) => s.name === from || s.name === to).map((s, i) => (
         <circle key={`h${i}`} cx={s.x} cy={s.y} r={s.xc ? 9 : 6.5} fill="none"
