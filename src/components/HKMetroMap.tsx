@@ -1,6 +1,6 @@
 // Hong Kong MTR schematic (lines + station dots from the official PDFs).
 // Stations are tappable (named via HK_NAMED) to pick origin/destination.
-import { VIEW, HK_LINES, HK_STATIONS, HK_NAMED } from '@/lib/metro/hkGeo'
+import { VIEW, HK_LINES, HK_STATIONS, HK_NAMED, HK_DASH, HK_EXTRA_LABELS } from '@/lib/metro/hkGeo'
 
 export function HKMetroMap({ zoom = 1, from, to, onTap }: {
   zoom?: number
@@ -13,6 +13,11 @@ export function HKMetroMap({ zoom = 1, from, to, onTap }: {
       {HK_LINES.map((l, i) => (
         <polyline key={i} points={l.points} fill="none" stroke={l.color}
           strokeWidth={Math.max(3.5, l.w)} strokeLinejoin="round" strokeLinecap="round" />
+      ))}
+      {/* walking-interchange dashed links (e.g. Kowloon · West Kowloon · Austin) */}
+      {HK_DASH.map((d, i) => (
+        <polyline key={`d${i}`} points={d} fill="none" stroke="#8a8f98" strokeWidth={1.4}
+          strokeDasharray="3 3" strokeLinecap="round" />
       ))}
       {/* single-line stations: white dot, line-colour ring */}
       {HK_STATIONS.filter((s) => !s.xc).map((s, i) => (
@@ -28,6 +33,12 @@ export function HKMetroMap({ zoom = 1, from, to, onTap }: {
       {HK_NAMED.map((s, i) => (
         <text key={`l${i}`} x={s.lx} y={s.ly} fontSize={4.2} fontWeight={500}
           textAnchor={s.a as 'start' | 'middle' | 'end'} fill="#1b2430" stroke="#fff" strokeWidth={1} paintOrder="stroke"
+          style={{ pointerEvents: 'none' }}>{s.name}</text>
+      ))}
+      {/* extra (non-routable) labels e.g. high-speed rail terminus */}
+      {HK_EXTRA_LABELS.map((s, i) => (
+        <text key={`e${i}`} x={s.lx} y={s.ly} fontSize={4.2} fontWeight={600}
+          textAnchor={s.a as 'start' | 'middle' | 'end'} fill="#5a4636" stroke="#fff" strokeWidth={1} paintOrder="stroke"
           style={{ pointerEvents: 'none' }}>{s.name}</text>
       ))}
       {/* selection highlight */}
