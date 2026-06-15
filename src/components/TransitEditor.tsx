@@ -28,8 +28,10 @@ export function TransitEditor({
   initial: Transit | null
   onSave: (transit: Transit | null) => Promise<void>
 }) {
-  const { trip } = useTrip()
+  const { trip, places } = useTrip()
   const net = getNetworkForTrip(trip)
+  // in-plan places that already have a metro station/line specified
+  const stationPlaces = places.filter((p) => p.in_plan && (p.station_line || p.station_name))
   const hk = isHongKong([trip?.country ?? '', ...(trip?.cities ?? []), trip?.name ?? ''].join(' '))
   const [legs, setLegs] = useState<TransitLeg[]>([])
   const [exitLabel, setExitLabel] = useState('')
@@ -106,6 +108,23 @@ export function TransitEditor({
                 <input className={field} value={leg.to} onChange={(e) => patch(i, { to: e.target.value })} />
               </div>
             </div>
+
+            {/* quick-fill this leg from an in-plan place's saved station/line */}
+            {stationPlaces.length > 0 && (
+              <div>
+                <div className={lbl}>ดึงสาย/สถานีจากสถานที่ในแพลน — แตะเพื่อเติม</div>
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-1 pb-0.5">
+                  {stationPlaces.map((p) => (
+                    <button key={p.id}
+                      onClick={() => patch(i, { line: p.station_line || leg.line, color: p.station_color || leg.color, to: p.station_name || leg.to })}
+                      className="inline-flex items-center gap-1.5 shrink-0 h-7 px-2.5 rounded-full text-[11px] font-medium bg-surface-2 hover:bg-line">
+                      <span className="size-2 rounded-full shrink-0" style={{ background: p.station_color ?? '#888780' }} />
+                      <span className="truncate max-w-[140px]">{p.name} · {[p.station_line, p.station_name].filter(Boolean).join(' ')}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <div className={lbl}>ทิศทาง / ปลายทาง</div>

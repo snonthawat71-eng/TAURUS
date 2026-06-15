@@ -9,7 +9,7 @@ import { ExploreCard } from '@/components/ExploreCard'
 import { ExploreDetail } from '@/components/ExploreDetail'
 import { ExploreEditor } from '@/components/ExploreEditor'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
-import { listExplore, addExplore, deleteExplore, exploreAsPlace, allVoteStats, type VoteStat } from '@/lib/exploreMutations'
+import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, type VoteStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
 import { cityImage } from '@/lib/cityImages'
 import { PLACE_TABS, FOOD_TABS, foodGroupKey } from '@/lib/placeMeta'
@@ -25,7 +25,7 @@ export default function Explore() {
   const [group, setGroup] = useState<'all' | 'place' | 'food'>('all')
   const [cat, setCat] = useState('all')
   const [city, setCity] = useState('all')
-  const [editor, setEditor] = useState(false)
+  const [editor, setEditor] = useState<ExplorePlace | 'new' | null>(null)
   const [fav, setFav] = useState<Place | null>(null)
   const [detail, setDetail] = useState<ExplorePlace | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
@@ -72,9 +72,9 @@ export default function Explore() {
   return (
     <div className="min-h-dvh bg-canvas">
       <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center justify-between px-4 sm:px-6 h-14" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-        <button onClick={() => navigate('/')} className="btn-icon !border-0" aria-label="กลับ"><IconArrowLeft size={18} /></button>
+        <button onClick={() => navigate(-1)} className="btn-icon !border-0" aria-label="กลับ"><IconArrowLeft size={18} /></button>
         <TaurusLogo height={26} />
-        <button onClick={() => setEditor(true)} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium"><IconPlus size={15} /><span className="max-sm:hidden">เพิ่มสถานที่</span></button>
+        <button onClick={() => setEditor('new')} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium"><IconPlus size={15} /><span className="max-sm:hidden">เพิ่มสถานที่</span></button>
       </header>
 
       <main className="max-w-[640px] mx-auto px-4 sm:px-6 py-5">
@@ -85,7 +85,7 @@ export default function Explore() {
         <p className="text-[13px] text-ink-3 mb-4">รวมสถานที่/ร้านที่ทุกคนแชร์ — กด ♥ เพื่อเซฟเข้าทริปของคุณ</p>
 
         {/* type filter (places / food & cafe) */}
-        <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
+        <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar md:flex-wrap md:overflow-visible">
           {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food and Cafe']] as const).map(([g, label]) => (
             <button key={g} onClick={() => { setGroup(g); setCat('all') }}
               className={['px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', group === g ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{label}</button>
@@ -94,7 +94,7 @@ export default function Explore() {
 
         {/* category filter (by type, like Places / Food pages) */}
         {catTabs.length > 0 && (
-          <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
+          <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar md:flex-wrap md:overflow-visible">
             {catTabs.map((t) => (
               <button key={t.key} onClick={() => setCat(t.key)}
                 className={['px-3 h-7 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', cat === t.key ? 'bg-brand text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{t.label}</button>
@@ -137,14 +137,19 @@ export default function Explore() {
               <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)} stat={stats.get(e.id)}
                 onOpen={() => setDetail(e)}
                 onFav={() => toggleFav(e)}
+                onEdit={() => setEditor(e)}
                 onDelete={async () => { if (confirm('ลบรายการนี้ออกจาก Explore?')) { await deleteExplore(e.id); load() } }} />
             ))}
           </div>
         )}
       </main>
 
-      <ExploreEditor open={editor} onClose={() => setEditor(false)}
-        onSave={async (input) => { if (user) { await addExplore(user.id, input); load() } }} />
+      <ExploreEditor open={!!editor} initial={editor && editor !== 'new' ? editor : null} onClose={() => setEditor(null)}
+        onSave={async (input) => {
+          if (editor && editor !== 'new') await updateExplore(editor.id, input)
+          else if (user) await addExplore(user.id, input)
+          load()
+        }} />
 
       <ExploreDetail e={detail} open={!!detail} saved={detail ? savedSet.has(detail.id) : false}
         onClose={() => { setDetail(null); refreshStats() }} onFav={() => detail && toggleFav(detail)} />

@@ -1,4 +1,4 @@
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
@@ -6,17 +6,21 @@ import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
 import type { VoteStat } from '@/lib/exploreMutations'
 
-export function ExploreCard({ e, isOwner, saved, stat, onFav, onDelete, onOpen }: {
+export function ExploreCard({ e, isOwner, saved, stat, onFav, onDelete, onEdit, onOpen }: {
   e: ExplorePlace
   isOwner: boolean
   saved: boolean
   stat?: VoteStat
   onFav: () => void
   onDelete: () => void
+  onEdit: () => void
   onOpen: () => void
 }) {
   const meta = catMeta(e.category)
   const Icon = meta.icon
+  const routes = (e.routes && e.routes.length)
+    ? e.routes
+    : (e.station_line || e.station_name) ? [{ line: e.station_line, color: e.station_color, station: e.station_name }] : []
 
   return (
     <div className="card relative overflow-hidden">
@@ -42,14 +46,14 @@ export function ExploreCard({ e, isOwner, saved, stat, onFav, onDelete, onOpen }
               ? <span className="text-[11px] text-ink-3">{stat.rating.toFixed(1)} ({stat.count})</span>
               : <span className="text-[11px] text-ink-3">ยังไม่มีรีวิว</span>}
           </div>
-          <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1.5 flex-wrap">
-            {(e.station_line || e.station_color || e.station_name) && (
-              <span className="inline-flex items-center gap-1.5 min-w-0">
-                <span className="size-2.5 rounded-full shrink-0" style={{ background: e.station_color ?? '#888780' }} />
-                <span className="truncate">{[e.station_line, e.station_name].filter(Boolean).join(' · ') || 'สถานี'}</span>
+          <div className="flex flex-col gap-0.5 text-[12px] text-ink-3 mt-1.5">
+            {routes.map((r, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5 min-w-0">
+                <span className="size-2.5 rounded-full shrink-0" style={{ background: r.color ?? '#888780' }} />
+                <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || 'สถานี'}</span>
               </span>
-            )}
-            {e.city && <span className="chip !py-0.5">{e.city}</span>}
+            ))}
+            {e.city && <span className="chip !py-0.5 self-start mt-0.5">{e.city}</span>}
           </div>
           {e.note && <p className="text-[12px] text-ink-2 mt-1.5 line-clamp-2">{e.note}</p>}
           {e.map_url && (
@@ -67,10 +71,16 @@ export function ExploreCard({ e, isOwner, saved, stat, onFav, onDelete, onOpen }
         {saved ? <IconHeartFilled size={19} /> : <IconHeart size={19} />}
       </button>
       {isOwner && (
-        <button onClick={(ev) => { ev.stopPropagation(); onDelete() }} aria-label="ลบ"
-          className="absolute bottom-2.5 right-2.5 size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line z-20" style={{ color: '#D85A30' }}>
-          <IconTrash size={15} />
-        </button>
+        <div className="absolute bottom-2.5 right-2.5 flex gap-1.5 z-20">
+          <button onClick={(ev) => { ev.stopPropagation(); onEdit() }} aria-label="แก้ไข"
+            className="size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line text-ink-2">
+            <IconPencil size={15} />
+          </button>
+          <button onClick={(ev) => { ev.stopPropagation(); onDelete() }} aria-label="ลบ"
+            className="size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line" style={{ color: '#D85A30' }}>
+            <IconTrash size={15} />
+          </button>
+        </div>
       )}
       {saved && <div className="absolute inset-0 rounded-[12px] pointer-events-none z-10" style={{ background: 'rgba(120,118,110,0.16)' }} />}
     </div>

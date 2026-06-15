@@ -37,6 +37,9 @@ alter table places add column if not exists photo_url text;
 -- ผูกสำเนาที่ fav มาเข้ากับรายการต้นทางใน Explore (ใช้เช็ค "เซฟแล้ว" + เอาออก)
 alter table places add column if not exists source_explore_id uuid;
 
+-- หลายเส้นทางการเดินทางต่อสถานที่ (array ของ {line,color,station})
+alter table explore_places add column if not exists routes jsonb;
+
 -- ============================================================
 -- Public bucket สำหรับรูป Explore (อัปโหลดเองได้ + เปิดดูสาธารณะ)
 -- ============================================================

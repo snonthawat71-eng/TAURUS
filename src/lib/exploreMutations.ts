@@ -7,8 +7,26 @@ export async function listExplore() {
   return supabase.from('explore_places').select('*').order('created_at', { ascending: false })
 }
 
+// `routes` is optional (added later) — strip it on a "column does not exist" error.
+const OPTIONAL = ['routes']
+function stripUnknown(payload: Record<string, unknown>, msg: string) {
+  const copy = { ...payload }; let changed = false
+  for (const k of OPTIONAL) if (k in copy && msg.includes(k)) { delete copy[k]; changed = true }
+  return changed ? copy : null
+}
+
 export async function addExplore(created_by: string, input: ExploreInput) {
-  return supabase.from('explore_places').insert({ id: crypto.randomUUID(), created_by, ...input })
+  const payload: Record<string, unknown> = { id: crypto.randomUUID(), created_by, ...input }
+  let res = await supabase.from('explore_places').insert(payload)
+  if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('explore_places').insert(s) }
+  return res
+}
+
+export async function updateExplore(id: string, input: ExploreInput) {
+  const payload: Record<string, unknown> = { ...input }
+  let res = await supabase.from('explore_places').update(payload).eq('id', id)
+  if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('explore_places').update(s).eq('id', id) }
+  return res
 }
 
 export async function deleteExplore(id: string) {

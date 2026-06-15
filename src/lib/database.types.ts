@@ -164,6 +164,13 @@ export interface Place {
   created_at: string
 }
 
+/** One way to reach a place (line + station). Stored in explore_places.routes */
+export interface ExploreRoute {
+  line: string | null
+  color: string | null
+  station: string | null
+}
+
 /** Community pool item (explore_places table) */
 export interface ExplorePlace {
   id: string
@@ -175,6 +182,8 @@ export interface ExplorePlace {
   station_line: string | null
   station_color: string | null
   station_name: string | null
+  /** optional — present after the routes column is added (multiple ways to get there) */
+  routes?: ExploreRoute[] | null
   map_url: string | null
   note: string | null
   photo_url: string | null

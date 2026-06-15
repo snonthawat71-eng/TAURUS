@@ -162,7 +162,7 @@ export function PlaceGrid({
             </>
           )}
         </div>
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0" style={chipList.length === 0 ? { display: 'none' } : undefined}>
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0 md:flex-wrap md:overflow-visible" style={chipList.length === 0 ? { display: 'none' } : undefined}>
           {chipList.map((t) => (
             <button key={t.key} onClick={() => setChip(t.key)}
               className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',

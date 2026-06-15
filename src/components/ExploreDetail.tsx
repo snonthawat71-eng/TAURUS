@@ -97,15 +97,19 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
 
       {/* info */}
       <div className="text-[18px] font-medium leading-snug mt-3.5">{e.name}</div>
-      <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1.5 flex-wrap">
-        {(e.station_line || e.station_color || e.station_name) && (
-          <span className="inline-flex items-center gap-1.5 min-w-0">
-            <span className="size-2.5 rounded-full shrink-0" style={{ background: e.station_color ?? '#888780' }} />
-            <span className="truncate">{[e.station_line, e.station_name].filter(Boolean).join(' · ') || 'สถานี'}</span>
+      <div className="flex flex-col gap-1 text-[12px] text-ink-3 mt-1.5">
+        {((e.routes && e.routes.length) ? e.routes
+          : (e.station_line || e.station_name) ? [{ line: e.station_line, color: e.station_color, station: e.station_name }] : []
+        ).map((r, i) => (
+          <span key={i} className="inline-flex items-center gap-1.5 min-w-0">
+            <span className="size-2.5 rounded-full shrink-0" style={{ background: r.color ?? '#888780' }} />
+            <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || 'สถานี'}</span>
           </span>
-        )}
-        {e.city && <span className="chip !py-0.5">{e.city}</span>}
-        {e.country && <span className="chip !py-0.5">{e.country}</span>}
+        ))}
+        <span className="flex gap-1.5">
+          {e.city && <span className="chip !py-0.5">{e.city}</span>}
+          {e.country && <span className="chip !py-0.5">{e.country}</span>}
+        </span>
       </div>
       {e.note && <p className="text-[13px] text-ink-2 mt-2.5 whitespace-pre-wrap">{e.note}</p>}
       {e.map_url && (
