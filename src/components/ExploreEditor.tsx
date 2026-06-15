@@ -3,6 +3,7 @@ import { IconPhoto, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { uploadPublicImage } from '@/lib/files'
+import { hscroll } from '@/lib/hscroll'
 import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
 import type { ExploreInput } from '@/lib/exploreMutations'
 import type { PlaceGroup, ExplorePlace, ExploreRoute } from '@/lib/database.types'
@@ -34,21 +35,37 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [busy, setBusy] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
 
-  // suggestions from what was entered before (so you don't retype every time)
+  // suggestions from what was entered before, grouped by country so names from
+  // different countries don't get mixed together.
   const sugg = useMemo(() => {
-    const cities = new Set<string>(), countries = new Set<string>(), stations = new Set<string>(), lines = new Set<string>()
+    const placeKeys = new Map<string, { city: string; country: string }>()
+    const stationsBy: Record<string, Set<string>> = {}
+    const linesBy: Record<string, Set<string>> = {}
     const lineColor: Record<string, string> = {}
+    const ck = (c: string | null | undefined) => (c ?? '').trim().toLowerCase()
     for (const e of existing ?? []) {
-      if (e.city) cities.add(e.city)
-      if (e.country) countries.add(e.country)
+      if (e.city || e.country) placeKeys.set(`${e.city ?? ''}|${e.country ?? ''}`, { city: e.city ?? '', country: e.country ?? '' })
+      const k = ck(e.country)
+      ;(stationsBy[k] ??= new Set()); (linesBy[k] ??= new Set())
       const rs = e.routes?.length ? e.routes : [{ line: e.station_line, color: e.station_color, station: e.station_name }]
       for (const r of rs) {
-        if (r?.station) stations.add(r.station)
-        if (r?.line) { lines.add(r.line); if (r.color && !lineColor[r.line]) lineColor[r.line] = r.color }
+        if (r?.station) stationsBy[k].add(r.station)
+        if (r?.line) { linesBy[k].add(r.line); if (r.color && !lineColor[r.line]) lineColor[r.line] = r.color }
       }
     }
-    return { cities: [...cities], countries: [...countries], stations: [...stations], lines: [...lines], lineColor }
+    const all = (m: Record<string, Set<string>>) => [...new Set(Object.values(m).flatMap((s) => [...s]))]
+    return {
+      cityChips: [...placeKeys.values()].filter((p) => p.city || p.country),
+      stationsFor: (country: string) => [...(stationsBy[ck(country)] ?? new Set())],
+      linesFor: (country: string) => [...(linesBy[ck(country)] ?? new Set())],
+      allStations: all(stationsBy),
+      allLines: all(linesBy),
+      lineColor,
+    }
   }, [existing])
+  const ckCur = country.trim().toLowerCase()
+  const stationOpts = ckCur && sugg.stationsFor(country).length ? sugg.stationsFor(country) : sugg.allStations
+  const lineOpts = ckCur && sugg.linesFor(country).length ? sugg.linesFor(country) : sugg.allLines
 
   useEffect(() => {
     if (!open) return
@@ -101,10 +118,10 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
 
   return (
     <Drawer open={open} onClose={onClose} title={editing ? 'แก้ไขสถานที่' : 'เพิ่มลง Explore'}>
-      <datalist id="exp-cities">{sugg.cities.map((c) => <option key={c} value={c} />)}</datalist>
-      <datalist id="exp-countries">{sugg.countries.map((c) => <option key={c} value={c} />)}</datalist>
-      <datalist id="exp-lines">{sugg.lines.map((c) => <option key={c} value={c} />)}</datalist>
-      <datalist id="exp-stations">{sugg.stations.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="exp-cities">{[...new Set(sugg.cityChips.map((p) => p.city).filter(Boolean))].map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="exp-countries">{[...new Set(sugg.cityChips.map((p) => p.country).filter(Boolean))].map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="exp-lines">{lineOpts.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="exp-stations">{stationOpts.map((c) => <option key={c} value={c} />)}</datalist>
       <div className="space-y-3">
         <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2">
           {([['place', 'สถานที่'], ['food', 'ร้านอาหาร/คาเฟ่']] as const).map(([g, label]) => (
@@ -125,6 +142,22 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
               : cats.map((c) => <option key={c} value={c}>{CATEGORY[c].label}</option>)}
           </select>
         </div>
+        {sugg.cityChips.length > 0 && (
+          <div>
+            <div className={lbl}>เลือกเมืองที่เคยใช้ — แตะเพื่อเติม</div>
+            <div ref={hscroll} className="flex gap-1.5 mt-1 overflow-x-auto no-scrollbar">
+              {sugg.cityChips.map((p, i) => {
+                const sel = p.city === city && p.country === country
+                return (
+                  <button key={i} onClick={() => { setCity(p.city); setCountry(p.country) }}
+                    className={['shrink-0 h-7 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap', sel ? 'bg-brand text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>
+                    {[p.city, p.country].filter(Boolean).join(', ')}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>เมือง</div><input list="exp-cities" className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Osaka" /></div>
           <div><div className={lbl}>ประเทศ</div><input list="exp-countries" className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Japan" /></div>
