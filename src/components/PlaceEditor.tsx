@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconTrash, IconPhoto, IconLoader2, IconCheck } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
+import { Combobox } from './Combobox'
 import { SignedImage } from './SignedImage'
 import { uploadImage } from '@/lib/files'
 import { useTrip } from '@/contexts/TripContext'
+import { getTransitSuggestions, findLine } from '@/lib/metro/suggest'
 import { catMeta, CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
 import type { Place, PlaceGroup } from '@/lib/database.types'
 import type { PlaceInput } from '@/lib/placeMutations'
@@ -31,6 +33,8 @@ export function PlaceEditor({
     places.forEach((p) => { if (p.city) set.add(p.city) })
     return Array.from(set)
   }, [trip, places])
+  // built-in metro lines/stations for the trip's matched city only (no mixing).
+  const sug = useMemo(() => getTransitSuggestions(trip), [trip])
   const cats = group === 'food' ? FOOD_CATEGORIES : PLACE_CATEGORIES
   const [city, setCity] = useState('')
   const [name, setName] = useState('')
@@ -134,10 +138,27 @@ export function PlaceEditor({
           )}
           <input className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="พิมพ์ชื่อเมือง เช่น Beijing" />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div><div className={lbl}>สาย / การเดินทาง</div><input className={field} value={line} onChange={(e) => setLine(e.target.value)} placeholder="Line 1 / Bus" /></div>
-          <div><div className={lbl}>สถานี</div><input className={field} value={station} onChange={(e) => setStation(e.target.value)} placeholder="Wangfujing" /></div>
-        </div>
+        {(() => {
+          const known = findLine(sug, line)
+          const stationOpts = known
+            ? known.stations.map((s) => ({ value: s.name, label: s.num }))
+            : sug.stations.map((name) => ({ value: name }))
+          return (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className={lbl}>สาย / การเดินทาง</div>
+                <Combobox className={field} value={line} placeholder="Line 1 / Bus"
+                  options={sug.lines.map((l) => ({ value: l.name, color: l.color }))}
+                  onChange={(v) => { setLine(v); const k = findLine(sug, v); if (k) setColor(k.color) }} />
+              </div>
+              <div>
+                <div className={lbl}>สถานี</div>
+                <Combobox className={field} value={station} placeholder="Wangfujing"
+                  options={stationOpts} onChange={setStation} />
+              </div>
+            </div>
+          )
+        })()}
         <div>
           <div className={lbl}>สีสาย</div>
           <ColorPicker value={color} onChange={setColor} />
