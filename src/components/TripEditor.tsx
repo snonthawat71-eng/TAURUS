@@ -48,7 +48,8 @@ export function TripEditor({
   async function save() {
     setBusy(true)
     const cleanCities = (multi ? cities : cities.slice(0, 1)).map((c) => c.trim()).filter(Boolean)
-    await onSave({ name, country, flag, cities: cleanCities, currency, start_date: start || null, end_date: end || null })
+    const endSafe = end && start && end < start ? start : end
+    await onSave({ name, country, flag, cities: cleanCities, currency, start_date: start || null, end_date: endSafe || null })
     setBusy(false)
     onClose()
   }
@@ -94,7 +95,7 @@ export function TripEditor({
 
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>วันเริ่ม</div><input type="date" className={field} value={start} onChange={(e) => { setStart(e.target.value); if (end && e.target.value && end < e.target.value) setEnd(e.target.value) }} /></div>
-          <div><div className={lbl}>วันสิ้นสุด</div><input type="date" className={field} value={end} min={start || undefined} onChange={(e) => setEnd(e.target.value)} /></div>
+          <div><div className={lbl}>วันสิ้นสุด</div><input type="date" className={field} value={end} min={start || undefined} onChange={(e) => { const v = e.target.value; setEnd(v && start && v < start ? start : v) }} /></div>
         </div>
 
         <div>
