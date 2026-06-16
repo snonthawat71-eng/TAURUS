@@ -84,7 +84,12 @@ export function Combobox({
       )}
       {open && rect && filtered.length > 0 && createPortal(
         <div
-          style={{ position: 'fixed', left: rect.left, top: rect.top, width: rect.width, zIndex: 200 }}
+          // Stop touch events from bubbling (React portals bubble through the
+          // React tree) into a parent Drawer's swipe-to-close handler, and keep
+          // the scroll contained so dragging the list never moves the page/sheet.
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          style={{ position: 'fixed', left: rect.left, top: rect.top, width: rect.width, zIndex: 200, overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
           className="max-h-56 overflow-auto rounded-md bg-surface shadow-lg hairline py-1">
           {(() => {
             // only show group headers/dividers when more than one group is present
