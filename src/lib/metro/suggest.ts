@@ -4,9 +4,10 @@
 // Combobox dropdowns so users can pick from known data without retyping — while
 // still being free to type any custom value (including stations not listed).
 //
-// The built-in ("system") data is the default for EVERY trip regardless of
-// country/city — all networks are always offered. When a trip's country/city
-// matches a network, that network's lines are listed first for relevance.
+// The built-in ("system") data is matched to the trip's country/city: only the
+// network(s) whose keywords appear in the trip are offered, so lines/stations
+// from different cities never get mixed together. A trip with no matching
+// network simply gets no suggestions (users type their own values freely).
 import { OSAKA } from './osaka'
 import { HK_NETWORK } from './hkNetwork'
 import { SHANGHAI } from './shanghai'
@@ -30,25 +31,23 @@ const NETWORKS: RawNetwork[] = [
   { match: SHANGHAI.match, lines: SHANGHAI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
 ]
 
-/** Collect every built-in line/station suggestion, listing trip-matched networks first. */
+/** Collect line/station suggestions only for the network(s) matching the given text. */
 export function suggestionsFromText(text: string): TransitSuggest {
   const h = ` ${text.toLowerCase()} `
-  const matched: LineSuggest[] = []
-  const rest: LineSuggest[] = []
+  const lines: LineSuggest[] = []
   for (const n of NETWORKS) {
-    if (n.match.some((m) => h.includes(m.toLowerCase()))) matched.push(...n.lines)
-    else rest.push(...n.lines)
+    if (n.match.some((m) => h.includes(m.toLowerCase()))) lines.push(...n.lines)
   }
-  const lines = [...matched, ...rest]
 
   const set = new Set<string>()
   for (const l of lines) for (const s of l.stations) set.add(s.name)
   return { lines, stations: Array.from(set).sort() }
 }
 
-/** Collect line/station suggestions for a trip (matched networks first, all networks included). */
+/** Collect line/station suggestions for the network(s) matching a trip. */
 export function getTransitSuggestions(trip: Trip | null | undefined): TransitSuggest {
-  return suggestionsFromText([trip?.country ?? '', ...(trip?.cities ?? []), trip?.name ?? ''].join(' '))
+  if (!trip) return { lines: [], stations: [] }
+  return suggestionsFromText([trip.country ?? '', ...(trip.cities ?? []), trip.name ?? ''].join(' '))
 }
 
 /** Find a suggested line by its (case-insensitive) name. */
