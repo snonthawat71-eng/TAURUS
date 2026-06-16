@@ -26,7 +26,7 @@ export function TopBar() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center justify-between gap-2 px-4 sm:px-5 h-14"
+    <header className="sticky top-0 z-30 bg-canvas/95 backdrop-blur flex items-center justify-between gap-2 px-4 sm:px-5 h-14"
       style={{ borderBottom: '0.5px solid var(--color-line)' }}>
       {/* Desktop: page title. Mobile: trip switcher */}
       <h1 className="text-[16px] font-medium max-md:hidden">{title}</h1>
