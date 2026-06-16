@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconTrash, IconPhoto, IconLoader2, IconCheck } from '@tabler/icons-react'
+import { IconTrash, IconPhoto, IconLoader2, IconCheck, IconPlus } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { Combobox } from './Combobox'
@@ -8,11 +8,13 @@ import { uploadImage } from '@/lib/files'
 import { useTrip } from '@/contexts/TripContext'
 import { getTransitSuggestions, findLine } from '@/lib/metro/suggest'
 import { catMeta, CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
-import type { Place, PlaceGroup } from '@/lib/database.types'
+import type { Place, PlaceGroup, ExploreRoute } from '@/lib/database.types'
 import type { PlaceInput } from '@/lib/placeMutations'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
+
+function emptyRoute(): ExploreRoute { return { line: '', color: '#185FA5', station: '' } }
 
 export function PlaceEditor({
   open, onClose, group, tripId, initial, onSave, onDelete,
@@ -39,9 +41,7 @@ export function PlaceEditor({
   const [city, setCity] = useState('')
   const [name, setName] = useState('')
   const [category, setCategory] = useState(cats[0])
-  const [line, setLine] = useState('')
-  const [color, setColor] = useState('#185FA5')
-  const [station, setStation] = useState('')
+  const [routes, setRoutes] = useState<ExploreRoute[]>([emptyRoute()])
   const [mapUrl, setMapUrl] = useState('')
   const [note, setNote] = useState('')
   const [photoPath, setPhotoPath] = useState<string | null>(null)
@@ -54,9 +54,9 @@ export function PlaceEditor({
     if (!open) return
     setName(initial?.name ?? '')
     setCategory(initial?.category && cats.includes(initial.category) ? initial.category : cats[0])
-    setLine(initial?.station_line ?? '')
-    setColor(initial?.station_color ?? '#185FA5')
-    setStation(initial?.station_name ?? '')
+    setRoutes(initial?.routes?.length
+      ? initial.routes.map((r) => ({ line: r.line ?? '', color: r.color ?? '#185FA5', station: r.station ?? '' }))
+      : [{ line: initial?.station_line ?? '', color: initial?.station_color ?? '#185FA5', station: initial?.station_name ?? '' }])
     setMapUrl(initial?.map_url ?? '')
     setNote(initial?.note ?? '')
     setPhotoPath(initial?.photo_path ?? null)
@@ -74,11 +74,19 @@ export function PlaceEditor({
     if (photoInput.current) photoInput.current.value = ''
   }
 
+  function patchRoute(i: number, p: Partial<ExploreRoute>) {
+    setRoutes((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...p } : r)))
+  }
+
   async function save() {
     setBusy(true)
+    const clean = routes.filter((r) => r.line || r.station)
+    const first = clean[0]
     await onSave({
-      group_type: group, name, category, station_line: line, station_color: color,
-      station_name: station, map_url: mapUrl, note, photo_path: photoPath, photo_url: photoUrl, city: city || null,
+      group_type: group, name, category,
+      station_line: first?.line || null, station_color: first?.color || null, station_name: first?.station || null,
+      routes: clean.length ? clean : null,
+      map_url: mapUrl, note, photo_path: photoPath, photo_url: photoUrl, city: city || null,
     })
     setBusy(false)
     onClose()
@@ -138,30 +146,38 @@ export function PlaceEditor({
           )}
           <input className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="พิมพ์ชื่อเมือง เช่น Beijing" />
         </div>
-        {(() => {
-          const known = findLine(sug, line)
-          const stationOpts = known
-            ? known.stations.map((s) => ({ value: s.name, label: s.num }))
-            : sug.stations.map((name) => ({ value: name }))
-          return (
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className={lbl}>สาย / การเดินทาง</div>
-                <Combobox className={field} value={line} placeholder="Line 1 / Bus"
-                  options={sug.lines.map((l) => ({ value: l.name, color: l.color }))}
-                  onChange={(v) => { setLine(v); const k = findLine(sug, v); if (k) setColor(k.color) }} />
-              </div>
-              <div>
-                <div className={lbl}>สถานี</div>
-                <Combobox className={field} value={station} placeholder="Wangfujing"
-                  options={stationOpts} onChange={setStation} />
-              </div>
-            </div>
-          )
-        })()}
+        {/* multiple ways to get there — each its own line + station + colour */}
         <div>
-          <div className={lbl}>สีสาย</div>
-          <ColorPicker value={color} onChange={setColor} />
+          <div className={lbl}>การเดินทาง (เพิ่มได้หลายเส้นทาง)</div>
+          <div className="space-y-2 mt-1">
+            {routes.map((r, i) => {
+              const known = findLine(sug, r.line ?? '')
+              const stationOpts = known
+                ? known.stations.map((s) => ({ value: s.name, label: s.num }))
+                : sug.stations.map((name) => ({ value: name }))
+              return (
+                <div key={i} className="card p-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-ink-2">เส้นทางที่ {i + 1}</span>
+                    {routes.length > 1 && (
+                      <button onClick={() => setRoutes((rs) => rs.filter((_, idx) => idx !== i))} className="text-ink-3 hover:text-[#D85A30]"><IconTrash size={14} /></button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Combobox className={field} value={r.line ?? ''} placeholder="สาย เช่น Line 1 / Bus"
+                      options={sug.lines.map((l) => ({ value: l.name, color: l.color }))}
+                      onChange={(v) => { const k = findLine(sug, v); patchRoute(i, { line: v, ...(k ? { color: k.color } : {}) }) }} />
+                    <Combobox className={field} value={r.station ?? ''} placeholder="สถานี เช่น Wangfujing"
+                      options={stationOpts} onChange={(v) => patchRoute(i, { station: v })} />
+                  </div>
+                  <ColorPicker value={r.color ?? '#185FA5'} onChange={(c) => patchRoute(i, { color: c })} />
+                </div>
+              )
+            })}
+            <button onClick={() => setRoutes((rs) => [...rs, emptyRoute()])} className="btn-link flex items-center gap-1.5 text-[12px]">
+              <IconPlus size={14} /> เพิ่มเส้นทาง
+            </button>
+          </div>
         </div>
         <div><div className={lbl}>โน้ต</div>
           <textarea className="hairline rounded-md text-[13px] p-3 bg-surface w-full outline-none focus:border-brand resize-none" rows={2}

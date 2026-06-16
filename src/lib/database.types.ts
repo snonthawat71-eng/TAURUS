@@ -154,6 +154,8 @@ export interface Place {
   station_line: string | null
   station_color: string | null
   station_name: string | null
+  /** optional — present after place_routes.sql (multiple ways to get there) */
+  routes?: ExploreRoute[] | null
   map_url: string | null
   note: string | null
   in_plan: boolean

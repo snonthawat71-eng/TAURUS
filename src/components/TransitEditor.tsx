@@ -8,7 +8,7 @@ import { HKMapViewer } from './HKMapViewer'
 import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip } from '@/lib/metro'
 import { getTransitSuggestions, findLine, legBetween } from '@/lib/metro/suggest'
-import type { Transit, TransitLeg } from '@/lib/database.types'
+import type { Transit, TransitLeg, ExploreRoute, Place } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[10px] text-ink-3'
@@ -20,6 +20,15 @@ function isHongKong(hay: string) {
 
 function emptyLeg(): TransitLeg {
   return { line: '', color: '#185FA5', from: '', to: '', direction: '', stops: undefined, minutes: undefined }
+}
+
+/** All saved ways to reach a place — its multi-route list, or the single legacy station. */
+function routesOf(p: Place): ExploreRoute[] {
+  const rs = (p.routes ?? []).filter((r): r is ExploreRoute => !!r && !!(r.line || r.station))
+  if (rs.length) return rs
+  return (p.station_line || p.station_name)
+    ? [{ line: p.station_line, color: p.station_color, station: p.station_name }]
+    : []
 }
 
 export function TransitEditor({
@@ -36,7 +45,7 @@ export function TransitEditor({
   const sug = useMemo(() => getTransitSuggestions(trip), [trip])
   // station/line of THIS stop's place (if it matches one in the plan); fall back
   // to all in-plan places only when this stop isn't linked to a known place.
-  const withStation = places.filter((p) => p.in_plan && (p.station_line || p.station_name))
+  const withStation = places.filter((p) => p.in_plan && (p.station_line || p.station_name || p.routes?.length))
   const matched = placeName
     ? withStation.find((p) => (p.name ?? '').trim().toLowerCase() === placeName.trim().toLowerCase())
     : undefined
@@ -48,6 +57,8 @@ export function TransitEditor({
   const [busy, setBusy] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
   const [hkOpen, setHkOpen] = useState(false)
+  // when a place has multiple routes, tapping it opens a chooser for this leg
+  const [routePick, setRoutePick] = useState<{ leg: number; place: string } | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -77,6 +88,13 @@ export function TransitEditor({
       }
       return merged
     }))
+  }
+  // fill a leg from one chosen route of an in-plan place
+  function applyRoute(i: number, r: ExploreRoute) {
+    setLegs((ls) => ls.map((l, idx) => (idx === i
+      ? { ...l, line: r.line || l.line, color: r.color || l.color, to: r.station || l.to }
+      : l)))
+    setRoutePick(null)
   }
   function patchTransfer(i: number, p: { walkMeters?: number; minutes?: number } | null) {
     setLegs((ls) => ls.map((l, idx) => (idx === i ? { ...l, transferAfter: p ?? undefined } : l)))
@@ -147,20 +165,42 @@ export function TransitEditor({
               )
             })()}
 
-            {/* quick-fill this leg from an in-plan place's saved station/line */}
+            {/* quick-fill this leg from an in-plan place's saved route(s) */}
             {stationPlaces.length > 0 && (
               <div>
                 <div className={lbl}>ดึงสาย/สถานีจากสถานที่ในแพลน — แตะเพื่อเติม</div>
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-1 pb-0.5">
-                  {stationPlaces.map((p) => (
-                    <button key={p.id}
-                      onClick={() => patch(i, { line: p.station_line || leg.line, color: p.station_color || leg.color, to: p.station_name || leg.to })}
-                      className="inline-flex items-center gap-1.5 shrink-0 h-7 px-2.5 rounded-full text-[11px] font-medium bg-surface-2 hover:bg-line">
-                      <span className="size-2 rounded-full shrink-0" style={{ background: p.station_color ?? '#888780' }} />
-                      <span className="truncate max-w-[140px]">{p.name} · {[p.station_line, p.station_name].filter(Boolean).join(' ')}</span>
-                    </button>
-                  ))}
+                  {stationPlaces.map((p) => {
+                    const rs = routesOf(p)
+                    if (!rs.length) return null
+                    const multi = rs.length > 1
+                    return (
+                      <button key={p.id}
+                        onClick={() => { if (multi) setRoutePick((cur) => (cur?.leg === i && cur.place === p.id ? null : { leg: i, place: p.id })); else applyRoute(i, rs[0]) }}
+                        className="inline-flex items-center gap-1.5 shrink-0 h-7 px-2.5 rounded-full text-[11px] font-medium bg-surface-2 hover:bg-line">
+                        <span className="size-2 rounded-full shrink-0" style={{ background: rs[0].color ?? '#888780' }} />
+                        <span className="truncate max-w-[140px]">{p.name}{multi ? ` · ${rs.length} เส้นทาง` : ` · ${[rs[0].line, rs[0].station].filter(Boolean).join(' ')}`}</span>
+                      </button>
+                    )
+                  })}
                 </div>
+                {/* route chooser for the tapped multi-route place */}
+                {routePick?.leg === i && (() => {
+                  const p = stationPlaces.find((x) => x.id === routePick.place)
+                  if (!p) return null
+                  return (
+                    <div className="card p-2 mt-1.5 space-y-1">
+                      <div className={lbl}>เลือกเส้นทางของ {p.name}</div>
+                      {routesOf(p).map((r, ri) => (
+                        <button key={ri} onClick={() => applyRoute(i, r)}
+                          className="w-full flex items-center gap-2 px-2 h-9 rounded-md text-[12px] hover:bg-surface-2 text-left">
+                          <span className="size-2.5 rounded-full shrink-0" style={{ background: r.color ?? '#888780' }} />
+                          <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || '(ไม่มีข้อมูล)'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             )}
 

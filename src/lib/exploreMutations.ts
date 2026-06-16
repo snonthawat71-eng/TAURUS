@@ -97,6 +97,7 @@ export function exploreAsPlace(e: ExplorePlace): Place {
   return {
     id: e.id, trip_id: '', group_type: e.group_type, category: e.category, name: e.name,
     station_line: e.station_line, station_color: e.station_color, station_name: e.station_name,
+    routes: e.routes ?? null,
     map_url: e.map_url, note: e.note, in_plan: false, photo_path: null, photo_url: e.photo_url,
     city: e.city, created_at: e.created_at,
   }
