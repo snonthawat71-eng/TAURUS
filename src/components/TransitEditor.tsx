@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { IconPlus, IconTrash, IconArrowDown, IconMap2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
@@ -6,6 +6,7 @@ import { MetroMapPicker } from './MetroMapPicker'
 import { HKMapViewer } from './HKMapViewer'
 import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip } from '@/lib/metro'
+import { getTransitSuggestions, findLine, legBetween } from '@/lib/metro/suggest'
 import type { Transit, TransitLeg } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
@@ -31,6 +32,8 @@ export function TransitEditor({
 }) {
   const { trip, places } = useTrip()
   const net = getNetworkForTrip(trip)
+  const sug = useMemo(() => getTransitSuggestions(trip), [trip])
+  const lineListId = 'transit-lines'
   // station/line of THIS stop's place (if it matches one in the plan); fall back
   // to all in-plan places only when this stop isn't linked to a known place.
   const withStation = places.filter((p) => p.in_plan && (p.station_line || p.station_name))
@@ -57,6 +60,24 @@ export function TransitEditor({
   function patch(i: number, p: Partial<TransitLeg>) {
     setLegs((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...p } : l)))
   }
+  // line name → auto-fill the line color when it matches a known line
+  function patchLine(i: number, value: string) {
+    const known = findLine(sug, value)
+    patch(i, { line: value, ...(known ? { color: known.color } : {}) })
+  }
+  // station fields → when both ends sit on a known line, auto-fill stop count + terminus
+  function patchEnds(i: number, p: Partial<TransitLeg>) {
+    setLegs((ls) => ls.map((l, idx) => {
+      if (idx !== i) return l
+      const merged: TransitLeg = { ...l, ...p }
+      const known = findLine(sug, merged.line)
+      if (known && merged.from && merged.to) {
+        const r = legBetween(known, merged.from, merged.to)
+        if (r) { merged.stops = r.stops; merged.direction = `ปลายทาง ${r.terminus}` }
+      }
+      return merged
+    }))
+  }
   function patchTransfer(i: number, p: { walkMeters?: number; minutes?: number } | null) {
     setLegs((ls) => ls.map((l, idx) => (idx === i ? { ...l, transferAfter: p ?? undefined } : l)))
   }
@@ -75,6 +96,11 @@ export function TransitEditor({
   return (
     <Drawer open={open} onClose={onClose} title="เส้นทางรถไฟฟ้า">
       <div className="space-y-3">
+        {sug.lines.length > 0 && (
+          <datalist id={lineListId}>
+            {sug.lines.map((l) => <option key={l.name} value={l.name} />)}
+          </datalist>
+        )}
         {net && (
           <button onClick={() => setMapOpen(true)}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
@@ -100,20 +126,36 @@ export function TransitEditor({
             {/* line + color */}
             <div>
               <div className={lbl}>ชื่อสาย</div>
-              <input className={field} value={leg.line} onChange={(e) => patch(i, { line: e.target.value })} placeholder="เช่น Line 5 / Airport Express" />
+              <input className={field} list={sug.lines.length ? lineListId : undefined} value={leg.line} onChange={(e) => patchLine(i, e.target.value)} placeholder="เช่น Line 5 / Airport Express" />
               <ColorPicker value={leg.color} onChange={(c) => patch(i, { color: c })} />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className={lbl}>สถานีขึ้น</div>
-                <input className={field} value={leg.from} onChange={(e) => patch(i, { from: e.target.value })} />
-              </div>
-              <div>
-                <div className={lbl}>สถานีลง</div>
-                <input className={field} value={leg.to} onChange={(e) => patch(i, { to: e.target.value })} />
-              </div>
-            </div>
+            {(() => {
+              const known = findLine(sug, leg.line)
+              const stations = known ? known.stations : sug.stations.map((name) => ({ name } as { name: string; num?: string }))
+              const listId = `transit-stations-${i}`
+              return (
+                <>
+                  {stations.length > 0 && (
+                    <datalist id={listId}>
+                      {stations.map((s) => (
+                        <option key={s.name} value={s.name} label={s.num ? `${s.num} · ${known?.name ?? ''}`.trim() : undefined} />
+                      ))}
+                    </datalist>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className={lbl}>สถานีขึ้น</div>
+                      <input className={field} list={stations.length ? listId : undefined} value={leg.from} onChange={(e) => patchEnds(i, { from: e.target.value })} />
+                    </div>
+                    <div>
+                      <div className={lbl}>สถานีลง</div>
+                      <input className={field} list={stations.length ? listId : undefined} value={leg.to} onChange={(e) => patchEnds(i, { to: e.target.value })} />
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
 
             {/* quick-fill this leg from an in-plan place's saved station/line */}
             {stationPlaces.length > 0 && (
