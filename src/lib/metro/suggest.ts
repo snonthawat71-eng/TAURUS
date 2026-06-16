@@ -17,14 +17,9 @@ export interface TransitSuggest {
 
 const HK_MATCH = ['hong kong', 'hongkong', 'ฮ่องกง', ' hk', 'mtr']
 
-function hay(trip: Trip): string {
-  return [trip.country ?? '', ...(trip.cities ?? []), trip.name ?? ''].join(' ').toLowerCase()
-}
-
-/** Collect line/station/number suggestions for whichever network(s) match the trip. */
-export function getTransitSuggestions(trip: Trip | null | undefined): TransitSuggest {
-  if (!trip) return { lines: [], stations: [] }
-  const h = hay(trip)
+/** Collect line/station/number suggestions for whichever network(s) match the given text. */
+export function suggestionsFromText(text: string): TransitSuggest {
+  const h = ` ${text.toLowerCase()} `
   const lines: LineSuggest[] = []
 
   if (OSAKA.match.some((m) => h.includes(m.toLowerCase()))) {
@@ -41,6 +36,12 @@ export function getTransitSuggestions(trip: Trip | null | undefined): TransitSug
   const set = new Set<string>()
   for (const l of lines) for (const s of l.stations) set.add(s.name)
   return { lines, stations: Array.from(set).sort() }
+}
+
+/** Collect line/station/number suggestions for whichever network(s) match the trip. */
+export function getTransitSuggestions(trip: Trip | null | undefined): TransitSuggest {
+  if (!trip) return { lines: [], stations: [] }
+  return suggestionsFromText([trip.country ?? '', ...(trip.cities ?? []), trip.name ?? ''].join(' '))
 }
 
 /** Find a suggested line by its (case-insensitive) name. */

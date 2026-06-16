@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconPhoto, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
-import { Combobox } from './Combobox'
+import { Combobox, type ComboOption } from './Combobox'
+import { suggestionsFromText, findLine } from '@/lib/metro/suggest'
 import { uploadPublicImage } from '@/lib/files'
 import { hscroll } from '@/lib/hscroll'
 import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
@@ -67,6 +68,30 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const ckCur = country.trim().toLowerCase()
   const stationOpts = ckCur && sugg.stationsFor(country).length ? sugg.stationsFor(country) : sugg.allStations
   const lineOpts = ckCur && sugg.linesFor(country).length ? sugg.linesFor(country) : sugg.allLines
+
+  // built-in metro data (Osaka / HK MTR) matching the typed country/city, so the
+  // line + station dropdowns offer official lines/colours/stations — merged with
+  // whatever was typed before, deduped by name.
+  const metroSug = useMemo(() => suggestionsFromText(`${country} ${city}`), [country, city])
+  const lineColorAll = useMemo(() => {
+    const m: Record<string, string> = { ...sugg.lineColor }
+    for (const l of metroSug.lines) m[l.name] = l.color
+    return m
+  }, [sugg, metroSug])
+  const lineOptions = useMemo<ComboOption[]>(() => {
+    const seen = new Set<string>(); const out: ComboOption[] = []
+    const add = (value: string, color?: string) => { const k = value.toLowerCase(); if (value && !seen.has(k)) { seen.add(k); out.push({ value, color }) } }
+    for (const l of metroSug.lines) add(l.name, l.color)
+    for (const l of lineOpts) add(l, sugg.lineColor[l])
+    return out
+  }, [metroSug, lineOpts, sugg])
+  const allStationOptions = useMemo<ComboOption[]>(() => {
+    const seen = new Set<string>(); const out: ComboOption[] = []
+    const add = (value: string, label?: string) => { const k = value.toLowerCase(); if (value && !seen.has(k)) { seen.add(k); out.push({ value, label }) } }
+    for (const l of metroSug.lines) for (const s of l.stations) add(s.name, s.num)
+    for (const s of stationOpts) add(s)
+    return out
+  }, [metroSug, stationOpts])
 
   useEffect(() => {
     if (!open) return
@@ -172,25 +197,29 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
             <div className={lbl}>การเดินทาง (เพิ่มได้หลายเส้นทาง)</div>
           </div>
           <div className="space-y-2 mt-1">
-            {routes.map((r, i) => (
-              <div key={i} className="card p-2.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-ink-2">เส้นทางที่ {i + 1}</span>
-                  {routes.length > 1 && (
-                    <button onClick={() => setRoutes((rs) => rs.filter((_, idx) => idx !== i))} className="text-ink-3 hover:text-[#D85A30]"><IconTrash size={14} /></button>
-                  )}
+            {routes.map((r, i) => {
+              const known = findLine(metroSug, r.line ?? '')
+              const stationOptions = known ? known.stations.map((s) => ({ value: s.name, label: s.num })) : allStationOptions
+              return (
+                <div key={i} className="card p-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-ink-2">เส้นทางที่ {i + 1}</span>
+                    {routes.length > 1 && (
+                      <button onClick={() => setRoutes((rs) => rs.filter((_, idx) => idx !== i))} className="text-ink-3 hover:text-[#D85A30]"><IconTrash size={14} /></button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Combobox className={field} value={r.line ?? ''} placeholder="สาย เช่น Midosuji"
+                      options={lineOptions}
+                      onChange={(v) => patchRoute(i, { line: v, ...(lineColorAll[v] ? { color: lineColorAll[v] } : {}) })} />
+                    <Combobox className={field} value={r.station ?? ''} placeholder="สถานี เช่น Namba"
+                      options={stationOptions}
+                      onChange={(v) => patchRoute(i, { station: v })} />
+                  </div>
+                  <ColorPicker value={r.color ?? '#185FA5'} onChange={(c) => patchRoute(i, { color: c })} />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Combobox className={field} value={r.line ?? ''} placeholder="สาย เช่น Midosuji"
-                    options={lineOpts.map((l) => ({ value: l, color: sugg.lineColor[l] }))}
-                    onChange={(v) => patchRoute(i, { line: v, ...(sugg.lineColor[v] ? { color: sugg.lineColor[v] } : {}) })} />
-                  <Combobox className={field} value={r.station ?? ''} placeholder="สถานี เช่น Namba"
-                    options={stationOpts.map((s) => ({ value: s }))}
-                    onChange={(v) => patchRoute(i, { station: v })} />
-                </div>
-                <ColorPicker value={r.color ?? '#185FA5'} onChange={(c) => patchRoute(i, { color: c })} />
-              </div>
-            ))}
+              )
+            })}
             <button onClick={() => setRoutes((rs) => [...rs, emptyRoute()])} className="btn-link flex items-center gap-1.5 text-[12px]">
               <IconPlus size={14} /> เพิ่มเส้นทาง
             </button>
