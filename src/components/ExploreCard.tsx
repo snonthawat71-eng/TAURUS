@@ -29,9 +29,9 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
       {/* whole card opens the detail view */}
       <div onClick={onOpen} role="button" tabIndex={0}
         onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && onOpen()}
-        className="flex gap-3.5 p-3.5 items-stretch cursor-pointer">
-        {/* image fills the full card height so it stays balanced with the text */}
-        <div className="w-32 sm:w-36 shrink-0 self-stretch rounded-[10px] overflow-hidden bg-surface-2 relative" style={{ minHeight: 150 }}>
+        className="flex gap-3.5 p-3.5 items-start cursor-pointer">
+        {/* image keeps a fixed 4:5 aspect ratio so every card looks consistent */}
+        <div className="w-32 sm:w-36 shrink-0 aspect-[4/5] rounded-[10px] overflow-hidden bg-surface-2 relative">
           <SignedImage url={e.photo_url} alt={e.name ?? ''} className="w-full h-full object-cover"
             fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
           {popular && (
