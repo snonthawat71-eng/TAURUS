@@ -1,14 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconTrash, IconArrowDown, IconMap2 } from '@tabler/icons-react'
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import { IconPlus, IconTrash, IconArrowDown, IconMap2, IconLoader2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { Combobox } from './Combobox'
-import { MetroMapPicker } from './MetroMapPicker'
-import { HKMapViewer } from './HKMapViewer'
 import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip } from '@/lib/metro'
 import { getTransitSuggestions, findLine, legBetween } from '@/lib/metro/suggest'
 import type { Transit, TransitLeg, ExploreRoute, Place } from '@/lib/database.types'
+
+// The metro map viewers pull in heavy SVG geometry (osakaGeo ~21KB, hkGeo ~27KB).
+// Load them on demand so they don't bloat the main bundle — they only render
+// when the user actually opens a map picker.
+const MetroMapPicker = lazy(() => import('./MetroMapPicker').then((m) => ({ default: m.MetroMapPicker })))
+const HKMapViewer = lazy(() => import('./HKMapViewer').then((m) => ({ default: m.HKMapViewer })))
+
+const mapFallback = (
+  <div className="fixed inset-0 z-[70] grid place-items-center bg-black/40">
+    <IconLoader2 size={28} className="animate-spin text-white" />
+  </div>
+)
 
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[10px] text-ink-3'
@@ -267,14 +277,20 @@ export function TransitEditor({
       </div>
 
       {net && mapOpen && (
-        <MetroMapPicker
-          net={net}
-          onClose={() => setMapOpen(false)}
-          onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setMapOpen(false) }}
-        />
+        <Suspense fallback={mapFallback}>
+          <MetroMapPicker
+            net={net}
+            onClose={() => setMapOpen(false)}
+            onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setMapOpen(false) }}
+          />
+        </Suspense>
       )}
-      {hk && hkOpen && <HKMapViewer onClose={() => setHkOpen(false)}
-        onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setHkOpen(false) }} />}
+      {hk && hkOpen && (
+        <Suspense fallback={mapFallback}>
+          <HKMapViewer onClose={() => setHkOpen(false)}
+            onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setHkOpen(false) }} />
+        </Suspense>
+      )}
     </Drawer>
   )
 }
