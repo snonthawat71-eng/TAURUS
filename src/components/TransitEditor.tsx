@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import { createPortal } from 'react-dom'
 import { IconPlus, IconTrash, IconArrowDown, IconMap2, IconLoader2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
@@ -10,15 +11,27 @@ import type { Transit, TransitLeg, ExploreRoute, Place } from '@/lib/database.ty
 
 // The metro map viewers pull in heavy SVG geometry (osakaGeo ~21KB, hkGeo ~27KB).
 // Load them on demand so they don't bloat the main bundle — they only render
-// when the user actually opens a map picker.
-const MetroMapPicker = lazy(() => import('./MetroMapPicker').then((m) => ({ default: m.MetroMapPicker })))
-const HKMapViewer = lazy(() => import('./HKMapViewer').then((m) => ({ default: m.HKMapViewer })))
+// when the user actually opens a map picker. The import fns are reused to
+// *preload* the chunk as soon as the editor opens, so tapping the map button is
+// near-instant instead of waiting on a fresh download.
+const importMetroPicker = () => import('./MetroMapPicker')
+const importHKViewer = () => import('./HKMapViewer')
+const MetroMapPicker = lazy(() => importMetroPicker().then((m) => ({ default: m.MetroMapPicker })))
+const HKMapViewer = lazy(() => importHKViewer().then((m) => ({ default: m.HKMapViewer })))
 
-const mapFallback = (
-  <div className="fixed inset-0 z-[70] grid place-items-center bg-black/40">
-    <IconLoader2 size={28} className="animate-spin text-white" />
-  </div>
-)
+// Full-screen loading state. Portals to <body> so the Drawer's transform/overflow
+// can't trap or clip it (otherwise the user just sees a blank screen).
+function MapLoading() {
+  return createPortal(
+    <div className="fixed inset-0 z-[110] bg-canvas grid place-items-center">
+      <div className="flex flex-col items-center gap-3 text-ink-3">
+        <IconLoader2 size={30} className="animate-spin" />
+        <span className="text-[13px]">กำลังโหลดแผนที่…</span>
+      </div>
+    </div>,
+    document.body,
+  )
+}
 
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[10px] text-ink-3'
@@ -77,6 +90,13 @@ export function TransitEditor({
       setExitNote(initial?.exit?.note ?? '')
     }
   }, [open, initial])
+
+  // warm the map chunk(s) while the user fills the form, so opening is instant
+  useEffect(() => {
+    if (!open) return
+    if (net) importMetroPicker()
+    if (hk) importHKViewer()
+  }, [open, net, hk])
 
   function patch(i: number, p: Partial<TransitLeg>) {
     setLegs((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...p } : l)))
@@ -277,7 +297,7 @@ export function TransitEditor({
       </div>
 
       {net && mapOpen && (
-        <Suspense fallback={mapFallback}>
+        <Suspense fallback={<MapLoading />}>
           <MetroMapPicker
             net={net}
             onClose={() => setMapOpen(false)}
@@ -286,7 +306,7 @@ export function TransitEditor({
         </Suspense>
       )}
       {hk && hkOpen && (
-        <Suspense fallback={mapFallback}>
+        <Suspense fallback={<MapLoading />}>
           <HKMapViewer onClose={() => setHkOpen(false)}
             onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setHkOpen(false) }} />
         </Suspense>
