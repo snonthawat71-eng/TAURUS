@@ -59,7 +59,7 @@ export default function TripsDashboard() {
       {/* Header */}
       <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center justify-between px-5 sm:px-8 h-16"
         style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-        <TaurusLogo height={30} />
+        <TaurusLogo height={40} />
         <div className="flex items-center gap-2">
           <div className="relative">
             <button onClick={() => setMenu((v) => !v)} className="btn-icon"><IconDots size={16} /></button>

@@ -27,7 +27,7 @@ export default function Login() {
       <div className="w-full max-w-[360px]">
         {/* Brand */}
         <div className="flex justify-center mb-8">
-          <TaurusLogo height={34} />
+          <TaurusLogo height={46} />
         </div>
 
         <div className="card p-6">
