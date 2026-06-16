@@ -4,16 +4,16 @@ import type { Transit, TransitLeg } from '@/lib/database.types'
 interface HKLine { id: string; name: string; color: string; stations: string[]; extra?: [string, string][] }
 
 export const HK_NETWORK: HKLine[] = [
-  { id: "Tsuen Wan", name: "Tsuen Wan", color: '#E6000F', stations: ["Tsuen Wan", "Tai Wo Hau", "Kwai Hing", "Kwai Fong", "Lai King", "Mei Foo", "Lai Chi Kok", "Cheung Sha Wan", "Sham Shui Po", "Prince Edward", "Mong Kok", "Yau Ma Tei", "Jordan", "Tsim Sha Tsui", "Admiralty", "Central"] },
-  { id: "Kwun Tong", name: "Kwun Tong", color: '#00A040', stations: ["Tiu Keng Leng", "Yau Tong", "Lam Tin", "Kwun Tong", "Ngau Tau Kok", "Kowloon Bay", "Choi Hung", "Diamond Hill", "Wong Tai Sin", "Lok Fu", "Kowloon Tong", "Shek Kip Mei", "Prince Edward", "Mong Kok", "Yau Ma Tei", "Ho Man Tin", "Whampoa"] },
-  { id: "Island", name: "Island", color: '#0075C2', stations: ["Kennedy Town", "HKU", "Sai Ying Pun", "Sheung Wan", "Central", "Admiralty", "Wan Chai", "Causeway Bay", "Tin Hau", "Fortress Hill", "North Point", "Quarry Bay", "Tai Koo", "Sai Wan Ho", "Shau Kei Wan", "Heng Fa Chuen", "Chai Wan"] },
-  { id: "Tseung Kwan O", name: "Tseung Kwan O", color: '#7D3C93', stations: ["LOHAS Park", "Po Lam", "Hang Hau", "Tseung Kwan O", "Tiu Keng Leng", "Yau Tong", "Quarry Bay", "North Point"] },
-  { id: "Tung Chung", name: "Tung Chung", color: '#F3982C', stations: ["Hong Kong", "Kowloon", "Olympic", "Nam Cheong", "Lai King", "Tsing Yi", "Sunny Bay", "Tung Chung"] },
-  { id: "Airport Express", name: "Airport Express", color: '#00888E', stations: ["Hong Kong", "Kowloon", "Tsing Yi", "Airport", "AsiaWorld-Expo"] },
-  { id: "Tuen Ma", name: "Tuen Ma", color: '#9C2E00', stations: ["Tuen Mun", "Siu Hong", "Tin Shui Wai", "Long Ping", "Yuen Long", "Kam Sheung Road", "Tsuen Wan West", "Mei Foo", "Nam Cheong", "Austin", "East Tsim Sha Tsui", "Hung Hom", "Ho Man Tin", "To Kwa Wan", "Sung Wong Toi", "Kai Tak", "Diamond Hill", "Hin Keng", "Tai Wai", "Che Kung Temple", "Sha Tin Wai", "City One", "Shek Mun", "Tai Shui Hang", "Heng On", "Ma On Shan", "Wu Kai Sha"] },
-  { id: "East Rail", name: "East Rail", color: '#5DB7E8', stations: ["Admiralty", "Exhibition Centre", "Hung Hom", "Mong Kok East", "Kowloon Tong", "Tai Wai", "Sha Tin", "Fo Tan", "Racecourse", "University", "Tai Po Market", "Tai Wo", "Fanling", "Sheung Shui", "Lo Wu", "Lok Ma Chau"] },
-  { id: "South Island", name: "South Island", color: '#CBD300', stations: ["Admiralty", "Ocean Park", "Wong Chuk Hang", "Lei Tung", "South Horizons"] },
-  { id: "Disneyland Resort", name: "Disneyland Resort", color: '#EB6EA5', stations: ["Sunny Bay", "Disneyland Resort"] },
+  { id: "Tsuen Wan", name: "Tsuen Wan Line", color: '#e60012', stations: ["Tsuen Wan", "Tai Wo Hau", "Kwai Hing", "Kwai Fong", "Lai King", "Mei Foo", "Lai Chi Kok", "Cheung Sha Wan", "Sham Shui Po", "Prince Edward", "Mong Kok", "Yau Ma Tei", "Jordan", "Tsim Sha Tsui", "Admiralty", "Central"] },
+  { id: "Kwun Tong", name: "Kwun Tong Line", color: '#00a040', stations: ["Tiu Keng Leng", "Yau Tong", "Lam Tin", "Kwun Tong", "Ngau Tau Kok", "Kowloon Bay", "Choi Hung", "Diamond Hill", "Wong Tai Sin", "Lok Fu", "Kowloon Tong", "Shek Kip Mei", "Prince Edward", "Mong Kok", "Yau Ma Tei", "Ho Man Tin", "Whampoa"] },
+  { id: "Island", name: "Island Line", color: '#0075c2', stations: ["Kennedy Town", "HKU", "Sai Ying Pun", "Sheung Wan", "Central", "Admiralty", "Wan Chai", "Causeway Bay", "Tin Hau", "Fortress Hill", "North Point", "Quarry Bay", "Tai Koo", "Sai Wan Ho", "Shau Kei Wan", "Heng Fa Chuen", "Chai Wan"] },
+  { id: "Tseung Kwan O", name: "Tseung Kwan O Line", color: '#7e3c93', stations: ["LOHAS Park", "Po Lam", "Hang Hau", "Tseung Kwan O", "Tiu Keng Leng", "Yau Tong", "Quarry Bay", "North Point"] },
+  { id: "Tung Chung", name: "Tung Chung Line", color: '#f3982d', stations: ["Hong Kong", "Kowloon", "Olympic", "Nam Cheong", "Lai King", "Tsing Yi", "Sunny Bay", "Tung Chung"] },
+  { id: "Airport Express", name: "Airport Express Line", color: '#00888e', stations: ["Hong Kong", "Kowloon", "Tsing Yi", "Airport", "AsiaWorld-Expo"] },
+  { id: "Tuen Ma", name: "Tuen Ma Line", color: '#9c2e00', stations: ["Tuen Mun", "Siu Hong", "Tin Shui Wai", "Long Ping", "Yuen Long", "Kam Sheung Road", "Tsuen Wan West", "Mei Foo", "Nam Cheong", "Austin", "East Tsim Sha Tsui", "Hung Hom", "Ho Man Tin", "To Kwa Wan", "Sung Wong Toi", "Kai Tak", "Diamond Hill", "Hin Keng", "Tai Wai", "Che Kung Temple", "Sha Tin Wai", "City One", "Shek Mun", "Tai Shui Hang", "Heng On", "Ma On Shan", "Wu Kai Sha"] },
+  { id: "East Rail", name: "East Rail Line", color: '#5eb7e8', stations: ["Admiralty", "Exhibition Centre", "Hung Hom", "Mong Kok East", "Kowloon Tong", "Tai Wai", "Sha Tin", "Fo Tan", "Racecourse", "University", "Tai Po Market", "Tai Wo", "Fanling", "Sheung Shui", "Lo Wu", "Lok Ma Chau"] },
+  { id: "South Island", name: "South Island Line", color: '#cbd300', stations: ["Admiralty", "Ocean Park", "Wong Chuk Hang", "Lei Tung", "South Horizons"] },
+  { id: "Disneyland Resort", name: "Disneyland Resort Line", color: '#eb6ea5', stations: ["Sunny Bay", "Disneyland Resort"] },
 ]
 
 export const lineColor = (id: string) => HK_NETWORK.find((l) => l.id === id)?.color ?? '#666'
