@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, Fragment } from 'react'
 import { createPortal } from 'react-dom'
 import { IconChevronDown } from '@tabler/icons-react'
 
-export interface ComboOption { value: string; label?: string; color?: string }
+export interface ComboOption { value: string; label?: string; color?: string; group?: string }
 
 /**
  * Free-text input with a suggestion dropdown — a replacement for native
@@ -86,15 +86,30 @@ export function Combobox({
         <div
           style={{ position: 'fixed', left: rect.left, top: rect.top, width: rect.width, zIndex: 200 }}
           className="max-h-56 overflow-auto rounded-md bg-surface shadow-lg hairline py-1">
-          {filtered.map((o) => (
-            <button type="button" key={o.value}
-              onMouseDown={(e) => { e.preventDefault(); choose(o.value) }}
-              className="w-full text-left px-3 py-1.5 text-[13px] hover:bg-surface-2 flex items-center gap-2">
-              {o.color && <span className="size-2.5 rounded-full shrink-0" style={{ background: o.color }} />}
-              <span className="truncate">{o.value}</span>
-              {o.label && <span className="text-ink-3 text-[11px] ml-auto shrink-0">{o.label}</span>}
-            </button>
-          ))}
+          {(() => {
+            // only show group headers/dividers when more than one group is present
+            const groups = new Set(filtered.map((o) => o.group).filter((g) => g !== undefined))
+            const showHeaders = groups.size > 1
+            let last: string | undefined
+            return filtered.map((o, idx) => {
+              const header = showHeaders && o.group !== undefined && o.group !== last
+              last = o.group
+              return (
+                <Fragment key={`${o.group ?? ''}::${o.value}`}>
+                  {header && (
+                    <div className={`px-3 pb-1 text-[10px] font-medium uppercase tracking-wide text-ink-3 ${idx === 0 ? 'pt-1' : 'pt-2 mt-1 border-t border-line'}`}>{o.group}</div>
+                  )}
+                  <button type="button"
+                    onMouseDown={(e) => { e.preventDefault(); choose(o.value) }}
+                    className="w-full text-left px-3 py-1.5 text-[13px] hover:bg-surface-2 flex items-center gap-2">
+                    {o.color && <span className="size-2.5 rounded-full shrink-0" style={{ background: o.color }} />}
+                    <span className="truncate">{o.value}</span>
+                    {o.label && <span className="text-ink-3 text-[11px] ml-auto shrink-0">{o.label}</span>}
+                  </button>
+                </Fragment>
+              )
+            })
+          })()}
         </div>,
         document.body,
       )}

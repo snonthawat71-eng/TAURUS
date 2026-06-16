@@ -80,16 +80,16 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   }, [sugg, metroSug])
   const lineOptions = useMemo<ComboOption[]>(() => {
     const seen = new Set<string>(); const out: ComboOption[] = []
-    const add = (value: string, color?: string) => { const k = value.toLowerCase(); if (value && !seen.has(k)) { seen.add(k); out.push({ value, color }) } }
-    for (const l of metroSug.lines) add(l.name, l.color)
-    for (const l of lineOpts) add(l, sugg.lineColor[l])
+    const add = (value: string, group: string, color?: string) => { const k = value.trim().toLowerCase(); if (value.trim() && !seen.has(k)) { seen.add(k); out.push({ value, color, group }) } }
+    for (const l of metroSug.lines) add(l.name, 'สายในระบบ', l.color)
+    for (const l of lineOpts) add(l, 'ที่เพิ่มเอง', sugg.lineColor[l])
     return out
   }, [metroSug, lineOpts, sugg])
   const allStationOptions = useMemo<ComboOption[]>(() => {
     const seen = new Set<string>(); const out: ComboOption[] = []
-    const add = (value: string, label?: string) => { const k = value.toLowerCase(); if (value && !seen.has(k)) { seen.add(k); out.push({ value, label }) } }
-    for (const l of metroSug.lines) for (const s of l.stations) add(s.name, s.num)
-    for (const s of stationOpts) add(s)
+    const add = (value: string, group: string, label?: string) => { const k = value.trim().toLowerCase(); if (value.trim() && !seen.has(k)) { seen.add(k); out.push({ value, label, group }) } }
+    for (const l of metroSug.lines) for (const s of l.stations) add(s.name, 'สถานีในระบบ', s.num)
+    for (const s of stationOpts) add(s, 'ที่เพิ่มเอง')
     return out
   }, [metroSug, stationOpts])
 
