@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { IconX, IconPlus, IconMinus, IconSearch, IconMapPin, IconFlag } from '@tabler/icons-react'
+import { IconX, IconPlus, IconMinus, IconSearch, IconMapPin, IconFlag, IconArrowsExchange } from '@tabler/icons-react'
 import { HKMetroMap } from './HKMetroMap'
 import { MetroRoute } from './MetroRoute'
 import { HK_NETWORK, HK_STATION_LIST, computeRouteHK } from '@/lib/metro/hkNetwork'
@@ -65,6 +65,12 @@ export function HKMapViewer({ onClose, onResult }: { onClose: () => void; onResu
       <div className="shrink-0 p-4 bg-surface" style={{ borderTop: '0.5px solid var(--color-line)', maxHeight: '45dvh', overflowY: 'auto' }}>
         <div className="flex items-center gap-2 text-[13px] flex-wrap">
           <span className="chip"><IconMapPin size={13} /> ต้นทาง: <b className="ml-1">{from || '—'}</b></span>
+          {(from || to) && (
+            <button onClick={() => { setFrom(to); setTo(from) }} aria-label="สลับต้นทาง/ปลายทาง" title="สลับต้นทาง/ปลายทาง"
+              className="size-7 rounded-full grid place-items-center bg-surface-2 hover:bg-line text-ink-2 shrink-0">
+              <IconArrowsExchange size={15} />
+            </button>
+          )}
           <span className="chip"><IconFlag size={13} /> ปลายทาง: <b className="ml-1">{to || '—'}</b></span>
           {(from || to) && <button onClick={() => { setFrom(null); setTo(null) }} className="btn-link text-[12px]">ล้าง</button>}
         </div>
