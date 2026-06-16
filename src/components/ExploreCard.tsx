@@ -79,12 +79,23 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
           {e.note && <p className="text-[12px] text-ink-2 mt-2 line-clamp-2">{e.note}</p>}
 
           {/* popularity stats — footer aligned to the bottom of the image */}
-          <div className={['flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-3', isOwner ? 'pr-16' : ''].join(' ')}
-            style={{ borderTop: '0.5px solid var(--color-line)' }}>
+          <div className="flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
             <span className="inline-flex items-center gap-1" title="ยอดคลิก"><IconEye size={13} /> {pop?.views ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดเซฟ"><IconBookmark size={13} /> {pop?.saves ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดไลก์"><IconThumbUp size={13} /> {pop?.likes ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดคอมเมนต์"><IconMessageCircle size={13} /> {pop?.comments ?? 0}</span>
+            {isOwner && (
+              <div className="ml-auto flex gap-1.5">
+                <button onClick={(ev) => { ev.stopPropagation(); onEdit() }} aria-label="แก้ไข"
+                  className="size-7 rounded-full grid place-items-center bg-surface-2 hover:bg-line text-ink-2">
+                  <IconPencil size={14} />
+                </button>
+                <button onClick={(ev) => { ev.stopPropagation(); onDelete() }} aria-label="ลบ"
+                  className="size-7 rounded-full grid place-items-center bg-surface-2 hover:bg-line" style={{ color: '#D85A30' }}>
+                  <IconTrash size={14} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -95,18 +106,6 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
         style={{ background: saved ? 'var(--color-brand)' : 'rgba(255,255,255,.95)', color: saved ? '#fff' : 'var(--color-brand)' }}>
         {saved ? <IconHeartFilled size={19} /> : <IconHeart size={19} />}
       </button>
-      {isOwner && (
-        <div className="absolute bottom-2.5 right-2.5 flex gap-1.5 z-20">
-          <button onClick={(ev) => { ev.stopPropagation(); onEdit() }} aria-label="แก้ไข"
-            className="size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line text-ink-2">
-            <IconPencil size={15} />
-          </button>
-          <button onClick={(ev) => { ev.stopPropagation(); onDelete() }} aria-label="ลบ"
-            className="size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line" style={{ color: '#D85A30' }}>
-            <IconTrash size={15} />
-          </button>
-        </div>
-      )}
       {saved && <div className="absolute inset-0 rounded-[12px] pointer-events-none z-10" style={{ background: 'rgba(120,118,110,0.16)' }} />}
     </div>
   )
