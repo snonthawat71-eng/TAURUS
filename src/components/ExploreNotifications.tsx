@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IconBell, IconHeartFilled, IconMessageCircle } from '@tabler/icons-react'
 import { getExploreNotifs, type ExploreNotif } from '@/lib/exploreMutations'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 const seenKey = (uid: string) => `explore:notifsSeen:${uid}`
 
@@ -35,6 +36,20 @@ export function ExploreNotifications({ userId, onOpenItem }: {
   }, [userId])
 
   useEffect(() => { refresh() }, [refresh])
+
+  // Realtime: refresh the instant anyone likes/comments (tables must be in the
+  // supabase_realtime publication — see explore.sql). Debounced to collapse bursts.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const bump = () => { clearTimeout(timer); timer = setTimeout(() => { refresh() }, 300) }
+    const channel = supabase.channel('explore-notifs')
+    for (const table of ['explore_votes', 'explore_comments']) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table }, bump)
+    }
+    channel.subscribe()
+    return () => { clearTimeout(timer); supabase.removeChannel(channel) }
+  }, [refresh])
 
   const unread = useMemo(() => notifs.filter((n) => n.at > seen).length, [notifs, seen])
 

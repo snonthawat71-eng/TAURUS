@@ -97,3 +97,13 @@ create policy "explore votes insert" on explore_votes for insert with check (aut
 create policy "explore votes update" on explore_votes for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "explore votes delete" on explore_votes for delete using (auth.uid() = user_id);
 
+-- ============================================================
+-- Realtime: push likes & comments to the owner's notification bell instantly.
+-- (idempotent — skips tables already in the publication)
+-- ============================================================
+do $$
+begin
+  begin alter publication supabase_realtime add table explore_votes; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table explore_comments; exception when duplicate_object then null; end;
+end $$;
+
