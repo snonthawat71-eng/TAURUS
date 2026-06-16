@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { IconX, IconSearch, IconPlus, IconMinus, IconMapPin, IconFlag } from '@tabler/icons-react'
+import { IconX, IconSearch, IconPlus, IconMinus, IconMapPin, IconFlag, IconArrowsExchange } from '@tabler/icons-react'
 import { createPortal } from 'react-dom'
 import { MetroRoute } from './MetroRoute'
 import { OsakaMetroMap } from './OsakaMetroMap'
@@ -77,6 +77,12 @@ export function MetroMapPicker({ net, onClose, onResult }: {
       <div className="shrink-0 p-4 bg-surface" style={{ borderTop: '0.5px solid var(--color-line)', maxHeight: '45dvh', overflowY: 'auto' }}>
         <div className="flex items-center gap-2 text-[13px] flex-wrap">
           <span className="chip"><IconMapPin size={13} /> ต้นทาง: <b className="ml-1">{label(from) || '—'}</b></span>
+          {(from || to) && (
+            <button onClick={() => { setFrom(to); setTo(from) }} aria-label="สลับต้นทาง/ปลายทาง" title="สลับต้นทาง/ปลายทาง"
+              className="size-7 rounded-full grid place-items-center bg-surface-2 hover:bg-line text-ink-2 shrink-0">
+              <IconArrowsExchange size={15} />
+            </button>
+          )}
           <span className="chip"><IconFlag size={13} /> ปลายทาง: <b className="ml-1">{label(to) || '—'}</b></span>
           {(from || to) && <button onClick={() => { setFrom(null); setTo(null) }} className="btn-link text-[12px]">ล้าง</button>}
         </div>
