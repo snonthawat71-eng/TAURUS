@@ -29,9 +29,9 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
       {/* whole card opens the detail view */}
       <div onClick={onOpen} role="button" tabIndex={0}
         onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && onOpen()}
-        className="flex gap-3.5 p-3 items-stretch cursor-pointer">
+        className="flex gap-3.5 p-3.5 items-stretch cursor-pointer">
         {/* image fills the full card height so it stays balanced with the text */}
-        <div className="w-28 sm:w-36 shrink-0 self-stretch rounded-[10px] overflow-hidden bg-surface-2 relative" style={{ minHeight: 132 }}>
+        <div className="w-32 sm:w-36 shrink-0 self-stretch rounded-[10px] overflow-hidden bg-surface-2 relative" style={{ minHeight: 150 }}>
           <SignedImage url={e.photo_url} alt={e.name ?? ''} className="w-full h-full object-cover"
             fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
           {popular && (
@@ -48,7 +48,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
             {meta.label}
           </span>
           <div className="text-[15px] font-medium leading-snug line-clamp-2 mt-1.5">{e.name}</div>
-          <div className="flex items-center gap-1.5 mt-1">
+          <div className="flex items-center gap-1.5 mt-1.5">
             <StarRating rating={stat?.rating ?? 0} size={13} />
             {stat && stat.count > 0
               ? <span className="text-[11px] text-ink-3">{stat.rating.toFixed(1)} ({stat.count})</span>
@@ -56,9 +56,9 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
           </div>
 
           {routes.length > 0 && (
-            <div className="flex flex-col gap-0.5 text-[12px] text-ink-3 mt-1.5">
+            <div className="flex flex-col gap-1 text-[12px] text-ink-3 mt-2">
               {routes.slice(0, 2).map((r, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 min-w-0">
+                <span key={i} className="flex items-center gap-1.5 min-w-0">
                   <span className="size-2.5 rounded-full shrink-0" style={{ background: r.color ?? '#888780' }} />
                   <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || 'สถานี'}</span>
                 </span>
@@ -67,7 +67,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
             </div>
           )}
 
-          <div className="flex items-center gap-2 flex-wrap mt-1.5">
+          <div className="flex items-center gap-2 flex-wrap mt-2">
             {e.city && <span className="chip !py-0.5">{e.city}</span>}
             {e.map_url && (
               <button onClick={(ev) => { ev.stopPropagation(); openMap(e.map_url) }} className="inline-flex items-center gap-1 text-[11px] text-ink-3 hover:text-brand-mid">
@@ -76,10 +76,10 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
             )}
           </div>
 
-          {e.note && <p className="text-[12px] text-ink-2 mt-1.5 line-clamp-2">{e.note}</p>}
+          {e.note && <p className="text-[12px] text-ink-2 mt-2 line-clamp-2">{e.note}</p>}
 
           {/* popularity stats — footer aligned to the bottom of the image */}
-          <div className={['flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-2.5', isOwner ? 'pr-16' : ''].join(' ')}
+          <div className={['flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-3', isOwner ? 'pr-16' : ''].join(' ')}
             style={{ borderTop: '0.5px solid var(--color-line)' }}>
             <span className="inline-flex items-center gap-1" title="ยอดคลิก"><IconEye size={13} /> {pop?.views ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดเซฟ"><IconBookmark size={13} /> {pop?.saves ?? 0}</span>
