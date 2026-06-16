@@ -3,7 +3,7 @@ import { visibleNav } from './nav'
 import { useTrip } from '@/contexts/TripContext'
 import { FxWidget } from '@/components/FxWidget'
 import { TripSwitcher } from '@/components/TripSwitcher'
-import { TaurusMark } from '@/components/TaurusMark'
+import { TaurusLogo } from '@/components/TaurusLogo'
 
 export function Sidebar() {
   const { days, places, myPermission } = useTrip()
@@ -18,9 +18,8 @@ export function Sidebar() {
 
   return (
     <aside className="w-60 shrink-0 h-dvh sticky top-0 bg-canvas flex flex-col" style={{ borderRight: '0.5px solid var(--color-line)' }}>
-      <Link to="/" className="flex items-center gap-2.5 px-5 h-14" title="ทริปทั้งหมด">
-        <TaurusMark size={34} />
-        <span className="text-[17px] font-medium tracking-[0.06em]">TAURUS</span>
+      <Link to="/" className="flex items-center px-5 h-14" title="ทริปทั้งหมด">
+        <TaurusLogo height={30} />
       </Link>
 
       <div className="px-3"><TripSwitcher variant="sidebar" /></div>
