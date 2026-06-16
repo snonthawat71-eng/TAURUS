@@ -8,6 +8,7 @@ import { SignedImage } from '@/components/SignedImage'
 import { ExploreCard } from '@/components/ExploreCard'
 import { ExploreDetail } from '@/components/ExploreDetail'
 import { ExploreEditor } from '@/components/ExploreEditor'
+import { ExploreNotifications } from '@/components/ExploreNotifications'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, type VoteStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
@@ -75,7 +76,10 @@ export default function Explore() {
       <header className="sticky top-0 z-30 bg-canvas/95 backdrop-blur flex items-center justify-between px-4 sm:px-6 h-14" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
         <button onClick={() => navigate(-1)} className="btn-icon !border-0" aria-label="กลับ"><IconArrowLeft size={18} /></button>
         <TaurusLogo height={42} />
-        <button onClick={() => setEditor('new')} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium"><IconPlus size={15} /><span className="max-sm:hidden">เพิ่มสถานที่</span></button>
+        <div className="flex items-center gap-1">
+          {user && <ExploreNotifications userId={user.id} onOpenItem={(id) => { const it = items.find((e) => e.id === id); if (it) setDetail(it) }} />}
+          <button onClick={() => setEditor('new')} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium"><IconPlus size={15} /><span className="max-sm:hidden">เพิ่มสถานที่</span></button>
+        </div>
       </header>
 
       <main className="max-w-[640px] mx-auto px-4 sm:px-6 py-5">

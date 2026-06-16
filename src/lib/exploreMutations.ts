@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { ExplorePlace, Place } from './database.types'
+import type { ExplorePlace, Place, Profile } from './database.types'
 
 export type ExploreInput = Partial<Omit<ExplorePlace, 'id' | 'created_by' | 'created_at'>>
 
@@ -90,6 +90,71 @@ export async function setVote(exploreId: string, userId: string, vote: 1 | -1, c
     return supabase.from('explore_votes').delete().eq('explore_id', exploreId).eq('user_id', userId)
   }
   return supabase.from('explore_votes').upsert({ explore_id: exploreId, user_id: userId, vote }, { onConflict: 'explore_id,user_id' })
+}
+
+// ---- Notifications (likes / comments on MY explore items) -----------------
+
+export interface ExploreNotif {
+  id: string
+  kind: 'like' | 'comment'
+  exploreId: string
+  placeName: string
+  who: string
+  whoColor?: string | null
+  body?: string
+  at: string
+}
+
+/**
+ * Build the owner's notification feed: every like (👍) and comment left by
+ * *other* people on Explore items this user created, newest first. Derived
+ * from existing tables (no extra schema) — all rows are readable under RLS.
+ */
+export async function getExploreNotifs(userId: string): Promise<ExploreNotif[]> {
+  const { data: mine } = await supabase.from('explore_places').select('id,name').eq('created_by', userId)
+  const items = mine ?? []
+  if (!items.length) return []
+  const nameById = new Map(items.map((i) => [i.id as string, (i.name as string) ?? '']))
+  const ids = items.map((i) => i.id as string)
+
+  const [cRes, vRes] = await Promise.all([
+    supabase.from('explore_comments')
+      .select('id,explore_id,user_id,author_name,author_color,body,created_at')
+      .in('explore_id', ids).neq('user_id', userId).order('created_at', { ascending: false }),
+    supabase.from('explore_votes')
+      .select('explore_id,user_id,created_at')
+      .in('explore_id', ids).eq('vote', 1).neq('user_id', userId),
+  ])
+  const comments = cRes.data ?? []
+  const votes = vRes.data ?? []
+
+  // resolve voter display names from profiles (votes don't store a name)
+  const voterIds = [...new Set(votes.map((v) => v.user_id).filter(Boolean) as string[])]
+  const profById = new Map<string, Profile>()
+  if (voterIds.length) {
+    const { data: profs } = await supabase.from('profiles').select('*').in('id', voterIds)
+    for (const p of (profs ?? []) as Profile[]) profById.set(p.id, p)
+  }
+
+  const out: ExploreNotif[] = []
+  for (const c of comments) {
+    out.push({
+      id: `c:${c.id}`, kind: 'comment', exploreId: c.explore_id as string,
+      placeName: nameById.get(c.explore_id as string) ?? '', who: c.author_name || 'ใครบางคน',
+      whoColor: c.author_color as string | null, body: c.body as string, at: c.created_at as string,
+    })
+  }
+  for (const v of votes) {
+    const p = v.user_id ? profById.get(v.user_id as string) : undefined
+    out.push({
+      id: `v:${v.explore_id}:${v.user_id}`, kind: 'like', exploreId: v.explore_id as string,
+      placeName: nameById.get(v.explore_id as string) ?? '',
+      who: p?.nickname || p?.full_name || 'ใครบางคน', whoColor: p?.avatar_color ?? null,
+      at: (v.created_at as string) ?? new Date(0).toISOString(),
+    })
+  }
+  out.sort((a, b) => (a.at < b.at ? 1 : -1))
+  return out
 }
 
 /** Shape an Explore pool item as a Place so it can be copied into a trip. */
