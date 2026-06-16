@@ -27,16 +27,23 @@ export function openMap(url: string | null | undefined) {
   if (!url) return
   const query = extractQuery(url)
 
-  if (isAndroid()) {
-    // geo: lets Android offer the installed map app (AMap / Google Maps / Baidu…)
-    window.location.href = query ? `geo:0,0?q=${encodeURIComponent(query)}` : url
-    return
-  }
-  if (isiOS()) {
-    // maps:// opens the Apple Maps app; the original https link also deep-links to it
-    window.location.href = query ? `maps://?q=${encodeURIComponent(query)}` : url
-    return
-  }
-  // Desktop
-  window.open(url, '_blank', 'noopener,noreferrer')
+  // Pick the best target: a native scheme on mobile so an installed map app
+  // wins; otherwise the original link (iOS Universal Links / Android App Links
+  // still route to the installed app when present, else fall back to the web).
+  let target = url
+  if (isAndroid() && query) target = `geo:0,0?q=${encodeURIComponent(query)}`
+  else if (isiOS() && query) target = `maps://?q=${encodeURIComponent(query)}`
+
+  // Trigger via a transient anchor opening a new context. Crucially we never set
+  // the current document's location, so the SPA stays mounted and its images
+  // don't reload/flash. The click happens inside a user gesture, so deep links
+  // are honored.
+  const a = document.createElement('a')
+  a.href = target
+  a.target = '_blank'
+  a.rel = 'noopener noreferrer'
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
 }
