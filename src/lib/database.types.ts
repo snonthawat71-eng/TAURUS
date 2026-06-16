@@ -156,6 +156,8 @@ export interface Place {
   station_name: string | null
   /** optional — present after place_routes.sql (multiple ways to get there) */
   routes?: ExploreRoute[] | null
+  /** optional — present after branches.sql (chains with multiple locations) */
+  branches?: PlaceBranch[] | null
   map_url: string | null
   note: string | null
   in_plan: boolean
@@ -168,6 +170,16 @@ export interface Place {
 
 /** One way to reach a place (line + station). Stored in explore_places.routes */
 export interface ExploreRoute {
+  line: string | null
+  color: string | null
+  station: string | null
+}
+
+/** One branch of a chain (e.g. a café with many locations). Each carries its own
+ *  map link and transit station so the detail view can switch between them. */
+export interface PlaceBranch {
+  label: string | null
+  map_url: string | null
   line: string | null
   color: string | null
   station: string | null

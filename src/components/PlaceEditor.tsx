@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconTrash, IconPhoto, IconLoader2, IconCheck, IconPlus } from '@tabler/icons-react'
+import { IconTrash, IconPhoto, IconLoader2, IconCheck, IconPlus, IconBuildingStore } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { Combobox } from './Combobox'
@@ -8,13 +8,14 @@ import { uploadImage } from '@/lib/files'
 import { useTrip } from '@/contexts/TripContext'
 import { getTransitSuggestions, findLine } from '@/lib/metro/suggest'
 import { catMeta, CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
-import type { Place, PlaceGroup, ExploreRoute } from '@/lib/database.types'
+import type { Place, PlaceGroup, ExploreRoute, PlaceBranch } from '@/lib/database.types'
 import type { PlaceInput } from '@/lib/placeMutations'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
 
 function emptyRoute(): ExploreRoute { return { line: '', color: '#185FA5', station: '' } }
+function emptyBranch(): PlaceBranch { return { label: '', map_url: '', line: '', color: '#185FA5', station: '' } }
 
 export function PlaceEditor({
   open, onClose, group, tripId, initial, onSave, onDelete,
@@ -42,6 +43,7 @@ export function PlaceEditor({
   const [name, setName] = useState('')
   const [category, setCategory] = useState(cats[0])
   const [routes, setRoutes] = useState<ExploreRoute[]>([emptyRoute()])
+  const [branches, setBranches] = useState<PlaceBranch[]>([])
   const [mapUrl, setMapUrl] = useState('')
   const [note, setNote] = useState('')
   const [photoPath, setPhotoPath] = useState<string | null>(null)
@@ -57,6 +59,9 @@ export function PlaceEditor({
     setRoutes(initial?.routes?.length
       ? initial.routes.map((r) => ({ line: r.line ?? '', color: r.color ?? '#185FA5', station: r.station ?? '' }))
       : [{ line: initial?.station_line ?? '', color: initial?.station_color ?? '#185FA5', station: initial?.station_name ?? '' }])
+    setBranches(initial?.branches?.length
+      ? initial.branches.map((b) => ({ label: b.label ?? '', map_url: b.map_url ?? '', line: b.line ?? '', color: b.color ?? '#185FA5', station: b.station ?? '' }))
+      : [])
     setMapUrl(initial?.map_url ?? '')
     setNote(initial?.note ?? '')
     setPhotoPath(initial?.photo_path ?? null)
@@ -77,15 +82,20 @@ export function PlaceEditor({
   function patchRoute(i: number, p: Partial<ExploreRoute>) {
     setRoutes((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...p } : r)))
   }
+  function patchBranch(i: number, p: Partial<PlaceBranch>) {
+    setBranches((bs) => bs.map((b, idx) => (idx === i ? { ...b, ...p } : b)))
+  }
 
   async function save() {
     setBusy(true)
     const clean = routes.filter((r) => r.line || r.station)
     const first = clean[0]
+    const cleanBranches = branches.filter((b) => b.label || b.map_url || b.line || b.station)
     await onSave({
       group_type: group, name, category,
       station_line: first?.line || null, station_color: first?.color || null, station_name: first?.station || null,
       routes: clean.length ? clean : null,
+      branches: cleanBranches.length ? cleanBranches : null,
       map_url: mapUrl, note, photo_path: photoPath, photo_url: photoUrl, city: city || null,
     })
     setBusy(false)
@@ -179,6 +189,45 @@ export function PlaceEditor({
             </button>
           </div>
         </div>
+
+        {/* multiple branches (chains) — food only; each branch has its own map + station */}
+        {group === 'food' && (
+          <div>
+            <div className="flex items-center gap-1.5">
+              <IconBuildingStore size={13} className="text-ink-3" />
+              <span className={lbl}>หลายสาขา (ถ้าร้านนี้มีหลายที่ — เลือกสาขาได้ในหน้ารายละเอียด)</span>
+            </div>
+            <div className="space-y-2 mt-1">
+              {branches.map((b, i) => {
+                const known = findLine(sug, b.line ?? '')
+                const stationOpts = known
+                  ? known.stations.map((s) => ({ value: s.name, label: s.num }))
+                  : sug.stations.map((name) => ({ value: name }))
+                return (
+                  <div key={i} className="card p-2.5 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input className={field} value={b.label ?? ''} onChange={(e) => patchBranch(i, { label: e.target.value })} placeholder={`ชื่อสาขา เช่น สาขาสยาม`} />
+                      <button onClick={() => setBranches((bs) => bs.filter((_, idx) => idx !== i))} className="text-ink-3 hover:text-[#D85A30] shrink-0"><IconTrash size={15} /></button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Combobox className={field} value={b.line ?? ''} placeholder="สาย เช่น Line 1"
+                        options={sug.lines.map((l) => ({ value: l.name, color: l.color }))}
+                        onChange={(v) => { const k = findLine(sug, v); patchBranch(i, { line: v, ...(k ? { color: k.color } : {}) }) }} />
+                      <Combobox className={field} value={b.station ?? ''} placeholder="สถานี"
+                        options={stationOpts} onChange={(v) => patchBranch(i, { station: v })} />
+                    </div>
+                    <ColorPicker value={b.color ?? '#185FA5'} onChange={(c) => patchBranch(i, { color: c })} />
+                    <input className={field} value={b.map_url ?? ''} onChange={(e) => patchBranch(i, { map_url: e.target.value })} placeholder="ลิงก์แผนที่ของสาขานี้ https://maps..." />
+                  </div>
+                )
+              })}
+              <button onClick={() => setBranches((bs) => [...bs, emptyBranch()])} className="btn-link flex items-center gap-1.5 text-[12px]">
+                <IconPlus size={14} /> เพิ่มสาขา
+              </button>
+            </div>
+          </div>
+        )}
+
         <div><div className={lbl}>โน้ต</div>
           <textarea className="hairline rounded-md text-[13px] p-3 bg-surface w-full outline-none focus:border-brand resize-none" rows={2}
             value={note} onChange={(e) => setNote(e.target.value)} placeholder="รายละเอียด เช่น ควรจองล่วงหน้า" />

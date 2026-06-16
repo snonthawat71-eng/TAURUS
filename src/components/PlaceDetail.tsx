@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
@@ -21,9 +22,23 @@ export function PlaceDetail({
   onEdit?: () => void
   onPin?: () => void
 }) {
+  // which branch (chain location) is selected; null = the place's own location
+  const [branchIdx, setBranchIdx] = useState<number | null>(null)
+  const hasOwnLocation = !!(place && (place.map_url || place.station_name || place.station_line))
+  useEffect(() => {
+    // default to the first branch only when the place has no location of its own
+    setBranchIdx(place?.branches?.length && !hasOwnLocation ? 0 : null)
+  }, [place?.id, hasOwnLocation, place?.branches?.length])
+
   if (!place) return null
   const meta = catMeta(place.category)
   const Icon = meta.icon
+  const branches = place.branches ?? []
+  const sel = branchIdx != null ? branches[branchIdx] : null
+  const lineColor = sel ? sel.color : place.station_color
+  const lineText = sel ? sel.line : place.station_line
+  const stationText = sel ? sel.station : place.station_name
+  const mapUrl = sel?.map_url || place.map_url
 
   return (
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
@@ -39,13 +54,38 @@ export function PlaceDetail({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h2 className="text-[16px] font-medium">{place.name}</h2>
-            <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1">
-              <span className="size-2 rounded-full" style={{ background: place.station_color ?? '#888780' }} />
-              {place.station_line}{place.station_name ? ` · ${place.station_name}` : ''}
-            </div>
+            {(lineText || stationText) && (
+              <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1">
+                <span className="size-2 rounded-full" style={{ background: lineColor ?? '#888780' }} />
+                {lineText}{stationText ? ` · ${stationText}` : ''}
+              </div>
+            )}
           </div>
           {onEdit && <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไข"><IconPencil size={15} /></button>}
         </div>
+
+        {/* branch picker — for chains with multiple locations */}
+        {branches.length > 0 && (
+          <div className="mt-3">
+            <div className="text-[11px] text-ink-3 mb-1.5">เลือกสาขา ({branches.length})</div>
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+              {hasOwnLocation && (
+                <button onClick={() => setBranchIdx(null)}
+                  className={['chip shrink-0', branchIdx === null ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+                  style={branchIdx === null ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+                  {branchIdx === null && <IconCheck size={12} />} ที่ตั้งหลัก
+                </button>
+              )}
+              {branches.map((b, i) => (
+                <button key={i} onClick={() => setBranchIdx(i)}
+                  className={['chip shrink-0', branchIdx === i ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+                  style={branchIdx === i ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+                  {branchIdx === i && <IconCheck size={12} />} {b.label || `สาขา ${i + 1}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {place.note && <p className="text-[13px] text-ink-2 mt-3 leading-relaxed">{place.note}</p>}
 
@@ -78,10 +118,10 @@ export function PlaceDetail({
               <IconStar size={15} /> เซฟไปทริปของฉัน
             </button>
           ) : <span />}
-          <button onClick={() => openMap(place.map_url)} disabled={!place.map_url}
+          <button onClick={() => openMap(mapUrl)} disabled={!mapUrl}
             className="h-10 rounded-md bg-surface flex items-center justify-center gap-1.5 text-[13px] text-ink-2 disabled:opacity-50 whitespace-nowrap px-2 hover:bg-surface-2"
             style={{ border: '0.5px solid var(--color-line)' }}>
-            <IconMapPin size={15} /> เปิดแผนที่
+            <IconMapPin size={15} /> {sel ? `เปิดแผนที่ (${sel.label || `สาขา ${branchIdx! + 1}`})` : 'เปิดแผนที่'}
           </button>
         </div>
       </div>
