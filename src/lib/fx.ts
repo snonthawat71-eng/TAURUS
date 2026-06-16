@@ -29,35 +29,45 @@ const FALLBACK: Record<string, number> = {
 export interface FxResult {
   rate: number // THB per 1 unit of `code`
   date: string // YYYY-MM-DD
-  live: boolean
+  live: boolean // true = fetched fresh today
+  approx?: boolean // true = rough static fallback (no real rate ever cached)
 }
 
 function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
-/** THB per 1 unit of `code`, cached per-day in localStorage. */
-export async function getRateToTHB(code: string): Promise<FxResult> {
+/** THB per 1 unit of `code`, cached per-day in localStorage.
+ *  Pass force=true to bypass today's cache and re-fetch. */
+export async function getRateToTHB(code: string, force = false): Promise<FxResult> {
   const day = today()
   const key = `fx:${code}:THB`
+  let cached: FxResult | null = null
   try {
-    const cached = localStorage.getItem(key)
-    if (cached) {
-      const parsed = JSON.parse(cached) as FxResult
-      if (parsed.date === day) return parsed
-    }
+    const raw = localStorage.getItem(key)
+    if (raw) cached = JSON.parse(raw) as FxResult
   } catch { /* ignore */ }
+
+  // fresh: a real rate already fetched today
+  if (!force && cached && cached.date === day && cached.rate > 0) {
+    return { rate: cached.rate, date: cached.date, live: true, approx: false }
+  }
 
   try {
     const res = await fetch(`https://open.er-api.com/v6/latest/${code}`)
     const json = await res.json()
     const rate = json?.rates?.THB
     if (typeof rate === 'number' && rate > 0) {
-      const result: FxResult = { rate, date: day, live: true }
+      const result: FxResult = { rate, date: day, live: true, approx: false }
       try { localStorage.setItem(key, JSON.stringify(result)) } catch { /* ignore */ }
       return result
     }
   } catch { /* network unavailable — fall through */ }
 
-  return { rate: FALLBACK[code] ?? 1, date: day, live: false }
+  // offline: prefer the last real rate we ever cached (stale but accurate)
+  if (cached && typeof cached.rate === 'number' && cached.rate > 0) {
+    return { rate: cached.rate, date: cached.date, live: false, approx: false }
+  }
+  // nothing cached → rough static estimate
+  return { rate: FALLBACK[code] ?? 1, date: day, live: false, approx: true }
 }

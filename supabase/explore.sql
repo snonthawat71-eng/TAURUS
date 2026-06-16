@@ -105,5 +105,6 @@ do $$
 begin
   begin alter publication supabase_realtime add table explore_votes; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table explore_comments; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table explore_places; exception when duplicate_object then null; end;
 end $$;
 

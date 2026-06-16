@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconChevronDown } from '@tabler/icons-react'
+import { IconChevronDown, IconRefresh } from '@tabler/icons-react'
 import { CURRENCIES, getRateToTHB, type FxResult } from '@/lib/fx'
 import { useTrip } from '@/contexts/TripContext'
 
@@ -10,6 +10,7 @@ export function FxWidget() {
   const [code, setCode] = useState(() => localStorage.getItem(CUR_KEY) ?? 'CNY')
   const [fx, setFx] = useState<FxResult | null>(null)
   const [open, setOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   // follow the current trip's chosen currency
   useEffect(() => {
@@ -25,27 +26,49 @@ export function FxWidget() {
     return () => { active = false }
   }, [code])
 
+  async function refresh() {
+    setRefreshing(true)
+    const r = await getRateToTHB(code, true)
+    setFx(r)
+    setRefreshing(false)
+  }
+
   function pick(c: string) {
     localStorage.setItem(CUR_KEY, c)
     setCode(c)
     setOpen(false)
   }
 
+  // status badge: today's live rate (green) vs. a stale/approx rate (amber)
+  const status = !fx
+    ? { color: 'var(--color-ink-3)', label: '...' }
+    : fx.live
+      ? { color: '#1E8E5A', label: 'วันนี้' }
+      : fx.approx
+        ? { color: '#C99A3A', label: 'ประมาณ' }
+        : { color: '#C99A3A', label: 'เรตเก่า' }
+  const detail = !fx ? ''
+    : fx.live ? `อัปเดตจากเว็บ · ${fx.date}`
+    : fx.approx ? 'ค่าประมาณ (เชื่อมเน็ตไม่ได้)'
+    : `เรตวันที่ ${fx.date} · แตะรีเฟรชเพื่ออัปเดต`
+
   return (
     <div className="m-3 card p-3 relative">
-      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between text-[11px] text-ink-3">
-        <span className="flex items-center gap-1">{cur.flag} อัตราแลกเปลี่ยน</span>
-        <span className="flex items-center gap-0.5">
-          {fx ? (fx.live ? 'วันนี้' : 'ออฟไลน์') : '...'}
+      <div className="flex items-center justify-between">
+        <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-1 text-[11px] text-ink-3">
+          <span className="flex items-center gap-1">{cur.flag} อัตราแลกเปลี่ยน</span>
           <IconChevronDown size={12} />
-        </span>
-      </button>
+        </button>
+        <button onClick={refresh} disabled={refreshing} className="flex items-center gap-1 text-[11px] font-medium disabled:opacity-50" style={{ color: status.color }} title="รีเฟรชอัตราแลกเปลี่ยน">
+          <span className="size-1.5 rounded-full" style={{ background: status.color }} />
+          {status.label}
+          <IconRefresh size={11} className={refreshing ? 'animate-spin' : ''} />
+        </button>
+      </div>
       <div className="text-[18px] font-medium mt-0.5 tabular-nums">
         {cur.symbol}1 = ฿{fx ? fx.rate.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—'}
       </div>
-      <div className="text-[10px] text-ink-3 mt-0.5">
-        {fx?.live ? `อัปเดตจากเว็บ · ${fx.date}` : 'ค่าประมาณ (เชื่อมเน็ตไม่ได้)'}
-      </div>
+      <div className="text-[10px] text-ink-3 mt-0.5">{detail}</div>
 
       {open && (
         <>

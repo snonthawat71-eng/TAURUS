@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconPlus, IconArrowLeft, IconMapPin, IconWorldSearch, IconFlame } from '@tabler/icons-react'
+import { IconPlus, IconArrowLeft, IconMapPin, IconWorldSearch, IconFlame, IconRefresh } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
@@ -35,11 +35,27 @@ export default function Explore() {
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [stats, setStats] = useState<Map<string, VoteStat>>(new Map())
   const [pop, setPop] = useState<Map<string, PopStat>>(new Map())
+  const [live, setLive] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const popular = useMemo(() => popularSet(pop), [pop])
 
   async function refreshStats() {
     setStats(await allVoteStats())
     setPop(await allPopularity())
+  }
+
+  // quiet reload of the items list (no full-page spinner)
+  async function reloadItems() {
+    const { data, error } = await listExplore()
+    setError(!!error)
+    setItems((data ?? []) as ExplorePlace[])
+  }
+
+  // manual refresh — for when realtime isn't actually delivering updates
+  async function refreshAll() {
+    setRefreshing(true)
+    await Promise.all([reloadItems(), refreshStats(), refreshSaved()])
+    setRefreshing(false)
   }
 
   // open detail + count the click toward popularity
@@ -69,17 +85,21 @@ export default function Explore() {
   useEffect(() => { load(); refreshStats() }, [])
   useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // live POPULAR ranking — refresh when anyone clicks/saves/likes/comments
+  // live updates — refresh stats on votes/clicks/comments, reload the list when
+  // items are added/edited, and track whether the realtime connection is alive
   useEffect(() => {
     if (!isSupabaseConfigured) return
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const bump = () => { clearTimeout(timer); timer = setTimeout(() => { refreshStats() }, 400) }
-    const ch = supabase.channel('explore-popularity')
+    let st: ReturnType<typeof setTimeout> | undefined
+    let it: ReturnType<typeof setTimeout> | undefined
+    const bumpStats = () => { clearTimeout(st); st = setTimeout(() => { refreshStats() }, 400) }
+    const bumpItems = () => { clearTimeout(it); it = setTimeout(() => { reloadItems() }, 400) }
+    const ch = supabase.channel('explore-live')
     for (const table of ['explore_events', 'explore_votes', 'explore_comments']) {
-      ch.on('postgres_changes', { event: '*', schema: 'public', table }, bump)
+      ch.on('postgres_changes', { event: '*', schema: 'public', table }, bumpStats)
     }
-    ch.subscribe()
-    return () => { clearTimeout(timer); supabase.removeChannel(ch) }
+    ch.on('postgres_changes', { event: '*', schema: 'public', table: 'explore_places' }, bumpItems)
+    ch.subscribe((status) => setLive(status === 'SUBSCRIBED'))
+    return () => { clearTimeout(st); clearTimeout(it); setLive(false); supabase.removeChannel(ch) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cities = useMemo(() => {
@@ -114,7 +134,17 @@ export default function Explore() {
           <IconWorldSearch size={20} className="text-brand" />
           <h1 className="text-[20px] font-medium">Explore</h1>
         </div>
-        <p className="text-[13px] text-ink-3 mb-4">รวมสถานที่/ร้านที่ทุกคนแชร์ — กด ♥ เพื่อเซฟเข้าทริปของคุณ</p>
+        <p className="text-[13px] text-ink-3 mb-2">รวมสถานที่/ร้านที่ทุกคนแชร์ — กด ♥ เพื่อเซฟเข้าทริปของคุณ</p>
+
+        {/* realtime status + manual refresh (in case realtime isn't delivering) */}
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mb-4">
+          <span className="size-2 rounded-full shrink-0" style={{ background: live ? '#1E8E5A' : '#C99A3A' }} />
+          <span>{live ? 'อัปเดตแบบเรียลไทม์' : 'ไม่ได้เชื่อมต่อเรียลไทม์'}</span>
+          <button onClick={refreshAll} disabled={refreshing}
+            className="ml-auto inline-flex items-center gap-1 text-brand-mid font-medium disabled:opacity-50">
+            <IconRefresh size={12} className={refreshing ? 'animate-spin' : ''} /> รีเฟรช
+          </button>
+        </div>
 
         {/* type filter (places / food & cafe) + sort */}
         <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">
