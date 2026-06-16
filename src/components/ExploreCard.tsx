@@ -29,9 +29,9 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
       {/* whole card opens the detail view */}
       <div onClick={onOpen} role="button" tabIndex={0}
         onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && onOpen()}
-        className="flex gap-3.5 p-3 cursor-pointer">
-        {/* image on the left (separated, rounded) */}
-        <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-[10px] overflow-hidden shrink-0 bg-surface-2 relative">
+        className="flex gap-3.5 p-3 items-stretch cursor-pointer">
+        {/* image fills the full card height so it stays balanced with the text */}
+        <div className="w-28 sm:w-36 shrink-0 self-stretch rounded-[10px] overflow-hidden bg-surface-2 relative" style={{ minHeight: 132 }}>
           <SignedImage url={e.photo_url} alt={e.name ?? ''} className="w-full h-full object-cover"
             fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
           {popular && (
@@ -42,9 +42,9 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
           )}
         </div>
 
-        {/* text on the right */}
-        <div className="flex-1 min-w-0 pr-9">
-          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: meta.bg, color: meta.fg }}>
+        {/* text on the right — laid out top-to-bottom with stats pinned to the base */}
+        <div className="flex-1 min-w-0 pr-9 flex flex-col">
+          <span className="inline-flex items-center self-start rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: meta.bg, color: meta.fg }}>
             {meta.label}
           </span>
           <div className="text-[15px] font-medium leading-snug line-clamp-2 mt-1.5">{e.name}</div>
@@ -54,28 +54,38 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
               ? <span className="text-[11px] text-ink-3">{stat.rating.toFixed(1)} ({stat.count})</span>
               : <span className="text-[11px] text-ink-3">ยังไม่มีรีวิว</span>}
           </div>
-          <div className="flex flex-col gap-0.5 text-[12px] text-ink-3 mt-1.5">
-            {routes.map((r, i) => (
-              <span key={i} className="inline-flex items-center gap-1.5 min-w-0">
-                <span className="size-2.5 rounded-full shrink-0" style={{ background: r.color ?? '#888780' }} />
-                <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || 'สถานี'}</span>
-              </span>
-            ))}
-            {e.city && <span className="chip !py-0.5 self-start mt-0.5">{e.city}</span>}
+
+          {routes.length > 0 && (
+            <div className="flex flex-col gap-0.5 text-[12px] text-ink-3 mt-1.5">
+              {routes.slice(0, 2).map((r, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 min-w-0">
+                  <span className="size-2.5 rounded-full shrink-0" style={{ background: r.color ?? '#888780' }} />
+                  <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || 'สถานี'}</span>
+                </span>
+              ))}
+              {routes.length > 2 && <span className="text-[11px] text-ink-3 pl-4">+{routes.length - 2} เส้นทาง</span>}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 flex-wrap mt-1.5">
+            {e.city && <span className="chip !py-0.5">{e.city}</span>}
+            {e.map_url && (
+              <button onClick={(ev) => { ev.stopPropagation(); openMap(e.map_url) }} className="inline-flex items-center gap-1 text-[11px] text-ink-3 hover:text-brand-mid">
+                <IconMapPin size={12} /> MAP
+              </button>
+            )}
           </div>
-          {/* popularity stats: clicks · saves · likes · comments */}
-          <div className="flex items-center gap-3 text-[11px] text-ink-3 mt-1.5">
+
+          {e.note && <p className="text-[12px] text-ink-2 mt-1.5 line-clamp-2">{e.note}</p>}
+
+          {/* popularity stats — footer aligned to the bottom of the image */}
+          <div className={['flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-2.5', isOwner ? 'pr-16' : ''].join(' ')}
+            style={{ borderTop: '0.5px solid var(--color-line)' }}>
             <span className="inline-flex items-center gap-1" title="ยอดคลิก"><IconEye size={13} /> {pop?.views ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดเซฟ"><IconBookmark size={13} /> {pop?.saves ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดไลก์"><IconThumbUp size={13} /> {pop?.likes ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดคอมเมนต์"><IconMessageCircle size={13} /> {pop?.comments ?? 0}</span>
           </div>
-          {e.note && <p className="text-[12px] text-ink-2 mt-1.5 line-clamp-2">{e.note}</p>}
-          {e.map_url && (
-            <button onClick={(ev) => { ev.stopPropagation(); openMap(e.map_url) }} className="inline-flex items-center gap-1 text-[11px] text-ink-3 hover:text-brand-mid mt-2">
-              <IconMapPin size={12} /> MAP
-            </button>
-          )}
         </div>
       </div>
 
