@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconPlus, IconArrowLeft, IconMapPin, IconWorldSearch } from '@tabler/icons-react'
+import { IconPlus, IconArrowLeft, IconMapPin, IconWorldSearch, IconFlame } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
@@ -28,6 +28,7 @@ export default function Explore() {
   const [group, setGroup] = useState<'all' | 'place' | 'food'>('all')
   const [cat, setCat] = useState('all')
   const [city, setCity] = useState('all')
+  const [sort, setSort] = useState<'new' | 'popular'>('new')
   const [editor, setEditor] = useState<ExplorePlace | 'new' | null>(null)
   const [fav, setFav] = useState<Place | null>(null)
   const [detail, setDetail] = useState<ExplorePlace | null>(null)
@@ -93,6 +94,9 @@ export default function Explore() {
     .filter((e) => group === 'all' || e.group_type === group)
     .filter((e) => cat === 'all' || (group === 'food' ? foodGroupKey(e.category) === cat : e.category === cat))
     .filter((e) => city === 'all' || e.city === city)
+  const shown = sort === 'popular'
+    ? [...filtered].sort((a, b) => (pop.get(b.id)?.score ?? 0) - (pop.get(a.id)?.score ?? 0))
+    : filtered
 
   return (
     <div className="min-h-dvh bg-canvas">
@@ -112,12 +116,17 @@ export default function Explore() {
         </div>
         <p className="text-[13px] text-ink-3 mb-4">รวมสถานที่/ร้านที่ทุกคนแชร์ — กด ♥ เพื่อเซฟเข้าทริปของคุณ</p>
 
-        {/* type filter (places / food & cafe) */}
-        <div ref={hscroll} className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
+        {/* type filter (places / food & cafe) + sort */}
+        <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">
           {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food and Cafe']] as const).map(([g, label]) => (
             <button key={g} onClick={() => { setGroup(g); setCat('all') }}
               className={['px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', group === g ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{label}</button>
           ))}
+          <button onClick={() => setSort((s) => (s === 'popular' ? 'new' : 'popular'))}
+            className={['ml-auto inline-flex items-center gap-1 px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', sort === 'popular' ? 'text-white' : 'bg-surface-2 text-ink-2'].join(' ')}
+            style={sort === 'popular' ? { background: 'linear-gradient(90deg,#FB7022,#EF4444)' } : undefined}>
+            <IconFlame size={14} /> เรียงตามยอดนิยม
+          </button>
         </div>
 
         {/* category filter (by type, like Places / Food pages) */}
@@ -157,12 +166,12 @@ export default function Explore() {
           <div className="py-16 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
         ) : error ? (
           <div className="card p-6 text-center text-[12px] text-ink-2">ยังไม่ได้ตั้งค่า Explore — รัน <code className="text-booking">supabase/explore.sql</code> ใน Supabase ก่อน</div>
-        ) : filtered.length === 0 ? (
+        ) : shown.length === 0 ? (
           <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มีรายการ — กด “เพิ่มสถานที่” เพื่อแชร์ที่แรก</div>
         ) : (
           <div className="space-y-3">
-            {filtered.map((e) => (
-              <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)} stat={stats.get(e.id)} popular={popular.has(e.id)}
+            {shown.map((e) => (
+              <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)} stat={stats.get(e.id)} popular={popular.has(e.id)} pop={pop.get(e.id)}
                 onOpen={() => openDetail(e)}
                 onFav={() => toggleFav(e)}
                 onEdit={() => setEditor(e)}

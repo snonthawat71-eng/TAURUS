@@ -1,17 +1,18 @@
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconBookmark, IconThumbUp, IconMessageCircle } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
-import type { VoteStat } from '@/lib/exploreMutations'
+import type { VoteStat, PopStat } from '@/lib/exploreMutations'
 
-export function ExploreCard({ e, isOwner, saved, stat, popular, onFav, onDelete, onEdit, onOpen }: {
+export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDelete, onEdit, onOpen }: {
   e: ExplorePlace
   isOwner: boolean
   saved: boolean
   stat?: VoteStat
   popular?: boolean
+  pop?: PopStat
   onFav: () => void
   onDelete: () => void
   onEdit: () => void
@@ -61,6 +62,13 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, onFav, onDelete,
               </span>
             ))}
             {e.city && <span className="chip !py-0.5 self-start mt-0.5">{e.city}</span>}
+          </div>
+          {/* popularity stats: clicks · saves · likes · comments */}
+          <div className="flex items-center gap-3 text-[11px] text-ink-3 mt-1.5">
+            <span className="inline-flex items-center gap-1" title="ยอดคลิก"><IconEye size={13} /> {pop?.views ?? 0}</span>
+            <span className="inline-flex items-center gap-1" title="ยอดเซฟ"><IconBookmark size={13} /> {pop?.saves ?? 0}</span>
+            <span className="inline-flex items-center gap-1" title="ยอดไลก์"><IconThumbUp size={13} /> {pop?.likes ?? 0}</span>
+            <span className="inline-flex items-center gap-1" title="ยอดคอมเมนต์"><IconMessageCircle size={13} /> {pop?.comments ?? 0}</span>
           </div>
           {e.note && <p className="text-[12px] text-ink-2 mt-1.5 line-clamp-2">{e.note}</p>}
           {e.map_url && (
