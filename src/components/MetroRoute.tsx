@@ -20,7 +20,11 @@ function Row({ marker, color, line, children }: { marker: 'board' | 'alight' | '
           </span>
         )}
         {marker === 'alight' && (
-          <span className="size-4 rounded-full bg-surface shrink-0" style={{ border: `3px solid ${color}` }} />
+          // ring drawn as an outer colored disc + inner surface disc, so a
+          // two-tone (gradient) line colour shows on both halves, not just a border.
+          <span className="size-4 rounded-full grid place-items-center shrink-0" style={{ background: color }}>
+            <span className="rounded-full bg-surface" style={{ width: 7, height: 7 }} />
+          </span>
         )}
         {marker === 'walk' && (
           <span className="size-4 rounded-full bg-surface grid place-items-center text-ink-3 shrink-0" style={{ border: '0.5px solid var(--color-line)' }}>

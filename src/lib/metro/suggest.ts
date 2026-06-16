@@ -1,10 +1,15 @@
-// Autocomplete suggestions for the manual TransitEditor: line names, station
-// names and per-line station numbers, sourced from the built-in networks
-// (Osaka Metro + Hong Kong MTR). These power <datalist> dropdowns so users can
-// pick from known data without retyping — while still being free to type any
-// custom value (including stations not in the dataset).
+// Autocomplete suggestions for the manual TransitEditor / ExploreEditor: line
+// names, station names and per-line station numbers, sourced from the built-in
+// networks (Osaka Metro + Hong Kong MTR + Shanghai Metro). These power the
+// Combobox dropdowns so users can pick from known data without retyping — while
+// still being free to type any custom value (including stations not listed).
+//
+// The built-in ("system") data is the default for EVERY trip regardless of
+// country/city — all networks are always offered. When a trip's country/city
+// matches a network, that network's lines are listed first for relevance.
 import { OSAKA } from './osaka'
 import { HK_NETWORK } from './hkNetwork'
+import { SHANGHAI } from './shanghai'
 import type { Trip } from '@/lib/database.types'
 
 export interface StationSuggest { name: string; num?: string }
@@ -17,31 +22,33 @@ export interface TransitSuggest {
 
 const HK_MATCH = ['hong kong', 'hongkong', 'ฮ่องกง', ' hk', 'mtr']
 
-/** Collect line/station/number suggestions for whichever network(s) match the given text. */
+// Every built-in network normalised to a common { match, lines } shape.
+interface RawNetwork { match: string[]; lines: LineSuggest[] }
+const NETWORKS: RawNetwork[] = [
+  { match: OSAKA.match, lines: OSAKA.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
+  { match: HK_MATCH, lines: HK_NETWORK.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
+  { match: SHANGHAI.match, lines: SHANGHAI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
+]
+
+/** Collect every built-in line/station suggestion, listing trip-matched networks first. */
 export function suggestionsFromText(text: string): TransitSuggest {
   const h = ` ${text.toLowerCase()} `
-  const lines: LineSuggest[] = []
-
-  if (OSAKA.match.some((m) => h.includes(m.toLowerCase()))) {
-    for (const l of OSAKA.lines) {
-      lines.push({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })
-    }
+  const matched: LineSuggest[] = []
+  const rest: LineSuggest[] = []
+  for (const n of NETWORKS) {
+    if (n.match.some((m) => h.includes(m.toLowerCase()))) matched.push(...n.lines)
+    else rest.push(...n.lines)
   }
-  if (HK_MATCH.some((m) => h.includes(m))) {
-    for (const l of HK_NETWORK) {
-      lines.push({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })
-    }
-  }
+  const lines = [...matched, ...rest]
 
   const set = new Set<string>()
   for (const l of lines) for (const s of l.stations) set.add(s.name)
   return { lines, stations: Array.from(set).sort() }
 }
 
-/** Collect line/station/number suggestions for whichever network(s) match the trip. */
+/** Collect line/station suggestions for a trip (matched networks first, all networks included). */
 export function getTransitSuggestions(trip: Trip | null | undefined): TransitSuggest {
-  if (!trip) return { lines: [], stations: [] }
-  return suggestionsFromText([trip.country ?? '', ...(trip.cities ?? []), trip.name ?? ''].join(' '))
+  return suggestionsFromText([trip?.country ?? '', ...(trip?.cities ?? []), trip?.name ?? ''].join(' '))
 }
 
 /** Find a suggested line by its (case-insensitive) name. */

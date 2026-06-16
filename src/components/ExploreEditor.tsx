@@ -37,61 +37,39 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [busy, setBusy] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
 
-  // suggestions from what was entered before, grouped by country so names from
-  // different countries don't get mixed together.
+  // previously-used city/country pairs — for the quick city chips + comboboxes.
   const sugg = useMemo(() => {
     const placeKeys = new Map<string, { city: string; country: string }>()
-    const stationsBy: Record<string, Set<string>> = {}
-    const linesBy: Record<string, Set<string>> = {}
-    const lineColor: Record<string, string> = {}
-    const ck = (c: string | null | undefined) => (c ?? '').trim().toLowerCase()
     for (const e of existing ?? []) {
       if (e.city || e.country) placeKeys.set(`${e.city ?? ''}|${e.country ?? ''}`, { city: e.city ?? '', country: e.country ?? '' })
-      const k = ck(e.country)
-      ;(stationsBy[k] ??= new Set()); (linesBy[k] ??= new Set())
-      const rs = e.routes?.length ? e.routes : [{ line: e.station_line, color: e.station_color, station: e.station_name }]
-      for (const r of rs) {
-        if (r?.station) stationsBy[k].add(r.station)
-        if (r?.line) { linesBy[k].add(r.line); if (r.color && !lineColor[r.line]) lineColor[r.line] = r.color }
-      }
     }
-    const all = (m: Record<string, Set<string>>) => [...new Set(Object.values(m).flatMap((s) => [...s]))]
-    return {
-      cityChips: [...placeKeys.values()].filter((p) => p.city || p.country),
-      stationsFor: (country: string) => [...(stationsBy[ck(country)] ?? new Set())],
-      linesFor: (country: string) => [...(linesBy[ck(country)] ?? new Set())],
-      allStations: all(stationsBy),
-      allLines: all(linesBy),
-      lineColor,
-    }
+    return { cityChips: [...placeKeys.values()].filter((p) => p.city || p.country) }
   }, [existing])
-  const ckCur = country.trim().toLowerCase()
-  const stationOpts = ckCur && sugg.stationsFor(country).length ? sugg.stationsFor(country) : sugg.allStations
-  const lineOpts = ckCur && sugg.linesFor(country).length ? sugg.linesFor(country) : sugg.allLines
 
-  // built-in metro data (Osaka / HK MTR) matching the typed country/city, so the
-  // line + station dropdowns offer official lines/colours/stations — merged with
-  // whatever was typed before, deduped by name.
+  // built-in ("system") metro data — the default line/station/colour catalogue,
+  // the same for every country/city. Users can still type any custom value.
   const metroSug = useMemo(() => suggestionsFromText(`${country} ${city}`), [country, city])
   const lineColorAll = useMemo(() => {
-    const m: Record<string, string> = { ...sugg.lineColor }
+    const m: Record<string, string> = {}
     for (const l of metroSug.lines) m[l.name] = l.color
     return m
-  }, [sugg, metroSug])
+  }, [metroSug])
   const lineOptions = useMemo<ComboOption[]>(() => {
     const seen = new Set<string>(); const out: ComboOption[] = []
-    const add = (value: string, group: string, color?: string) => { const k = value.trim().toLowerCase(); if (value.trim() && !seen.has(k)) { seen.add(k); out.push({ value, color, group }) } }
-    for (const l of metroSug.lines) add(l.name, 'สายในระบบ', l.color)
-    for (const l of lineOpts) add(l, 'ที่เพิ่มเอง', sugg.lineColor[l])
+    for (const l of metroSug.lines) {
+      const k = l.name.trim().toLowerCase()
+      if (l.name.trim() && !seen.has(k)) { seen.add(k); out.push({ value: l.name, color: l.color }) }
+    }
     return out
-  }, [metroSug, lineOpts, sugg])
+  }, [metroSug])
   const allStationOptions = useMemo<ComboOption[]>(() => {
     const seen = new Set<string>(); const out: ComboOption[] = []
-    const add = (value: string, group: string, label?: string) => { const k = value.trim().toLowerCase(); if (value.trim() && !seen.has(k)) { seen.add(k); out.push({ value, label, group }) } }
-    for (const l of metroSug.lines) for (const s of l.stations) add(s.name, 'สถานีในระบบ', s.num)
-    for (const s of stationOpts) add(s, 'ที่เพิ่มเอง')
+    for (const l of metroSug.lines) for (const s of l.stations) {
+      const k = s.name.trim().toLowerCase()
+      if (s.name.trim() && !seen.has(k)) { seen.add(k); out.push({ value: s.name, label: s.num }) }
+    }
     return out
-  }, [metroSug, stationOpts])
+  }, [metroSug])
 
   useEffect(() => {
     if (!open) return
