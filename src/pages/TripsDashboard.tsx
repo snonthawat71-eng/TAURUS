@@ -125,7 +125,6 @@ export default function TripsDashboard() {
                     </button>
                     <PopMenu items={[
                       { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
-                      { label: 'ทำสำเนา (Duplicate)', icon: <IconCopy size={15} />, onClick: () => duplicate(t) },
                       ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (confirm('ลบทริปนี้?')) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
                     ]} />
                   </div>
