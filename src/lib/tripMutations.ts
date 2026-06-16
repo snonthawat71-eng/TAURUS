@@ -108,8 +108,30 @@ export async function deleteInvite(id: string) {
 export async function updateMemberPermission(trip_id: string, user_id: string, permission: SharePermission) {
   return supabase.from('trip_members').update({ permission }).eq('trip_id', trip_id).eq('user_id', user_id)
 }
-export async function removeMember(trip_id: string, user_id: string) {
-  return supabase.from('trip_members').delete().eq('trip_id', trip_id).eq('user_id', user_id)
+
+/**
+ * Fully revoke a person's access to a trip — removes BOTH their membership
+ * (trip_members) and any invite (trip_invites), so a still-pending invite can't
+ * re-grant access via accept_my_invites(). Pass a user_id (a joined member) or
+ * an email (a pending/accepted invite); the SQL function reconciles the other.
+ *
+ * Falls back to a best-effort client-side delete when revoke_access.sql hasn't
+ * been applied yet (graceful-degradation, like the rest of the app).
+ */
+export async function revokeAccess(trip_id: string, opts: { user_id?: string; email?: string }) {
+  const { error } = await supabase.rpc('revoke_trip_access', {
+    p_trip: trip_id,
+    p_user: opts.user_id ?? null,
+    p_email: opts.email?.trim().toLowerCase() ?? null,
+  })
+  if (error && /function|does not exist|schema cache|could not find/i.test(error.message)) {
+    // Pre-migration fallback: remove what we can directly (won't cross-reconcile
+    // member↔invite by email, but still revokes the explicit row).
+    if (opts.user_id) await supabase.from('trip_members').delete().eq('trip_id', trip_id).eq('user_id', opts.user_id)
+    if (opts.email) await supabase.from('trip_invites').delete().eq('trip_id', trip_id).eq('email', opts.email.trim().toLowerCase())
+    return { error: null }
+  }
+  return { error }
 }
 
 // ---------- Profile (the logged-in user) ----------

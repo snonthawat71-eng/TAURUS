@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { toast } from '@/lib/toast'
 import { useAuth } from './AuthContext'
 import type {
   Expense, Flight, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
@@ -138,7 +139,9 @@ export function TripProvider({ children }: { children: ReactNode }) {
       })
     } catch (e) {
       console.error('TripContext load failed:', e)
-      setError(e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ')
+      const msg = e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ'
+      setError(msg)
+      toast.error(`โหลดข้อมูลไม่สำเร็จ: ${msg}`)
     }
   }, [user?.id, currentTripId])
 

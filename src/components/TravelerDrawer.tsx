@@ -8,6 +8,7 @@ import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
 import { supabase } from '@/lib/supabase'
 import { uploadTravelerFile, isSampleFile, getSignedUrl } from '@/lib/files'
+import { toastResult } from '@/lib/toast'
 import { useTrip } from '@/contexts/TripContext'
 import type { Traveler, TravelerFile, TravelerFileKind } from '@/lib/database.types'
 
@@ -132,13 +133,15 @@ export function TravelerDrawer({
   async function remove(f: TravelerFile) {
     if (!confirm('ลบไฟล์นี้?')) return
     if (!isSampleFile(f.storage_path)) await supabase.storage.from('trip-files').remove([f.storage_path])
-    await supabase.from('traveler_files').delete().eq('id', f.id)
+    const res = await supabase.from('traveler_files').delete().eq('id', f.id)
+    toastResult(res, { success: 'ลบไฟล์แล้ว', fail: 'ลบไฟล์ไม่สำเร็จ' })
     await reload()
   }
   async function rename(f: TravelerFile) {
     const label = prompt('ตั้งชื่อ QR / เอกสารนี้', f.label ?? '')
     if (label == null) return
-    await supabase.from('traveler_files').update({ label: label.trim() || 'QR' }).eq('id', f.id)
+    const res = await supabase.from('traveler_files').update({ label: label.trim() || 'QR' }).eq('id', f.id)
+    toastResult(res, { success: 'เปลี่ยนชื่อแล้ว', fail: 'เปลี่ยนชื่อไม่สำเร็จ' })
     await reload()
   }
 

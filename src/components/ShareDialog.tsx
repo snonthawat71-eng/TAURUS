@@ -5,7 +5,8 @@ import { Avatar } from './Avatar'
 import { supabase } from '@/lib/supabase'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { addInvite, deleteInvite, updateMemberPermission, removeMember, type SharePermission } from '@/lib/tripMutations'
+import { addInvite, revokeAccess, updateMemberPermission, type SharePermission } from '@/lib/tripMutations'
+import { toastResult } from '@/lib/toast'
 
 interface Invite { id: string; email: string; status: string; permission?: string | null }
 interface Member { user_id: string; permission?: string | null }
@@ -69,7 +70,7 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
                       className="hairline rounded-md text-[11px] h-7 px-1.5 bg-surface">
                       {PERMS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
                     </select>
-                    <button onClick={async () => { if (confirm(`นำ "${m.nickname ?? 'สมาชิกคนนี้'}" ออกจากทริป?`)) { await removeMember(trip!.id, m.id); await reload(); loadData() } }}
+                    <button onClick={async () => { if (confirm(`นำ "${m.nickname ?? 'สมาชิกคนนี้'}" ออกจากทริป?`)) { const res = await revokeAccess(trip!.id, { user_id: m.id }); toastResult(res, { success: 'นำสมาชิกออกแล้ว', fail: 'นำสมาชิกออกไม่สำเร็จ' }); await reload(); loadData() } }}
                       className="text-ink-3 hover:text-[#D85A30] shrink-0" aria-label="ลบสมาชิก"><IconTrash size={15} /></button>
                   </>
                 ) : (
@@ -124,7 +125,7 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
                       <span className="text-[13px] flex-1 truncate">{inv.email}</span>
                       <span className="chip !text-[10px]">{permLabel(inv.permission)}</span>
                       <span className="chip">{inv.status === 'accepted' ? 'เข้าร่วมแล้ว' : 'รอตอบรับ'}</span>
-                      <button onClick={async () => { await deleteInvite(inv.id); loadData() }} className="text-ink-3 hover:text-[#D85A30]"><IconTrash size={15} /></button>
+                      <button onClick={async () => { const res = await revokeAccess(trip!.id, { email: inv.email }); toastResult(res, { success: 'ถอนสิทธิ์แล้ว', fail: 'ถอนสิทธิ์ไม่สำเร็จ' }); await reload(); loadData() }} className="text-ink-3 hover:text-[#D85A30]"><IconTrash size={15} /></button>
                     </div>
                   ))}
                 </div>
