@@ -7,3 +7,4 @@
 -- ============================================================
 
 alter table places add column if not exists branches jsonb;
+alter table explore_places add column if not exists branches jsonb;

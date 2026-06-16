@@ -37,6 +37,12 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
+  // which branch (chain location) is selected; null = the item's own location
+  const [branchIdx, setBranchIdx] = useState<number | null>(null)
+  const hasOwnLocation = !!(e && (e.map_url || e.station_name || e.station_line))
+  useEffect(() => {
+    setBranchIdx(e?.branches?.length && !hasOwnLocation ? 0 : null)
+  }, [e?.id, hasOwnLocation, e?.branches?.length])
   const meta = catMeta(e?.category)
   const Icon = meta.icon
 
@@ -79,6 +85,14 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
 
   if (!e) return null
 
+  const branches = e.branches ?? []
+  const sel = branchIdx != null ? branches[branchIdx] : null
+  const mapUrl = sel?.map_url || e.map_url
+  const routeList = sel
+    ? [{ line: sel.line, color: sel.color, station: sel.station }]
+    : (e.routes && e.routes.length) ? e.routes
+    : (e.station_line || e.station_name) ? [{ line: e.station_line, color: e.station_color, station: e.station_name }] : []
+
   return (
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
       {/* cover (contained card so the drag handle stays usable) */}
@@ -97,10 +111,28 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
 
       {/* info */}
       <div className="text-[18px] font-medium leading-snug mt-3.5">{e.name}</div>
+
+      {/* branch picker — for chains with multiple locations */}
+      {branches.length > 0 && (
+        <div className="mt-2">
+          <div className="text-[11px] text-ink-3 mb-1.5">เลือกสาขา ({branches.length})</div>
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+            {hasOwnLocation && (
+              <button onClick={() => setBranchIdx(null)}
+                className={['chip shrink-0', branchIdx === null ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+                style={branchIdx === null ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>ที่ตั้งหลัก</button>
+            )}
+            {branches.map((b, i) => (
+              <button key={i} onClick={() => setBranchIdx(i)}
+                className={['chip shrink-0', branchIdx === i ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+                style={branchIdx === i ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>{b.label || `สาขา ${i + 1}`}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1 text-[12px] text-ink-3 mt-1.5">
-        {((e.routes && e.routes.length) ? e.routes
-          : (e.station_line || e.station_name) ? [{ line: e.station_line, color: e.station_color, station: e.station_name }] : []
-        ).map((r, i) => (
+        {routeList.map((r, i) => (
           <span key={i} className="inline-flex items-center gap-1.5 min-w-0">
             <span className="size-2.5 rounded-full shrink-0" style={{ background: r.color ?? '#888780' }} />
             <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || 'สถานี'}</span>
@@ -112,9 +144,9 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
         </span>
       </div>
       {e.note && <p className="text-[13px] text-ink-2 mt-2.5 whitespace-pre-wrap">{e.note}</p>}
-      {e.map_url && (
-        <button onClick={() => openMap(e.map_url)} className="inline-flex items-center gap-1 text-[12px] text-brand-mid mt-2.5">
-          <IconMapPin size={14} /> เปิดแผนที่
+      {mapUrl && (
+        <button onClick={() => openMap(mapUrl)} className="inline-flex items-center gap-1 text-[12px] text-brand-mid mt-2.5">
+          <IconMapPin size={14} /> {sel ? `เปิดแผนที่ (${sel.label || `สาขา ${branchIdx! + 1}`})` : 'เปิดแผนที่'}
         </button>
       )}
 

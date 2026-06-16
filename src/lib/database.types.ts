@@ -198,6 +198,8 @@ export interface ExplorePlace {
   station_name: string | null
   /** optional — present after the routes column is added (multiple ways to get there) */
   routes?: ExploreRoute[] | null
+  /** optional — present after branches column is added (chains with multiple locations) */
+  branches?: PlaceBranch[] | null
   map_url: string | null
   note: string | null
   photo_url: string | null

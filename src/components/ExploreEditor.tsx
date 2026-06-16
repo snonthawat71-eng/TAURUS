@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconPhoto, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconPhoto, IconLoader2, IconPlus, IconTrash, IconBuildingStore } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { Combobox, type ComboOption } from './Combobox'
@@ -8,12 +8,13 @@ import { uploadPublicImage } from '@/lib/files'
 import { hscroll } from '@/lib/hscroll'
 import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
 import type { ExploreInput } from '@/lib/exploreMutations'
-import type { PlaceGroup, ExplorePlace, ExploreRoute } from '@/lib/database.types'
+import type { PlaceGroup, ExplorePlace, ExploreRoute, PlaceBranch } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
 
 function emptyRoute(): ExploreRoute { return { line: '', color: '#185FA5', station: '' } }
+function emptyBranch(): PlaceBranch { return { label: '', map_url: '', line: '', color: '#185FA5', station: '' } }
 
 export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   open: boolean
@@ -30,6 +31,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [city, setCity] = useState('')
   const [country, setCountry] = useState('')
   const [routes, setRoutes] = useState<ExploreRoute[]>([emptyRoute()])
+  const [branches, setBranches] = useState<PlaceBranch[]>([])
   const [mapUrl, setMapUrl] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
   const [note, setNote] = useState('')
@@ -83,6 +85,9 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
       ? initial.routes.map((x) => ({ line: x.line ?? '', color: x.color ?? '#185FA5', station: x.station ?? '' }))
       : [{ line: initial?.station_line ?? '', color: initial?.station_color ?? '#185FA5', station: initial?.station_name ?? '' }]
     setRoutes(r)
+    setBranches(initial?.branches?.length
+      ? initial.branches.map((b) => ({ label: b.label ?? '', map_url: b.map_url ?? '', line: b.line ?? '', color: b.color ?? '#185FA5', station: b.station ?? '' }))
+      : [])
     setMapUrl(initial?.map_url ?? '')
     setPhotoUrl(initial?.photo_url ?? '')
     setNote(initial?.note ?? '')
@@ -94,6 +99,9 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   }
   function patchRoute(i: number, p: Partial<ExploreRoute>) {
     setRoutes((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...p } : r)))
+  }
+  function patchBranch(i: number, p: Partial<PlaceBranch>) {
+    setBranches((bs) => bs.map((b, idx) => (idx === i ? { ...b, ...p } : b)))
   }
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -110,10 +118,12 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     setBusy(true)
     const clean = routes.filter((r) => r.line || r.station)
     const first = clean[0]
+    const cleanBranches = branches.filter((b) => b.label || b.map_url || b.line || b.station)
     await onSave({
       group_type: group, name, category, city: city || null, country: country || null,
       station_line: first?.line || null, station_color: first?.color || null, station_name: first?.station || null,
       routes: clean.length ? clean : null,
+      branches: cleanBranches.length ? cleanBranches : null,
       map_url: mapUrl || null, photo_url: photoUrl || null, note: note || null,
     })
     setBusy(false)
@@ -203,6 +213,42 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
             </button>
           </div>
         </div>
+
+        {/* multiple branches (chains) — food only; each branch has its own map + station */}
+        {group === 'food' && (
+          <div>
+            <div className="flex items-center gap-1.5">
+              <IconBuildingStore size={13} className="text-ink-3" />
+              <span className={lbl}>หลายสาขา (ถ้าร้านนี้มีหลายที่ — เลือกสาขาได้ในหน้ารายละเอียด)</span>
+            </div>
+            <div className="space-y-2 mt-1">
+              {branches.map((b, i) => {
+                const known = findLine(metroSug, b.line ?? '')
+                const stationOptions = known ? known.stations.map((s) => ({ value: s.name, label: s.num })) : allStationOptions
+                return (
+                  <div key={i} className="card p-2.5 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input className={field} value={b.label ?? ''} onChange={(e) => patchBranch(i, { label: e.target.value })} placeholder="ชื่อสาขา เช่น สาขาสยาม" />
+                      <button onClick={() => setBranches((bs) => bs.filter((_, idx) => idx !== i))} className="text-ink-3 hover:text-[#D85A30] shrink-0"><IconTrash size={15} /></button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Combobox className={field} value={b.line ?? ''} placeholder="สาย เช่น Midosuji"
+                        options={lineOptions}
+                        onChange={(v) => patchBranch(i, { line: v, ...(lineColorAll[v] ? { color: lineColorAll[v] } : {}) })} />
+                      <Combobox className={field} value={b.station ?? ''} placeholder="สถานี เช่น Namba"
+                        options={stationOptions} onChange={(v) => patchBranch(i, { station: v })} />
+                    </div>
+                    <ColorPicker value={b.color ?? '#185FA5'} onChange={(c) => patchBranch(i, { color: c })} />
+                    <input className={field} value={b.map_url ?? ''} onChange={(e) => patchBranch(i, { map_url: e.target.value })} placeholder="ลิงก์แผนที่ของสาขานี้ https://maps..." />
+                  </div>
+                )
+              })}
+              <button onClick={() => setBranches((bs) => [...bs, emptyBranch()])} className="btn-link flex items-center gap-1.5 text-[12px]">
+                <IconPlus size={14} /> เพิ่มสาขา
+              </button>
+            </div>
+          </div>
+        )}
 
         <div>
           <div className={lbl}>รูปภาพ</div>
