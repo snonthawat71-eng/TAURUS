@@ -21,17 +21,23 @@ function emptyLeg(): TransitLeg {
 }
 
 export function TransitEditor({
-  open, onClose, initial, onSave,
+  open, onClose, initial, placeName, onSave,
 }: {
   open: boolean
   onClose: () => void
   initial: Transit | null
+  placeName?: string | null
   onSave: (transit: Transit | null) => Promise<void>
 }) {
   const { trip, places } = useTrip()
   const net = getNetworkForTrip(trip)
-  // in-plan places that already have a metro station/line specified
-  const stationPlaces = places.filter((p) => p.in_plan && (p.station_line || p.station_name))
+  // station/line of THIS stop's place (if it matches one in the plan); fall back
+  // to all in-plan places only when this stop isn't linked to a known place.
+  const withStation = places.filter((p) => p.in_plan && (p.station_line || p.station_name))
+  const matched = placeName
+    ? withStation.find((p) => (p.name ?? '').trim().toLowerCase() === placeName.trim().toLowerCase())
+    : undefined
+  const stationPlaces = matched ? [matched] : (placeName ? [] : withStation)
   const hk = isHongKong([trip?.country ?? '', ...(trip?.cities ?? []), trip?.name ?? ''].join(' '))
   const [legs, setLegs] = useState<TransitLeg[]>([])
   const [exitLabel, setExitLabel] = useState('')
@@ -127,8 +133,8 @@ export function TransitEditor({
             )}
 
             <div>
-              <div className={lbl}>ทิศทาง / ปลายทาง</div>
-              <input className={field} value={leg.direction ?? ''} onChange={(e) => patch(i, { direction: e.target.value })} placeholder="เช่น ทาง Gucheng" />
+              <div className={lbl}>สถานีปลายทาง</div>
+              <input className={field} value={leg.direction ?? ''} onChange={(e) => patch(i, { direction: e.target.value })} placeholder="เช่น ปลายทาง Tuen Mun" />
             </div>
 
             <div className="grid grid-cols-2 gap-2">

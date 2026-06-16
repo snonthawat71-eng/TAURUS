@@ -64,8 +64,15 @@ export async function downloadItineraryPdf(trip: Trip) {
     .leg .line { color:#fff; border-radius:5px; padding:1px 6px; font-size:11px; }
     .leg.exit { color:#0270fb; }
     .empty { padding:6px 0; }
-    @media print { body { padding:0; } }
+    .toolbar { position:sticky; top:0; z-index:9; display:flex; gap:8px; justify-content:flex-end; padding:10px 0 14px; background:#fff; }
+    .toolbar button { font:inherit; font-size:13px; border:1px solid #d7dde6; background:#fff; color:#0c1b2a; border-radius:8px; padding:8px 14px; cursor:pointer; }
+    .toolbar button.primary { background:#0270fb; color:#fff; border-color:#0270fb; }
+    @media print { body { padding:0; } .no-print { display:none !important; } }
   </style></head><body>
+    <div class="toolbar no-print">
+      <button class="primary" onclick="window.print()">🖨 พิมพ์ / บันทึก PDF</button>
+      <button onclick="window.close()">✕ ปิด</button>
+    </div>
     <div class="brand">✈ TAURUS</div>
     <h1>${esc(trip.name)}</h1>
     <div class="sub">${esc(formatDateRange(trip.start_date, trip.end_date))}</div>
