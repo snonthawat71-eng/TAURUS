@@ -18,8 +18,8 @@ export function Sidebar() {
 
   return (
     <aside className="w-60 shrink-0 h-dvh sticky top-0 bg-canvas flex flex-col" style={{ borderRight: '0.5px solid var(--color-line)' }}>
-      <Link to="/" className="flex items-center px-5 h-14" title="ทริปทั้งหมด">
-        <TaurusLogo height={30} />
+      <Link to="/" className="flex items-center px-5 h-16" title="ทริปทั้งหมด">
+        <TaurusLogo height={42} />
       </Link>
 
       <div className="px-3"><TripSwitcher variant="sidebar" /></div>
