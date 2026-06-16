@@ -43,7 +43,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
         </div>
 
         {/* text in the middle — laid out top-to-bottom with stats pinned to the base */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 pr-9 flex flex-col">
           <span className="inline-flex items-center self-start rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: meta.bg, color: meta.fg }}>
             {meta.label}
           </span>
@@ -78,37 +78,34 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
 
           {e.note && <p className="text-[12px] text-ink-2 mt-2 line-clamp-2">{e.note}</p>}
 
-          {/* popularity stats — footer aligned to the bottom of the image */}
-          <div className="flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+          {/* popularity stats — pinned to the bottom (kept clear of the corner buttons) */}
+          <div className={['flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-3', isOwner ? 'pr-20' : ''].join(' ')}>
             <span className="inline-flex items-center gap-1" title="ยอดคลิก"><IconEye size={13} /> {pop?.views ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดเซฟ"><IconBookmark size={13} /> {pop?.saves ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดไลก์"><IconThumbUp size={13} /> {pop?.likes ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดคอมเมนต์"><IconMessageCircle size={13} /> {pop?.comments ?? 0}</span>
           </div>
         </div>
-
-        {/* right action column — fav on top, owner edit/delete at the base, all aligned */}
-        <div className="shrink-0 flex flex-col items-center justify-between">
-          <button onClick={(ev) => { ev.stopPropagation(); onFav() }} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'} title={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'}
-            className="size-9 rounded-full grid place-items-center shadow-sm"
-            style={{ background: saved ? 'var(--color-brand)' : 'rgba(255,255,255,.95)', color: saved ? '#fff' : 'var(--color-brand)', border: '0.5px solid var(--color-line)' }}>
-            {saved ? <IconHeartFilled size={19} /> : <IconHeart size={19} />}
-          </button>
-          {isOwner && (
-            <div className="flex flex-col gap-1.5">
-              <button onClick={(ev) => { ev.stopPropagation(); onEdit() }} aria-label="แก้ไข"
-                className="size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line text-ink-2">
-                <IconPencil size={15} />
-              </button>
-              <button onClick={(ev) => { ev.stopPropagation(); onDelete() }} aria-label="ลบ"
-                className="size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line" style={{ color: '#D85A30' }}>
-                <IconTrash size={15} />
-              </button>
-            </div>
-          )}
-        </div>
       </div>
 
+      {/* fav toggle — top-right corner */}
+      <button onClick={(ev) => { ev.stopPropagation(); onFav() }} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'} title={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'}
+        className="absolute top-2.5 right-2.5 size-9 rounded-full grid place-items-center shadow-sm z-20"
+        style={{ background: saved ? 'var(--color-brand)' : 'rgba(255,255,255,.95)', color: saved ? '#fff' : 'var(--color-brand)' }}>
+        {saved ? <IconHeartFilled size={19} /> : <IconHeart size={19} />}
+      </button>
+      {isOwner && (
+        <div className="absolute bottom-2.5 right-2.5 flex gap-1.5 z-20">
+          <button onClick={(ev) => { ev.stopPropagation(); onEdit() }} aria-label="แก้ไข"
+            className="size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line text-ink-2">
+            <IconPencil size={15} />
+          </button>
+          <button onClick={(ev) => { ev.stopPropagation(); onDelete() }} aria-label="ลบ"
+            className="size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line" style={{ color: '#D85A30' }}>
+            <IconTrash size={15} />
+          </button>
+        </div>
+      )}
       {saved && <div className="absolute inset-0 rounded-[12px] pointer-events-none z-10" style={{ background: 'rgba(120,118,110,0.16)' }} />}
     </div>
   )
