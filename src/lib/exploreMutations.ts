@@ -157,6 +157,62 @@ export async function getExploreNotifs(userId: string): Promise<ExploreNotif[]> 
   return out
 }
 
+// ---- Popularity (clicks + saves + likes + comments → POPULAR) -------------
+
+/** Log a view (click) or save event. Best-effort; ignores errors / missing table. */
+export async function logExploreEvent(exploreId: string, userId: string, kind: 'view' | 'save') {
+  try { await supabase.from('explore_events').insert({ explore_id: exploreId, user_id: userId, kind }) }
+  catch { /* table may not exist yet */ }
+}
+
+export interface PopStat { views: number; saves: number; likes: number; comments: number; score: number }
+
+/** Weighted popularity score from the four signals. */
+function scoreOf(s: { views: number; saves: number; likes: number; comments: number }): number {
+  return s.views + s.saves * 4 + s.likes * 3 + s.comments * 2
+}
+
+/** Aggregate every signal per Explore item → Map<explore_id, PopStat>. */
+export async function allPopularity(): Promise<Map<string, PopStat>> {
+  const map = new Map<string, PopStat>()
+  const get = (id: string) => {
+    let s = map.get(id)
+    if (!s) { s = { views: 0, saves: 0, likes: 0, comments: 0, score: 0 }; map.set(id, s) }
+    return s
+  }
+
+  const [evRes, voteRes, comRes] = await Promise.all([
+    supabase.from('explore_events').select('explore_id,user_id,kind'),
+    supabase.from('explore_votes').select('explore_id,vote'),
+    supabase.from('explore_comments').select('explore_id'),
+  ])
+
+  const savers = new Map<string, Set<string>>() // distinct savers per item
+  for (const e of evRes.data ?? []) {
+    if (!e.explore_id) continue
+    if (e.kind === 'view') get(e.explore_id as string).views++
+    else if (e.kind === 'save') {
+      const set = savers.get(e.explore_id as string) ?? new Set<string>()
+      set.add((e.user_id as string) ?? Math.random().toString()); savers.set(e.explore_id as string, set)
+    }
+  }
+  for (const [id, set] of savers) get(id).saves = set.size
+  for (const v of voteRes.data ?? []) if (v.vote === 1 && v.explore_id) get(v.explore_id as string).likes++
+  for (const c of comRes.data ?? []) if (c.explore_id) get(c.explore_id as string).comments++
+
+  for (const s of map.values()) s.score = scoreOf(s)
+  return map
+}
+
+/** Which items rank as POPULAR — score ≥ 60% of the top score, with a floor. */
+export function popularSet(stats: Map<string, PopStat>): Set<string> {
+  const entries = [...stats.entries()].filter(([, s]) => s.score > 0)
+  if (!entries.length) return new Set()
+  const max = Math.max(...entries.map(([, s]) => s.score))
+  const cutoff = Math.max(3, max * 0.6)
+  return new Set(entries.filter(([, s]) => s.score >= cutoff).map(([id]) => id))
+}
+
 /** Shape an Explore pool item as a Place so it can be copied into a trip. */
 export function exploreAsPlace(e: ExplorePlace): Place {
   return {

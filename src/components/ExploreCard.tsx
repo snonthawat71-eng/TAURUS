@@ -1,4 +1,4 @@
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
@@ -6,11 +6,12 @@ import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
 import type { VoteStat } from '@/lib/exploreMutations'
 
-export function ExploreCard({ e, isOwner, saved, stat, onFav, onDelete, onEdit, onOpen }: {
+export function ExploreCard({ e, isOwner, saved, stat, popular, onFav, onDelete, onEdit, onOpen }: {
   e: ExplorePlace
   isOwner: boolean
   saved: boolean
   stat?: VoteStat
+  popular?: boolean
   onFav: () => void
   onDelete: () => void
   onEdit: () => void
@@ -29,9 +30,15 @@ export function ExploreCard({ e, isOwner, saved, stat, onFav, onDelete, onEdit, 
         onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && onOpen()}
         className="flex gap-3.5 p-3 cursor-pointer">
         {/* image on the left (separated, rounded) */}
-        <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-[10px] overflow-hidden shrink-0 bg-surface-2">
+        <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-[10px] overflow-hidden shrink-0 bg-surface-2 relative">
           <SignedImage url={e.photo_url} alt={e.name ?? ''} className="w-full h-full object-cover"
             fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
+          {popular && (
+            <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 rounded-full pl-1.5 pr-2 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+              style={{ background: 'linear-gradient(90deg,#FB7022,#EF4444)' }}>
+              <IconFlame size={12} /> POPULAR
+            </span>
+          )}
         </div>
 
         {/* text on the right */}

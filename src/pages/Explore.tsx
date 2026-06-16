@@ -10,8 +10,9 @@ import { ExploreDetail } from '@/components/ExploreDetail'
 import { ExploreEditor } from '@/components/ExploreEditor'
 import { ExploreNotifications } from '@/components/ExploreNotifications'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
-import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, type VoteStat } from '@/lib/exploreMutations'
+import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, logExploreEvent, type VoteStat, type PopStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { cityImage } from '@/lib/cityImages'
 import { hscroll } from '@/lib/hscroll'
 import { PLACE_TABS, FOOD_TABS, foodGroupKey } from '@/lib/placeMeta'
@@ -32,9 +33,18 @@ export default function Explore() {
   const [detail, setDetail] = useState<ExplorePlace | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [stats, setStats] = useState<Map<string, VoteStat>>(new Map())
+  const [pop, setPop] = useState<Map<string, PopStat>>(new Map())
+  const popular = useMemo(() => popularSet(pop), [pop])
 
   async function refreshStats() {
     setStats(await allVoteStats())
+    setPop(await allPopularity())
+  }
+
+  // open detail + count the click toward popularity
+  function openDetail(e: ExplorePlace) {
+    setDetail(e)
+    if (user) logExploreEvent(e.id, user.id, 'view')
   }
 
   function toggleFav(e: ExplorePlace) {
@@ -57,6 +67,19 @@ export default function Explore() {
   }
   useEffect(() => { load(); refreshStats() }, [])
   useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // live POPULAR ranking — refresh when anyone clicks/saves/likes/comments
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const bump = () => { clearTimeout(timer); timer = setTimeout(() => { refreshStats() }, 400) }
+    const ch = supabase.channel('explore-popularity')
+    for (const table of ['explore_events', 'explore_votes', 'explore_comments']) {
+      ch.on('postgres_changes', { event: '*', schema: 'public', table }, bump)
+    }
+    ch.subscribe()
+    return () => { clearTimeout(timer); supabase.removeChannel(ch) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cities = useMemo(() => {
     const m = new Map<string, ExplorePlace>()
@@ -139,8 +162,8 @@ export default function Explore() {
         ) : (
           <div className="space-y-3">
             {filtered.map((e) => (
-              <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)} stat={stats.get(e.id)}
-                onOpen={() => setDetail(e)}
+              <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)} stat={stats.get(e.id)} popular={popular.has(e.id)}
+                onOpen={() => openDetail(e)}
                 onFav={() => toggleFav(e)}
                 onEdit={() => setEditor(e)}
                 onDelete={async () => { if (confirm('ลบรายการนี้ออกจาก Explore?')) { await deleteExplore(e.id); load() } }} />

@@ -4,6 +4,7 @@ import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { copyPlaceToTrip, exploreSavedInTrips } from '@/lib/placeMutations'
+import { logExploreEvent } from '@/lib/exploreMutations'
 import { countryFlag } from '@/lib/countries'
 import { formatDateRange } from '@/lib/format'
 import type { Place } from '@/lib/database.types'
@@ -37,6 +38,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
     if (!place || done.has(tripId)) return
     setBusyId(tripId)
     await copyPlaceToTrip(place, tripId, sourceExploreId)
+    if (sourceExploreId && user) logExploreEvent(sourceExploreId, user.id, 'save')
     setBusyId(null)
     setDone((prev) => new Set(prev).add(tripId))
     onChanged?.()
