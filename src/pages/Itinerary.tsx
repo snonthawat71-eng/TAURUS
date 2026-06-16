@@ -213,9 +213,13 @@ export default function Itinerary() {
     const newIdx = list.findIndex((s) => s.id === over.id)
     if (oldIdx < 0 || newIdx < 0) return
     const reordered = arrayMove(list, oldIdx, newIdx)
+    // times stay bound to the slot/position, not the activity: reassign each
+    // moved stop the time that originally sat in its new position
+    const slotTimes = list.map((s) => s.time ?? null)
+    const withTimes = reordered.map((s, i) => ({ ...s, position: i, time: slotTimes[i] }))
     const others = localStops.filter((s) => s.day_id !== dayId)
-    setLocalStops([...others, ...reordered.map((s, i) => ({ ...s, position: i }))])
-    await persistStopOrder(reordered)
+    setLocalStops([...others, ...withTimes])
+    await persistStopOrder(withTimes)
     await reload()
   }
 
