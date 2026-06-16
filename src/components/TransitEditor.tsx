@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { IconPlus, IconTrash, IconArrowDown, IconMap2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
+import { Combobox } from './Combobox'
 import { MetroMapPicker } from './MetroMapPicker'
 import { HKMapViewer } from './HKMapViewer'
 import { useTrip } from '@/contexts/TripContext'
@@ -33,7 +34,6 @@ export function TransitEditor({
   const { trip, places } = useTrip()
   const net = getNetworkForTrip(trip)
   const sug = useMemo(() => getTransitSuggestions(trip), [trip])
-  const lineListId = 'transit-lines'
   // station/line of THIS stop's place (if it matches one in the plan); fall back
   // to all in-plan places only when this stop isn't linked to a known place.
   const withStation = places.filter((p) => p.in_plan && (p.station_line || p.station_name))
@@ -96,11 +96,6 @@ export function TransitEditor({
   return (
     <Drawer open={open} onClose={onClose} title="เส้นทางรถไฟฟ้า">
       <div className="space-y-3">
-        {sug.lines.length > 0 && (
-          <datalist id={lineListId}>
-            {sug.lines.map((l) => <option key={l.name} value={l.name} />)}
-          </datalist>
-        )}
         {net && (
           <button onClick={() => setMapOpen(true)}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
@@ -126,31 +121,26 @@ export function TransitEditor({
             {/* line + color */}
             <div>
               <div className={lbl}>ชื่อสาย</div>
-              <input className={field} list={sug.lines.length ? lineListId : undefined} value={leg.line} onChange={(e) => patchLine(i, e.target.value)} placeholder="เช่น Line 5 / Airport Express" />
+              <Combobox className={field} value={leg.line} placeholder="เช่น Line 5 / Airport Express"
+                options={sug.lines.map((l) => ({ value: l.name, color: l.color }))}
+                onChange={(v) => patchLine(i, v)} />
               <ColorPicker value={leg.color} onChange={(c) => patch(i, { color: c })} />
             </div>
 
             {(() => {
               const known = findLine(sug, leg.line)
               const stations = known ? known.stations : sug.stations.map((name) => ({ name } as { name: string; num?: string }))
-              const listId = `transit-stations-${i}`
+              const stationOpts = stations.map((s) => ({ value: s.name, label: s.num }))
               return (
                 <>
-                  {stations.length > 0 && (
-                    <datalist id={listId}>
-                      {stations.map((s) => (
-                        <option key={s.name} value={s.name} label={s.num ? `${s.num} · ${known?.name ?? ''}`.trim() : undefined} />
-                      ))}
-                    </datalist>
-                  )}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <div className={lbl}>สถานีขึ้น</div>
-                      <input className={field} list={stations.length ? listId : undefined} value={leg.from} onChange={(e) => patchEnds(i, { from: e.target.value })} />
+                      <Combobox className={field} value={leg.from} options={stationOpts} onChange={(v) => patchEnds(i, { from: v })} />
                     </div>
                     <div>
                       <div className={lbl}>สถานีลง</div>
-                      <input className={field} list={stations.length ? listId : undefined} value={leg.to} onChange={(e) => patchEnds(i, { to: e.target.value })} />
+                      <Combobox className={field} value={leg.to} options={stationOpts} onChange={(v) => patchEnds(i, { to: v })} />
                     </div>
                   </div>
                 </>

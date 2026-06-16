@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconPhoto, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
+import { Combobox } from './Combobox'
 import { uploadPublicImage } from '@/lib/files'
 import { hscroll } from '@/lib/hscroll'
 import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
@@ -118,10 +119,6 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
 
   return (
     <Drawer open={open} onClose={onClose} title={editing ? 'แก้ไขสถานที่' : 'เพิ่มลง Explore'}>
-      <datalist id="exp-cities">{[...new Set(sugg.cityChips.map((p) => p.city).filter(Boolean))].map((c) => <option key={c} value={c} />)}</datalist>
-      <datalist id="exp-countries">{[...new Set(sugg.cityChips.map((p) => p.country).filter(Boolean))].map((c) => <option key={c} value={c} />)}</datalist>
-      <datalist id="exp-lines">{lineOpts.map((c) => <option key={c} value={c} />)}</datalist>
-      <datalist id="exp-stations">{stationOpts.map((c) => <option key={c} value={c} />)}</datalist>
       <div className="space-y-3">
         <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2">
           {([['place', 'สถานที่'], ['food', 'ร้านอาหาร/คาเฟ่']] as const).map(([g, label]) => (
@@ -159,8 +156,14 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
           </div>
         )}
         <div className="grid grid-cols-2 gap-2">
-          <div><div className={lbl}>เมือง *</div><input list="exp-cities" className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Osaka" /></div>
-          <div><div className={lbl}>ประเทศ *</div><input list="exp-countries" className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Japan" /></div>
+          <div><div className={lbl}>เมือง *</div>
+            <Combobox className={field} value={city} onChange={setCity} placeholder="Osaka"
+              options={[...new Set(sugg.cityChips.map((p) => p.city).filter(Boolean))].map((c) => ({ value: c }))} />
+          </div>
+          <div><div className={lbl}>ประเทศ *</div>
+            <Combobox className={field} value={country} onChange={setCountry} placeholder="Japan"
+              options={[...new Set(sugg.cityChips.map((p) => p.country).filter(Boolean))].map((c) => ({ value: c }))} />
+          </div>
         </div>
 
         {/* multiple ways to get there */}
@@ -178,10 +181,12 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <input list="exp-lines" className={field} value={r.line ?? ''}
-                    onChange={(e) => { const v = e.target.value; patchRoute(i, { line: v, ...(sugg.lineColor[v] ? { color: sugg.lineColor[v] } : {}) }) }}
-                    placeholder="สาย เช่น Midosuji" />
-                  <input list="exp-stations" className={field} value={r.station ?? ''} onChange={(e) => patchRoute(i, { station: e.target.value })} placeholder="สถานี เช่น Namba" />
+                  <Combobox className={field} value={r.line ?? ''} placeholder="สาย เช่น Midosuji"
+                    options={lineOpts.map((l) => ({ value: l, color: sugg.lineColor[l] }))}
+                    onChange={(v) => patchRoute(i, { line: v, ...(sugg.lineColor[v] ? { color: sugg.lineColor[v] } : {}) })} />
+                  <Combobox className={field} value={r.station ?? ''} placeholder="สถานี เช่น Namba"
+                    options={stationOpts.map((s) => ({ value: s }))}
+                    onChange={(v) => patchRoute(i, { station: v })} />
                 </div>
                 <ColorPicker value={r.color ?? '#185FA5'} onChange={(c) => patchRoute(i, { color: c })} />
               </div>
