@@ -155,7 +155,7 @@ export const HK_NAMED: { name: string; x: number; y: number; xc: boolean; lx: nu
   { name: "To Kwa Wan", x: 699.5, y: 397, xc: false, lx: 694.7, ly: 391, a: "end" },
   { name: "Ho Man Tin", x: 635, y: 415.7, xc: true, lx: 635, ly: 426.2, a: "middle" },
   { name: "Hung Hom", x: 589.1, y: 453, xc: true, lx: 589.1, ly: 438.1, a: "middle" },
-  { name: "East Tsim Sha Tsui", x: 540.6, y: 468.6, xc: false, lx: 524.6, ly: 462.6, a: "start" },
+  { name: "East Tsim Sha Tsui", x: 540.6, y: 468.6, xc: false, lx: 524.6, ly: 472.6, a: "start" },
   { name: "Austin", x: 467.6, y: 443.8, xc: false, lx: 467.6, ly: 430.4, a: "middle" },
   { name: "Nam Cheong", x: 375.3, y: 340.8, xc: true, lx: 382.3, ly: 342.4, a: "start" },
   { name: "Mei Foo", x: 375.3, y: 301.3, xc: true, lx: 381.3, ly: 294.2, a: "start" },
@@ -269,6 +269,7 @@ export const HK_SYMBOLS: { c: string; p: string }[] = [
 
 export const HK_DASH: string[] = [
   "369.2,443.7 423.1,443.7 467.6,443.7",
+  "523.4,450.5 540.6,468.6",
 ]
 
 export const HK_EXTRA_LABELS: { name: string; x: number; y: number; lx: number; ly: number; a: string }[] = [
