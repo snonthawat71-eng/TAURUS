@@ -35,7 +35,7 @@ export function MetroMapPicker({ net, onClose, onResult }: {
     : []
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-canvas flex flex-col">
+    <div className="fixed inset-0 z-[120] bg-canvas flex flex-col">
       {/* header */}
       <div className="flex items-center justify-between px-4 h-14 shrink-0" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
         <div className="text-[15px] font-medium">{net.name} · เลือกสถานี</div>
