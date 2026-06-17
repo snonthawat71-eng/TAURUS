@@ -5,6 +5,7 @@ import { ColorPicker } from './ColorPicker'
 import { Combobox } from './Combobox'
 import { MetroMapPicker } from './MetroMapPicker'
 import { HKMapViewer } from './HKMapViewer'
+import { ShanghaiMapViewer } from './ShanghaiMapViewer'
 import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip } from '@/lib/metro'
 import { getTransitSuggestions, findLine, legBetween } from '@/lib/metro/suggest'
@@ -16,6 +17,11 @@ const lbl = 'text-[10px] text-ink-3'
 function isHongKong(hay: string) {
   const s = hay.toLowerCase()
   return ['hong kong', 'hongkong', 'ฮ่องกง', ' hk', 'mtr'].some((k) => s.includes(k))
+}
+
+function isShanghai(hay: string) {
+  const s = hay.toLowerCase()
+  return ['shanghai', 'เซี่ยงไฮ้', '上海'].some((k) => s.includes(k))
 }
 
 function emptyLeg(): TransitLeg {
@@ -50,13 +56,16 @@ export function TransitEditor({
     ? withStation.find((p) => (p.name ?? '').trim().toLowerCase() === placeName.trim().toLowerCase())
     : undefined
   const stationPlaces = matched ? [matched] : (placeName ? [] : withStation)
-  const hk = isHongKong([trip?.country ?? '', ...(trip?.cities ?? []), trip?.name ?? ''].join(' '))
+  const tripHay = [trip?.country ?? '', ...(trip?.cities ?? []), trip?.name ?? ''].join(' ')
+  const hk = isHongKong(tripHay)
+  const sh = isShanghai(tripHay)
   const [legs, setLegs] = useState<TransitLeg[]>([])
   const [exitLabel, setExitLabel] = useState('')
   const [exitNote, setExitNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
   const [hkOpen, setHkOpen] = useState(false)
+  const [shOpen, setShOpen] = useState(false)
   // when a place has multiple routes, tapping it opens a chooser for this leg
   const [routePick, setRoutePick] = useState<{ leg: number; place: string } | null>(null)
 
@@ -126,6 +135,13 @@ export function TransitEditor({
             className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
             style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
             <IconMap2 size={17} /> เลือกจากแผนที่ MTR ฮ่องกง (คำนวณจุดเปลี่ยนสายให้)
+          </button>
+        )}
+        {sh && (
+          <button onClick={() => setShOpen(true)}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
+            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
+            <IconMap2 size={17} /> เลือกจากแผนที่รถไฟฟ้าเซี่ยงไฮ้ (คำนวณจุดเปลี่ยนสายให้)
           </button>
         )}
         {legs.map((leg, i) => (
@@ -275,6 +291,8 @@ export function TransitEditor({
       )}
       {hk && hkOpen && <HKMapViewer onClose={() => setHkOpen(false)}
         onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setHkOpen(false) }} />}
+      {sh && shOpen && <ShanghaiMapViewer onClose={() => setShOpen(false)}
+        onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setShOpen(false) }} />}
     </Drawer>
   )
 }
