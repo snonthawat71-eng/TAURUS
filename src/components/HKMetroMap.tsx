@@ -2,9 +2,15 @@
 // Stations are tappable (named via HK_NAMED) to pick origin/destination.
 import { VIEW, HK_LINES, HK_STATIONS, HK_NAMED, HK_DASH, HK_EXTRA_LABELS } from '@/lib/metro/hkGeo'
 
-// Interchanges between parallel diagonal lines: tilt the capsule +45° so it lies
-// across both lines and links them (rather than along just one)
-const DIAGONAL_XC = new Set(['285.4,336.4', '238.5,383.4']) // Tsing Yi, Sunny Bay
+// Diagonal interchanges, tilted +45° so the capsule lies across the lines it links.
+// Tsing Yi joins the two parallel lines (Tung Chung + Airport Express) that both
+// stop there, so it's centred on the dot. Sunny Bay joins only Tung Chung +
+// Disneyland Resort (Airport Express passes through without stopping), so its
+// capsule is nudged toward the Disney branch to stay clear of the airport line.
+const DIAGONAL_XC: Record<string, { dx: number; dy: number; L: number }> = {
+  '285.4,336.4': { dx: 0, dy: 0, L: 11 },     // Tsing Yi
+  '238.5,383.4': { dx: 2.5, dy: 2.6, L: 9 },  // Sunny Bay
+}
 
 export function HKMetroMap({ zoom = 1, from, to, onTap }: {
   zoom?: number
@@ -27,14 +33,14 @@ export function HKMetroMap({ zoom = 1, from, to, onTap }: {
       {HK_STATIONS.filter((s) => !s.xc).map((s, i) => (
         <circle key={`s${i}`} cx={s.x} cy={s.y} r={3.4} fill="#fff" stroke={s.color} strokeWidth={1.8} />
       ))}
-      {/* interchanges: one clear white capsule (the interchange symbol). Tsing Yi
-          and Sunny Bay link two parallel diagonal lines, so lay the capsule
-          across both of them. */}
+      {/* interchanges: one clear white capsule (the interchange symbol). Diagonal
+          ones (Tsing Yi, Sunny Bay) are tilted +45° to lie across the lines. */}
       {HK_STATIONS.filter((s) => s.xc).map((s, i) => {
-        if (DIAGONAL_XC.has(`${s.x},${s.y}`)) {
-          const L = 11, W = 6.7
-          return <rect key={`x${i}`} x={s.x - L / 2} y={s.y - W / 2} width={L} height={W} rx={W / 2}
-            fill="#fff" stroke="#001F50" strokeWidth={2} transform={`rotate(45 ${s.x} ${s.y})`} />
+        const diag = DIAGONAL_XC[`${s.x},${s.y}`]
+        if (diag) {
+          const W = 6.7, cx = s.x + diag.dx, cy = s.y + diag.dy
+          return <rect key={`x${i}`} x={cx - diag.L / 2} y={cy - W / 2} width={diag.L} height={W} rx={W / 2}
+            fill="#fff" stroke="#001F50" strokeWidth={2} transform={`rotate(45 ${cx} ${cy})`} />
         }
         const w = Math.max(7, s.w), h = Math.max(7, s.h)
         return <rect key={`x${i}`} x={s.x - w / 2} y={s.y - h / 2} width={w} height={h} rx={Math.min(w, h) / 2}
