@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { IconTrash } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
-import { AVATAR_COLORS, ORDER } from '@/lib/avatars'
+import { toHexColor } from '@/lib/avatars'
 import type { Traveler } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
@@ -19,14 +19,14 @@ export function TravelerEditor({
 }) {
   const [nickname, setNickname] = useState('')
   const [fullName, setFullName] = useState('')
-  const [color, setColor] = useState('av1')
+  const [color, setColor] = useState(toHexColor('av1')) // free-form hex
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (open) {
       setNickname(initial?.nickname ?? '')
       setFullName(initial?.full_name ?? '')
-      setColor((initial?.avatar_color && initial.avatar_color in AVATAR_COLORS) ? initial.avatar_color : defaultColor)
+      setColor(toHexColor(initial?.avatar_color ?? defaultColor))
     }
   }, [open, initial, defaultColor])
 
@@ -47,15 +47,18 @@ export function TravelerEditor({
 
   return (
     <Drawer open={open} onClose={onClose} title={initial ? 'แก้ไขผู้เดินทาง' : 'เพิ่มผู้เดินทาง'}>
-      <div className="flex flex-col items-center gap-2 mb-4">
-        <Avatar name={nickname || '?'} color={color} size={56} ring={false} />
-        <div className="flex gap-2">
-          {ORDER.map((c) => (
-            <button key={c} onClick={() => setColor(c)} aria-label={c}
-              className="size-7 rounded-full"
-              style={{ background: AVATAR_COLORS[c].bg, outline: color === c ? '2px solid var(--color-ink)' : 'none', outlineOffset: 2 }} />
-          ))}
-        </div>
+      <div className="flex flex-col items-center gap-3 mb-4">
+        <Avatar name={nickname || '?'} color={color} size={64} ring={false} />
+        {/* single colour wheel — pick any colour */}
+        <label className="flex items-center gap-2 cursor-pointer rounded-full pl-1.5 pr-3 h-9 bg-surface-2 text-[12px] font-medium text-ink-2"
+          title="เลือกสีจากวงล้อสี">
+          <span className="size-7 rounded-full grid place-items-center relative overflow-hidden shrink-0"
+            style={{ background: 'conic-gradient(red, orange, yellow, lime, aqua, blue, magenta, red)' }}>
+            <span className="size-4 rounded-full" style={{ background: color, boxShadow: '0 0 0 2px #fff' }} />
+            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
+          </span>
+          เลือกสีเอง
+        </label>
       </div>
 
       <div className="space-y-3">
