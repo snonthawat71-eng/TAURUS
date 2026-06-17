@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
-  IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2,
+  IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
@@ -35,6 +35,8 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
   const [comments, setComments] = useState<ExploreComment[]>([])
   const [votes, setVotes] = useState({ up: 0, down: 0, mine: 0 })
   const [text, setText] = useState('')
+  const [replyTo, setReplyTo] = useState<string | null>(null)
+  const [replyText, setReplyText] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   // which branch (chain location) is selected; null = the item's own location
@@ -58,6 +60,8 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
     if (!open || !e) return
     setLoading(true)
     setText('')
+    setReplyTo(null)
+    setReplyText('')
     refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, e?.id])
@@ -68,12 +72,14 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
     setVotes(await getVotes(e.id, user.id))
   }
 
-  async function send() {
-    if (!e || !user || !text.trim()) return
+  async function send(body: string, parentId?: string | null) {
+    if (!e || !user || !body.trim()) return
     setSending(true)
     const name = profile?.nickname ?? user.email?.split('@')[0] ?? 'ผู้ใช้'
-    await addComment(e.id, user.id, text.trim(), name, profile?.avatar_color ?? null)
+    await addComment(e.id, user.id, body.trim(), name, profile?.avatar_color ?? null, parentId ?? null)
     setText('')
+    setReplyText('')
+    setReplyTo(null)
     setSending(false)
     refresh()
   }
@@ -81,6 +87,62 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
   async function removeComment(id: string) {
     await deleteComment(id)
     refresh()
+  }
+
+  // group comments under their parent (orphan replies fall back to top level)
+  const ids = new Set(comments.map((c) => c.id))
+  const childrenOf = (parentId: string | null) =>
+    comments.filter((c) => {
+      const p = c.parent_id && ids.has(c.parent_id) ? c.parent_id : null
+      return p === parentId
+    })
+
+  function renderThread(parentId: string | null, depth: number): ReactNode {
+    return childrenOf(parentId).map((c) => (
+      <div key={c.id} className={depth > 0 ? 'pl-7' : ''}>
+        <div className="flex items-start gap-2">
+          <Avatar name={c.author_name} color={c.author_color} size={depth > 0 ? 26 : 30} ring={false} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[12px] font-medium truncate">{c.author_name ?? 'ผู้ใช้'}</span>
+              <span className="text-[11px] text-ink-3 shrink-0">· {timeAgo(c.created_at)}</span>
+              {c.user_id === user?.id && (
+                <button onClick={() => removeComment(c.id)} aria-label="ลบความคิดเห็น" className="ml-auto text-ink-3 hover:text-booking shrink-0">
+                  <IconTrash size={13} />
+                </button>
+              )}
+            </div>
+            <p className="text-[13px] text-ink whitespace-pre-wrap break-words">{c.body}</p>
+            {user && (
+              <button onClick={() => { setReplyTo((cur) => (cur === c.id ? null : c.id)); setReplyText('') }}
+                className="inline-flex items-center gap-1 text-[11px] text-brand-mid mt-1">
+                <IconArrowBackUp size={12} /> ตอบกลับ
+              </button>
+            )}
+            {replyTo === c.id && (
+              <div className="flex items-start gap-2 mt-2">
+                <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} size={26} ring={false} />
+                <div className="flex-1 min-w-0">
+                  <textarea value={replyText} onChange={(ev) => setReplyText(ev.target.value)} rows={2} autoFocus
+                    placeholder={`ตอบกลับ ${c.author_name ?? ''}…`}
+                    className="w-full resize-none rounded-[10px] bg-surface-2 px-3 py-2 text-[13px] outline-none focus:ring-1 focus:ring-brand" />
+                  <div className="flex justify-end gap-2 mt-1.5">
+                    <button onClick={() => { setReplyTo(null); setReplyText('') }} className="h-8 px-3 rounded-full text-[12px] font-medium text-ink-2">ยกเลิก</button>
+                    <button onClick={() => send(replyText, c.id)} disabled={sending || !replyText.trim()}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-brand text-white text-[12px] font-medium disabled:opacity-40">
+                      {sending ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />} ตอบกลับ
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        {childrenOf(c.id).length > 0 && (
+          <div className="mt-3 space-y-3">{renderThread(c.id, depth + 1)}</div>
+        )}
+      </div>
+    ))
   }
 
   if (!e) return null
@@ -188,7 +250,7 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
               placeholder="เขียนความคิดเห็น…"
               className="w-full resize-none rounded-[10px] bg-surface-2 px-3 py-2 text-[13px] outline-none focus:ring-1 focus:ring-brand" />
             <div className="flex justify-end mt-1.5">
-              <button onClick={send} disabled={sending || !text.trim()}
+              <button onClick={() => send(text)} disabled={sending || !text.trim()}
                 className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-brand text-white text-[12px] font-medium disabled:opacity-40">
                 {sending ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />} ส่ง
               </button>
@@ -201,25 +263,7 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
         ) : comments.length === 0 ? (
           <div className="py-6 text-center text-[12px] text-ink-3">ยังไม่มีความคิดเห็น — มาเป็นคนแรกกัน</div>
         ) : (
-          <div className="space-y-3">
-            {comments.map((c) => (
-              <div key={c.id} className="flex items-start gap-2">
-                <Avatar name={c.author_name} color={c.author_color} size={30} ring={false} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[12px] font-medium truncate">{c.author_name ?? 'ผู้ใช้'}</span>
-                    <span className="text-[11px] text-ink-3 shrink-0">· {timeAgo(c.created_at)}</span>
-                    {c.user_id === user?.id && (
-                      <button onClick={() => removeComment(c.id)} aria-label="ลบความคิดเห็น" className="ml-auto text-ink-3 hover:text-booking shrink-0">
-                        <IconTrash size={13} />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-[13px] text-ink whitespace-pre-wrap break-words">{c.body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="space-y-3">{renderThread(null, 0)}</div>
         )}
       </div>
     </Drawer>

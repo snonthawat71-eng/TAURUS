@@ -9,6 +9,7 @@ import { ShanghaiMapViewer } from './ShanghaiMapViewer'
 import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip } from '@/lib/metro'
 import { getTransitSuggestions, findLine, legBetween } from '@/lib/metro/suggest'
+import { TRANSIT_MODES, modeMeta } from '@/lib/transitModes'
 import type { Transit, TransitLeg, ExploreRoute, Place } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
@@ -25,7 +26,7 @@ function isShanghai(hay: string) {
 }
 
 function emptyLeg(): TransitLeg {
-  return { line: '', color: '#185FA5', from: '', to: '', direction: '', stops: undefined, minutes: undefined }
+  return { mode: 'metro', line: '', color: '#185FA5', from: '', to: '', direction: '', stops: undefined, minutes: undefined }
 }
 
 /** All saved ways to reach a place — its multi-route list, or the single legacy station. */
@@ -80,6 +81,15 @@ export function TransitEditor({
   function patch(i: number, p: Partial<TransitLeg>) {
     setLegs((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...p } : l)))
   }
+  // switch how a leg is travelled; swap in the mode's default colour unless the
+  // user had already picked a custom one
+  function patchMode(i: number, mode: string) {
+    setLegs((ls) => ls.map((l, idx) => {
+      if (idx !== i) return l
+      const color = (!l.color || l.color === modeMeta(l.mode).color) ? modeMeta(mode).color : l.color
+      return { ...l, mode, color }
+    }))
+  }
   // line name → auto-fill the line color when it matches a known line
   function patchLine(i: number, value: string) {
     const known = findLine(sug, value)
@@ -121,7 +131,7 @@ export function TransitEditor({
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="เส้นทางรถไฟฟ้า">
+    <Drawer open={open} onClose={onClose} title="เส้นทางการเดินทาง">
       <div className="space-y-3">
         {net && (
           <button onClick={() => setMapOpen(true)}
@@ -144,7 +154,10 @@ export function TransitEditor({
             <IconMap2 size={17} /> เลือกจากแผนที่รถไฟฟ้าเซี่ยงไฮ้ (คำนวณจุดเปลี่ยนสายให้)
           </button>
         )}
-        {legs.map((leg, i) => (
+        {legs.map((leg, i) => {
+          const mm = modeMeta(leg.mode)
+          const rail = mm.rail
+          return (
           <div key={i} className="card p-3 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[12px] font-medium text-ink-2">ช่วงที่ {i + 1}</span>
@@ -152,37 +165,69 @@ export function TransitEditor({
                 className="text-ink-3 hover:text-[#D85A30]"><IconTrash size={15} /></button>
             </div>
 
-            {/* line + color */}
+            {/* travel mode */}
             <div>
-              <div className={lbl}>ชื่อสาย</div>
-              <Combobox className={field} value={leg.line} placeholder="เช่น Line 5 / Airport Express"
-                options={sug.lines.map((l) => ({ value: l.name, color: l.color }))}
-                onChange={(v) => patchLine(i, v)} />
+              <div className={lbl}>เดินทางด้วย</div>
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-1 pb-0.5">
+                {TRANSIT_MODES.map((m) => {
+                  const MIcon = m.icon
+                  const on = mm.key === m.key
+                  return (
+                    <button key={m.key} type="button" onClick={() => patchMode(i, m.key)}
+                      className="inline-flex items-center gap-1.5 shrink-0 h-8 px-3 rounded-full text-[12px] font-medium transition-colors"
+                      style={on ? { background: m.color, color: '#fff' } : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
+                      <MIcon size={14} /> {m.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* line / route + color */}
+            <div>
+              <div className={lbl}>{mm.fields.line}</div>
+              {rail ? (
+                <Combobox className={field} value={leg.line} placeholder={mm.fields.linePlaceholder}
+                  options={sug.lines.map((l) => ({ value: l.name, color: l.color }))}
+                  onChange={(v) => patchLine(i, v)} />
+              ) : (
+                <input className={field} value={leg.line} placeholder={mm.fields.linePlaceholder}
+                  onChange={(e) => patch(i, { line: e.target.value })} />
+              )}
               <ColorPicker value={leg.color} onChange={(c) => patch(i, { color: c })} />
             </div>
 
-            {(() => {
+            {rail ? (() => {
               const known = findLine(sug, leg.line)
               const stations = known ? known.stations : sug.stations.map((name) => ({ name } as { name: string; num?: string }))
               const stationOpts = stations.map((s) => ({ value: s.name, label: s.num }))
               return (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <div className={lbl}>สถานีขึ้น</div>
-                      <Combobox className={field} value={leg.from} options={stationOpts} onChange={(v) => patchEnds(i, { from: v })} />
-                    </div>
-                    <div>
-                      <div className={lbl}>สถานีลง</div>
-                      <Combobox className={field} value={leg.to} options={stationOpts} onChange={(v) => patchEnds(i, { to: v })} />
-                    </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className={lbl}>{mm.fields.from}</div>
+                    <Combobox className={field} value={leg.from} options={stationOpts} onChange={(v) => patchEnds(i, { from: v })} />
                   </div>
-                </>
+                  <div>
+                    <div className={lbl}>{mm.fields.to}</div>
+                    <Combobox className={field} value={leg.to} options={stationOpts} onChange={(v) => patchEnds(i, { to: v })} />
+                  </div>
+                </div>
               )
-            })()}
+            })() : (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className={lbl}>{mm.fields.from}</div>
+                  <input className={field} value={leg.from} onChange={(e) => patch(i, { from: e.target.value })} />
+                </div>
+                <div>
+                  <div className={lbl}>{mm.fields.to}</div>
+                  <input className={field} value={leg.to} onChange={(e) => patch(i, { to: e.target.value })} />
+                </div>
+              </div>
+            )}
 
             {/* quick-fill this leg from an in-plan place's saved route(s) */}
-            {stationPlaces.length > 0 && (
+            {rail && stationPlaces.length > 0 && (
               <div>
                 <div className={lbl}>ดึงสาย/สถานีจากสถานที่ในแพลน — แตะเพื่อเติม</div>
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-1 pb-0.5">
@@ -221,13 +266,13 @@ export function TransitEditor({
             )}
 
             <div>
-              <div className={lbl}>สถานีปลายทาง</div>
-              <input className={field} value={leg.direction ?? ''} onChange={(e) => patch(i, { direction: e.target.value })} placeholder="เช่น ปลายทาง Tuen Mun" />
+              <div className={lbl}>ทิศทาง / ปลายทาง</div>
+              <input className={field} value={leg.direction ?? ''} onChange={(e) => patch(i, { direction: e.target.value })} placeholder={rail ? 'เช่น ปลายทาง Tuen Mun' : 'เช่น มุ่งหน้าตัวเมือง'} />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <div className={lbl}>จำนวนสถานี</div>
+                <div className={lbl}>{rail ? 'จำนวนสถานี' : 'จำนวนป้าย/จุด'}</div>
                 <input type="number" className={field} value={leg.stops ?? ''} onChange={(e) => patch(i, { stops: e.target.value ? Number(e.target.value) : undefined })} />
               </div>
               <div>
@@ -241,7 +286,7 @@ export function TransitEditor({
               <label className="flex items-center gap-2 text-[12px] text-ink-2">
                 <input type="checkbox" checked={!!leg.transferAfter}
                   onChange={(e) => patchTransfer(i, e.target.checked ? { minutes: 2 } : null)} />
-                มีเดินเปลี่ยนสายก่อนช่วงถัดไป
+                มีเดินต่อก่อนช่วงถัดไป
               </label>
             )}
             {i < legs.length - 1 && leg.transferAfter && (
@@ -257,7 +302,8 @@ export function TransitEditor({
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
 
         <button onClick={() => setLegs((ls) => [...ls, emptyLeg()])} className="btn-link flex items-center gap-1.5">
           <IconPlus size={15} /> เพิ่มช่วงเดินทาง

@@ -112,6 +112,8 @@ export interface ItineraryDay {
 
 /** Structured transit (metro route) stored in itinerary_stops.transit */
 export interface TransitLeg {
+  /** how this leg is travelled — 'metro' (default) | 'bus' | 'tram' | 'hsr' | 'car' | 'taxi' | 'boat' | 'plane' */
+  mode?: string
   line: string
   color: string
   from: string
@@ -215,6 +217,8 @@ export interface ExploreComment {
   author_name: string | null
   author_color: string | null
   body: string
+  /** optional — present after explore.sql adds replies (a comment replying to another) */
+  parent_id?: string | null
   created_at: string
 }
 

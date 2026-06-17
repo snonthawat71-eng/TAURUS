@@ -7,6 +7,11 @@ export async function listExplore() {
   return supabase.from('explore_places').select('*').order('created_at', { ascending: false })
 }
 
+/** Only the items the given user shared (for the "manage my places" page). */
+export async function listMyExplore(userId: string) {
+  return supabase.from('explore_places').select('*').eq('created_by', userId).order('created_at', { ascending: false })
+}
+
 // `routes`/`branches` are optional (added later) — strip on a "column does not exist" error.
 const OPTIONAL = ['routes', 'branches']
 function stripUnknown(payload: Record<string, unknown>, msg: string) {
@@ -39,11 +44,21 @@ export async function listComments(exploreId: string) {
   return supabase.from('explore_comments').select('*').eq('explore_id', exploreId).order('created_at', { ascending: true })
 }
 
-export async function addComment(exploreId: string, userId: string, body: string, authorName: string, authorColor?: string | null) {
-  return supabase.from('explore_comments').insert({
+export async function addComment(
+  exploreId: string, userId: string, body: string, authorName: string,
+  authorColor?: string | null, parentId?: string | null,
+) {
+  const payload: Record<string, unknown> = {
     id: crypto.randomUUID(), explore_id: exploreId, user_id: userId,
-    author_name: authorName, author_color: authorColor ?? null, body,
-  })
+    author_name: authorName, author_color: authorColor ?? null, body, parent_id: parentId ?? null,
+  }
+  let res = await supabase.from('explore_comments').insert(payload)
+  // `parent_id` is added later (explore.sql) — retry without it if the column is missing
+  if (res.error && res.error.message.includes('parent_id')) {
+    const { parent_id, ...rest } = payload // eslint-disable-line @typescript-eslint/no-unused-vars
+    res = await supabase.from('explore_comments').insert(rest)
+  }
+  return res
 }
 
 export async function deleteComment(id: string) {

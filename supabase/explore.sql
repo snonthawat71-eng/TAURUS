@@ -66,6 +66,9 @@ create table if not exists explore_comments (
   created_at   timestamptz default now()
 );
 
+-- ตอบกลับความคิดเห็น (threaded replies): อ้างถึงคอมเมนต์แม่ (ลบแม่ → ลบลูกตาม)
+alter table explore_comments add column if not exists parent_id uuid references explore_comments(id) on delete cascade;
+
 alter table explore_comments enable row level security;
 
 drop policy if exists "explore comments read"   on explore_comments;

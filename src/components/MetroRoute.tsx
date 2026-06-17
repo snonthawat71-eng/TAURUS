@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
-import { IconTrain, IconWalk, IconDoorExit, IconPencil } from '@tabler/icons-react'
+import { IconWalk, IconDoorExit, IconPencil } from '@tabler/icons-react'
+import { modeMeta } from '@/lib/transitModes'
 import type { Transit, TransitLeg } from '@/lib/database.types'
 
 /**
@@ -10,13 +11,13 @@ import type { Transit, TransitLeg } from '@/lib/database.types'
 
 type Line = 'solid' | 'dashed' | 'none'
 
-function Row({ marker, color, line, children }: { marker: 'board' | 'alight' | 'walk'; color: string; line: Line; children: ReactNode }) {
+function Row({ marker, color, line, boardIcon, children }: { marker: 'board' | 'alight' | 'walk'; color: string; line: Line; boardIcon?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex gap-2.5 items-stretch">
       <div className="w-5 flex flex-col items-center shrink-0">
         {marker === 'board' && (
           <span className="size-4 rounded-full grid place-items-center text-white shrink-0" style={{ background: color }}>
-            <IconTrain size={10} />
+            {boardIcon}
           </span>
         )}
         {marker === 'alight' && (
@@ -40,15 +41,18 @@ function Row({ marker, color, line, children }: { marker: 'board' | 'alight' | '
 }
 
 function BoardContent({ leg }: { leg: TransitLeg }) {
+  const m = modeMeta(leg.mode)
+  const MIcon = m.icon
   return (
     <>
       <div className="text-[13px] font-medium leading-tight">{leg.from}</div>
       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[11px] text-ink-3">
-        <span className="inline-flex items-center rounded-[6px] px-2 py-0.5 font-medium text-white" style={{ background: leg.color }}>
-          {leg.line}
+        <span className="inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 font-medium text-white" style={{ background: leg.color }}>
+          <MIcon size={11} />
+          {leg.line || m.label}
         </span>
         <span>
-          → {leg.direction}
+          {leg.direction && `→ ${leg.direction}`}
           {leg.stops != null && ` · ${leg.stops} สถานี`}
           {leg.minutes != null && ` · ${leg.minutes} นาที`}
         </span>
@@ -69,9 +73,11 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
           <IconPencil size={14} />
         </button>
       )}
-      {legs.map((leg, i) => (
+      {legs.map((leg, i) => {
+        const MIcon = modeMeta(leg.mode).icon
+        return (
         <div key={i}>
-          <Row marker="board" color={leg.color} line="solid">
+          <Row marker="board" color={leg.color} line="solid" boardIcon={<MIcon size={10} />}>
             <BoardContent leg={leg} />
           </Row>
           <Row marker="alight" color={leg.color} line={i < last ? 'dashed' : 'none'}>
@@ -86,14 +92,15 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
           {i < last && (
             <Row marker="walk" color={leg.color} line="dashed">
               <div className="text-[11px] text-ink-3 pt-0.5">
-                เปลี่ยนสาย · เดินในสถานี
+                เปลี่ยนต่อ · เดิน
                 {leg.transferAfter?.walkMeters != null && ` ${leg.transferAfter.walkMeters}m`}
                 {leg.transferAfter?.minutes != null && ` · ~${leg.transferAfter.minutes} นาที`}
               </div>
             </Row>
           )}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

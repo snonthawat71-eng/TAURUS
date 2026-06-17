@@ -79,7 +79,7 @@ function SortableStop({
           {canEdit && (
             <PopMenu items={[
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
-              { label: stop.transit ? 'แก้ไขเส้นทาง' : 'เพิ่มเส้นทางรถไฟฟ้า', icon: <IconRoute size={15} />, onClick: onEditRoute },
+              { label: stop.transit ? 'แก้ไขเส้นทาง' : 'เพิ่มเส้นทางการเดินทาง', icon: <IconRoute size={15} />, onClick: onEditRoute },
               { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
             ]} />
           )}

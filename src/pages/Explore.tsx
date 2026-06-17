@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconPlus, IconArrowLeft, IconMapPin, IconWorldSearch, IconFlame, IconRefresh } from '@tabler/icons-react'
+import { IconPlus, IconArrowLeft, IconMapPin, IconWorldSearch, IconFlame, IconRefresh, IconLayoutGrid } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
@@ -125,6 +125,7 @@ export default function Explore() {
         <TaurusLogo height={42} />
         <div className="flex items-center gap-1">
           {user && <ExploreNotifications userId={user.id} onOpenItem={(id) => { const it = items.find((e) => e.id === id); if (it) setDetail(it) }} />}
+          <button onClick={() => navigate('/explore/mine')} className="btn-icon !border-0" aria-label="จัดการสถานที่ของฉัน" title="สถานที่ที่ฉันแชร์"><IconLayoutGrid size={18} /></button>
           <button onClick={() => setEditor('new')} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium"><IconPlus size={15} /><span className="max-sm:hidden">เพิ่มสถานที่</span></button>
         </div>
       </header>
