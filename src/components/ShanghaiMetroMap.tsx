@@ -2,7 +2,7 @@
 // route-map PDF: route lines + station dots + name labels. Every routable
 // station is a tappable dot on its line; interchanges (multiple lines) are drawn
 // as a distinct capsule. Mirrors HKMetroMap / OsakaMetroMap.
-import { VIEW, SH_LINES, SH_DOTS, SH_NAMES, SH_STATION_POINTS } from '@/lib/metro/shanghaiGeo'
+import { VIEW, SH_LINES, SH_DOTS, SH_TICKS, SH_NAMES, SH_STATION_POINTS } from '@/lib/metro/shanghaiGeo'
 
 export function ShanghaiMetroMap({ zoom = 1, from, to, onTap }: {
   zoom?: number
@@ -11,7 +11,6 @@ export function ShanghaiMetroMap({ zoom = 1, from, to, onTap }: {
   onTap?: (name: string) => void
 }) {
   const points = Object.entries(SH_STATION_POINTS)
-  const singles = points.filter(([, p]) => !p.xc)
   return (
     <svg width={VIEW.w * zoom} height={VIEW.h * zoom} viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} className="block mx-auto">
       {/* route lines */}
@@ -19,9 +18,9 @@ export function ShanghaiMetroMap({ zoom = 1, from, to, onTap }: {
         <polyline key={i} points={l.points} fill="none" stroke={l.color}
           strokeWidth={Math.max(3.2, l.w)} strokeLinejoin="round" strokeLinecap="round" />
       ))}
-      {/* single-line stations: small white dot with a line-coloured ring */}
-      {singles.map(([name, p]) => (
-        <circle key={`s${name}`} cx={p.x} cy={p.y} r={2.3} fill="#fff" stroke={p.c} strokeWidth={1.3} />
+      {/* single-line stations: small white dot with a line-coloured ring (true artwork positions) */}
+      {SH_TICKS.map((t, i) => (
+        <circle key={`s${i}`} cx={t.x} cy={t.y} r={2.3} fill="#fff" stroke={t.c} strokeWidth={1.3} />
       ))}
       {/* interchanges: distinct white capsule with a dark ring (joins multiple lines) */}
       {SH_DOTS.map((d, i) => {
