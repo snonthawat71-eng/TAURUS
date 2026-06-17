@@ -23,19 +23,11 @@ export function HKMetroMap({ zoom = 1, from, to, onTap }: {
       {HK_STATIONS.filter((s) => !s.xc).map((s, i) => (
         <circle key={`s${i}`} cx={s.x} cy={s.y} r={3.4} fill="#fff" stroke={s.color} strokeWidth={1.8} />
       ))}
-      {/* interchanges: a figure-8 of two linked white rings (the transfer symbol),
-          oriented along the station's long axis (vertical when h >= w) */}
+      {/* interchanges: one clear white capsule (the interchange symbol) */}
       {HK_STATIONS.filter((s) => s.xc).map((s, i) => {
-        const R = 2.75
-        const vert = s.h >= s.w
-        const o1 = vert ? { cx: s.x, cy: s.y - R } : { cx: s.x - R, cy: s.y }
-        const o2 = vert ? { cx: s.x, cy: s.y + R } : { cx: s.x + R, cy: s.y }
-        return (
-          <g key={`x${i}`}>
-            <circle cx={o1.cx} cy={o1.cy} r={R} fill="#fff" stroke="#001F50" strokeWidth={2} />
-            <circle cx={o2.cx} cy={o2.cy} r={R} fill="#fff" stroke="#001F50" strokeWidth={2} />
-          </g>
-        )
+        const w = Math.max(7, s.w), h = Math.max(7, s.h)
+        return <rect key={`x${i}`} x={s.x - w / 2} y={s.y - h / 2} width={w} height={h} rx={Math.min(w, h) / 2}
+          fill="#fff" stroke="#001F50" strokeWidth={2} />
       })}
       {/* station name labels — offset to the open side so they don't cross lines.
           dominantBaseline='central' vertically centres the text on its coordinate,
