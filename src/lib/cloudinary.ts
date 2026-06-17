@@ -7,6 +7,24 @@ const PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as string | undefin
 
 export const isCloudinaryConfigured = !!(CLOUD && PRESET)
 
+/**
+ * Make a Cloudinary delivery URL load fast: insert auto format + auto quality
+ * (and an optional max width) right after `/image/upload/`. Non-Cloudinary URLs
+ * (and already-transformed ones) are returned unchanged. This serves a small,
+ * modern-format image instead of the multi-MB original.
+ */
+export function optimizeImageUrl(url: string | null | undefined, width?: number): string | null {
+  if (!url) return null
+  const marker = '/image/upload/'
+  const i = url.indexOf(marker)
+  if (i < 0) return url
+  const rest = url.slice(i + marker.length)
+  const firstSeg = rest.split('/')[0]
+  if (/(^|,)(f_|q_|w_|c_)/.test(firstSeg)) return url // already has a transformation
+  const t = ['f_auto', 'q_auto', ...(width ? [`w_${width}`, 'c_limit'] : [])].join(',')
+  return url.slice(0, i + marker.length) + t + '/' + rest
+}
+
 export async function uploadToCloudinary(file: File, folder = 'taurus'): Promise<{ url: string | null; error: string | null }> {
   if (!isCloudinaryConfigured) return { url: null, error: 'cloudinary not configured' }
   const fd = new FormData()

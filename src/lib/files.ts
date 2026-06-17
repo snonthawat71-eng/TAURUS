@@ -11,10 +11,17 @@ export function isSampleFile(storagePath: string | null | undefined): boolean {
   return !!storagePath && storagePath.startsWith('sample/')
 }
 
-/** Create a short-lived signed URL to view a private file. */
+// Cache signed URLs in-memory so re-renders / remounts don't re-request one
+// every time (each call is a network round-trip). Cached until ~1 min before TTL.
+const signedCache = new Map<string, { url: string; exp: number }>()
+
+/** Create a short-lived signed URL to view a private file (cached per session). */
 export async function getSignedUrl(storagePath: string): Promise<string | null> {
+  const hit = signedCache.get(storagePath)
+  if (hit && hit.exp > Date.now()) return hit.url
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, SIGNED_TTL)
   if (error) return null
+  signedCache.set(storagePath, { url: data.signedUrl, exp: Date.now() + (SIGNED_TTL - 60) * 1000 })
   return data.signedUrl
 }
 

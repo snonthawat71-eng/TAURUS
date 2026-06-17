@@ -97,7 +97,7 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
       {/* cover (contained card so the drag handle stays usable) */}
       <div className="relative h-52 rounded-[14px] overflow-hidden mt-1 bg-surface-2">
-        <SignedImage url={e.photo_url} alt={e.name ?? ''} className="absolute inset-0 w-full h-full object-cover"
+        <SignedImage url={e.photo_url} alt={e.name ?? ''} className="absolute inset-0 w-full h-full object-cover" width={800}
           fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={52} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
         <button onClick={onFav} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'}
           className="absolute bottom-2.5 right-2.5 size-10 rounded-full grid place-items-center shadow-md z-10"

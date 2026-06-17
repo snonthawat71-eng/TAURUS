@@ -33,7 +33,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
         {/* image keeps a fixed 4:5 aspect ratio, vertically centered so a 2-line
             name on mobile doesn't push it off-balance */}
         <div className="w-32 sm:w-36 shrink-0 aspect-[4/5] rounded-[10px] overflow-hidden bg-surface-2 relative">
-          <SignedImage url={e.photo_url} alt={e.name ?? ''} className="w-full h-full object-cover"
+          <SignedImage url={e.photo_url} alt={e.name ?? ''} className="w-full h-full object-cover" width={400}
             fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
           {popular && (
             <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 rounded-full pl-1.5 pr-2 py-0.5 text-[10px] font-semibold text-white shadow-sm"

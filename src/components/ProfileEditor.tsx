@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { IconLogout } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
 import { AVATAR_COLORS, ORDER, travelerColor } from '@/lib/avatars'
@@ -10,7 +11,7 @@ const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outli
 
 export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { profile, travelers, reload } = useTrip()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const [nickname, setNickname] = useState('')
   const [color, setColor] = useState('av3')
   const [busy, setBusy] = useState(false)
@@ -81,6 +82,9 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
         </div>
         <div className="text-[11px] text-ink-3">อีเมล: {user?.email}</div>
         <button onClick={save} disabled={busy || !nickname} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+        <button onClick={signOut} className="w-full h-10 flex items-center justify-center gap-1.5 text-[13px] text-[#D85A30]" style={{ borderTop: '0.5px solid var(--color-line)', marginTop: 4, paddingTop: 12 }}>
+          <IconLogout size={15} /> ออกจากระบบ
+        </button>
       </div>
     </Drawer>
   )

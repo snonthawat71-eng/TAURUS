@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   IconPlus, IconPencil, IconTrash, IconCopy, IconDownload, IconCalendar, IconCrown,
-  IconUserCircle, IconLogout, IconDots, IconArrowRight, IconWorldSearch,
+  IconUserCircle, IconArrowRight, IconWorldSearch,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,6 +12,7 @@ import { TaurusLogo } from '@/components/TaurusLogo'
 import { AvatarStack } from '@/components/Avatar'
 import { PopMenu } from '@/components/PopMenu'
 import { TripEditor } from '@/components/TripEditor'
+import { ProfileEditor } from '@/components/ProfileEditor'
 import { formatDateRange, dayCount } from '@/lib/format'
 import { countryFlag } from '@/lib/countries'
 import { createTrip, updateTrip, deleteTrip, duplicateTrip } from '@/lib/tripMutations'
@@ -23,11 +24,11 @@ const AV = ['av1', 'av2', 'av3', 'av4']
 
 export default function TripsDashboard() {
   const { trips, loading, switchTrip, reload } = useTrip()
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [travelers, setTravelers] = useState<TravelerLite[]>([])
   const [editor, setEditor] = useState<'new' | Trip | null>(null)
-  const [menu, setMenu] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -61,21 +62,9 @@ export default function TripsDashboard() {
         style={{ borderBottom: '0.5px solid var(--color-line)' }}>
         <TaurusLogo height={50} />
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <button onClick={() => setMenu((v) => !v)} className="btn-icon"><IconDots size={16} /></button>
-          {menu && (
-            <>
-              <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
-              <div className="absolute right-0 mt-1.5 w-52 card p-1 shadow-lg z-40">
-                <div className="px-2.5 py-2 text-[11px] text-ink-3 truncate">{user?.email}</div>
-                <div style={{ borderTop: '0.5px solid var(--color-line)' }} />
-                <button onClick={() => { setMenu(false); signOut() }} className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
-                  <IconLogout size={15} /> ออกจากระบบ
-                </button>
-              </div>
-            </>
-          )}
-          </div>
+          <button onClick={() => setProfileOpen(true)} className="btn-icon" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
+            <IconUserCircle size={16} />
+          </button>
         </div>
       </header>
 
@@ -181,6 +170,8 @@ export default function TripsDashboard() {
           ? async () => { await deleteTrip(editor.id); await reload() }
           : undefined}
       />
+
+      <ProfileEditor open={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   )
 }

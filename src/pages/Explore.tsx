@@ -183,7 +183,7 @@ export default function Explore() {
                 className="shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
                 style={{ border: `1.5px solid ${city === c.name ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
                 <div className="h-20">
-                  <SignedImage url={c.photo} alt={c.name} className="w-full h-full object-cover"
+                  <SignedImage url={c.photo} alt={c.name} className="w-full h-full object-cover" width={240}
                     fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconMapPin size={20} className="text-ink-3" /></div>} />
                 </div>
                 <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">{c.name}</div>
