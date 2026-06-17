@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconArrowLeft, IconPlus, IconEye, IconBookmark, IconThumbUp, IconMessageCircle, IconLayoutGrid } from '@tabler/icons-react'
+import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCircle, IconLayoutGrid } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { ExploreCard } from '@/components/ExploreCard'
 import { ExploreDetail } from '@/components/ExploreDetail'
 import { ExploreEditor } from '@/components/ExploreEditor'
+import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import {
   listMyExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace,
@@ -14,6 +15,7 @@ import {
 } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { filterExplore, initialExploreFilter, type ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
 /** Management view: only the places the current user has shared, with their
@@ -31,6 +33,8 @@ export default function ExploreManage() {
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [stats, setStats] = useState<Map<string, VoteStat>>(new Map())
   const [pop, setPop] = useState<Map<string, PopStat>>(new Map())
+  const [filter, setFilter] = useState<ExploreFilterState>(initialExploreFilter)
+  const setF = (patch: Partial<ExploreFilterState>) => setFilter((s) => ({ ...s, ...patch }))
 
   const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
 
@@ -89,6 +93,8 @@ export default function ExploreManage() {
     return { views, saves, likes, comments }
   }, [items, pop])
 
+  const shown = useMemo(() => filterExplore(items, filter, pop), [items, filter, pop])
+
   return (
     <div className="min-h-dvh bg-canvas">
       <header className="sticky top-0 z-30 bg-canvas/95 backdrop-blur flex items-center justify-between px-4 sm:px-6 h-14" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
@@ -107,7 +113,7 @@ export default function ExploreManage() {
         {/* engagement summary */}
         {!loading && !error && items.length > 0 && (
           <div className="grid grid-cols-4 gap-2 mb-5">
-            {([['ยอดคลิก', totals.views, IconEye], ['ยอดเซฟ', totals.saves, IconBookmark], ['ยอดไลก์', totals.likes, IconThumbUp], ['คอมเมนต์', totals.comments, IconMessageCircle]] as const).map(([label, n, Icon]) => (
+            {([['ยอดคลิก', totals.views, IconEye], ['ยอดเซฟ', totals.saves, IconHeart], ['ยอดไลก์', totals.likes, IconThumbUp], ['คอมเมนต์', totals.comments, IconMessageCircle]] as const).map(([label, n, Icon]) => (
               <div key={label} className="card p-2.5 text-center">
                 <Icon size={16} className="mx-auto text-brand" />
                 <div className="text-[16px] font-semibold tabular-nums mt-1">{n}</div>
@@ -117,15 +123,21 @@ export default function ExploreManage() {
           </div>
         )}
 
+        {!loading && !error && items.length > 0 && (
+          <ExploreFilters items={items} f={filter} set={setF} />
+        )}
+
         {loading ? (
           <div className="py-16 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
         ) : error ? (
           <div className="card p-6 text-center text-[12px] text-ink-2">ยังไม่ได้ตั้งค่า Explore — รัน <code className="text-booking">supabase/explore.sql</code> ใน Supabase ก่อน</div>
         ) : items.length === 0 ? (
           <div className="card p-8 text-center text-[13px] text-ink-3">คุณยังไม่ได้แชร์สถานที่ — กด “เพิ่มสถานที่” เพื่อแชร์ที่แรก</div>
+        ) : shown.length === 0 ? (
+          <div className="card p-8 text-center text-[13px] text-ink-3">ไม่พบสถานที่ที่ตรงกับตัวกรอง</div>
         ) : (
           <div className="space-y-3">
-            {items.map((e) => (
+            {shown.map((e) => (
               <ExploreCard key={e.id} e={e} isOwner saved={savedSet.has(e.id)} stat={stats.get(e.id)} pop={pop.get(e.id)}
                 onOpen={() => openDetail(e)}
                 onFav={() => toggleFav(e)}

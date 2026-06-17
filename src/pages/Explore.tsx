@@ -1,21 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconPlus, IconArrowLeft, IconMapPin, IconWorldSearch, IconFlame, IconRefresh, IconLayoutGrid } from '@tabler/icons-react'
+import { IconPlus, IconArrowLeft, IconWorldSearch, IconRefresh, IconLayoutGrid } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
-import { SignedImage } from '@/components/SignedImage'
 import { ExploreCard } from '@/components/ExploreCard'
 import { ExploreDetail } from '@/components/ExploreDetail'
 import { ExploreEditor } from '@/components/ExploreEditor'
 import { ExploreNotifications } from '@/components/ExploreNotifications'
+import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, logExploreEvent, type VoteStat, type PopStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { cityImage } from '@/lib/cityImages'
-import { hscroll } from '@/lib/hscroll'
-import { PLACE_TABS, FOOD_TABS, foodGroupKey } from '@/lib/placeMeta'
+import { filterExplore, initialExploreFilter, type ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
 export default function Explore() {
@@ -25,10 +23,8 @@ export default function Explore() {
   const [items, setItems] = useState<ExplorePlace[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
-  const [group, setGroup] = useState<'all' | 'place' | 'food'>('all')
-  const [cat, setCat] = useState('all')
-  const [city, setCity] = useState('all')
-  const [sort, setSort] = useState<'new' | 'popular'>('new')
+  const [filter, setFilter] = useState<ExploreFilterState>(initialExploreFilter)
+  const setF = (patch: Partial<ExploreFilterState>) => setFilter((s) => ({ ...s, ...patch }))
   const [editor, setEditor] = useState<ExplorePlace | 'new' | null>(null)
   const [fav, setFav] = useState<Place | null>(null)
   const [detail, setDetail] = useState<ExplorePlace | null>(null)
@@ -102,21 +98,7 @@ export default function Explore() {
     return () => { clearTimeout(st); clearTimeout(it); setLive(false); supabase.removeChannel(ch) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const cities = useMemo(() => {
-    const m = new Map<string, ExplorePlace>()
-    for (const e of items) if (e.city && !m.has(e.city)) m.set(e.city, e)
-    return Array.from(m.entries()).map(([name, sample]) => ({ name, photo: cityImage(name) ?? sample.photo_url }))
-  }, [items])
-
-  const catTabs = group === 'place' ? PLACE_TABS : group === 'food' ? FOOD_TABS : []
-
-  const filtered = items
-    .filter((e) => group === 'all' || e.group_type === group)
-    .filter((e) => cat === 'all' || (group === 'food' ? foodGroupKey(e.category) === cat : e.category === cat))
-    .filter((e) => city === 'all' || e.city === city)
-  const shown = sort === 'popular'
-    ? [...filtered].sort((a, b) => (pop.get(b.id)?.score ?? 0) - (pop.get(a.id)?.score ?? 0))
-    : filtered
+  const shown = useMemo(() => filterExplore(items, filter, pop), [items, filter, pop])
 
   return (
     <div className="min-h-dvh bg-canvas">
@@ -147,51 +129,7 @@ export default function Explore() {
           </button>
         </div>
 
-        {/* type filter (places / food & cafe) + sort */}
-        <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-          {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food and Cafe']] as const).map(([g, label]) => (
-            <button key={g} onClick={() => { setGroup(g); setCat('all') }}
-              className={['px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', group === g ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{label}</button>
-          ))}
-          <button onClick={() => setSort((s) => (s === 'popular' ? 'new' : 'popular'))}
-            className={['ml-auto inline-flex items-center gap-1 px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', sort === 'popular' ? 'text-white' : 'bg-surface-2 text-ink-2'].join(' ')}
-            style={sort === 'popular' ? { background: 'linear-gradient(90deg,#FB7022,#EF4444)' } : undefined}>
-            <IconFlame size={14} /> เรียงตามยอดนิยม
-          </button>
-        </div>
-
-        {/* category filter (by type, like Places / Food pages) */}
-        {catTabs.length > 0 && (
-          <div ref={hscroll} className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-            {catTabs.map((t) => (
-              <button key={t.key} onClick={() => setCat(t.key)}
-                className={['px-3 h-7 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', cat === t.key ? 'bg-brand text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{t.label}</button>
-            ))}
-          </div>
-        )}
-
-        {/* city tabs (cards, inline) */}
-        {cities.length > 0 && (
-          <div className="flex gap-2.5 overflow-x-auto no-scrollbar mb-4 pb-1">
-            <button onClick={() => setCity('all')}
-              className="shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
-              style={{ border: `1.5px solid ${city === 'all' ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
-              <div className="h-20 grid place-items-center bg-surface-2"><IconWorldSearch size={24} className="text-ink-3" /></div>
-              <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">ทุกเมือง</div>
-            </button>
-            {cities.map((c) => (
-              <button key={c.name} onClick={() => setCity(c.name)}
-                className="shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
-                style={{ border: `1.5px solid ${city === c.name ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
-                <div className="h-20">
-                  <SignedImage url={c.photo} alt={c.name} className="w-full h-full object-cover" width={240}
-                    fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconMapPin size={20} className="text-ink-3" /></div>} />
-                </div>
-                <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">{c.name}</div>
-              </button>
-            ))}
-          </div>
-        )}
+        <ExploreFilters items={items} f={filter} set={setF} />
 
         {loading ? (
           <div className="py-16 text-center text-[13px] text-ink-3">กำลังโหลด…</div>

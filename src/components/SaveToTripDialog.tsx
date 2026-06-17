@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconCheck, IconLoader2, IconStarFilled } from '@tabler/icons-react'
+import { IconCheck, IconLoader2, IconHeartFilled } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -47,7 +47,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   return (
     <Drawer open={open} onClose={onClose} title="เซฟสถานที่ไปทริปไหน">
       <div className="flex items-center gap-2 mb-3 text-[13px]">
-        <IconStarFilled size={15} className="text-brand" />
+        <IconHeartFilled size={15} className="text-brand" />
         <span className="font-medium truncate">{place?.name}</span>
       </div>
       {myTrips.length === 0 ? (

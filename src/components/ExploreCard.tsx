@@ -1,4 +1,4 @@
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconBookmark, IconThumbUp, IconMessageCircle } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
@@ -82,7 +82,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
           {/* popularity stats — pinned to the bottom (kept clear of the corner buttons) */}
           <div className={['flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-3', isOwner ? 'pr-20' : ''].join(' ')}>
             <span className="inline-flex items-center gap-1" title="ยอดคลิก"><IconEye size={13} /> {pop?.views ?? 0}</span>
-            <span className="inline-flex items-center gap-1" title="ยอดเซฟ"><IconBookmark size={13} /> {pop?.saves ?? 0}</span>
+            <span className="inline-flex items-center gap-1" title="ยอดเซฟ"><IconHeart size={13} /> {pop?.saves ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดไลก์"><IconThumbUp size={13} /> {pop?.likes ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดคอมเมนต์"><IconMessageCircle size={13} /> {pop?.comments ?? 0}</span>
           </div>
