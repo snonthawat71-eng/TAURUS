@@ -3,7 +3,9 @@ import { IconPhoto, IconLoader2, IconPlus, IconTrash, IconBuildingStore } from '
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { Combobox, type ComboOption } from './Combobox'
+import { ModePicker } from './ModePicker'
 import { suggestionsFromText, findLine } from '@/lib/metro/suggest'
+import { modeMeta } from '@/lib/transitModes'
 import { uploadPublicImage } from '@/lib/files'
 import { hscroll } from '@/lib/hscroll'
 import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
@@ -13,7 +15,7 @@ import type { PlaceGroup, ExplorePlace, ExploreRoute, PlaceBranch } from '@/lib/
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
 
-function emptyRoute(): ExploreRoute { return { line: '', color: '#185FA5', station: '' } }
+function emptyRoute(): ExploreRoute { return { line: '', color: '#185FA5', station: '', mode: 'metro' } }
 function emptyBranch(): PlaceBranch { return { label: '', map_url: '', line: '', color: '#185FA5', station: '' } }
 
 export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
@@ -82,8 +84,8 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     setCity(initial?.city ?? '')
     setCountry(initial?.country ?? '')
     const r = initial?.routes?.length
-      ? initial.routes.map((x) => ({ line: x.line ?? '', color: x.color ?? '#185FA5', station: x.station ?? '' }))
-      : [{ line: initial?.station_line ?? '', color: initial?.station_color ?? '#185FA5', station: initial?.station_name ?? '' }]
+      ? initial.routes.map((x) => ({ line: x.line ?? '', color: x.color ?? '#185FA5', station: x.station ?? '', mode: x.mode ?? 'metro' }))
+      : [{ line: initial?.station_line ?? '', color: initial?.station_color ?? '#185FA5', station: initial?.station_name ?? '', mode: 'metro' }]
     setRoutes(r)
     setBranches(initial?.branches?.length
       ? initial.branches.map((b) => ({ label: b.label ?? '', map_url: b.map_url ?? '', line: b.line ?? '', color: b.color ?? '#185FA5', station: b.station ?? '' }))
@@ -99,6 +101,14 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   }
   function patchRoute(i: number, p: Partial<ExploreRoute>) {
     setRoutes((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...p } : r)))
+  }
+  // switch travel mode; swap in the mode's default colour unless it was customised
+  function patchRouteMode(i: number, mode: string) {
+    setRoutes((rs) => rs.map((r, idx) => {
+      if (idx !== i) return r
+      const color = (!r.color || r.color === modeMeta(r.mode).color) ? modeMeta(mode).color : r.color
+      return { ...r, mode, color }
+    }))
   }
   function patchBranch(i: number, p: Partial<PlaceBranch>) {
     setBranches((bs) => bs.map((b, idx) => (idx === i ? { ...b, ...p } : b)))
@@ -186,7 +196,8 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
           </div>
           <div className="space-y-2 mt-1">
             {routes.map((r, i) => {
-              const known = findLine(metroSug, r.line ?? '')
+              const mm = modeMeta(r.mode)
+              const known = mm.rail ? findLine(metroSug, r.line ?? '') : null
               const stationOptions = known ? known.stations.map((s) => ({ value: s.name, label: s.num })) : allStationOptions
               return (
                 <div key={i} className="card p-2.5 space-y-2">
@@ -196,12 +207,13 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
                       <button onClick={() => setRoutes((rs) => rs.filter((_, idx) => idx !== i))} className="text-ink-3 hover:text-[#D85A30]"><IconTrash size={14} /></button>
                     )}
                   </div>
+                  <ModePicker value={r.mode} onChange={(m) => patchRouteMode(i, m)} />
                   <div className="grid grid-cols-2 gap-2">
-                    <Combobox className={field} value={r.line ?? ''} placeholder="สาย เช่น Midosuji"
-                      options={lineOptions}
+                    <Combobox className={field} value={r.line ?? ''} placeholder={mm.fields.line}
+                      options={mm.rail ? lineOptions : []}
                       onChange={(v) => patchRoute(i, { line: v, ...(lineColorAll[v] ? { color: lineColorAll[v] } : {}) })} />
-                    <Combobox className={field} value={r.station ?? ''} placeholder="สถานี เช่น Namba"
-                      options={stationOptions}
+                    <Combobox className={field} value={r.station ?? ''} placeholder={mm.rail ? 'สถานี เช่น Namba' : mm.fields.to}
+                      options={mm.rail ? stationOptions : []}
                       onChange={(v) => patchRoute(i, { station: v })} />
                   </div>
                   <ColorPicker value={r.color ?? '#185FA5'} onChange={(c) => patchRoute(i, { color: c })} />

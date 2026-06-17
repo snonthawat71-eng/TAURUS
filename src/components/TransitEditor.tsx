@@ -9,7 +9,8 @@ import { ShanghaiMapViewer } from './ShanghaiMapViewer'
 import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip } from '@/lib/metro'
 import { getTransitSuggestions, findLine, legBetween } from '@/lib/metro/suggest'
-import { TRANSIT_MODES, modeMeta } from '@/lib/transitModes'
+import { modeMeta } from '@/lib/transitModes'
+import { ModePicker } from './ModePicker'
 import type { Transit, TransitLeg, ExploreRoute, Place } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
@@ -167,20 +168,8 @@ export function TransitEditor({
 
             {/* travel mode */}
             <div>
-              <div className={lbl}>เดินทางด้วย</div>
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-1 pb-0.5">
-                {TRANSIT_MODES.map((m) => {
-                  const MIcon = m.icon
-                  const on = mm.key === m.key
-                  return (
-                    <button key={m.key} type="button" onClick={() => patchMode(i, m.key)}
-                      className="inline-flex items-center gap-1.5 shrink-0 h-8 px-3 rounded-full text-[12px] font-medium transition-colors"
-                      style={on ? { background: m.color, color: '#fff' } : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
-                      <MIcon size={14} /> {m.label}
-                    </button>
-                  )
-                })}
-              </div>
+              <div className={`${lbl} mb-1`}>เดินทางด้วย</div>
+              <ModePicker value={leg.mode} onChange={(m) => patchMode(i, m)} />
             </div>
 
             {/* line / route + color */}

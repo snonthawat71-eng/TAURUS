@@ -175,6 +175,8 @@ export interface ExploreRoute {
   line: string | null
   color: string | null
   station: string | null
+  /** how to travel this route — 'metro' (default) | 'bus' | … (see transitModes) */
+  mode?: string
 }
 
 /** One branch of a chain (e.g. a café with many locations). Each carries its own

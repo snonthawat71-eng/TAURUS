@@ -2,6 +2,7 @@ import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlam
 import { SignedImage } from './SignedImage'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
+import { modeMeta } from '@/lib/transitModes'
 import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
 import type { VoteStat, PopStat } from '@/lib/exploreMutations'
@@ -58,12 +59,15 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
 
           {routes.length > 0 && (
             <div className="flex flex-col gap-1 text-[12px] text-ink-3 mt-2">
-              {routes.slice(0, 2).map((r, i) => (
-                <span key={i} className="flex items-center gap-1.5 min-w-0">
-                  <span className="size-2.5 rounded-full shrink-0" style={{ background: r.color ?? '#888780' }} />
-                  <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || 'สถานี'}</span>
-                </span>
-              ))}
+              {routes.slice(0, 2).map((r, i) => {
+                const MIcon = modeMeta('mode' in r ? r.mode : undefined).icon
+                return (
+                  <span key={i} className="flex items-center gap-1.5 min-w-0">
+                    <span className="inline-flex items-center justify-center size-4 rounded-full shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={10} /></span>
+                    <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || modeMeta('mode' in r ? r.mode : undefined).label}</span>
+                  </span>
+                )
+              })}
               {routes.length > 2 && <span className="text-[11px] text-ink-3 pl-4">+{routes.length - 2} เส้นทาง</span>}
             </div>
           )}
