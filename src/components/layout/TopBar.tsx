@@ -36,13 +36,13 @@ export function TopBar() {
         <button onClick={() => navigate('/')} className="btn-icon" aria-label="ทริปทั้งหมด" title="ทริปทั้งหมด">
           <IconLayoutGrid size={16} />
         </button>
-        {/* โปรไฟล์ของฉัน */}
-        <button onClick={() => setProfile(true)} className="btn-icon" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
-          <IconUserCircle size={16} />
-        </button>
         {/* แชร์ทริป */}
         <button onClick={() => setShare(true)} className="btn-icon" aria-label="แชร์ทริป" title="แชร์ทริป">
           <IconShare2 size={16} />
+        </button>
+        {/* โปรไฟล์ของฉัน — ขวาสุด */}
+        <button onClick={() => setProfile(true)} className="btn-icon" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
+          <IconUserCircle size={16} />
         </button>
       </div>
 
