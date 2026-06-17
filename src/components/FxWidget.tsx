@@ -80,7 +80,7 @@ export function FxWidget({ variant = 'card' }: { variant?: 'card' | 'bar' }) {
         {open && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <div className="absolute right-0 top-full mt-1.5 w-60 card p-3 shadow-lg z-50">
+            <div className="absolute right-0 top-full mt-1.5 w-52 max-w-[calc(100vw-1.5rem)] card p-3 shadow-lg z-50">
               <div className="flex items-center justify-between">
                 <span className="text-[12px] font-medium">{cur.flag} อัตราแลกเปลี่ยน</span>
                 <button onClick={refresh} disabled={refreshing} className="flex items-center gap-1 text-[11px] font-medium disabled:opacity-50" style={{ color: status.color }}>
