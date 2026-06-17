@@ -4,7 +4,7 @@ import {
   IconToolsKitchen2, IconSoup, IconBowl, IconBurger,
   IconCoffee, IconCup, IconCake, IconBread, IconIceCream2,
   IconGlassCocktail, IconBeer, IconArmchair, IconGift,
-  IconMapPin, type Icon,
+  IconTree, IconMapPin, type Icon,
 } from '@tabler/icons-react'
 
 export interface CategoryMeta {
@@ -26,6 +26,7 @@ export const CATEGORY: Record<string, CategoryMeta> = {
   museum: { group: 'place', label: 'พิพิธภัณฑ์', icon: IconBuildingBank, bg: '#ECEFF6', fg: '#4A5A86' },
   shopping: { group: 'place', label: 'ช้อปปิ้ง', icon: IconShoppingBag, bg: '#FDF0E6', fg: '#C56A1E' },
   walkingstreet: { group: 'place', label: 'ถนนคนเดิน', icon: IconWalk, bg: '#E9F3F4', fg: '#2E7E8C' },
+  park: { group: 'place', label: 'สวนสาธารณะ', icon: IconTree, bg: '#EBF4E9', fg: '#3C8246' },
   // --- food: Food group ---
   restaurant: { group: 'food', label: 'ร้านอาหาร', icon: IconToolsKitchen2, bg: '#FBEEE8', fg: '#C2562B' },
   buffet: { group: 'food', label: 'บุฟเฟต์', icon: IconSoup, bg: '#FBF1E3', fg: '#C07A1E' },
@@ -69,6 +70,7 @@ export const PLACE_TABS: CategoryTab[] = [
   { key: 'museum', label: 'พิพิธภัณฑ์' },
   { key: 'shopping', label: 'ช้อปปิ้ง' },
   { key: 'walkingstreet', label: 'ถนนคนเดิน' },
+  { key: 'park', label: 'สวนสาธารณะ' },
 ]
 
 // Food: 4 main groups, each with subcategories.
@@ -91,5 +93,5 @@ export function foodGroupKey(category: string | null | undefined): string {
   return 'gfood'
 }
 
-export const PLACE_CATEGORIES = ['landmark', 'nature', 'themepark', 'entertainment', 'historic', 'shrine', 'museum', 'shopping', 'walkingstreet']
+export const PLACE_CATEGORIES = ['landmark', 'nature', 'themepark', 'entertainment', 'historic', 'shrine', 'museum', 'shopping', 'walkingstreet', 'park']
 export const FOOD_CATEGORIES = FOOD_GROUPS.flatMap((g) => g.cats)
