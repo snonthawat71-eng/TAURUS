@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { IconX, IconPlus, IconMinus, IconSearch, IconMapPin, IconFlag, IconArrowsExchange } from '@tabler/icons-react'
 import { HKMetroMap } from './HKMetroMap'
+import { PinchZoomPane } from './PinchZoomPane'
 import { MetroRoute } from './MetroRoute'
 import { HK_NETWORK, HK_STATION_LIST, computeRouteHK } from '@/lib/metro/hkNetwork'
 import type { Transit } from '@/lib/database.types'
@@ -52,9 +53,9 @@ export function HKMapViewer({ onClose, onResult }: { onClose: () => void; onResu
 
       {/* map */}
       <div className="flex-1 relative min-h-0">
-        <div className="absolute inset-0 overflow-auto bg-surface-2/40">
+        <PinchZoomPane zoom={zoom} setZoom={(z) => setZoom(z)} min={0.6} max={3} className="absolute inset-0 overflow-auto bg-surface-2/40">
           <HKMetroMap zoom={zoom} from={from} to={to} onTap={pick} />
-        </div>
+        </PinchZoomPane>
         <div className="absolute bottom-3 right-3 flex flex-col gap-1.5 z-10">
           <button onClick={() => setZoom((z) => Math.min(3, z + 0.3))} className="btn-icon bg-surface shadow"><IconPlus size={16} /></button>
           <button onClick={() => setZoom((z) => Math.max(0.6, z - 0.3))} className="btn-icon bg-surface shadow"><IconMinus size={16} /></button>

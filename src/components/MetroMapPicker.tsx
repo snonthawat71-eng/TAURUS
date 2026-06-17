@@ -3,6 +3,7 @@ import { IconX, IconSearch, IconPlus, IconMinus, IconMapPin, IconFlag, IconArrow
 import { createPortal } from 'react-dom'
 import { MetroRoute } from './MetroRoute'
 import { OsakaMetroMap } from './OsakaMetroMap'
+import { PinchZoomPane } from './PinchZoomPane'
 import { computeRouteByCode, stationName, STATION_LIST } from '@/lib/metro/osakaRoute'
 import type { BuiltNetwork } from '@/lib/metro'
 import type { Transit } from '@/lib/database.types'
@@ -64,9 +65,9 @@ export function MetroMapPicker({ net, onClose, onResult }: {
 
       {/* map (scrollable) + fixed zoom controls */}
       <div className="flex-1 relative min-h-0">
-        <div className="absolute inset-0 overflow-auto bg-surface-2/40">
+        <PinchZoomPane zoom={zoom} setZoom={(z) => setZoom(z)} min={0.6} max={2.6} className="absolute inset-0 overflow-auto bg-surface-2/40">
           <OsakaMetroMap from={from} to={to} zoom={zoom} onSelect={tap} />
-        </div>
+        </PinchZoomPane>
         <div className="absolute bottom-3 right-3 flex flex-col gap-1.5 z-10">
           <button onClick={() => setZoom((z) => Math.min(2.6, z + 0.3))} className="btn-icon bg-surface shadow"><IconPlus size={16} /></button>
           <button onClick={() => setZoom((z) => Math.max(0.6, z - 0.3))} className="btn-icon bg-surface shadow"><IconMinus size={16} /></button>
