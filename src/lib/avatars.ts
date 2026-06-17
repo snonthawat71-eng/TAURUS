@@ -6,9 +6,15 @@ export const AVATAR_COLORS: Record<AvatarColor, { bg: string; fg: string }> = {
   av2: { bg: '#D85A30', fg: '#FAECE7' }, // orange-red
   av3: { bg: '#1D9E75', fg: '#E1F5EE' }, // green
   av4: { bg: '#D4537E', fg: '#FBEAF0' }, // pink
+  av5: { bg: '#2F6BD3', fg: '#E6EEFB' }, // blue
+  av6: { bg: '#1E8E8E', fg: '#E0F4F4' }, // teal
+  av7: { bg: '#C08A1E', fg: '#F8EFD9' }, // gold
+  av8: { bg: '#4A5A86', fg: '#E9EDF6' }, // slate
+  av9: { bg: '#C0432E', fg: '#FBE9E5' }, // red
+  av10: { bg: '#8A52C7', fg: '#F1E9FB' }, // violet
 }
 
-export const ORDER: AvatarColor[] = ['av1', 'av2', 'av3', 'av4']
+export const ORDER: AvatarColor[] = ['av1', 'av2', 'av3', 'av4', 'av5', 'av6', 'av7', 'av8', 'av9', 'av10']
 
 /** Persisted avatar_color if present, otherwise a stable color by list position. */
 export function travelerColor(t: { avatar_color?: string | null }, index: number): string {

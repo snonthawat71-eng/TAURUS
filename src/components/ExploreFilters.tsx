@@ -9,10 +9,12 @@ import type { ExplorePlace } from '@/lib/database.types'
 
 /** Search box + group / sort / category / city filters shared by the Explore
  *  and "my shares" pages. City chips are derived from the items passed in. */
-export function ExploreFilters({ items, f, set }: {
+export function ExploreFilters({ items, f, set, showSort = true }: {
   items: ExplorePlace[]
   f: ExploreFilterState
   set: (patch: Partial<ExploreFilterState>) => void
+  /** show the "sort by popularity" toggle (hidden on the manage page) */
+  showSort?: boolean
 }) {
   const cities = useMemo(() => {
     const m = new Map<string, ExplorePlace>()
@@ -38,11 +40,13 @@ export function ExploreFilters({ items, f, set }: {
           <button key={g} onClick={() => set({ group: g, cat: 'all' })}
             className={['px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', f.group === g ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{label}</button>
         ))}
-        <button onClick={() => set({ sort: f.sort === 'popular' ? 'new' : 'popular' })}
-          className={['ml-auto inline-flex items-center gap-1 px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', f.sort === 'popular' ? 'text-white' : 'bg-surface-2 text-ink-2'].join(' ')}
-          style={f.sort === 'popular' ? { background: 'linear-gradient(90deg,#FB7022,#EF4444)' } : undefined}>
-          <IconFlame size={14} /> เรียงตามยอดนิยม
-        </button>
+        {showSort && (
+          <button onClick={() => set({ sort: f.sort === 'popular' ? 'new' : 'popular' })}
+            className={['ml-auto inline-flex items-center gap-1 px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', f.sort === 'popular' ? 'text-white' : 'bg-surface-2 text-ink-2'].join(' ')}
+            style={f.sort === 'popular' ? { background: 'linear-gradient(90deg,#FB7022,#EF4444)' } : undefined}>
+            <IconFlame size={14} /> เรียงตามยอดนิยม
+          </button>
+        )}
       </div>
 
       {/* category filter (by type, like Places / Food pages) */}

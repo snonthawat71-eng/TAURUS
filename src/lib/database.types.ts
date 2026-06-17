@@ -1,7 +1,7 @@
 // Hand-written types mirroring planaway_schema.sql.
 // Keep these in sync with the SQL if the schema changes.
 
-export type AvatarColor = 'av1' | 'av2' | 'av3' | 'av4'
+export type AvatarColor = 'av1' | 'av2' | 'av3' | 'av4' | 'av5' | 'av6' | 'av7' | 'av8' | 'av9' | 'av10'
 
 export interface Profile {
   id: string

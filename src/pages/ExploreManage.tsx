@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCircle, IconLayoutGrid } from '@tabler/icons-react'
+import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCircle, IconMapPin } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
@@ -105,7 +105,7 @@ export default function ExploreManage() {
 
       <main className="max-w-[640px] mx-auto px-4 sm:px-6 py-5">
         <div className="flex items-center gap-1.5 mb-1">
-          <IconLayoutGrid size={20} className="text-brand" />
+          <IconMapPin size={20} className="text-brand" />
           <h1 className="text-[20px] font-medium">สถานที่ที่ฉันแชร์</h1>
         </div>
         <p className="text-[13px] text-ink-3 mb-4">จัดการเฉพาะสถานที่/ร้านที่คุณแชร์ไว้ใน Explore — ดูยอดและแก้ไข/ลบได้</p>
@@ -124,7 +124,7 @@ export default function ExploreManage() {
         )}
 
         {!loading && !error && items.length > 0 && (
-          <ExploreFilters items={items} f={filter} set={setF} />
+          <ExploreFilters items={items} f={filter} set={setF} showSort={false} />
         )}
 
         {loading ? (

@@ -45,7 +45,7 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
     <Drawer open={open} onClose={onClose} title="โปรไฟล์ของฉัน">
       <div className="flex flex-col items-center gap-2 mb-4">
         <Avatar name={nickname || '?'} color={color} size={56} ring={false} />
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-center gap-2 max-w-[280px]">
           {ORDER.map((c) => (
             <button key={c} onClick={() => setColor(c)} aria-label={c} className="size-7 rounded-full"
               style={{ background: AVATAR_COLORS[c].bg, outline: color === c ? '2px solid var(--color-ink)' : 'none', outlineOffset: 2 }} />
