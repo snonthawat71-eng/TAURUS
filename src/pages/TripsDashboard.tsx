@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   IconPlus, IconPencil, IconTrash, IconCopy, IconDownload, IconCalendar, IconCrown,
-  IconUserCircle, IconArrowRight, IconWorldSearch,
+  IconUserCircle, IconArrowRight, IconWorldSearch, IconLogout,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -24,7 +24,7 @@ const AV = ['av1', 'av2', 'av3', 'av4']
 
 export default function TripsDashboard() {
   const { trips, loading, switchTrip, reload } = useTrip()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [travelers, setTravelers] = useState<TravelerLite[]>([])
   const [editor, setEditor] = useState<'new' | Trip | null>(null)
@@ -145,8 +145,13 @@ export default function TripsDashboard() {
           </div>
         )}
 
-        <div className="mt-6 text-[11px] text-ink-3 flex items-center gap-1.5">
-          <IconUserCircle size={13} /> เข้าระบบด้วย {user?.email}
+        <div className="mt-6 flex items-center justify-between gap-2">
+          <span className="text-[11px] text-ink-3 flex items-center gap-1.5 min-w-0">
+            <IconUserCircle size={13} className="shrink-0" /> <span className="truncate">เข้าระบบด้วย {user?.email}</span>
+          </span>
+          <button onClick={signOut} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#D85A30] shrink-0">
+            <IconLogout size={14} /> ออกจากระบบ
+          </button>
         </div>
       </main>
 
