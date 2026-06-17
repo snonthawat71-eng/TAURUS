@@ -2,7 +2,8 @@
 // Stations are tappable (named via HK_NAMED) to pick origin/destination.
 import { VIEW, HK_LINES, HK_STATIONS, HK_NAMED, HK_DASH, HK_EXTRA_LABELS } from '@/lib/metro/hkGeo'
 
-// Interchanges on a diagonal line: render their capsule tilted -45° to follow it
+// Interchanges between parallel diagonal lines: tilt the capsule +45° so it lies
+// across both lines and links them (rather than along just one)
 const DIAGONAL_XC = new Set(['285.4,336.4', '238.5,383.4']) // Tsing Yi, Sunny Bay
 
 export function HKMetroMap({ zoom = 1, from, to, onTap }: {
@@ -27,12 +28,13 @@ export function HKMetroMap({ zoom = 1, from, to, onTap }: {
         <circle key={`s${i}`} cx={s.x} cy={s.y} r={3.4} fill="#fff" stroke={s.color} strokeWidth={1.8} />
       ))}
       {/* interchanges: one clear white capsule (the interchange symbol). Tsing Yi
-          and Sunny Bay sit on a diagonal line, so tilt those two to follow it. */}
+          and Sunny Bay link two parallel diagonal lines, so lay the capsule
+          across both of them. */}
       {HK_STATIONS.filter((s) => s.xc).map((s, i) => {
         if (DIAGONAL_XC.has(`${s.x},${s.y}`)) {
           const L = 11, W = 6.7
           return <rect key={`x${i}`} x={s.x - L / 2} y={s.y - W / 2} width={L} height={W} rx={W / 2}
-            fill="#fff" stroke="#001F50" strokeWidth={2} transform={`rotate(-45 ${s.x} ${s.y})`} />
+            fill="#fff" stroke="#001F50" strokeWidth={2} transform={`rotate(45 ${s.x} ${s.y})`} />
         }
         const w = Math.max(7, s.w), h = Math.max(7, s.h)
         return <rect key={`x${i}`} x={s.x - w / 2} y={s.y - h / 2} width={w} height={h} rx={Math.min(w, h) / 2}
