@@ -2,25 +2,8 @@
 // Stations are tappable (named via HK_NAMED) to pick origin/destination.
 import { VIEW, HK_LINES, HK_STATIONS, HK_NAMED, HK_DASH, HK_EXTRA_LABELS } from '@/lib/metro/hkGeo'
 
-// All route-line segments, used to orient an interchange capsule along its line.
-const SEGMENTS = HK_LINES.flatMap((l) => {
-  const n = l.points.trim().split(/\s+/).map((p) => p.split(',').map(Number))
-  return n.slice(0, -1).map((_, i) => ({ x1: n[i][0], y1: n[i][1], x2: n[i + 1][0], y2: n[i + 1][1] }))
-})
-// angle (deg, within [-90,90]) of the route line nearest to a point
-function lineAngleAt(px: number, py: number) {
-  let best = SEGMENTS[0], bd = Infinity
-  for (const s of SEGMENTS) {
-    const dx = s.x2 - s.x1, dy = s.y2 - s.y1, len2 = dx * dx + dy * dy || 1
-    const t = Math.max(0, Math.min(1, ((px - s.x1) * dx + (py - s.y1) * dy) / len2))
-    const d = Math.hypot(px - (s.x1 + t * dx), py - (s.y1 + t * dy))
-    if (d < bd) { bd = d; best = s }
-  }
-  let a = (Math.atan2(best.y2 - best.y1, best.x2 - best.x1) * 180) / Math.PI
-  if (a > 90) a -= 180
-  if (a < -90) a += 180
-  return a
-}
+// Interchanges on a diagonal line: render their capsule tilted -45° to follow it
+const DIAGONAL_XC = new Set(['285.4,336.4', '238.5,383.4']) // Tsing Yi, Sunny Bay
 
 export function HKMetroMap({ zoom = 1, from, to, onTap }: {
   zoom?: number
@@ -43,14 +26,13 @@ export function HKMetroMap({ zoom = 1, from, to, onTap }: {
       {HK_STATIONS.filter((s) => !s.xc).map((s, i) => (
         <circle key={`s${i}`} cx={s.x} cy={s.y} r={3.4} fill="#fff" stroke={s.color} strokeWidth={1.8} />
       ))}
-      {/* interchanges: one clear white capsule (the interchange symbol). Square
-          ones sit on a diagonal line, so render them as a capsule rotated to
-          align with that line instead of a plain circle. */}
+      {/* interchanges: one clear white capsule (the interchange symbol). Tsing Yi
+          and Sunny Bay sit on a diagonal line, so tilt those two to follow it. */}
       {HK_STATIONS.filter((s) => s.xc).map((s, i) => {
-        if (s.w === s.h) {
+        if (DIAGONAL_XC.has(`${s.x},${s.y}`)) {
           const L = 11, W = 6.7
           return <rect key={`x${i}`} x={s.x - L / 2} y={s.y - W / 2} width={L} height={W} rx={W / 2}
-            fill="#fff" stroke="#001F50" strokeWidth={2} transform={`rotate(${lineAngleAt(s.x, s.y)} ${s.x} ${s.y})`} />
+            fill="#fff" stroke="#001F50" strokeWidth={2} transform={`rotate(-45 ${s.x} ${s.y})`} />
         }
         const w = Math.max(7, s.w), h = Math.max(7, s.h)
         return <rect key={`x${i}`} x={s.x - w / 2} y={s.y - h / 2} width={w} height={h} rx={Math.min(w, h) / 2}
