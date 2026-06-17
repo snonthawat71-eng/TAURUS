@@ -15,15 +15,20 @@ export function PinchZoomPane({ zoom, setZoom, min = 0.6, max = 3, className = '
   const zoomRef = useRef(zoom)
   zoomRef.current = zoom
   const start = useRef<{ dist: number; zoom: number } | null>(null)
-  const pending = useRef<{ fx: number; fy: number; cx: number; cy: number } | null>(null)
+  // focal point in client coords + the content (unscaled) point under it
+  const pending = useRef<{ fcx: number; fcy: number; ix: number; iy: number } | null>(null)
 
-  // keep the pinch focal point fixed after the zoomed content has laid out
+  // After the content re-renders at the new zoom, scroll so the intrinsic point
+  // under the fingers stays put. Measured from the content's real rect, so it's
+  // correct whether the map is centred (mx-auto) or overflowing.
   useLayoutEffect(() => {
     const el = ref.current
-    if (!el || !pending.current) return
-    const { fx, fy, cx, cy } = pending.current
-    el.scrollLeft = fx * el.scrollWidth - cx
-    el.scrollTop = fy * el.scrollHeight - cy
+    const content = el?.firstElementChild as HTMLElement | null
+    if (!el || !content || !pending.current) return
+    const { fcx, fcy, ix, iy } = pending.current
+    const r = content.getBoundingClientRect()
+    el.scrollLeft += r.left + ix * zoom - fcx
+    el.scrollTop += r.top + iy * zoom - fcy
     pending.current = null
   }, [zoom])
 
@@ -37,15 +42,14 @@ export function PinchZoomPane({ zoom, setZoom, min = 0.6, max = 3, className = '
     const onMove = (e: TouchEvent) => {
       if (e.touches.length !== 2 || !start.current) return
       e.preventDefault() // stop the browser's own pinch / page scroll
-      const rect = el.getBoundingClientRect()
-      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left
-      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top
+      const content = el.firstElementChild as HTMLElement | null
+      if (!content) return
+      const fcx = (e.touches[0].clientX + e.touches[1].clientX) / 2
+      const fcy = (e.touches[0].clientY + e.touches[1].clientY) / 2
+      const r = content.getBoundingClientRect()
+      const z = zoomRef.current
+      pending.current = { fcx, fcy, ix: (fcx - r.left) / z, iy: (fcy - r.top) / z }
       const next = Math.min(max, Math.max(min, start.current.zoom * (dist(e.touches) / start.current.dist)))
-      pending.current = {
-        fx: (el.scrollLeft + cx) / Math.max(1, el.scrollWidth),
-        fy: (el.scrollTop + cy) / Math.max(1, el.scrollHeight),
-        cx, cy,
-      }
       setZoom(Math.round(next * 100) / 100)
     }
     const onEnd = (e: TouchEvent) => { if (e.touches.length < 2) start.current = null }
