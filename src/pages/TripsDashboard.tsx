@@ -65,6 +65,9 @@ export default function TripsDashboard() {
           <button onClick={() => setProfileOpen(true)} className="btn-icon" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
             <IconUserCircle size={16} />
           </button>
+          <button onClick={signOut} className="btn-icon" aria-label="ออกจากระบบ" title="ออกจากระบบ" style={{ color: '#D85A30' }}>
+            <IconLogout size={16} />
+          </button>
         </div>
       </header>
 
@@ -145,13 +148,8 @@ export default function TripsDashboard() {
           </div>
         )}
 
-        <div className="mt-6 flex items-center justify-between gap-2">
-          <span className="text-[11px] text-ink-3 flex items-center gap-1.5 min-w-0">
-            <IconUserCircle size={13} className="shrink-0" /> <span className="truncate">เข้าระบบด้วย {user?.email}</span>
-          </span>
-          <button onClick={signOut} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#D85A30] shrink-0">
-            <IconLogout size={14} /> ออกจากระบบ
-          </button>
+        <div className="mt-6 text-[11px] text-ink-3 flex items-center gap-1.5">
+          <IconUserCircle size={13} /> เข้าระบบด้วย {user?.email}
         </div>
       </main>
 
