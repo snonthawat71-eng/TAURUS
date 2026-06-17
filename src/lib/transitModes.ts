@@ -21,7 +21,8 @@ export interface TransitModeMeta {
   short: string // compact label for the grid picker
   icon: Icon
   color: string // default colour for a new leg of this mode
-  /** rail-like modes get the metro map picker, station suggestions & quick-fill */
+  /** rail-like modes get the metro map picker, station suggestions & quick-fill;
+   *  others (incl. tram & high-speed rail) take free-text line/station inputs */
   rail: boolean
   fields: ModeFields
 }
@@ -31,9 +32,9 @@ export const TRANSIT_MODES: TransitModeMeta[] = [
     fields: { line: 'ชื่อสาย', from: 'สถานีขึ้น', to: 'สถานีลง', linePlaceholder: 'เช่น Line 5 / Airport Express' } },
   { key: 'bus', label: 'รถเมล์', short: 'รถเมล์', icon: IconBus, color: '#2F7D4F', rail: false,
     fields: { line: 'สายรถเมล์', from: 'ป้ายขึ้น', to: 'ป้ายลง', linePlaceholder: 'เช่น สาย 8 / 511' } },
-  { key: 'tram', label: 'รถราง', short: 'รถราง', icon: IconTrolley, color: '#C56A1E', rail: true,
+  { key: 'tram', label: 'รถราง', short: 'รถราง', icon: IconTrolley, color: '#C56A1E', rail: false,
     fields: { line: 'สายรถราง', from: 'สถานีขึ้น', to: 'สถานีลง', linePlaceholder: 'เช่น Tram 2' } },
-  { key: 'hsr', label: 'รถไฟความเร็วสูง', short: 'รถไฟด่วน', icon: IconTrainFilled, color: '#B23A86', rail: true,
+  { key: 'hsr', label: 'รถไฟความเร็วสูง', short: 'รถไฟด่วน', icon: IconTrainFilled, color: '#B23A86', rail: false,
     fields: { line: 'ขบวน/สาย', from: 'สถานีต้นทาง', to: 'สถานีปลายทาง', linePlaceholder: 'เช่น G1234 / Shinkansen' } },
   { key: 'car', label: 'รถยนต์ส่วนตัว', short: 'รถยนต์', icon: IconCar, color: '#4A5A86', rail: false,
     fields: { line: 'เส้นทาง', from: 'ต้นทาง', to: 'ปลายทาง', linePlaceholder: 'เช่น ทางด่วน / เส้นเลียบทะเล' } },
