@@ -29,16 +29,18 @@ export function HKMetroMap({ zoom = 1, from, to, onTap }: {
         return <rect key={`x${i}`} x={s.x - w / 2} y={s.y - h / 2} width={w} height={h} rx={Math.min(w, h) / 2}
           fill="#fff" stroke="#001F50" strokeWidth={2} />
       })}
-      {/* station name labels — offset to the open side so they don't cross lines */}
+      {/* station name labels — offset to the open side so they don't cross lines.
+          dominantBaseline='central' vertically centres the text on its coordinate,
+          matching the Shanghai map's label placement. */}
       {HK_NAMED.map((s, i) => (
         <text key={`l${i}`} x={s.lx} y={s.ly} fontSize={4.2} fontWeight={500}
-          textAnchor={s.a as 'start' | 'middle' | 'end'} fill="#1b2430" stroke="#fff" strokeWidth={1} paintOrder="stroke"
+          textAnchor={s.a as 'start' | 'middle' | 'end'} dominantBaseline="central" fill="#1b2430" stroke="#fff" strokeWidth={1} paintOrder="stroke"
           style={{ pointerEvents: 'none' }}>{s.name}</text>
       ))}
       {/* extra (non-routable) labels e.g. high-speed rail terminus */}
       {HK_EXTRA_LABELS.map((s, i) => (
         <text key={`e${i}`} x={s.lx} y={s.ly} fontSize={4.2} fontWeight={600}
-          textAnchor={s.a as 'start' | 'middle' | 'end'} fill="#5a4636" stroke="#fff" strokeWidth={1} paintOrder="stroke"
+          textAnchor={s.a as 'start' | 'middle' | 'end'} dominantBaseline="central" fill="#5a4636" stroke="#fff" strokeWidth={1} paintOrder="stroke"
           style={{ pointerEvents: 'none' }}>{s.name}</text>
       ))}
       {/* selection highlight */}
