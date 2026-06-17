@@ -71,7 +71,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
           <div className="flex items-center gap-2 flex-wrap mt-2">
             {e.city && <span className="chip !py-0.5">{e.city}</span>}
             {e.map_url && (
-              <button onClick={(ev) => { ev.stopPropagation(); openMap(e.map_url) }} className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-mid hover:text-brand-dark">
+              <button onClick={(ev) => { ev.stopPropagation(); openMap(e.map_url) }} className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:text-brand-mid">
                 <IconMapPin size={12} /> MAP
               </button>
             )}

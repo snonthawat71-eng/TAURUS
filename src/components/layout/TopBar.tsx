@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { TripSwitcher } from '@/components/TripSwitcher'
 import { ShareDialog } from '@/components/ShareDialog'
 import { ProfileEditor } from '@/components/ProfileEditor'
+import { FxWidget } from '@/components/FxWidget'
 
 export function TopBar() {
   const { pathname } = useLocation()
@@ -33,6 +34,8 @@ export function TopBar() {
       <div className="md:hidden min-w-0"><TripSwitcher variant="topbar" /></div>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* FX rate — only on mobile (desktop shows it in the sidebar) */}
+        <div className="md:hidden"><FxWidget variant="bar" /></div>
         {/* Explore — highlighted so it stands out */}
         <button onClick={() => navigate('/explore')} aria-label="Explore"
           className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium !border-0 text-white shadow-sm"
