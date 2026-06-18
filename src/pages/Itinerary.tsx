@@ -73,11 +73,6 @@ function SortableStop({
                   <IconMapPin size={11} /> ดูแผนที่
                 </button>
               )}
-              {canEdit && (
-                <button onClick={onEditRoute} className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-0.5">
-                  <IconRoute size={11} /> วิธีการเดินทาง
-                </button>
-              )}
             </div>
             {stop.note && <div className="text-[12px] text-ink-2 mt-0.5">{stop.note}</div>}
           </div>
@@ -88,6 +83,13 @@ function SortableStop({
             ]} />
           )}
         </div>
+        {canEdit && !stop.transit && (
+          <button onClick={onEditRoute}
+            className="mt-2 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium"
+            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
+            <IconRoute size={14} /> กำหนดวิธีการเดินทาง
+          </button>
+        )}
         {stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
       </div>
     </div>
