@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, Fragment } from 'react'
+import { useLayoutEffect, useRef, useState, Fragment } from 'react'
 import { createPortal } from 'react-dom'
 import { IconChevronDown } from '@tabler/icons-react'
 
@@ -26,7 +26,7 @@ export function Combobox({
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [rect, setRect] = useState<{ left: number; top: number; width: number } | null>(null)
+  const [rect, setRect] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null)
 
   const q = value.trim().toLowerCase()
   const exact = options.some((o) => o.value.toLowerCase() === q)
@@ -34,25 +34,36 @@ export function Combobox({
     ? options
     : options.filter((o) => o.value.toLowerCase().includes(q) || (o.label ?? '').toLowerCase().includes(q))
 
+  // Anchor the portaled list to the input. Uses the *visual* viewport so the
+  // on-screen keyboard (which shifts/shrinks the viewport on iOS) is accounted
+  // for, and flips the list above the field when there isn't room below.
   function place() {
     const el = inputRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
-    setRect({ left: r.left, top: r.bottom + 4, width: r.width })
+    const vv = window.visualViewport
+    const viewTop = vv ? vv.offsetTop : 0
+    const viewBottom = viewTop + (vv ? vv.height : window.innerHeight)
+    const GAP = 4, MAXH = 224, MIN = 132
+    const below = viewBottom - r.bottom - GAP
+    const above = r.top - viewTop - GAP
+    const up = below < MIN && above > below
+    const maxHeight = Math.max(MIN, Math.min(MAXH, up ? above : below))
+    const top = up ? Math.max(viewTop + GAP, r.top - GAP - maxHeight) : r.bottom + GAP
+    const next = { left: r.left, top, width: r.width, maxHeight }
+    setRect((prev) => (prev && prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.maxHeight === next.maxHeight ? prev : next))
   }
-  useLayoutEffect(() => { if (open) place() }, [open])
-  useEffect(() => {
+
+  // While open, keep it glued to the input every frame — robust against the
+  // iOS focus-scroll, keyboard animation and the Drawer's own scrolling.
+  useLayoutEffect(() => {
     if (!open) return
+    let raf = 0
+    const tick = () => { place(); raf = requestAnimationFrame(tick) }
+    raf = requestAnimationFrame(tick)
     const onDoc = (e: MouseEvent) => { if (!wrapRef.current?.contains(e.target as Node)) setOpen(false) }
-    const onMove = () => place()
     document.addEventListener('mousedown', onDoc)
-    window.addEventListener('scroll', onMove, true)
-    window.addEventListener('resize', onMove)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      window.removeEventListener('scroll', onMove, true)
-      window.removeEventListener('resize', onMove)
-    }
+    return () => { cancelAnimationFrame(raf); document.removeEventListener('mousedown', onDoc) }
   }, [open])
 
   function choose(v: string) {
@@ -89,8 +100,8 @@ export function Combobox({
           // the scroll contained so dragging the list never moves the page/sheet.
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
-          style={{ position: 'fixed', left: rect.left, top: rect.top, width: rect.width, zIndex: 200, overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
-          className="max-h-56 overflow-auto rounded-md bg-surface shadow-lg hairline py-1">
+          style={{ position: 'fixed', left: rect.left, top: rect.top, width: rect.width, maxHeight: rect.maxHeight, zIndex: 200, overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+          className="overflow-auto rounded-md bg-surface shadow-lg hairline py-1">
           {(() => {
             // only show group headers/dividers when more than one group is present
             const groups = new Set(filtered.map((o) => o.group).filter((g) => g !== undefined))
