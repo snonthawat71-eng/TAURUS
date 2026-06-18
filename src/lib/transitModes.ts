@@ -1,5 +1,5 @@
 import {
-  IconTrain, IconBus, IconTrolley, IconTrainFilled,
+  IconTrain, IconBus, IconTrainFilled,
   IconCar, IconCarFilled, IconSailboat, IconPlane, type Icon,
 } from '@tabler/icons-react'
 
@@ -30,19 +30,19 @@ export interface TransitModeMeta {
 export const TRANSIT_MODES: TransitModeMeta[] = [
   { key: 'metro', label: 'รถไฟฟ้า', short: 'รถไฟฟ้า', icon: IconTrain, color: '#0270FB', rail: true,
     fields: { line: 'ชื่อสาย', from: 'สถานีขึ้น', to: 'สถานีลง', linePlaceholder: 'เช่น Line 5 / Airport Express' } },
-  { key: 'bus', label: 'รถเมล์', short: 'รถเมล์', icon: IconBus, color: '#135FD6', rail: false,
+  { key: 'bus', label: 'รถเมล์', short: 'รถเมล์', icon: IconBus, color: '#0270FB', rail: false,
     fields: { line: 'สายรถเมล์', from: 'ป้ายขึ้น', to: 'ป้ายลง', linePlaceholder: 'เช่น สาย 8 / 511' } },
-  { key: 'tram', label: 'รถราง', short: 'รถราง', icon: IconTrolley, color: '#3E86E8', rail: false,
+  { key: 'tram', label: 'รถราง', short: 'รถราง', icon: IconBus, color: '#0270FB', rail: false,
     fields: { line: 'สายรถราง', from: 'สถานีขึ้น', to: 'สถานีลง', linePlaceholder: 'เช่น Tram 2' } },
-  { key: 'hsr', label: 'รถไฟความเร็วสูง', short: 'รถไฟด่วน', icon: IconTrainFilled, color: '#0A3D7A', rail: false,
+  { key: 'hsr', label: 'รถไฟความเร็วสูง', short: 'รถไฟด่วน', icon: IconTrainFilled, color: '#0270FB', rail: false,
     fields: { line: 'ขบวน/สาย', from: 'สถานีต้นทาง', to: 'สถานีปลายทาง', linePlaceholder: 'เช่น G1234 / Shinkansen' } },
-  { key: 'car', label: 'รถยนต์ส่วนตัว', short: 'รถยนต์', icon: IconCar, color: '#1E88A8', rail: false,
+  { key: 'car', label: 'รถยนต์ส่วนตัว', short: 'รถยนต์', icon: IconCar, color: '#0270FB', rail: false,
     fields: { line: 'เส้นทาง', from: 'ต้นทาง', to: 'ปลายทาง', linePlaceholder: 'เช่น ทางด่วน / เส้นเลียบทะเล' } },
-  { key: 'taxi', label: 'แท็กซี่', short: 'แท็กซี่', icon: IconCarFilled, color: '#2AA7BE', rail: false,
+  { key: 'taxi', label: 'แท็กซี่', short: 'แท็กซี่', icon: IconCarFilled, color: '#0270FB', rail: false,
     fields: { line: 'บริการ', from: 'จุดรับ', to: 'จุดส่ง', linePlaceholder: 'เช่น Grab / แท็กซี่มิเตอร์' } },
-  { key: 'boat', label: 'เรือ', short: 'เรือ', icon: IconSailboat, color: '#167C92', rail: false,
+  { key: 'boat', label: 'เรือ', short: 'เรือ', icon: IconSailboat, color: '#0270FB', rail: false,
     fields: { line: 'เส้นทางเรือ', from: 'ท่าขึ้น', to: 'ท่าลง', linePlaceholder: 'เช่น Star Ferry' } },
-  { key: 'plane', label: 'เครื่องบิน', short: 'เครื่องบิน', icon: IconPlane, color: '#5566D6', rail: false,
+  { key: 'plane', label: 'เครื่องบิน', short: 'เครื่องบิน', icon: IconPlane, color: '#0270FB', rail: false,
     fields: { line: 'เที่ยวบิน/สายการบิน', from: 'สนามบินต้นทาง', to: 'สนามบินปลายทาง', linePlaceholder: 'เช่น TG660' } },
 ]
 
