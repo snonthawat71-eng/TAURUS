@@ -216,6 +216,8 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
                       options={mm.rail ? stationOptions : []}
                       onChange={(v) => patchRoute(i, { station: v })} />
                   </div>
+                  {/* colour applies to the metro line only */}
+                  {mm.rail && <ColorPicker value={r.color ?? '#185FA5'} onChange={(c) => patchRoute(i, { color: c })} />}
                 </div>
               )
             })}

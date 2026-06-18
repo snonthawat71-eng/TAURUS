@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { IconPlus, IconTrash, IconArrowDown, IconMap2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { ColorPicker } from './ColorPicker'
 import { Combobox } from './Combobox'
 import { MetroMapPicker } from './MetroMapPicker'
 import { HKMapViewer } from './HKMapViewer'
@@ -182,6 +183,8 @@ export function TransitEditor({
                 <input className={field} value={leg.line} placeholder={mm.fields.linePlaceholder}
                   onChange={(e) => patch(i, { line: e.target.value })} />
               )}
+              {/* colour applies to the metro line only */}
+              {rail && <ColorPicker value={leg.color} onChange={(c) => patch(i, { color: c })} />}
             </div>
 
             {rail ? (() => {
