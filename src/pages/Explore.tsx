@@ -12,6 +12,7 @@ import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, logExploreEvent, type VoteStat, type PopStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
+import { useBack } from '@/lib/useBack'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { filterExplore, initialExploreFilter, type ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace, Place } from '@/lib/database.types'
@@ -20,6 +21,7 @@ export default function Explore() {
   const { user } = useAuth()
   const { trips } = useTrip()
   const navigate = useNavigate()
+  const goBack = useBack('/')
   const [items, setItems] = useState<ExplorePlace[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -103,7 +105,7 @@ export default function Explore() {
   return (
     <div className="min-h-dvh bg-canvas">
       <header className="sticky top-0 z-30 bg-canvas/95 backdrop-blur flex items-center justify-between px-4 sm:px-6 h-14" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-        <button onClick={() => navigate(-1)} className="btn-icon !border-0" aria-label="กลับ"><IconArrowLeft size={18} /></button>
+        <button onClick={goBack} className="btn-icon !border-0" aria-label="กลับ"><IconArrowLeft size={18} /></button>
         <TaurusLogo height={42} />
         <div className="flex items-center gap-1">
           {user && <ExploreNotifications userId={user.id} onOpenItem={(id) => { const it = items.find((e) => e.id === id); if (it) setDetail(it) }} />}

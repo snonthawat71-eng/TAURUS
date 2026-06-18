@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCircle, IconMapPin } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
+import { useBack } from '@/lib/useBack'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { ExploreCard } from '@/components/ExploreCard'
 import { ExploreDetail } from '@/components/ExploreDetail'
@@ -23,7 +23,7 @@ import type { ExplorePlace, Place } from '@/lib/database.types'
 export default function ExploreManage() {
   const { user } = useAuth()
   const { trips } = useTrip()
-  const navigate = useNavigate()
+  const goBack = useBack('/explore')
   const [items, setItems] = useState<ExplorePlace[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -98,7 +98,7 @@ export default function ExploreManage() {
   return (
     <div className="min-h-dvh bg-canvas">
       <header className="sticky top-0 z-30 bg-canvas/95 backdrop-blur flex items-center justify-between px-4 sm:px-6 h-14" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-        <button onClick={() => navigate(-1)} className="btn-icon !border-0" aria-label="กลับ"><IconArrowLeft size={18} /></button>
+        <button onClick={goBack} className="btn-icon !border-0" aria-label="กลับ"><IconArrowLeft size={18} /></button>
         <TaurusLogo height={42} />
         <button onClick={() => setEditor('new')} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium"><IconPlus size={15} /><span className="max-sm:hidden">เพิ่มสถานที่</span></button>
       </header>
