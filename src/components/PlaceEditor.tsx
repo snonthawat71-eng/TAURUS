@@ -41,7 +41,8 @@ export function PlaceEditor({
   const cats = group === 'food' ? FOOD_CATEGORIES : PLACE_CATEGORIES
   const [city, setCity] = useState('')
   const [name, setName] = useState('')
-  const [category, setCategory] = useState(cats[0])
+  const [category, setCategory] = useState(cats[0]) // a known key, or 'other'
+  const [customCat, setCustomCat] = useState('')
   const [routes, setRoutes] = useState<ExploreRoute[]>([emptyRoute()])
   const [branches, setBranches] = useState<PlaceBranch[]>([])
   const [mapUrl, setMapUrl] = useState('')
@@ -55,7 +56,10 @@ export function PlaceEditor({
   useEffect(() => {
     if (!open) return
     setName(initial?.name ?? '')
-    setCategory(initial?.category && cats.includes(initial.category) ? initial.category : cats[0])
+    const initCat = initial?.category ?? ''
+    const known = cats.includes(initCat)
+    setCategory(known ? initCat : (initCat ? 'other' : cats[0]))
+    setCustomCat(!known && initCat && initCat !== 'other' ? initCat : '')
     setRoutes(initial?.routes?.length
       ? initial.routes.map((r) => ({ line: r.line ?? '', color: r.color ?? '#185FA5', station: r.station ?? '' }))
       : [{ line: initial?.station_line ?? '', color: initial?.station_color ?? '#185FA5', station: initial?.station_name ?? '' }])
@@ -91,8 +95,9 @@ export function PlaceEditor({
     const clean = routes.filter((r) => r.line || r.station)
     const first = clean[0]
     const cleanBranches = branches.filter((b) => b.label || b.map_url || b.line || b.station)
+    const finalCategory = category === 'other' ? (customCat.trim() || 'other') : category
     await onSave({
-      group_type: group, name, category,
+      group_type: group, name, category: finalCategory,
       station_line: first?.line || null, station_color: first?.color || null, station_name: first?.station || null,
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
@@ -101,7 +106,7 @@ export function PlaceEditor({
     setBusy(false)
     onClose()
   }
-  const meta = catMeta(category)
+  const meta = catMeta(category === 'other' ? (customCat.trim() || 'other') : category)
   async function del() {
     if (!onDelete || !confirm('ลบรายการนี้?')) return
     setBusy(true); await onDelete(); setBusy(false); onClose()
@@ -136,7 +141,11 @@ export function PlaceEditor({
                   </optgroup>
                 ))
               : cats.map((c) => <option key={c} value={c}>{CATEGORY[c].label}</option>)}
+            <option value="other">อื่นๆ</option>
           </select>
+          {category === 'other' && (
+            <input className={`${field} mt-2`} value={customCat} onChange={(e) => setCustomCat(e.target.value)} placeholder="ระบุหมวดเอง เช่น ตลาดน้ำ" />
+          )}
         </div>
         <div>
           <div className={lbl}>เมือง</div>

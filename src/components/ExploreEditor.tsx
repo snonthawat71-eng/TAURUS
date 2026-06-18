@@ -29,7 +29,8 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [group, setGroup] = useState<PlaceGroup>('place')
   const cats = group === 'food' ? FOOD_CATEGORIES : PLACE_CATEGORIES
   const [name, setName] = useState('')
-  const [category, setCategory] = useState(cats[0])
+  const [category, setCategory] = useState(cats[0]) // a known key, or 'other'
+  const [customCat, setCustomCat] = useState('')
   const [city, setCity] = useState('')
   const [country, setCountry] = useState('')
   const [routes, setRoutes] = useState<ExploreRoute[]>([emptyRoute()])
@@ -80,7 +81,11 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     const g = (initial?.group_type as PlaceGroup) || 'place'
     setGroup(g)
     setName(initial?.name ?? '')
-    setCategory(initial?.category ?? (g === 'food' ? FOOD_CATEGORIES : PLACE_CATEGORIES)[0])
+    const catsForG = g === 'food' ? FOOD_CATEGORIES : PLACE_CATEGORIES
+    const initCat = initial?.category ?? ''
+    const known = catsForG.includes(initCat)
+    setCategory(known ? initCat : (initCat ? 'other' : catsForG[0]))
+    setCustomCat(!known && initCat && initCat !== 'other' ? initCat : '')
     setCity(initial?.city ?? '')
     setCountry(initial?.country ?? '')
     const r = initial?.routes?.length
@@ -98,6 +103,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   function changeGroup(g: PlaceGroup) {
     setGroup(g)
     setCategory((g === 'food' ? FOOD_CATEGORIES : PLACE_CATEGORIES)[0])
+    setCustomCat('')
   }
   function patchRoute(i: number, p: Partial<ExploreRoute>) {
     setRoutes((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...p } : r)))
@@ -129,8 +135,9 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     const clean = routes.filter((r) => r.line || r.station)
     const first = clean[0]
     const cleanBranches = branches.filter((b) => b.label || b.map_url || b.line || b.station)
+    const finalCategory = category === 'other' ? (customCat.trim() || 'other') : category
     await onSave({
-      group_type: group, name, category, city: city || null, country: country || null,
+      group_type: group, name, category: finalCategory, city: city || null, country: country || null,
       station_line: first?.line || null, station_color: first?.color || null, station_name: first?.station || null,
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
@@ -160,7 +167,11 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
                   </optgroup>
                 ))
               : cats.map((c) => <option key={c} value={c}>{CATEGORY[c].label}</option>)}
+            <option value="other">อื่นๆ</option>
           </select>
+          {category === 'other' && (
+            <input className={`${field} mt-2`} value={customCat} onChange={(e) => setCustomCat(e.target.value)} placeholder="ระบุหมวดเอง เช่น ตลาดน้ำ" />
+          )}
         </div>
         {sugg.cityChips.length > 0 && (
           <div>

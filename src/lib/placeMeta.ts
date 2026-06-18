@@ -4,7 +4,7 @@ import {
   IconToolsKitchen2, IconSoup, IconBowl, IconBurger,
   IconCoffee, IconCup, IconCake, IconBread, IconIceCream2,
   IconGlassCocktail, IconBeer, IconArmchair, IconGift,
-  IconTree, IconMapPin, type Icon,
+  IconTree, IconCategory, type Icon,
 } from '@tabler/icons-react'
 
 export interface CategoryMeta {
@@ -44,6 +44,9 @@ export const CATEGORY: Record<string, CategoryMeta> = {
   chill: { group: 'food', label: 'ร้านนั่งชิว', icon: IconArmchair, bg: '#E9F1F4', fg: '#5C7E8C' },
   // --- food: Souvenir group ---
   souvenir: { group: 'food', label: 'ร้านของฝาก', icon: IconGift, bg: '#E6F4EE', fg: '#2F8F6B' },
+  // --- "other" (free-text category) — selectable in both groups ---
+  other: { group: 'place', label: 'อื่นๆ', icon: IconCategory, bg: '#F1F0EC', fg: '#5F5E5A' },
+  gother: { group: 'food', label: 'อื่นๆ', icon: IconCategory, bg: '#F1F0EC', fg: '#5F5E5A' },
   // --- food group headers (used for filter tabs + section headers; not selectable) ---
   gfood: { group: 'food', label: 'Food', icon: IconToolsKitchen2, bg: '#FBEEE8', fg: '#C2562B' },
   gcafe: { group: 'food', label: 'Cafe', icon: IconCoffee, bg: '#F3EEE6', fg: '#8A6A3B' },
@@ -52,9 +55,10 @@ export const CATEGORY: Record<string, CategoryMeta> = {
 }
 
 export function catMeta(category: string | null | undefined): CategoryMeta {
-  return (category && CATEGORY[category]) || {
-    group: 'place', label: 'อื่นๆ', icon: IconMapPin, bg: '#F1F0EC', fg: '#5F5E5A',
-  }
+  if (category && CATEGORY[category]) return CATEGORY[category]
+  // unknown value = a free-text "other" category — show the typed text as label
+  const label = category && category.trim() && category !== 'other' ? category : 'อื่นๆ'
+  return { group: 'place', label, icon: IconCategory, bg: '#F1F0EC', fg: '#5F5E5A' }
 }
 
 export interface CategoryTab { key: string; label: string }
@@ -71,6 +75,7 @@ export const PLACE_TABS: CategoryTab[] = [
   { key: 'shopping', label: 'ช้อปปิ้ง' },
   { key: 'walkingstreet', label: 'ถนนคนเดิน' },
   { key: 'park', label: 'สวนสาธารณะ' },
+  { key: 'other', label: 'อื่นๆ' },
 ]
 
 // Food: 4 main groups, each with subcategories.
@@ -85,12 +90,21 @@ export const FOOD_GROUPS: { key: string; label: string; cats: string[] }[] = [
 export const FOOD_TABS: CategoryTab[] = [
   { key: 'all', label: 'ทั้งหมด' },
   ...FOOD_GROUPS.map((g) => ({ key: g.key, label: g.label })),
+  { key: 'gother', label: 'อื่นๆ' },
 ]
 
-/** Which food group a subcategory belongs to (group key, e.g. 'gcafe'). */
+/** Which food group a subcategory belongs to (group key, e.g. 'gcafe').
+ *  Unknown / free-text categories fall under the "other" group. */
 export function foodGroupKey(category: string | null | undefined): string {
   for (const g of FOOD_GROUPS) if (category && g.cats.includes(category)) return g.key
-  return 'gfood'
+  return 'gother'
+}
+
+/** The filter-tab key an item belongs to: a known category maps to itself
+ *  (food → its group), anything else (free-text / empty) maps to "other". */
+export function catTabKey(category: string | null | undefined, group: 'place' | 'food' | string): string {
+  if (group === 'food') return foodGroupKey(category)
+  return category && PLACE_CATEGORIES.includes(category) ? category : 'other'
 }
 
 export const PLACE_CATEGORIES = ['landmark', 'nature', 'themepark', 'entertainment', 'historic', 'shrine', 'museum', 'shopping', 'walkingstreet', 'park']

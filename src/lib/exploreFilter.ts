@@ -1,4 +1,4 @@
-import { foodGroupKey } from './placeMeta'
+import { catTabKey } from './placeMeta'
 import type { PopStat } from './exploreMutations'
 import type { ExplorePlace } from './database.types'
 
@@ -18,7 +18,7 @@ export function filterExplore(items: ExplorePlace[], f: ExploreFilterState, pop:
   const q = f.q.trim().toLowerCase()
   const filtered = items
     .filter((e) => f.group === 'all' || e.group_type === f.group)
-    .filter((e) => f.cat === 'all' || (f.group === 'food' ? foodGroupKey(e.category) === f.cat : e.category === f.cat))
+    .filter((e) => f.cat === 'all' || catTabKey(e.category, f.group) === f.cat)
     .filter((e) => f.city === 'all' || e.city === f.city)
     .filter((e) => !q || [e.name, e.note, e.city, e.country].some((v) => (v ?? '').toLowerCase().includes(q)))
   return f.sort === 'popular'

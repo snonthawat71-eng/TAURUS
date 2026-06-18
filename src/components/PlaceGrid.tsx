@@ -7,7 +7,7 @@ import { PlaceEditor } from './PlaceEditor'
 import { PlaceDetail } from './PlaceDetail'
 import { SaveToTripDialog } from './SaveToTripDialog'
 import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
-import { catMeta, foodGroupKey, type CategoryTab } from '@/lib/placeMeta'
+import { catMeta, catTabKey, type CategoryTab } from '@/lib/placeMeta'
 import { hscroll } from '@/lib/hscroll'
 import type { Place, PlaceGroup } from '@/lib/database.types'
 
@@ -58,8 +58,7 @@ export function PlaceGrid({
 
   const valueOf = (p: Place) =>
     dim === 'city' ? (p.city || 'ไม่ระบุเมือง')
-      : group === 'food' ? foodGroupKey(p.category)
-      : (p.category || 'อื่นๆ')
+      : catTabKey(p.category, group)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
