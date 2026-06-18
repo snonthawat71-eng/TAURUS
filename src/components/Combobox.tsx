@@ -1,5 +1,4 @@
-import { useLayoutEffect, useRef, useState, Fragment } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState, Fragment } from 'react'
 import { IconChevronDown } from '@tabler/icons-react'
 
 export interface ComboOption { value: string; label?: string; color?: string; group?: string }
@@ -10,7 +9,11 @@ export interface ComboOption { value: string; label?: string; color?: string; gr
  * already holds an exact value (forcing users to clear it to re-pick).
  * Here the full list reopens on focus/click whenever the value is empty or
  * exactly matches an option; typing filters it; any custom value is allowed.
- * The list is portaled to <body> so a Drawer's scroll container can't clip it.
+ *
+ * The list renders inline (in normal flow, right under the input) rather than
+ * a floating overlay: inside a Drawer's scroll container that's far more robust
+ * on mobile — it scrolls with the sheet and the on-screen keyboard can't strand
+ * or detach it.
  */
 export function Combobox({
   value, onChange, onPick, options, placeholder, className, disabled,
@@ -26,7 +29,6 @@ export function Combobox({
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [rect, setRect] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null)
 
   const q = value.trim().toLowerCase()
   const exact = options.some((o) => o.value.toLowerCase() === q)
@@ -34,36 +36,14 @@ export function Combobox({
     ? options
     : options.filter((o) => o.value.toLowerCase().includes(q) || (o.label ?? '').toLowerCase().includes(q))
 
-  // Anchor the portaled list to the input. Uses the *visual* viewport so the
-  // on-screen keyboard (which shifts/shrinks the viewport on iOS) is accounted
-  // for, and flips the list above the field when there isn't room below.
-  function place() {
-    const el = inputRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const vv = window.visualViewport
-    const viewTop = vv ? vv.offsetTop : 0
-    const viewBottom = viewTop + (vv ? vv.height : window.innerHeight)
-    const GAP = 4, MAXH = 224, MIN = 132
-    const below = viewBottom - r.bottom - GAP
-    const above = r.top - viewTop - GAP
-    const up = below < MIN && above > below
-    const maxHeight = Math.max(MIN, Math.min(MAXH, up ? above : below))
-    const top = up ? Math.max(viewTop + GAP, r.top - GAP - maxHeight) : r.bottom + GAP
-    const next = { left: r.left, top, width: r.width, maxHeight }
-    setRect((prev) => (prev && prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.maxHeight === next.maxHeight ? prev : next))
-  }
-
-  // While open, keep it glued to the input every frame — robust against the
-  // iOS focus-scroll, keyboard animation and the Drawer's own scrolling.
-  useLayoutEffect(() => {
+  // close when tapping/clicking outside the field+list. `mousedown` (not
+  // `pointerdown`) is intentional: a touch-scroll never fires mousedown, so
+  // scrolling the sheet to reach an item won't dismiss the list.
+  useEffect(() => {
     if (!open) return
-    let raf = 0
-    const tick = () => { place(); raf = requestAnimationFrame(tick) }
-    raf = requestAnimationFrame(tick)
     const onDoc = (e: MouseEvent) => { if (!wrapRef.current?.contains(e.target as Node)) setOpen(false) }
     document.addEventListener('mousedown', onDoc)
-    return () => { cancelAnimationFrame(raf); document.removeEventListener('mousedown', onDoc) }
+    return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
 
   function choose(v: string) {
@@ -74,34 +54,33 @@ export function Combobox({
 
   return (
     <div ref={wrapRef} className="relative">
-      <input
-        ref={inputRef}
-        className={className}
-        style={options.length ? { paddingRight: 28 } : undefined}
-        value={value}
-        placeholder={placeholder}
-        disabled={disabled}
-        onFocus={() => setOpen(true)}
-        onClick={() => setOpen(true)}
-        onChange={(e) => { onChange(e.target.value); setOpen(true) }}
-        onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
-      />
-      {options.length > 0 && (
-        <button type="button" tabIndex={-1} aria-label="แสดงตัวเลือก"
-          onMouseDown={(e) => { e.preventDefault(); setOpen((o) => !o); inputRef.current?.focus() }}
-          className="absolute right-1 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 p-1">
-          <IconChevronDown size={15} />
-        </button>
-      )}
-      {open && rect && filtered.length > 0 && createPortal(
+      <div className="relative">
+        <input
+          ref={inputRef}
+          className={className}
+          style={options.length ? { paddingRight: 28 } : undefined}
+          value={value}
+          placeholder={placeholder}
+          disabled={disabled}
+          onFocus={() => setOpen(true)}
+          onClick={() => setOpen(true)}
+          onChange={(e) => { onChange(e.target.value); setOpen(true) }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
+        />
+        {options.length > 0 && (
+          <button type="button" tabIndex={-1} aria-label="แสดงตัวเลือก"
+            onMouseDown={(e) => { e.preventDefault(); setOpen((o) => !o); inputRef.current?.focus() }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 p-1">
+            <IconChevronDown size={15} />
+          </button>
+        )}
+      </div>
+      {open && filtered.length > 0 && (
         <div
-          // Stop touch events from bubbling (React portals bubble through the
-          // React tree) into a parent Drawer's swipe-to-close handler, and keep
-          // the scroll contained so dragging the list never moves the page/sheet.
-          onTouchStart={(e) => e.stopPropagation()}
+          // keep inner scrolling contained so it doesn't drag the sheet/page
           onTouchMove={(e) => e.stopPropagation()}
-          style={{ position: 'fixed', left: rect.left, top: rect.top, width: rect.width, maxHeight: rect.maxHeight, zIndex: 200, overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
-          className="overflow-auto rounded-md bg-surface shadow-lg hairline py-1">
+          style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
+          className="mt-1 max-h-56 overflow-auto rounded-md bg-surface shadow-lg hairline py-1 relative z-20">
           {(() => {
             // only show group headers/dividers when more than one group is present
             const groups = new Set(filtered.map((o) => o.group).filter((g) => g !== undefined))
@@ -126,8 +105,7 @@ export function Combobox({
               )
             })
           })()}
-        </div>,
-        document.body,
+        </div>
       )}
     </div>
   )
