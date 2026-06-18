@@ -27,7 +27,7 @@ function isShanghai(hay: string) {
 }
 
 function emptyLeg(): TransitLeg {
-  return { mode: 'metro', line: '', color: '#185FA5', from: '', to: '', direction: '', stops: undefined, minutes: undefined }
+  return { mode: 'metro', line: '', color: '#0270FB', from: '', to: '', direction: '', stops: undefined, minutes: undefined }
 }
 
 /** All saved ways to reach a place — its multi-route list, or the single legacy station. */

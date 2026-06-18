@@ -15,7 +15,7 @@ import type { PlaceGroup, ExplorePlace, ExploreRoute, PlaceBranch } from '@/lib/
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
 
-function emptyRoute(): ExploreRoute { return { line: '', color: '#185FA5', station: '', mode: 'metro' } }
+function emptyRoute(): ExploreRoute { return { line: '', color: '#0270FB', station: '', mode: 'metro' } }
 function emptyBranch(): PlaceBranch { return { label: '', map_url: '', line: '', color: '#185FA5', station: '' } }
 
 export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
