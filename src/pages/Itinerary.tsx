@@ -62,7 +62,7 @@ function SortableStop({
               className="text-[14px] font-medium text-left leading-snug enabled:hover:text-brand-mid">
               {stop.place_name}
             </button>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
               {matchedPlace && (
                 <button onClick={() => onOpenDetail(matchedPlace)} className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-0.5">
                   <IconInfoCircle size={11} /> รายละเอียด
@@ -73,13 +73,17 @@ function SortableStop({
                   <IconMapPin size={11} /> ดูแผนที่
                 </button>
               )}
+              {canEdit && (
+                <button onClick={onEditRoute} className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-0.5">
+                  <IconRoute size={11} /> วิธีการเดินทาง
+                </button>
+              )}
             </div>
             {stop.note && <div className="text-[12px] text-ink-2 mt-0.5">{stop.note}</div>}
           </div>
           {canEdit && (
             <PopMenu items={[
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
-              { label: stop.transit ? 'แก้ไขเส้นทาง' : 'เพิ่มเส้นทางการเดินทาง', icon: <IconRoute size={15} />, onClick: onEditRoute },
               { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
             ]} />
           )}
