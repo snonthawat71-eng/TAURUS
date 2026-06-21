@@ -6,6 +6,7 @@ import { Combobox } from './Combobox'
 import { MetroMapPicker } from './MetroMapPicker'
 import { HKMapViewer } from './HKMapViewer'
 import { ShanghaiMapViewer } from './ShanghaiMapViewer'
+import { ShenzhenMapViewer } from './ShenzhenMapViewer'
 import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip } from '@/lib/metro'
 import { getTransitSuggestions, findLine, legBetween } from '@/lib/metro/suggest'
@@ -24,6 +25,11 @@ function isHongKong(hay: string) {
 function isShanghai(hay: string) {
   const s = hay.toLowerCase()
   return ['shanghai', 'เซี่ยงไฮ้', '上海'].some((k) => s.includes(k))
+}
+
+function isShenzhen(hay: string) {
+  const s = hay.toLowerCase()
+  return ['shenzhen', 'เซินเจิ้น', '深圳'].some((k) => s.includes(k))
 }
 
 function emptyLeg(): TransitLeg {
@@ -61,6 +67,7 @@ export function TransitEditor({
   const tripHay = [trip?.country ?? '', ...(trip?.cities ?? []), trip?.name ?? ''].join(' ')
   const hk = isHongKong(tripHay)
   const sh = isShanghai(tripHay)
+  const sz = isShenzhen(tripHay)
   const [legs, setLegs] = useState<TransitLeg[]>([])
   const [exitLabel, setExitLabel] = useState('')
   const [exitNote, setExitNote] = useState('')
@@ -68,6 +75,7 @@ export function TransitEditor({
   const [mapOpen, setMapOpen] = useState(false)
   const [hkOpen, setHkOpen] = useState(false)
   const [shOpen, setShOpen] = useState(false)
+  const [szOpen, setSzOpen] = useState(false)
   // when a place has multiple routes, tapping it opens a chooser for this leg
   const [routePick, setRoutePick] = useState<{ leg: number; place: string } | null>(null)
 
@@ -153,6 +161,13 @@ export function TransitEditor({
             className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
             style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
             <IconMap2 size={17} /> เลือกจากแผนที่รถไฟฟ้าเซี่ยงไฮ้ (คำนวณจุดเปลี่ยนสายให้)
+          </button>
+        )}
+        {sz && (
+          <button onClick={() => setSzOpen(true)}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
+            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
+            <IconMap2 size={17} /> ดูแผนผังรถไฟฟ้าเซินเจิ้น (เส้นทาง/สี)
           </button>
         )}
         {legs.map((leg, i) => {
@@ -329,6 +344,7 @@ export function TransitEditor({
         onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setHkOpen(false) }} />}
       {sh && shOpen && <ShanghaiMapViewer onClose={() => setShOpen(false)}
         onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setShOpen(false) }} />}
+      {sz && szOpen && <ShenzhenMapViewer onClose={() => setSzOpen(false)} />}
     </Drawer>
   )
 }

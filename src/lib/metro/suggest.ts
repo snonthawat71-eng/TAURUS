@@ -11,6 +11,7 @@
 import { OSAKA } from './osaka'
 import { HK_NETWORK } from './hkNetwork'
 import { SHANGHAI } from './shanghai'
+import { SZ_LEGEND } from './shenzhenGeo'
 import type { Trip } from '@/lib/database.types'
 
 export interface StationSuggest { name: string; num?: string }
@@ -22,6 +23,7 @@ export interface TransitSuggest {
 }
 
 const HK_MATCH = ['hong kong', 'hongkong', 'ฮ่องกง', ' hk', 'mtr']
+const SZ_MATCH = ['shenzhen', 'เซินเจิ้น', '深圳']
 
 // Every built-in network normalised to a common { match, lines } shape.
 interface RawNetwork { match: string[]; lines: LineSuggest[] }
@@ -29,6 +31,8 @@ const NETWORKS: RawNetwork[] = [
   { match: OSAKA.match, lines: OSAKA.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: HK_MATCH, lines: HK_NETWORK.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHANGHAI.match, lines: SHANGHAI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
+  // Shenzhen: line names + official colours only (the source PDF has no stations)
+  { match: SZ_MATCH, lines: SZ_LEGEND.map((l) => ({ name: l.name, color: l.color, stations: [] })) },
 ]
 
 /** Collect line/station suggestions only for the network(s) matching the given text. */
