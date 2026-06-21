@@ -2,7 +2,7 @@
 // route-line + station-dot PDFs: route lines + single-line station dots +
 // interchange markers. The source PDFs have no station names/labels, so dots are
 // not tappable / named yet (routing comes later). Mirrors ShanghaiMetroMap.
-import { VIEW, SZ_LINES, SZ_TICKS, SZ_INTERCHANGES } from '@/lib/metro/shenzhenGeo'
+import { VIEW, SZ_LINES, SZ_TICKS, SZ_INTERCHANGES, SZ_NAMES } from '@/lib/metro/shenzhenGeo'
 
 export function ShenzhenMetroMap({ zoom = 1 }: { zoom?: number }) {
   return (
@@ -19,6 +19,13 @@ export function ShenzhenMetroMap({ zoom = 1 }: { zoom?: number }) {
       {/* interchanges: distinct larger white dot with a bold dark ring */}
       {SZ_INTERCHANGES.map((p, i) => (
         <circle key={`x${i}`} cx={p.x} cy={p.y} r={4.3} fill="#fff" stroke="#222" strokeWidth={2} />
+      ))}
+      {/* station name labels (placed as in the official artwork) */}
+      {SZ_NAMES.map((n, i) => (
+        <text key={`n${i}`} x={n.x} y={n.y} fontSize={4.4} fontWeight={500}
+          textAnchor="start" dominantBaseline="central" fill="#1b2430"
+          stroke="#fff" strokeWidth={0.9} paintOrder="stroke"
+          style={{ pointerEvents: 'none' }}>{n.t}</text>
       ))}
     </svg>
   )
