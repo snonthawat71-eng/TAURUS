@@ -51,7 +51,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
               {meta.label}
             </span>
             {(e.multi_branch || !!e.branches?.length) && (
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: '#EEF0FB', color: '#5560C8' }}>
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>
                 <IconBuildingStore size={12} /> หลายสาขา
               </span>
             )}

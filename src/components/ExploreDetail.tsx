@@ -210,7 +210,7 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
           {e.city && <span className="chip !py-0.5">{e.city}</span>}
           {e.country && <span className="chip !py-0.5">{e.country}</span>}
           {(e.multi_branch || !!e.branches?.length) && (
-            <span className="!py-0.5 inline-flex items-center gap-1 rounded-full px-2 text-[12px] font-medium" style={{ background: '#EEF0FB', color: '#5560C8' }}>
+            <span className="!py-0.5 inline-flex items-center gap-1 rounded-full px-2 text-[12px] font-medium" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>
               <IconBuildingStore size={12} /> หลายสาขา
             </span>
           )}
