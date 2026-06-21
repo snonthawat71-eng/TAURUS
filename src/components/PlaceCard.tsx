@@ -1,4 +1,4 @@
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, IconHeartFilled, IconStar } from '@tabler/icons-react'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, IconHeartFilled, IconStar, IconBuildingStore } from '@tabler/icons-react'
 import { AvatarStack } from './Avatar'
 import { PopMenu } from './PopMenu'
 import { SignedImage } from './SignedImage'
@@ -32,6 +32,7 @@ export function PlaceCard({
     </div>
   )
   const dimmed = mode === 'edit' && place.in_plan
+  const multiBranch = !!place.multi_branch || !!place.branches?.length
 
   return (
     <div className="card overflow-hidden flex flex-col relative">
@@ -40,6 +41,13 @@ export function PlaceCard({
         {place.photo_url || place.photo_path
           ? <SignedImage url={place.photo_url} path={place.photo_path} alt={place.name ?? ''} className="w-full h-full object-cover" width={500} fallback={placeholder} />
           : placeholder}
+
+        {multiBranch && (
+          <span className="absolute top-2 left-2 z-20 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm"
+            style={{ background: 'rgba(255,255,255,.92)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
+            <IconBuildingStore size={12} /> หลายสาขา
+          </span>
+        )}
 
         {mode === 'edit' && (
           <button onClick={onTogglePlan} aria-label="เพิ่มในแพลน"

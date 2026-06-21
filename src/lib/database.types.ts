@@ -160,6 +160,9 @@ export interface Place {
   routes?: ExploreRoute[] | null
   /** optional — present after branches.sql (chains with multiple locations) */
   branches?: PlaceBranch[] | null
+  /** optional — present after branches.sql; just flags "has many branches" for a
+   *  card label, without requiring per-branch detail */
+  multi_branch?: boolean | null
   map_url: string | null
   note: string | null
   in_plan: boolean

@@ -47,6 +47,7 @@ export function PlaceEditor({
   const [customCat, setCustomCat] = useState('')
   const [routes, setRoutes] = useState<ExploreRoute[]>([emptyRoute()])
   const [branches, setBranches] = useState<PlaceBranch[]>([])
+  const [multiBranch, setMultiBranch] = useState(false)
   const [mapUrl, setMapUrl] = useState('')
   const [note, setNote] = useState('')
   const [photoPath, setPhotoPath] = useState<string | null>(null)
@@ -71,6 +72,7 @@ export function PlaceEditor({
     setBranches(initial?.branches?.length
       ? initial.branches.map((b) => ({ label: b.label ?? '', map_url: b.map_url ?? '', line: b.line ?? '', color: b.color ?? '#185FA5', station: b.station ?? '' }))
       : [])
+    setMultiBranch(!!initial?.multi_branch)
     setMapUrl(initial?.map_url ?? '')
     setNote(initial?.note ?? '')
     setPhotoPath(initial?.photo_path ?? null)
@@ -119,6 +121,7 @@ export function PlaceEditor({
       station_line: first?.line || null, station_color: first?.color || null, station_name: first?.station || null,
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
+      multi_branch: multiBranch ? true : null,
       map_url: mapUrl, note, photo_path: photoPath, photo_url: photoUrl, city: city || null,
       menu_paths: group === 'food' && menuPaths.length ? menuPaths : null,
     })
@@ -226,6 +229,12 @@ export function PlaceEditor({
               <IconBuildingStore size={13} className="text-ink-3" />
               <span className={lbl}>หลายสาขา (ถ้ามีหลายที่ — ใส่แค่ชื่อสาขาก็ได้ ไม่ต้องระบุโลเคชั่น)</span>
             </div>
+            {/* simple flag: just mark "has many branches" → shows a label on the card */}
+            <button onClick={() => setMultiBranch((v) => !v)}
+              className={['chip mt-1.5', multiBranch ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+              style={multiBranch ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+              {multiBranch && <IconCheck size={12} />} มีหลายสาขา (ขึ้นป้ายบนการ์ด)
+            </button>
             <div className="space-y-2 mt-1">
               {branches.map((b, i) => {
                 const known = findLine(sug, b.line ?? '')
