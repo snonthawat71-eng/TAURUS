@@ -1216,4 +1216,8 @@ export const SZ_STATION_POINTS: Record<string, SzStationPoint> = {
   'Convention & Exhibition City': { x: 51.7, y: 246.2, xc: false },
   'Pingshan High-speed Railway Station': { x: 845.1, y: 344.8, xc: false },
   'BYD North': { x: 880.7, y: 423.0, xc: false },
+  'Baolong Tongle': { x: 817.2, y: 338.3, xc: false },
+  'Shenzhen Bay Checkpoint': { x: 236.1, y: 780.4, xc: false },
+  'Waterlands Resort East': { x: 57.9, y: 210.7, xc: false },
+  'Waterlands Resort South': { x: 57.9, y: 240.7, xc: false },
 }
