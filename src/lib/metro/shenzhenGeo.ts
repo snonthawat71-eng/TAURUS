@@ -1244,4 +1244,7 @@ export const SZ_STATION_POINTS: Record<string, SzStationPoint> = {
   'Biyan': { x: 346.9, y: 203.5, xc: false },
   'Hongqiao Park': { x: 346.9, y: 233.9, xc: false },
   'Deya Road': { x: 312.6, y: 246.2, xc: false },
+  'Fuxing': { x: 479.7, y: 666.8, xc: false },
+  'Dongmen': { x: 586.4, y: 630.6, xc: false },
+  'Shenzhen World North': { x: 54.4, y: 270.4, xc: true },
 }
