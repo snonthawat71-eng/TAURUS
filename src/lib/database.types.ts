@@ -169,6 +169,9 @@ export interface Place {
   /** optional — present after the extra_columns migration */
   photo_path?: string | null
   photo_url?: string | null
+  /** optional — present after photo_focus.sql; how the photo is cropped inside
+   *  its frame, stored as "x y scale" (see src/lib/photoFocus.ts) */
+  photo_focus?: string | null
   city?: string | null
   /** optional — present after menu.sql (menu images/PDFs for restaurants) */
   menu_paths?: string[] | null

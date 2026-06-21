@@ -1,20 +1,24 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
 import { optimizeImageUrl } from '@/lib/cloudinary'
+import { focusStyle } from '@/lib/photoFocus'
 
 /**
  * Renders an image. Priority: external `url` → private `path` (signed) → `fallback`.
  * `url` is used directly (e.g. Explore pool photos); `path` is a private bucket
  * object served via a short-lived signed URL. Cloudinary URLs are auto-optimized
  * (format/quality, and `width` if given) so big originals don't load slowly.
+ * `focus` ("x y scale") applies a saved crop (pan + zoom) to an `object-cover` img.
  */
-export function SignedImage({ url, path, alt, className, fallback, width }: {
+export function SignedImage({ url, path, alt, className, fallback, width, focus, style }: {
   url?: string | null
   path?: string | null
   alt?: string
   className?: string
   fallback?: ReactNode
   width?: number
+  focus?: string | null
+  style?: CSSProperties
 }) {
   const [signed, setSigned] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
@@ -33,5 +37,5 @@ export function SignedImage({ url, path, alt, className, fallback, width }: {
   // no source, or the image failed to load → show the graceful fallback instead
   // of the browser's broken-image glyph
   if (!src || failed) return <>{fallback ?? null}</>
-  return <img src={src} alt={alt ?? ''} className={className} loading="lazy" decoding="async" onError={() => setFailed(true)} />
+  return <img src={src} alt={alt ?? ''} className={className} style={{ ...focusStyle(focus), ...style }} loading="lazy" decoding="async" onError={() => setFailed(true)} />
 }

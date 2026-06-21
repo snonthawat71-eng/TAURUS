@@ -78,11 +78,11 @@ export async function duplicateTrip(source: Trip, ownerId: string): Promise<{ id
       id: crypto.randomUUID(), trip_id: id, group_type: p.group_type, category: p.category,
       name: p.name, station_line: p.station_line, station_color: p.station_color, station_name: p.station_name,
       routes: p.routes ?? null,
-      map_url: p.map_url, note: p.note, in_plan: p.in_plan, photo_path: p.photo_path, city: p.city,
+      map_url: p.map_url, note: p.note, in_plan: p.in_plan, photo_path: p.photo_path, photo_focus: p.photo_focus, city: p.city,
     }))
     let res = await supabase.from('places').insert(rows)
-    if (res.error && ['photo_path', 'city', 'routes'].some((c) => res.error!.message.includes(c))) {
-      const stripped = rows.map(({ photo_path: _p, city: _c, routes: _r, ...r }) => { void _p; void _c; void _r; return r })
+    if (res.error && ['photo_path', 'photo_focus', 'city', 'routes'].some((c) => res.error!.message.includes(c))) {
+      const stripped = rows.map(({ photo_path: _p, photo_focus: _f, city: _c, routes: _r, ...r }) => { void _p; void _f; void _c; void _r; return r })
       res = await supabase.from('places').insert(stripped)
     }
   }

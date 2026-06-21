@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore } from '@tabler/icons-react'
+import { createPortal } from 'react-dom'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore, IconZoomScan, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
 import { SignedImage } from './SignedImage'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import { getSignedUrl } from '@/lib/files'
+import { optimizeImageUrl } from '@/lib/cloudinary'
 
 const isPdfRef = (ref: string) => /\.pdf($|\?)/i.test(ref)
 /** Open a stored menu file (Cloudinary URL as-is, private path via signed URL). */
@@ -33,6 +35,8 @@ export function PlaceDetail({
 }) {
   // which branch (chain location) is selected; null = the place's own location
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
+  // full-size photo viewer (the uncropped original)
+  const [lightbox, setLightbox] = useState<string | null>(null)
   const hasOwnLocation = !!(place && (place.map_url || place.station_name || place.station_line))
   useEffect(() => {
     // default to the first branch only when the place has no location of its own
@@ -42,6 +46,16 @@ export function PlaceDetail({
   if (!place) return null
   const meta = catMeta(place.category)
   const Icon = meta.icon
+  const hasPhoto = !!(place.photo_url || place.photo_path)
+  async function openPhoto() {
+    if (!place) return
+    if (place.photo_url) { setLightbox(optimizeImageUrl(place.photo_url, 1600) ?? place.photo_url); return }
+    const p = place.photo_path
+    if (!p) return
+    if (/^https?:\/\//.test(p)) { setLightbox(optimizeImageUrl(p, 1600) ?? p); return }
+    const u = await getSignedUrl(p)
+    if (u) setLightbox(u)
+  }
   const branches = place.branches ?? []
   const sel = branchIdx != null ? branches[branchIdx] : null
   const lineColor = sel ? sel.color : place.station_color
@@ -52,9 +66,15 @@ export function PlaceDetail({
   return (
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
       <div className="h-40 rounded-[14px] relative grid place-items-center overflow-hidden mt-1" style={{ background: meta.bg }}>
-        <SignedImage url={place.photo_url} path={place.photo_path} alt={place.name ?? ''} className="absolute inset-0 w-full h-full object-cover" width={800}
+        <SignedImage url={place.photo_url} path={place.photo_path} focus={place.photo_focus} alt={place.name ?? ''} className="absolute inset-0 w-full h-full object-cover" width={800}
           fallback={<Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />} />
-        <span className="absolute bottom-2 right-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium z-10" style={{ background: '#fff', color: meta.fg }}>
+        {hasPhoto && (
+          <>
+            <button onClick={openPhoto} aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
+            <span className="absolute top-2 right-2 z-20 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
+          </>
+        )}
+        <span className="absolute bottom-2 right-2 z-20 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium pointer-events-none" style={{ background: '#fff', color: meta.fg }}>
           {meta.label}
         </span>
       </div>
@@ -160,6 +180,14 @@ export function PlaceDetail({
           </button>
         </div>
       </div>
+
+      {lightbox && createPortal(
+        <div className="fixed inset-0 z-[130] bg-black/85 grid place-items-center p-4" onClick={() => setLightbox(null)}>
+          <button className="absolute top-4 right-4 text-white/90" aria-label="ปิด"><IconX size={24} /></button>
+          <img src={lightbox} alt={place.name ?? ''} className="max-w-full max-h-[88dvh] rounded-lg" onClick={(e) => e.stopPropagation()} />
+        </div>,
+        document.body,
+      )}
     </Drawer>
   )
 }

@@ -4,6 +4,7 @@ import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { Combobox } from './Combobox'
 import { SignedImage } from './SignedImage'
+import { PhotoCropper } from './PhotoCropper'
 import { uploadImage } from '@/lib/files'
 import { useTrip } from '@/contexts/TripContext'
 import { getTransitSuggestions, findLine } from '@/lib/metro/suggest'
@@ -52,6 +53,7 @@ export function PlaceEditor({
   const [note, setNote] = useState('')
   const [photoPath, setPhotoPath] = useState<string | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [photoFocus, setPhotoFocus] = useState<string | null>(null)
   const [menuPaths, setMenuPaths] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [menuUploading, setMenuUploading] = useState(false)
@@ -77,6 +79,7 @@ export function PlaceEditor({
     setNote(initial?.note ?? '')
     setPhotoPath(initial?.photo_path ?? null)
     setPhotoUrl(initial?.photo_url ?? null)
+    setPhotoFocus(initial?.photo_focus ?? null)
     setMenuPaths(initial?.menu_paths ?? [])
     setCity(initial?.city ?? (tripCities.length === 1 ? tripCities[0] : ''))
   }, [open, initial]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -86,7 +89,7 @@ export function PlaceEditor({
     if (!file) return
     setUploading(true)
     const { path } = await uploadImage(tripId, 'place-photo', file)
-    if (path) { setPhotoPath(path); setPhotoUrl(null) }
+    if (path) { setPhotoPath(path); setPhotoUrl(null); setPhotoFocus(null) }
     setUploading(false)
     if (photoInput.current) photoInput.current.value = ''
   }
@@ -122,7 +125,7 @@ export function PlaceEditor({
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
       multi_branch: multiBranch ? true : null,
-      map_url: mapUrl, note, photo_path: photoPath, photo_url: photoUrl, city: city || null,
+      map_url: mapUrl, note, photo_path: photoPath, photo_url: photoUrl, photo_focus: (photoPath || photoUrl) ? photoFocus : null, city: city || null,
       menu_paths: group === 'food' && menuPaths.length ? menuPaths : null,
     })
     setBusy(false)
@@ -137,20 +140,28 @@ export function PlaceEditor({
   return (
     <Drawer open={open} onClose={onClose} title={initial ? 'แก้ไขรายการ' : (group === 'food' ? 'เพิ่มร้าน' : 'เพิ่มสถานที่')}>
       <div className="space-y-3">
-        {/* Photo */}
-        <div className="flex items-center gap-3">
-          <div className="w-20 h-16 rounded-md overflow-hidden shrink-0 grid place-items-center" style={{ background: meta.bg }}>
-            <SignedImage url={photoUrl} path={photoPath} className="w-full h-full object-cover"
-              fallback={<meta.icon size={22} style={{ color: meta.fg, opacity: 0.85 }} />} />
-          </div>
-          <div>
-            <button onClick={() => photoInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
-              {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />}
-              {(photoPath || photoUrl) ? 'เปลี่ยนรูป' : 'เพิ่มรูปสถานที่'}
+        {/* Photo — drag to reposition, slider to zoom (the crop shown here is what
+            appears on the card and detail view) */}
+        <div className="space-y-2">
+          {(photoPath || photoUrl) ? (
+            <PhotoCropper url={photoUrl} path={photoPath} focus={photoFocus} onChange={setPhotoFocus}
+              fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><meta.icon size={28} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
+          ) : (
+            <button onClick={() => photoInput.current?.click()} disabled={uploading}
+              className="w-full aspect-[16/10] rounded-lg hairline grid place-items-center gap-1 text-ink-3 disabled:opacity-50" style={{ background: meta.bg }}>
+              {uploading ? <IconLoader2 size={20} className="animate-spin" /> : <><IconPhoto size={22} style={{ color: meta.fg, opacity: 0.85 }} /><span className="text-[12px]" style={{ color: meta.fg }}>เพิ่มรูปสถานที่</span></>}
             </button>
-            {(photoPath || photoUrl) && <button onClick={() => { setPhotoPath(null); setPhotoUrl(null) }} className="btn-link text-[12px] ml-2">เอาออก</button>}
-            <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPickPhoto} />
-          </div>
+          )}
+          {(photoPath || photoUrl) && (
+            <div className="flex items-center gap-3">
+              <button onClick={() => photoInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
+                {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />}
+                เปลี่ยนรูป
+              </button>
+              <button onClick={() => { setPhotoPath(null); setPhotoUrl(null); setPhotoFocus(null) }} className="btn-link text-[12px]">เอาออก</button>
+            </div>
+          )}
+          <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPickPhoto} />
         </div>
         <div><div className={lbl}>ชื่อ</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Forbidden City" /></div>
         <div>

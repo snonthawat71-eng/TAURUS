@@ -39,7 +39,7 @@ export function PlaceCard({
       {/* Header image */}
       <div className="relative h-36">
         {place.photo_url || place.photo_path
-          ? <SignedImage url={place.photo_url} path={place.photo_path} alt={place.name ?? ''} className="w-full h-full object-cover" width={500} fallback={placeholder} />
+          ? <SignedImage url={place.photo_url} path={place.photo_path} focus={place.photo_focus} alt={place.name ?? ''} className="w-full h-full object-cover" width={500} fallback={placeholder} />
           : placeholder}
 
         {multiBranch && (

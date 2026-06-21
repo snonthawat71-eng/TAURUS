@@ -26,6 +26,9 @@ alter table places add column if not exists photo_path text;
 -- เมืองของสถานที่/ร้าน (สำหรับทริปหลายเมือง)
 alter table places add column if not exists city text;
 
+-- การครอปรูปสถานที่/ร้าน เก็บเป็น "x y scale" (จุดโฟกัส % + ซูม) ดู src/lib/photoFocus.ts
+alter table places add column if not exists photo_focus text;
+
 -- รายชื่อเมืองของทริป (ทริปเดียว/หลายเมือง)
 alter table trips add column if not exists cities text[];
 
