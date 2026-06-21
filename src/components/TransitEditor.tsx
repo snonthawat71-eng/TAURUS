@@ -167,7 +167,7 @@ export function TransitEditor({
           <button onClick={() => setSzOpen(true)}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
             style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
-            <IconMap2 size={17} /> ดูแผนผังรถไฟฟ้าเซินเจิ้น (เส้นทาง/สี)
+            <IconMap2 size={17} /> เลือกจากแผนที่รถไฟฟ้าเซินเจิ้น (คำนวณจุดเปลี่ยนสายให้)
           </button>
         )}
         {legs.map((leg, i) => {
@@ -344,7 +344,8 @@ export function TransitEditor({
         onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setHkOpen(false) }} />}
       {sh && shOpen && <ShanghaiMapViewer onClose={() => setShOpen(false)}
         onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setShOpen(false) }} />}
-      {sz && szOpen && <ShenzhenMapViewer onClose={() => setSzOpen(false)} />}
+      {sz && szOpen && <ShenzhenMapViewer onClose={() => setSzOpen(false)}
+        onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setSzOpen(false) }} />}
     </Drawer>
   )
 }

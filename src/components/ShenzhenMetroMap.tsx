@@ -1,10 +1,17 @@
 // Shenzhen Metro schematic rendered from geometry extracted out of the official
-// route-line + station-dot PDFs: route lines + single-line station dots +
-// interchange markers. The source PDFs have no station names/labels, so dots are
-// not tappable / named yet (routing comes later). Mirrors ShanghaiMetroMap.
-import { VIEW, SZ_LINES, SZ_TICKS, SZ_INTERCHANGES, SZ_NAMES } from '@/lib/metro/shenzhenGeo'
+// route-line + station-dot + station-name PDFs: route lines + station dots +
+// interchange markers + name labels. Stations in SZ_STATION_POINTS are tappable
+// (the safely name-matched subset); the rest stay visible and are selectable via
+// search in the viewer. Mirrors ShanghaiMetroMap.
+import { VIEW, SZ_LINES, SZ_TICKS, SZ_INTERCHANGES, SZ_NAMES, SZ_STATION_POINTS } from '@/lib/metro/shenzhenGeo'
 
-export function ShenzhenMetroMap({ zoom = 1 }: { zoom?: number }) {
+export function ShenzhenMetroMap({ zoom = 1, from, to, onTap }: {
+  zoom?: number
+  from?: string | null
+  to?: string | null
+  onTap?: (name: string) => void
+}) {
+  const points = Object.entries(SZ_STATION_POINTS)
   return (
     <svg width={VIEW.w * zoom} height={VIEW.h * zoom} viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`} className="block mx-auto">
       {/* route lines */}
@@ -26,6 +33,18 @@ export function ShenzhenMetroMap({ zoom = 1 }: { zoom?: number }) {
           textAnchor="start" dominantBaseline="central" fill="#1b2430"
           stroke="#fff" strokeWidth={0.9} paintOrder="stroke"
           style={{ pointerEvents: 'none' }}>{n.t}</text>
+      ))}
+      {/* selection highlight */}
+      {points.filter(([name]) => name === from || name === to).map(([name, p]) => (
+        <circle key={`h${name}`} cx={p.x} cy={p.y} r={p.xc ? 7 : 5} fill="none"
+          stroke={name === from ? '#0270fb' : '#e5006d'} strokeWidth={2.4} />
+      ))}
+      {/* tap hotspots on the named (matched) dots */}
+      {onTap && points.map(([name, p]) => (
+        <circle key={`t${name}`} cx={p.x} cy={p.y} r={p.xc ? 6.5 : 4.5} fill="transparent" style={{ cursor: 'pointer' }}
+          onClick={() => onTap(name)}>
+          <title>{name}</title>
+        </circle>
       ))}
     </svg>
   )
