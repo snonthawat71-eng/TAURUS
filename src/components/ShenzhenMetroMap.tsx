@@ -3,7 +3,7 @@
 // interchange markers + name labels. Stations in SZ_STATION_POINTS are tappable
 // (the safely name-matched subset); the rest stay visible and are selectable via
 // search in the viewer. Mirrors ShanghaiMetroMap.
-import { VIEW, SZ_LINES, SZ_TICKS, SZ_INTERCHANGES, SZ_NAMES, SZ_STATION_POINTS } from '@/lib/metro/shenzhenGeo'
+import { VIEW, SZ_LINES, SZ_TICKS, SZ_INTERCHANGES, SZ_NAMES, SZ_STATION_POINTS, SZ_WALK_LINKS } from '@/lib/metro/shenzhenGeo'
 
 export function ShenzhenMetroMap({ zoom = 1, from, to, onTap }: {
   zoom?: number
@@ -18,6 +18,11 @@ export function ShenzhenMetroMap({ zoom = 1, from, to, onTap }: {
       {SZ_LINES.map((l, i) => (
         <polyline key={i} points={l.points} fill="none" stroke={l.color}
           strokeWidth={Math.max(3, l.w)} strokeLinejoin="round" strokeLinecap="round" />
+      ))}
+      {/* out-of-station walking transfers: dashed connector */}
+      {SZ_WALK_LINKS.map((w, i) => (
+        <line key={`w${i}`} x1={w.a.x} y1={w.a.y} x2={w.b.x} y2={w.b.y}
+          stroke="#9aa0a6" strokeWidth={1.3} strokeDasharray="2.2 2" strokeLinecap="round" />
       ))}
       {/* single-line stations: small white dot with a line-coloured ring */}
       {SZ_TICKS.map((t, i) => (
@@ -39,11 +44,23 @@ export function ShenzhenMetroMap({ zoom = 1, from, to, onTap }: {
         <circle key={`h${name}`} cx={p.x} cy={p.y} r={p.xc ? 7 : 5} fill="none"
           stroke={name === from ? '#0270fb' : '#e5006d'} strokeWidth={2.4} />
       ))}
+      {/* highlight the secondary (walk-linked) dot too */}
+      {SZ_WALK_LINKS.filter((w) => w.name === from || w.name === to).map((w, i) => (
+        <circle key={`wh${i}`} cx={w.a.x} cy={w.a.y} r={7} fill="none"
+          stroke={w.name === from ? '#0270fb' : '#e5006d'} strokeWidth={2.4} />
+      ))}
       {/* tap hotspots on the named (matched) dots */}
       {onTap && points.map(([name, p]) => (
         <circle key={`t${name}`} cx={p.x} cy={p.y} r={p.xc ? 6.5 : 4.5} fill="transparent" style={{ cursor: 'pointer' }}
           onClick={() => onTap(name)}>
           <title>{name}</title>
+        </circle>
+      ))}
+      {/* extra hotspots on the walk-linked secondary dots (e.g. red Line 4 side) */}
+      {onTap && SZ_WALK_LINKS.map((w, i) => (
+        <circle key={`wt${i}`} cx={w.a.x} cy={w.a.y} r={6.5} fill="transparent" style={{ cursor: 'pointer' }}
+          onClick={() => onTap(w.name)}>
+          <title>{w.name}</title>
         </circle>
       ))}
     </svg>

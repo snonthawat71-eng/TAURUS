@@ -1248,3 +1248,11 @@ export const SZ_STATION_POINTS: Record<string, SzStationPoint> = {
   'Dongmen': { x: 586.4, y: 630.6, xc: false },
   'Shenzhen World North': { x: 54.4, y: 270.4, xc: true },
 }
+
+export interface SzWalkLink { name: string; a: { x: number; y: number }; b: { x: number; y: number } }
+// Out-of-station walking transfers: drawn as a dashed connector in the source
+// artwork. Both end dots are tappable and select the same station.
+export const SZ_WALK_LINKS: SzWalkLink[] = [
+  { name: 'Futian Checkpoint', a: { x: 435.9, y: 745.8 }, b: { x: 445.5, y: 745.8 } },
+  { name: 'Hongling South', a: { x: 537.8, y: 698.2 }, b: { x: 555.6, y: 697.9 } },
+]
