@@ -104,10 +104,10 @@ export default function Explore() {
 
   return (
     <div className="min-h-dvh bg-canvas">
-      <header className="sticky top-0 z-30 bg-canvas/95 backdrop-blur flex items-center justify-between px-4 sm:px-6 h-14" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-        <button onClick={goBack} className="btn-icon !border-0" aria-label="กลับ"><IconArrowLeft size={18} /></button>
+      <header className="sticky top-0 z-30 bg-canvas/95 backdrop-blur grid grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6 h-14" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
+        <button onClick={goBack} className="btn-icon !border-0 justify-self-start" aria-label="กลับ"><IconArrowLeft size={18} /></button>
         <TaurusLogo height={42} />
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 justify-self-end">
           {user && <ExploreNotifications userId={user.id} onOpenItem={(id) => { const it = items.find((e) => e.id === id); if (it) setDetail(it) }} />}
           <button onClick={() => navigate('/explore/mine')} className="btn-icon !border-0" aria-label="จัดการสถานที่ของฉัน" title="สถานที่ที่ฉันแชร์"><IconMapPin size={18} /></button>
           <button onClick={() => setEditor('new')} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium"><IconPlus size={15} /><span className="max-sm:hidden">เพิ่มสถานที่</span></button>

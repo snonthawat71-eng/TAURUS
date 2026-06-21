@@ -7,6 +7,9 @@ import { PLACE_TABS, FOOD_TABS } from '@/lib/placeMeta'
 import type { ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace } from '@/lib/database.types'
 
+/** A city is flagged "new" when it has a place added within this window. */
+const NEW_CITY_WINDOW_MS = 3 * 24 * 60 * 60 * 1000
+
 /** Search box + group / sort / category / city filters shared by the Explore
  *  and "my shares" pages. City chips are derived from the items passed in. */
 export function ExploreFilters({ items, f, set, showSort = true }: {
@@ -17,9 +20,16 @@ export function ExploreFilters({ items, f, set, showSort = true }: {
   showSort?: boolean
 }) {
   const cities = useMemo(() => {
-    const m = new Map<string, ExplorePlace>()
-    for (const e of items) if (e.city && !m.has(e.city)) m.set(e.city, e)
-    return Array.from(m.entries()).map(([name, sample]) => ({ name, photo: cityImage(name) ?? sample.photo_url }))
+    const now = Date.now()
+    const m = new Map<string, { sample: ExplorePlace; isNew: boolean }>()
+    for (const e of items) {
+      if (!e.city) continue
+      const fresh = !!e.created_at && now - new Date(e.created_at).getTime() < NEW_CITY_WINDOW_MS
+      const cur = m.get(e.city)
+      if (!cur) m.set(e.city, { sample: e, isNew: fresh })
+      else if (fresh) cur.isNew = true
+    }
+    return Array.from(m.entries()).map(([name, v]) => ({ name, photo: cityImage(name) ?? v.sample.photo_url, isNew: v.isNew }))
   }, [items])
 
   const catTabs = f.group === 'place' ? PLACE_TABS : f.group === 'food' ? FOOD_TABS : []
@@ -61,7 +71,7 @@ export function ExploreFilters({ items, f, set, showSort = true }: {
 
       {/* city tabs (cards, inline) */}
       {cities.length > 0 && (
-        <div className="flex gap-2.5 overflow-x-auto no-scrollbar mb-4 pb-1">
+        <div ref={hscroll} className="flex gap-2.5 overflow-x-auto no-scrollbar mb-4 pb-1">
           <button onClick={() => set({ city: 'all' })}
             className="shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
             style={{ border: `1.5px solid ${f.city === 'all' ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
@@ -70,8 +80,13 @@ export function ExploreFilters({ items, f, set, showSort = true }: {
           </button>
           {cities.map((c) => (
             <button key={c.name} onClick={() => set({ city: c.name })}
-              className="shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
+              className="relative shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
               style={{ border: `1.5px solid ${f.city === c.name ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
+              {c.isNew && (
+                <span className="absolute top-1.5 right-1.5 z-10 inline-flex items-center rounded-full bg-[#EF4444] text-white text-[9px] font-semibold leading-none px-1.5 py-1 shadow">
+                  new
+                </span>
+              )}
               <div className="h-20">
                 <SignedImage url={c.photo} alt={c.name} className="w-full h-full object-cover" width={240}
                   fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconMapPin size={20} className="text-ink-3" /></div>} />
