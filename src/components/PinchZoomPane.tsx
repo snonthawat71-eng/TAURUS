@@ -110,12 +110,43 @@ export function PinchZoomPane({ zoom, setZoom, min = 0.6, max = 3, className = '
     }
     const stop = (ev: Event) => ev.preventDefault() // iOS Safari page pinch
 
+    // --- mouse drag-to-pan (desktop) ---
+    let dragging = false
+    const onMouseDown = (e: MouseEvent) => {
+      if (mode !== 'none' || e.button !== 0) return
+      enter(); mode = 'pan'; dragging = true
+      lastX = e.clientX; lastY = e.clientY; moved = 0
+      pane.style.cursor = 'grabbing'
+      e.preventDefault()
+    }
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragging) return
+      const dx = e.clientX - lastX, dy = e.clientY - lastY
+      moved += Math.abs(dx) + Math.abs(dy)
+      lastX = e.clientX; lastY = e.clientY
+      if (moved > 2) { P = clampPan(P.x + dx, P.y + dy, baseW * s, baseH * s); draw() }
+    }
+    const onMouseUp = () => {
+      if (!dragging) return
+      dragging = false
+      pane.style.cursor = 'grab'
+      if (moved > 4) { // swallow the click after a drag so it doesn't select a station
+        const swallow = (ev: Event) => { ev.stopPropagation(); ev.preventDefault() }
+        pane.addEventListener('click', swallow, { capture: true, once: true })
+        setTimeout(() => pane.removeEventListener('click', swallow, { capture: true } as EventListenerOptions), 350)
+      }
+      commit(); mode = 'none'
+    }
+
     pane.addEventListener('touchstart', onStart, { passive: false })
     pane.addEventListener('touchmove', onMove, { passive: false })
     pane.addEventListener('touchend', onEnd)
     pane.addEventListener('touchcancel', onEnd)
     pane.addEventListener('gesturestart', stop as EventListener)
     pane.addEventListener('gesturechange', stop as EventListener)
+    pane.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
     return () => {
       pane.removeEventListener('touchstart', onStart)
       pane.removeEventListener('touchmove', onMove)
@@ -123,11 +154,14 @@ export function PinchZoomPane({ zoom, setZoom, min = 0.6, max = 3, className = '
       pane.removeEventListener('touchcancel', onEnd)
       pane.removeEventListener('gesturestart', stop as EventListener)
       pane.removeEventListener('gesturechange', stop as EventListener)
+      pane.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
     }
   }, [setZoom, min, max])
 
   return (
-    <div ref={paneRef} className={className} style={{ overflow: 'hidden', touchAction: 'none' }}>
+    <div ref={paneRef} className={className} style={{ overflow: 'hidden', touchAction: 'none', cursor: 'grab' }}>
       <div ref={contentRef} style={{ position: 'absolute', top: 0, left: 0, width: 'max-content', transformOrigin: '0 0', willChange: 'transform', transform: `translate(${pan.x}px, ${pan.y}px)` }}>
         {children}
       </div>
