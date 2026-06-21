@@ -39,9 +39,9 @@ export function TripSwitcher({ variant }: { variant: 'sidebar' | 'topbar' }) {
           </div>
         </button>
       ) : (
-        <button onClick={() => setSheet(true)} className="flex items-center gap-1.5 max-w-[55vw] px-2 h-8 rounded-full bg-surface-2 text-[13px] font-medium">
-          <span>{flagOf(trip)}</span>
-          <span className="truncate">{trip?.name ?? 'เลือกทริป'}</span>
+        <button onClick={() => setSheet(true)} className="flex items-center gap-1.5 min-w-0 max-w-full px-2 h-8 rounded-full bg-surface-2 text-[13px] font-medium">
+          <span className="shrink-0">{flagOf(trip)}</span>
+          <span className="truncate min-w-0">{trip?.name ?? 'เลือกทริป'}</span>
           <IconChevronDown size={14} className="text-ink-3 shrink-0" />
         </button>
       )}
