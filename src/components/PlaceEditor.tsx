@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconTrash, IconPhoto, IconLoader2, IconCheck, IconPlus, IconBuildingStore } from '@tabler/icons-react'
+import { IconTrash, IconPhoto, IconLoader2, IconCheck, IconPlus, IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { Combobox } from './Combobox'
@@ -16,6 +16,8 @@ const lbl = 'text-[11px] text-ink-3'
 
 function emptyRoute(): ExploreRoute { return { line: '', color: '#185FA5', station: '' } }
 function emptyBranch(): PlaceBranch { return { label: '', map_url: '', line: '', color: '#185FA5', station: '' } }
+/** A stored menu file is a PDF when its path/URL ends in .pdf (ignoring query). */
+function isPdfRef(ref: string): boolean { return /\.pdf($|\?)/i.test(ref) }
 
 export function PlaceEditor({
   open, onClose, group, tripId, initial, onSave, onDelete,
@@ -49,9 +51,12 @@ export function PlaceEditor({
   const [note, setNote] = useState('')
   const [photoPath, setPhotoPath] = useState<string | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [menuPaths, setMenuPaths] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
+  const [menuUploading, setMenuUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
+  const menuInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -70,6 +75,7 @@ export function PlaceEditor({
     setNote(initial?.note ?? '')
     setPhotoPath(initial?.photo_path ?? null)
     setPhotoUrl(initial?.photo_url ?? null)
+    setMenuPaths(initial?.menu_paths ?? [])
     setCity(initial?.city ?? (tripCities.length === 1 ? tripCities[0] : ''))
   }, [open, initial]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -81,6 +87,18 @@ export function PlaceEditor({
     if (path) { setPhotoPath(path); setPhotoUrl(null) }
     setUploading(false)
     if (photoInput.current) photoInput.current.value = ''
+  }
+
+  async function onPickMenu(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setMenuUploading(true)
+    for (const file of files) {
+      const { path } = await uploadImage(tripId, 'place-menu', file)
+      if (path) setMenuPaths((m) => [...m, path])
+    }
+    setMenuUploading(false)
+    if (menuInput.current) menuInput.current.value = ''
   }
 
   function patchRoute(i: number, p: Partial<ExploreRoute>) {
@@ -102,6 +120,7 @@ export function PlaceEditor({
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
       map_url: mapUrl, note, photo_path: photoPath, photo_url: photoUrl, city: city || null,
+      menu_paths: group === 'food' && menuPaths.length ? menuPaths : null,
     })
     setBusy(false)
     onClose()
@@ -199,12 +218,13 @@ export function PlaceEditor({
           </div>
         </div>
 
-        {/* multiple branches (chains) — food only; each branch has its own map + station */}
-        {group === 'food' && (
-          <div>
+        {/* multiple branches (chains) — for any place that has more than one
+            location. Location (สาย/สถานี/แผนที่) per branch is optional — a branch
+            can be just a name. */}
+        <div>
             <div className="flex items-center gap-1.5">
               <IconBuildingStore size={13} className="text-ink-3" />
-              <span className={lbl}>หลายสาขา (ถ้าร้านนี้มีหลายที่ — เลือกสาขาได้ในหน้ารายละเอียด)</span>
+              <span className={lbl}>หลายสาขา (ถ้ามีหลายที่ — ใส่แค่ชื่อสาขาก็ได้ ไม่ต้องระบุโลเคชั่น)</span>
             </div>
             <div className="space-y-2 mt-1">
               {branches.map((b, i) => {
@@ -233,6 +253,35 @@ export function PlaceEditor({
               <button onClick={() => setBranches((bs) => [...bs, emptyBranch()])} className="btn-link flex items-center gap-1.5 text-[12px]">
                 <IconPlus size={14} /> เพิ่มสาขา
               </button>
+            </div>
+        </div>
+
+        {/* menu files (restaurants) — photos/PDFs of the menu */}
+        {group === 'food' && (
+          <div>
+            <div className="flex items-center gap-1.5">
+              <IconToolsKitchen2 size={13} className="text-ink-3" />
+              <span className={lbl}>เมนูอาหาร (แนบรูปเมนู หรือไฟล์ PDF ได้หลายไฟล์)</span>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-1.5">
+              {menuPaths.map((ref, i) => (
+                <div key={ref} className="relative w-16 h-16 rounded-md overflow-hidden bg-surface-2 hairline">
+                  {isPdfRef(ref)
+                    ? <div className="w-full h-full grid place-items-center text-ink-3"><IconFileTypePdf size={22} /></div>
+                    : <SignedImage url={ref.startsWith('http') ? ref : undefined} path={ref.startsWith('http') ? undefined : ref}
+                        className="w-full h-full object-cover" width={160}
+                        fallback={<div className="w-full h-full grid place-items-center text-ink-3"><IconPhoto size={18} /></div>} />}
+                  <button onClick={() => setMenuPaths((m) => m.filter((_, idx) => idx !== i))}
+                    aria-label="ลบไฟล์เมนู" className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/55 text-white grid place-items-center">
+                    <IconX size={12} />
+                  </button>
+                </div>
+              ))}
+              <button onClick={() => menuInput.current?.click()} disabled={menuUploading}
+                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 disabled:opacity-50">
+                {menuUploading ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlus size={18} />}
+              </button>
+              <input ref={menuInput} type="file" accept="image/*,application/pdf" multiple hidden onChange={onPickMenu} />
             </div>
           </div>
         )}

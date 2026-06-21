@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react'
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar } from '@tabler/icons-react'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
 import { SignedImage } from './SignedImage'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
+import { getSignedUrl } from '@/lib/files'
+
+const isPdfRef = (ref: string) => /\.pdf($|\?)/i.test(ref)
+/** Open a stored menu file (Cloudinary URL as-is, private path via signed URL). */
+async function openFileRef(ref: string) {
+  if (/^https?:\/\//.test(ref)) { window.open(ref, '_blank'); return }
+  const url = await getSignedUrl(ref)
+  if (url) window.open(url, '_blank')
+}
 import type { Interested } from './PlaceCard'
 import type { Place } from '@/lib/database.types'
 
@@ -88,6 +97,27 @@ export function PlaceDetail({
         )}
 
         {place.note && <p className="text-[13px] text-ink-2 mt-3 leading-relaxed">{place.note}</p>}
+
+        {/* menu (restaurants) — tap a thumbnail to view full size / open the PDF */}
+        {!!place.menu_paths?.length && (
+          <div className="mt-4">
+            <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mb-1.5">
+              <IconToolsKitchen2 size={14} /> เมนู ({place.menu_paths.length})
+            </div>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar">
+              {place.menu_paths.map((ref) => (
+                <button key={ref} onClick={() => openFileRef(ref)}
+                  className="shrink-0 w-20 h-20 rounded-md overflow-hidden bg-surface-2 hairline grid place-items-center">
+                  {isPdfRef(ref)
+                    ? <span className="flex flex-col items-center gap-1 text-ink-3"><IconFileTypePdf size={24} /><span className="text-[10px]">PDF</span></span>
+                    : <SignedImage url={ref.startsWith('http') ? ref : undefined} path={ref.startsWith('http') ? undefined : ref}
+                        className="w-full h-full object-cover" width={200}
+                        fallback={<IconToolsKitchen2 size={20} className="text-ink-3" />} />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {canEdit ? (
           <button onClick={onToggleInterest} className="flex items-center gap-2 mt-4">

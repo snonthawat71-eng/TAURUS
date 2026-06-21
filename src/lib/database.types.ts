@@ -167,6 +167,8 @@ export interface Place {
   photo_path?: string | null
   photo_url?: string | null
   city?: string | null
+  /** optional — present after menu.sql (menu images/PDFs for restaurants) */
+  menu_paths?: string[] | null
   created_at: string
 }
 

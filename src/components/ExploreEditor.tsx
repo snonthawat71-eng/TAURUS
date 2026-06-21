@@ -238,12 +238,12 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
           </div>
         </div>
 
-        {/* multiple branches (chains) — food only; each branch has its own map + station */}
-        {group === 'food' && (
-          <div>
+        {/* multiple branches (chains) — for any place with more than one location.
+            Per-branch location is optional; a branch can be just a name. */}
+        <div>
             <div className="flex items-center gap-1.5">
               <IconBuildingStore size={13} className="text-ink-3" />
-              <span className={lbl}>หลายสาขา (ถ้าร้านนี้มีหลายที่ — เลือกสาขาได้ในหน้ารายละเอียด)</span>
+              <span className={lbl}>หลายสาขา (ถ้ามีหลายที่ — ใส่แค่ชื่อสาขาก็ได้ ไม่ต้องระบุโลเคชั่น)</span>
             </div>
             <div className="space-y-2 mt-1">
               {branches.map((b, i) => {
@@ -271,8 +271,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
                 <IconPlus size={14} /> เพิ่มสาขา
               </button>
             </div>
-          </div>
-        )}
+        </div>
 
         <div>
           <div className={lbl}>รูปภาพ</div>
