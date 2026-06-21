@@ -8,3 +8,5 @@
 -- ============================================================
 
 alter table places add column if not exists menu_paths text[];
+-- หน้า Explore ก็แนบเมนูได้ (เก็บเป็น public URL เพราะเป็น pool สาธารณะ)
+alter table explore_places add column if not exists menu_paths text[];

@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import {
   IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
   IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
-  IconBuildingStore,
+  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
@@ -221,6 +221,25 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
         <button onClick={() => openMap(mapUrl)} className="inline-flex items-center gap-1 text-[12px] text-brand-mid mt-2.5">
           <IconMapPin size={14} /> {sel ? `เปิดแผนที่ (${sel.label || `สาขา ${branchIdx! + 1}`})` : 'เปิดแผนที่'}
         </button>
+      )}
+
+      {/* menu (restaurants) — tap a thumbnail to view full size / open the PDF */}
+      {!!e.menu_paths?.length && (
+        <div className="mt-4">
+          <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mb-1.5">
+            <IconToolsKitchen2 size={14} /> เมนู ({e.menu_paths.length})
+          </div>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {e.menu_paths.map((ref) => (
+              <button key={ref} onClick={() => window.open(ref, '_blank')}
+                className="shrink-0 w-20 h-20 rounded-md overflow-hidden bg-surface-2 hairline grid place-items-center">
+                {/\.pdf($|\?)/i.test(ref)
+                  ? <span className="flex flex-col items-center gap-1 text-ink-3"><IconFileTypePdf size={24} /><span className="text-[10px]">PDF</span></span>
+                  : <img src={ref} alt="" className="w-full h-full object-cover" />}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* star rating summary (from likes / unlikes) */}

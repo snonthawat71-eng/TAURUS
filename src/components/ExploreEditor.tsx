@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconPhoto, IconLoader2, IconPlus, IconTrash, IconBuildingStore, IconCheck } from '@tabler/icons-react'
+import { IconPhoto, IconLoader2, IconPlus, IconTrash, IconBuildingStore, IconCheck, IconToolsKitchen2, IconFileTypePdf, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { Combobox, type ComboOption } from './Combobox'
@@ -17,6 +17,7 @@ const lbl = 'text-[11px] text-ink-3'
 
 function emptyRoute(): ExploreRoute { return { line: '', color: '#0270FB', station: '', mode: 'metro' } }
 function emptyBranch(): PlaceBranch { return { label: '', map_url: '', line: '', color: '#185FA5', station: '' } }
+const isPdfRef = (ref: string) => /\.pdf($|\?)/i.test(ref)
 
 export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   open: boolean
@@ -38,10 +39,13 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [multiBranch, setMultiBranch] = useState(false)
   const [mapUrl, setMapUrl] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
+  const [menuPaths, setMenuPaths] = useState<string[]>([])
   const [note, setNote] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [menuUploading, setMenuUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
+  const menuInput = useRef<HTMLInputElement>(null)
 
   // previously-used city/country pairs — for the quick city chips + comboboxes.
   const sugg = useMemo(() => {
@@ -99,6 +103,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     setMultiBranch(!!initial?.multi_branch)
     setMapUrl(initial?.map_url ?? '')
     setPhotoUrl(initial?.photo_url ?? '')
+    setMenuPaths(initial?.menu_paths ?? [])
     setNote(initial?.note ?? '')
   }, [open, initial])
 
@@ -132,6 +137,18 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     if (photoInput.current) photoInput.current.value = ''
   }
 
+  async function onPickMenu(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setMenuUploading(true)
+    for (const file of files) {
+      const { url } = await uploadPublicImage(file)
+      if (url) setMenuPaths((m) => [...m, url])
+    }
+    setMenuUploading(false)
+    if (menuInput.current) menuInput.current.value = ''
+  }
+
   async function save() {
     setBusy(true)
     const clean = routes.filter((r) => r.line || r.station)
@@ -144,6 +161,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
       multi_branch: multiBranch ? true : null,
+      menu_paths: group === 'food' && menuPaths.length ? menuPaths : null,
       map_url: mapUrl || null, photo_url: photoUrl || null, note: note || null,
     })
     setBusy(false)
@@ -298,6 +316,35 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
           </div>
           <input className={`${field} mt-2`} value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="หรือวาง URL รูปภาพ" />
         </div>
+
+        {/* menu files (restaurants) — photos/PDFs of the menu */}
+        {group === 'food' && (
+          <div>
+            <div className="flex items-center gap-1.5">
+              <IconToolsKitchen2 size={13} className="text-ink-3" />
+              <span className={lbl}>เมนูอาหาร (แนบรูปเมนู หรือไฟล์ PDF ได้หลายไฟล์)</span>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-1.5">
+              {menuPaths.map((ref, i) => (
+                <div key={ref} className="relative w-16 h-16 rounded-md overflow-hidden bg-surface-2 hairline grid place-items-center">
+                  {isPdfRef(ref)
+                    ? <span className="text-ink-3"><IconFileTypePdf size={22} /></span>
+                    : <img src={ref} alt="" className="w-full h-full object-cover" />}
+                  <button onClick={() => setMenuPaths((m) => m.filter((_, idx) => idx !== i))}
+                    aria-label="ลบไฟล์เมนู" className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/55 text-white grid place-items-center">
+                    <IconX size={12} />
+                  </button>
+                </div>
+              ))}
+              <button onClick={() => menuInput.current?.click()} disabled={menuUploading}
+                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 disabled:opacity-50">
+                {menuUploading ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlus size={18} />}
+              </button>
+              <input ref={menuInput} type="file" accept="image/*,application/pdf" multiple hidden onChange={onPickMenu} />
+            </div>
+          </div>
+        )}
+
         <div><div className={lbl}>ลิงก์แผนที่</div><input className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps..." /></div>
         <div><div className={lbl}>โน้ต</div>
           <textarea className="hairline rounded-md text-[13px] p-3 bg-surface w-full outline-none focus:border-brand resize-none" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="แนะนำสั้นๆ" />
