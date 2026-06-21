@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { IconMapPin, IconBuildingMonument, IconToolsKitchen2, IconCake } from '@tabler/icons-react'
+import { IconMapPin, IconBuildingMonument, IconToolsKitchen2, IconCake, IconBuildingStore } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
@@ -25,7 +25,12 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
                   <Icon size={18} stroke={1.5} />
                 </span>
                 <div className="min-w-0">
-                  <div className="text-[14px] font-medium truncate">{p.name}</div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-[14px] font-medium truncate">{p.name}</span>
+                    {(p.multi_branch || !!p.branches?.length) && (
+                      <span className="chip !py-0 !px-1.5 !text-[10px] inline-flex items-center gap-0.5 shrink-0"><IconBuildingStore size={11} /> หลายสาขา</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
                     <span className="size-2 rounded-full shrink-0" style={{ background: p.station_color ?? '#888780' }} />
                     <span className="truncate">{p.station_line}{p.station_name ? ` · ${p.station_name}` : ''}</span>

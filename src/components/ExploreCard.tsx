@@ -1,4 +1,4 @@
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
@@ -74,6 +74,9 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
 
           <div className="flex items-center gap-2 flex-wrap mt-2">
             {e.city && <span className="chip !py-0.5">{e.city}</span>}
+            {(e.multi_branch || !!e.branches?.length) && (
+              <span className="chip !py-0.5 inline-flex items-center gap-1"><IconBuildingStore size={12} /> หลายสาขา</span>
+            )}
             {e.map_url && (
               <button onClick={(ev) => { ev.stopPropagation(); openMap(e.map_url) }} className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:text-brand-mid">
                 <IconMapPin size={12} /> MAP

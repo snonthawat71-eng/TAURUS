@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import {
   IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
   IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
+  IconBuildingStore,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
@@ -174,6 +175,9 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
 
       {/* info */}
       <div className="text-[18px] font-medium leading-snug mt-3.5">{e.name}</div>
+      {(e.multi_branch || !!e.branches?.length) && (
+        <span className="chip !py-0.5 inline-flex items-center gap-1 mt-1.5"><IconBuildingStore size={12} /> หลายสาขา</span>
+      )}
 
       {/* branch picker — for chains with multiple locations */}
       {branches.length > 0 && (

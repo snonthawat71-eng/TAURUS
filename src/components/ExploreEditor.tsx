@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconPhoto, IconLoader2, IconPlus, IconTrash, IconBuildingStore } from '@tabler/icons-react'
+import { IconPhoto, IconLoader2, IconPlus, IconTrash, IconBuildingStore, IconCheck } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { Combobox, type ComboOption } from './Combobox'
@@ -35,6 +35,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [country, setCountry] = useState('')
   const [routes, setRoutes] = useState<ExploreRoute[]>([emptyRoute()])
   const [branches, setBranches] = useState<PlaceBranch[]>([])
+  const [multiBranch, setMultiBranch] = useState(false)
   const [mapUrl, setMapUrl] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
   const [note, setNote] = useState('')
@@ -95,6 +96,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     setBranches(initial?.branches?.length
       ? initial.branches.map((b) => ({ label: b.label ?? '', map_url: b.map_url ?? '', line: b.line ?? '', color: b.color ?? '#185FA5', station: b.station ?? '' }))
       : [])
+    setMultiBranch(!!initial?.multi_branch)
     setMapUrl(initial?.map_url ?? '')
     setPhotoUrl(initial?.photo_url ?? '')
     setNote(initial?.note ?? '')
@@ -141,6 +143,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
       station_line: first?.line || null, station_color: first?.color || null, station_name: first?.station || null,
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
+      multi_branch: multiBranch ? true : null,
       map_url: mapUrl || null, photo_url: photoUrl || null, note: note || null,
     })
     setBusy(false)
@@ -245,6 +248,12 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
               <IconBuildingStore size={13} className="text-ink-3" />
               <span className={lbl}>หลายสาขา (ถ้ามีหลายที่ — ใส่แค่ชื่อสาขาก็ได้ ไม่ต้องระบุโลเคชั่น)</span>
             </div>
+            {/* simple flag: just mark "has many branches" → shows a label on the card */}
+            <button onClick={() => setMultiBranch((v) => !v)}
+              className={['chip mt-1.5', multiBranch ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+              style={multiBranch ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+              {multiBranch && <IconCheck size={12} />} มีหลายสาขา (ขึ้นป้ายบนการ์ด)
+            </button>
             <div className="space-y-2 mt-1">
               {branches.map((b, i) => {
                 const known = findLine(metroSug, b.line ?? '')

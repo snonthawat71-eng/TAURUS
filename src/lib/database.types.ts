@@ -209,6 +209,8 @@ export interface ExplorePlace {
   routes?: ExploreRoute[] | null
   /** optional — present after branches column is added (chains with multiple locations) */
   branches?: PlaceBranch[] | null
+  /** optional — flags "has many branches" for a card label (no per-branch detail) */
+  multi_branch?: boolean | null
   map_url: string | null
   note: string | null
   photo_url: string | null

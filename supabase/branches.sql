@@ -12,3 +12,4 @@ alter table explore_places add column if not exists branches jsonb;
 -- ปุ่ม "มีหลายสาขา" แบบง่าย: แค่ติดธงเพื่อให้ขึ้นป้าย "หลายสาขา" บนการ์ด
 -- (ไม่ต้องกรอกรายละเอียดสาขา/โลเคชั่น)
 alter table places add column if not exists multi_branch boolean;
+alter table explore_places add column if not exists multi_branch boolean;

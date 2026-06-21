@@ -13,7 +13,7 @@ export async function listMyExplore(userId: string) {
 }
 
 // `routes`/`branches` are optional (added later) — strip on a "column does not exist" error.
-const OPTIONAL = ['routes', 'branches']
+const OPTIONAL = ['routes', 'branches', 'multi_branch']
 function stripUnknown(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }; let changed = false
   for (const k of OPTIONAL) if (k in copy && msg.includes(k)) { delete copy[k]; changed = true }
@@ -233,7 +233,7 @@ export function exploreAsPlace(e: ExplorePlace): Place {
   return {
     id: e.id, trip_id: '', group_type: e.group_type, category: e.category, name: e.name,
     station_line: e.station_line, station_color: e.station_color, station_name: e.station_name,
-    routes: e.routes ?? null, branches: e.branches ?? null,
+    routes: e.routes ?? null, branches: e.branches ?? null, multi_branch: e.multi_branch ?? null,
     map_url: e.map_url, note: e.note, in_plan: false, photo_path: null, photo_url: e.photo_url,
     city: e.city, created_at: e.created_at,
   }

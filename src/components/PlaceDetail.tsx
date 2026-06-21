@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf } from '@tabler/icons-react'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
 import { SignedImage } from './SignedImage'
@@ -63,6 +63,9 @@ export function PlaceDetail({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h2 className="text-[16px] font-medium">{place.name}</h2>
+            {(place.multi_branch || !!place.branches?.length) && (
+              <span className="chip !py-0.5 inline-flex items-center gap-1 mt-1"><IconBuildingStore size={12} /> หลายสาขา</span>
+            )}
             {(lineText || stationText) && (
               <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1">
                 <span className="size-2 rounded-full" style={{ background: lineColor ?? '#888780' }} />
