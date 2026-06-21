@@ -233,7 +233,7 @@ export function PlaceEditor({
             <button onClick={() => setMultiBranch((v) => !v)}
               className={['chip mt-1.5', multiBranch ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
               style={multiBranch ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
-              {multiBranch && <IconCheck size={12} />} มีหลายสาขา (ขึ้นป้ายบนการ์ด)
+              {multiBranch && <IconCheck size={12} />} มีหลายสาขา
             </button>
             <div className="space-y-2 mt-1">
               {branches.map((b, i) => {

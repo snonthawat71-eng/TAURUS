@@ -46,9 +46,16 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
 
         {/* text in the middle — laid out top-to-bottom with stats pinned to the base */}
         <div className="flex-1 min-w-0 pr-9 flex flex-col">
-          <span className="inline-flex items-center self-start rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: meta.bg, color: meta.fg }}>
-            {meta.label}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap self-start">
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: meta.bg, color: meta.fg }}>
+              {meta.label}
+            </span>
+            {(e.multi_branch || !!e.branches?.length) && (
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: '#EEF0FB', color: '#5560C8' }}>
+                <IconBuildingStore size={12} /> หลายสาขา
+              </span>
+            )}
+          </div>
           <div className="text-[15px] font-medium leading-snug line-clamp-2 mt-1.5">{e.name}</div>
           <div className="flex items-center gap-1.5 mt-1.5">
             <StarRating rating={stat?.rating ?? 0} size={13} />
@@ -74,9 +81,6 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
 
           <div className="flex items-center gap-2 flex-wrap mt-2">
             {e.city && <span className="chip !py-0.5">{e.city}</span>}
-            {(e.multi_branch || !!e.branches?.length) && (
-              <span className="chip !py-0.5 inline-flex items-center gap-1"><IconBuildingStore size={12} /> หลายสาขา</span>
-            )}
             {e.map_url && (
               <button onClick={(ev) => { ev.stopPropagation(); openMap(e.map_url) }} className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:text-brand-mid">
                 <IconMapPin size={12} /> MAP

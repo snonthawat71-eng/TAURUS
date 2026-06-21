@@ -64,7 +64,9 @@ export function PlaceDetail({
           <div className="min-w-0">
             <h2 className="text-[16px] font-medium">{place.name}</h2>
             {(place.multi_branch || !!place.branches?.length) && (
-              <span className="chip !py-0.5 inline-flex items-center gap-1 mt-1"><IconBuildingStore size={12} /> หลายสาขา</span>
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium mt-1" style={{ background: '#EEF0FB', color: '#5560C8' }}>
+                <IconBuildingStore size={12} /> หลายสาขา
+              </span>
             )}
             {(lineText || stationText) && (
               <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1">

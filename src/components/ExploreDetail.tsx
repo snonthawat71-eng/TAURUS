@@ -175,9 +175,6 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
 
       {/* info */}
       <div className="text-[18px] font-medium leading-snug mt-3.5">{e.name}</div>
-      {(e.multi_branch || !!e.branches?.length) && (
-        <span className="chip !py-0.5 inline-flex items-center gap-1 mt-1.5"><IconBuildingStore size={12} /> หลายสาขา</span>
-      )}
 
       {/* branch picker — for chains with multiple locations */}
       {branches.length > 0 && (
@@ -209,9 +206,14 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
             </span>
           )
         })}
-        <span className="flex gap-1.5">
+        <span className="flex flex-wrap gap-1.5">
           {e.city && <span className="chip !py-0.5">{e.city}</span>}
           {e.country && <span className="chip !py-0.5">{e.country}</span>}
+          {(e.multi_branch || !!e.branches?.length) && (
+            <span className="!py-0.5 inline-flex items-center gap-1 rounded-full px-2 text-[12px] font-medium" style={{ background: '#EEF0FB', color: '#5560C8' }}>
+              <IconBuildingStore size={12} /> หลายสาขา
+            </span>
+          )}
         </span>
       </div>
       {e.note && <p className="text-[13px] text-ink-2 mt-2.5 whitespace-pre-wrap">{e.note}</p>}
