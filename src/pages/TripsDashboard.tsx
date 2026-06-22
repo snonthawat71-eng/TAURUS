@@ -189,7 +189,7 @@ export default function TripsDashboard() {
           : undefined}
       />
 
-      <ProfileEditor open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <ProfileEditor open={profileOpen} onClose={() => setProfileOpen(false)} scope="global" />
     </div>
   )
 }
