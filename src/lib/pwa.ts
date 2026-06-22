@@ -31,11 +31,12 @@ export function registerPWA() {
       window.addEventListener('focus', check)
     },
     onNeedRefresh() {
-      // ttl: 0 → the toast stays until the user acts on it; kind 'error' → red bar
+      // ttl: 0 → stays until the user acts; kind 'error' → red bar; key → only
+      // ever one update prompt (later checks replace it instead of stacking)
       toast.action(
         'มีเวอร์ชันใหม่ของ TAURUS',
         { label: 'อัปเดต', run: () => updateSW(true) },
-        { kind: 'error', ttl: 0 },
+        { kind: 'error', ttl: 0, key: 'sw-update' },
       )
     },
   })
