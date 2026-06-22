@@ -10,7 +10,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': a new build waits until the user taps "อัปเดต" (see src/lib/pwa.ts),
+      // so an update never interrupts what they're doing.
+      registerType: 'prompt',
       includeAssets: ['taurus-01.svg', 'taurus-02.svg', 'taurus-04.svg'],
       manifest: {
         name: 'TAURUS',
