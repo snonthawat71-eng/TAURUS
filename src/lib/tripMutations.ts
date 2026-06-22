@@ -85,6 +85,7 @@ export async function duplicateTrip(source: Trip, ownerId: string): Promise<{ id
       const stripped = rows.map(({ photo_path: _p, photo_focus: _f, city: _c, routes: _r, ...r }) => { void _p; void _f; void _c; void _r; return r })
       res = await supabase.from('places').insert(stripped)
     }
+    if (res.error) return { id, error: res.error.message }
   }
   return { id, error: null }
 }

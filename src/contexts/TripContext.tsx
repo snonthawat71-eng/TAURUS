@@ -102,17 +102,31 @@ export function TripProvider({ children }: { children: ReactNode }) {
         supabase.from('trip_members').select('user_id,permission').eq('trip_id', trip_id),
       ])
 
+      // Supabase returns failures as an `error` value (not a thrown exception),
+      // so check each one — otherwise a failed query silently shows an empty list.
+      const failures: [string, { message: string } | null][] = [
+        ['โปรไฟล์', profileRes.error], ['ผู้เดินทาง', travelersRes.error],
+        ['ไฟล์ผู้เดินทาง', travelerFilesRes.error], ['เที่ยวบิน', flightsRes.error],
+        ['ที่พัก', hotelsRes.error], ['วันเดินทาง', daysRes.error],
+        ['จุดแวะ', stopsRes.error], ['สถานที่', placesRes.error],
+        ['ค่าใช้จ่าย', expensesRes.error], ['สมาชิก', membersRes.error],
+      ]
+      const failed = failures.find(([, err]) => err)
+      if (failed) throw new Error(`[${failed[0]}] ${failed[1]!.message}`)
+
       const places = (placesRes.data ?? []) as Place[]
       const placeIds = places.map((p) => p.id)
       const interestsRes = placeIds.length
         ? await supabase.from('place_interest').select('*').in('place_id', placeIds)
-        : { data: [] as PlaceInterest[] }
+        : { data: [] as PlaceInterest[], error: null }
+      if (interestsRes.error) throw new Error(`[ความสนใจ] ${interestsRes.error.message}`)
 
       const members = (membersRes.data ?? []) as { user_id: string; permission?: string | null }[]
       const memberIds = members.map((m) => m.user_id)
       const memberProfilesRes = memberIds.length
         ? await supabase.from('profiles').select('*').in('id', memberIds)
-        : { data: [] as Profile[] }
+        : { data: [] as Profile[], error: null }
+      if (memberProfilesRes.error) throw new Error(`[สมาชิก] ${memberProfilesRes.error.message}`)
 
       const myPermission: 'owner' | 'edit' | 'places' | 'view' =
         current.owner_id === user.id

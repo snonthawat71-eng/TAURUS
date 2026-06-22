@@ -19,10 +19,15 @@ const signedCache = new Map<string, { url: string; exp: number }>()
 export async function getSignedUrl(storagePath: string): Promise<string | null> {
   const hit = signedCache.get(storagePath)
   if (hit && hit.exp > Date.now()) return hit.url
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, SIGNED_TTL)
-  if (error) return null
-  signedCache.set(storagePath, { url: data.signedUrl, exp: Date.now() + (SIGNED_TTL - 60) * 1000 })
-  return data.signedUrl
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, SIGNED_TTL)
+    if (error || !data) return null
+    signedCache.set(storagePath, { url: data.signedUrl, exp: Date.now() + (SIGNED_TTL - 60) * 1000 })
+    return data.signedUrl
+  } catch {
+    // Network/throw — callers render a placeholder when this returns null.
+    return null
+  }
 }
 
 /** Resolve a photo (external `url` or private `path`) to a viewable full-size
