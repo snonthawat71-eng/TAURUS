@@ -3,10 +3,10 @@ import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
 import { SignedImage } from './SignedImage'
-import { Lightbox } from './Lightbox'
+import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
-import { getSignedUrl, photoFullUrl } from '@/lib/files'
+import { getSignedUrl } from '@/lib/files'
 
 const isPdfRef = (ref: string) => /\.pdf($|\?)/i.test(ref)
 /** Open a stored menu file (Cloudinary URL as-is, private path via signed URL). */
@@ -34,8 +34,8 @@ export function PlaceDetail({
 }) {
   // which branch (chain location) is selected; null = the place's own location
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
-  // full-size photo viewer (the uncropped original)
-  const [lightbox, setLightbox] = useState<string | null>(null)
+  // full-size photo viewer — index into the extra-photos gallery (null = closed)
+  const [lightbox, setLightbox] = useState<number | null>(null)
   const hasOwnLocation = !!(place && (place.map_url || place.station_name || place.station_line))
   useEffect(() => {
     // default to the first branch only when the place has no location of its own
@@ -46,10 +46,12 @@ export function PlaceDetail({
   const meta = catMeta(place.category)
   const Icon = meta.icon
   const hasPhoto = !!(place.photo_url || place.photo_path)
-  async function openPhoto() {
-    const u = await photoFullUrl(place?.photo_url, place?.photo_path)
-    if (u) setLightbox(u)
-  }
+  // unified gallery: cover photo first, then the extra photos — all swipeable
+  const gallery: PhotoRef[] = [
+    ...(hasPhoto ? [{ url: place.photo_url, path: place.photo_path }] : []),
+    ...(place.photos ?? []).map((ref) => (ref.startsWith('http') ? { url: ref } : { path: ref })),
+  ]
+  const extraBase = hasPhoto ? 1 : 0
   const branches = place.branches ?? []
   const sel = branchIdx != null ? branches[branchIdx] : null
   const lineColor = sel ? sel.color : place.station_color
@@ -64,7 +66,7 @@ export function PlaceDetail({
           fallback={<Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />} />
         {hasPhoto && (
           <>
-            <button onClick={openPhoto} aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
+            <button onClick={() => setLightbox(0)} aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
             <span className="absolute top-2 right-2 z-20 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
           </>
         )}
@@ -124,8 +126,8 @@ export function PlaceDetail({
               <IconPhoto size={14} /> รูปภาพ ({place.photos.length + (hasPhoto ? 1 : 0)})
             </div>
             <div className="flex gap-2 overflow-x-auto no-scrollbar">
-              {place.photos.map((ref) => (
-                <button key={ref} onClick={async () => { const u = await photoFullUrl(ref.startsWith('http') ? ref : null, ref.startsWith('http') ? null : ref); if (u) setLightbox(u) }}
+              {place.photos.map((ref, i) => (
+                <button key={ref} onClick={() => setLightbox(extraBase + i)}
                   className="shrink-0 w-20 h-20 rounded-md overflow-hidden bg-surface-2 hairline grid place-items-center">
                   <SignedImage url={ref.startsWith('http') ? ref : undefined} path={ref.startsWith('http') ? undefined : ref}
                     className="w-full h-full object-cover" width={200}
@@ -194,7 +196,9 @@ export function PlaceDetail({
         </div>
       </div>
 
-      <Lightbox src={lightbox} alt={place.name ?? ''} onClose={() => setLightbox(null)} />
+      {lightbox !== null && (
+        <Lightbox photos={gallery} index={lightbox} alt={place.name ?? ''} onClose={() => setLightbox(null)} />
+      )}
     </Drawer>
   )
 }

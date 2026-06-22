@@ -6,8 +6,7 @@ import {
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
-import { Lightbox } from './Lightbox'
-import { optimizeImageUrl } from '@/lib/cloudinary'
+import { Lightbox, type PhotoRef } from './Lightbox'
 import { Avatar } from './Avatar'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
@@ -43,8 +42,8 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
   const [replyText, setReplyText] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
-  // full-size photo viewer (the uncropped original)
-  const [lightbox, setLightbox] = useState<string | null>(null)
+  // full-size photo viewer — index into the extra-photos gallery (null = closed)
+  const [lightbox, setLightbox] = useState<number | null>(null)
   // which branch (chain location) is selected; null = the item's own location
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
   const hasOwnLocation = !!(e && (e.map_url || e.station_name || e.station_line))
@@ -156,6 +155,12 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
   const branches = e.branches ?? []
   const sel = branchIdx != null ? branches[branchIdx] : null
   const mapUrl = sel?.map_url || e.map_url
+  // unified gallery: cover photo first, then the extra photos — all swipeable
+  const gallery: PhotoRef[] = [
+    ...(e.photo_url ? [{ url: e.photo_url }] : []),
+    ...(e.photos ?? []).map((ref) => ({ url: ref })),
+  ]
+  const extraBase = e.photo_url ? 1 : 0
   const routeList = sel
     ? [{ line: sel.line, color: sel.color, station: sel.station }]
     : (e.routes && e.routes.length) ? e.routes
@@ -169,7 +174,7 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
           fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={52} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
         {e.photo_url && (
           <>
-            <button onClick={() => setLightbox(optimizeImageUrl(e.photo_url, 1600) ?? e.photo_url)} aria-label="ดูรูปเต็ม" className="absolute inset-0 cursor-zoom-in" />
+            <button onClick={() => setLightbox(0)} aria-label="ดูรูปเต็ม" className="absolute inset-0 cursor-zoom-in" />
             <span className="absolute top-2.5 left-2.5 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
           </>
         )}
@@ -235,8 +240,8 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
             <IconPhoto size={14} /> รูปภาพ ({e.photos.length + (e.photo_url ? 1 : 0)})
           </div>
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {e.photos.map((ref) => (
-              <button key={ref} onClick={() => setLightbox(optimizeImageUrl(ref, 1600) ?? ref)}
+            {e.photos.map((ref, i) => (
+              <button key={ref} onClick={() => setLightbox(extraBase + i)}
                 className="shrink-0 w-20 h-20 rounded-md overflow-hidden bg-surface-2 hairline grid place-items-center">
                 <img src={ref} alt="" className="w-full h-full object-cover" />
               </button>
@@ -324,7 +329,9 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
         )}
       </div>
 
-      <Lightbox src={lightbox} alt={e.name ?? ''} onClose={() => setLightbox(null)} />
+      {lightbox !== null && (
+        <Lightbox photos={gallery} index={lightbox} alt={e.name ?? ''} onClose={() => setLightbox(null)} />
+      )}
     </Drawer>
   )
 }
