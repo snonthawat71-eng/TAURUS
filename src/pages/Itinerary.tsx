@@ -83,17 +83,11 @@ function SortableStop({
           {canEdit && (
             <PopMenu items={[
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
+              ...(!stop.transit ? [{ label: 'กำหนดวิธีการเดินทาง', icon: <IconRoute size={15} />, onClick: onEditRoute }] : []),
               { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
             ]} />
           )}
         </div>
-        {canEdit && !stop.transit && (
-          <button onClick={onEditRoute}
-            className="mt-2 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium"
-            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
-            <IconRoute size={14} /> กำหนดวิธีการเดินทาง
-          </button>
-        )}
         {stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
       </div>
     </div>
