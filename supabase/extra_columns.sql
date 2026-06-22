@@ -20,6 +20,9 @@ alter table trips add column if not exists flag text;
 -- พฤติกรรมเมื่อแตะชื่อจุดแวะ ('map' = เปิดแผนที่ | 'detail' = ดูรายละเอียด | 'none')
 alter table itinerary_stops add column if not exists link_mode text;
 
+-- ผู้ใช้เลือก "ไม่กำหนดเส้นทาง" สำหรับจุดแวะนี้ → ซ่อนปุ่มกำหนดเส้นทาง (ย้ายไปเมนู 3 จุด)
+alter table itinerary_stops add column if not exists skip_transit boolean not null default false;
+
 -- รูปภาพสถานที่/ร้าน (เก็บ path ใน private bucket 'trip-files')
 alter table places add column if not exists photo_path text;
 

@@ -145,6 +145,8 @@ export interface ItineraryStop {
   transit: Transit | null
   /** optional — present after the extra_columns migration ('map' | 'detail') */
   link_mode?: string | null
+  /** optional — present after extra_columns; user chose not to set a transit route */
+  skip_transit?: boolean | null
   position: number
   created_at: string
   /** optional — present after the concurrency.sql migration (optimistic lock) */

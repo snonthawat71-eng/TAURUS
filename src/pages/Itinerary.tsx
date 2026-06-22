@@ -31,7 +31,7 @@ import {
 import type { ItineraryDay, ItineraryStop, Place } from '@/lib/database.types'
 
 function SortableStop({
-  stop, matchedPlace, canEdit, onOpenDetail, onEdit, onDelete, onEditRoute,
+  stop, matchedPlace, canEdit, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute,
 }: {
   stop: ItineraryStop
   matchedPlace: Place | null
@@ -40,6 +40,7 @@ function SortableStop({
   onEdit: () => void
   onDelete: () => void
   onEditRoute: () => void
+  onSkipRoute: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id, disabled: !canEdit })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
@@ -83,11 +84,26 @@ function SortableStop({
           {canEdit && (
             <PopMenu items={[
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
-              ...(!stop.transit ? [{ label: 'กำหนดวิธีการเดินทาง', icon: <IconRoute size={15} />, onClick: onEditRoute }] : []),
+              // once the user opted out, the "set transit" action lives here instead
+              ...(!stop.transit && stop.skip_transit ? [{ label: 'กำหนดวิธีการเดินทาง', icon: <IconRoute size={15} />, onClick: onEditRoute }] : []),
               { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
             ]} />
           )}
         </div>
+        {canEdit && !stop.transit && !stop.skip_transit && (
+          <div className="mt-2 flex items-center gap-2">
+            <button onClick={onEditRoute}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium"
+              style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
+              <IconRoute size={14} /> กำหนดวิธีการเดินทาง
+            </button>
+            <button onClick={onSkipRoute}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium text-ink-2 hover:bg-surface-2"
+              style={{ border: '0.5px solid var(--color-line)' }}>
+              ไม่กำหนดเส้นทาง
+            </button>
+          </div>
+        )}
         {stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
       </div>
     </div>
@@ -95,7 +111,7 @@ function SortableStop({
 }
 
 function DayCard({
-  day, index, stops, getMatchedPlace, canEdit, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onStopDragEnd, onEditStop, onDeleteStop, onEditRoute,
+  day, index, stops, getMatchedPlace, canEdit, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onStopDragEnd, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
 }: {
   day: ItineraryDay
   index: number
@@ -110,6 +126,7 @@ function DayCard({
   onEditStop: (s: ItineraryStop) => void
   onDeleteStop: (id: string) => void
   onEditRoute: (s: ItineraryStop) => void
+  onSkipRoute: (s: ItineraryStop) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day.id, disabled: !canEdit })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }
@@ -144,7 +161,7 @@ function DayCard({
           <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-3">
               {stops.map((s) => (
-                <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} />
+                <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />
               ))}
             </div>
           </SortableContext>
@@ -259,6 +276,11 @@ export default function Itinerary() {
     if (r.conflict) toast.error('มีคนอื่นแก้ไขจุดแวะนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
     await reload()
   }
+  // user opted out of a route for this stop → hide the buttons (move into the … menu)
+  async function skipRoute(s: ItineraryStop) {
+    await updateStop(s.id, { skip_transit: true }, s.version)
+    await reload()
+  }
   async function onAddDay() {
     if (!trip) return
     const last = localDays[localDays.length - 1]
@@ -303,6 +325,7 @@ export default function Itinerary() {
                 onEditStop={(s) => setEditor({ dayId: day.id, stop: s })}
                 onDeleteStop={removeStop}
                 onEditRoute={(s) => setRouteEdit(s)}
+                onSkipRoute={skipRoute}
               />
             ))}
           </div>

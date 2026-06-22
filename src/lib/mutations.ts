@@ -34,6 +34,7 @@ export interface StopInput {
   map_url?: string | null
   transit?: Transit | null
   link_mode?: string | null
+  skip_transit?: boolean | null
 }
 
 // link_mode column is optional (added by extra_columns.sql); strip it if absent
@@ -57,7 +58,9 @@ export async function addStop(trip_id: string, day_id: string, position: number,
 
 export async function updateStop(id: string, fields: StopInput, expectedVersion?: number) {
   return updateWithVersion('itinerary_stops', id, { ...fields }, expectedVersion, (p, msg) => {
-    if (msg.includes('link_mode') && 'link_mode' in p) { const { link_mode: _omit, ...rest } = p; void _omit; return rest }
+    // optional columns may not exist yet — strip whichever the error names and retry
+    const col = (['link_mode', 'skip_transit'] as const).find((c) => msg.includes(c) && c in p)
+    if (col) { const { [col]: _omit, ...rest } = p; void _omit; return rest }
     return null
   })
 }
