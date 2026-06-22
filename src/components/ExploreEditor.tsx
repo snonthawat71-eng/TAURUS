@@ -325,37 +325,34 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
 
         <div>
           <div className={lbl}>รูปภาพ{cropping ? ' — ลากเพื่อจัดตำแหน่ง / เลื่อนเพื่อซูม' : ''}</div>
-          {photoUrl ? (
+          {cropping && photoUrl ? (
             <div className="space-y-2 mt-1">
-              {cropping ? (
-                <>
-                  <PhotoCropper url={photoUrl} focus={photoFocus} onChange={setPhotoFocus}
-                    fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconPhoto size={22} className="text-ink-3" /></div>} />
-                  <button onClick={() => setCropping(false)} className="btn-icon !w-auto px-3 gap-1.5 text-[12px]"><IconCheck size={14} /> เสร็จ</button>
-                </>
-              ) : (
-                <button type="button" onClick={() => setCropping(true)}
-                  className="relative w-full aspect-[16/10] rounded-lg overflow-hidden bg-surface-2 hairline [-webkit-tap-highlight-color:transparent]">
-                  <SignedImage url={photoUrl} focus={photoFocus} className="w-full h-full object-cover" width={800}
-                    fallback={<div className="w-full h-full grid place-items-center"><IconPhoto size={22} className="text-ink-3" /></div>} />
-                  <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-black/55 text-white">
-                    <IconCrop size={12} /> แตะเพื่อปรับครอป
-                  </span>
-                </button>
-              )}
-              <div className="flex items-center gap-3">
-                <label htmlFor="exp-photo-input" aria-disabled={uploading}
-                  className="btn-icon !w-auto px-3 gap-1.5 text-[12px] cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
-                  {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />} เปลี่ยนรูป
-                </label>
-                <button onClick={() => { setPhotoUrl(''); setPhotoFocus(null); setCropping(false) }} className="btn-link text-[12px]">เอาออก</button>
-              </div>
+              <PhotoCropper url={photoUrl} focus={photoFocus} onChange={setPhotoFocus}
+                fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconPhoto size={22} className="text-ink-3" /></div>} />
+              <button onClick={() => setCropping(false)} className="btn-icon !w-auto px-3 gap-1.5 text-[12px]"><IconCheck size={14} /> เสร็จ</button>
             </div>
           ) : (
-            <label htmlFor="exp-photo-input" aria-disabled={uploading}
-              className="w-full aspect-[16/10] mt-1 rounded-lg hairline grid place-items-center gap-1 text-ink-3 bg-surface-2 cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
-              {uploading ? <IconLoader2 size={20} className="animate-spin" /> : <><IconPhoto size={22} /><span className="text-[12px]">อัปโหลดรูป</span></>}
-            </label>
+            <div className="flex items-center gap-3 mt-1">
+              {/* small thumbnail — tap to crop */}
+              <button type="button" onClick={() => photoUrl && setCropping(true)} disabled={!photoUrl}
+                className="w-20 h-16 rounded-md overflow-hidden shrink-0 bg-surface-2 grid place-items-center relative disabled:cursor-default [-webkit-tap-highlight-color:transparent]">
+                {photoUrl ? (
+                  <>
+                    <SignedImage url={photoUrl} focus={photoFocus} className="w-full h-full object-cover" width={240}
+                      fallback={<IconPhoto size={20} className="text-ink-3" />} />
+                    <span className="absolute bottom-0.5 right-0.5 size-4 rounded-full bg-black/55 text-white grid place-items-center"><IconCrop size={10} /></span>
+                  </>
+                ) : <IconPhoto size={20} className="text-ink-3" />}
+              </button>
+              <div>
+                <label htmlFor="exp-photo-input" aria-disabled={uploading}
+                  className="btn-icon !w-auto px-3 gap-1.5 text-[12px] cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
+                  {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />} {photoUrl ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}
+                </label>
+                {photoUrl && <button onClick={() => { setPhotoUrl(''); setPhotoFocus(null); setCropping(false) }} className="btn-link text-[12px] ml-2">เอาออก</button>}
+                {photoUrl && <div className="text-[11px] text-ink-3 mt-1">แตะรูปเพื่อปรับครอป</div>}
+              </div>
+            </div>
           )}
           <input id="exp-photo-input" type="file" accept="image/*" hidden onChange={onPick} />
           <input className={`${field} mt-2`} value={photoUrl} onChange={(e) => { setPhotoUrl(e.target.value); setPhotoFocus(null) }} placeholder="หรือวาง URL รูปภาพ" />

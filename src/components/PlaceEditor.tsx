@@ -160,40 +160,37 @@ export function PlaceEditor({
   return (
     <Drawer open={open} onClose={onClose} title={initial ? 'แก้ไขรายการ' : (group === 'food' ? 'เพิ่มร้าน' : 'เพิ่มสถานที่')}>
       <div className="space-y-3">
-        {/* Photo — tap the photo to enter crop mode, then drag to reposition /
-            slider to zoom (the crop is what appears on the card and detail view) */}
+        {/* Photo — small thumbnail; tap it to crop (drag to reposition / slider to
+            zoom). The crop is what appears on the card and detail view. */}
         <div className="space-y-2">
-          {(photoPath || photoUrl) ? (
-            cropping ? (
-              <>
-                <PhotoCropper url={photoUrl} path={photoPath} focus={photoFocus} onChange={setPhotoFocus}
-                  fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><meta.icon size={28} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
-                <button onClick={() => setCropping(false)} className="btn-icon !w-auto px-3 gap-1.5 text-[12px]"><IconCheck size={14} /> เสร็จ</button>
-              </>
-            ) : (
-              <button type="button" onClick={() => setCropping(true)}
-                className="relative w-full aspect-[16/10] rounded-lg overflow-hidden hairline [-webkit-tap-highlight-color:transparent]" style={{ background: meta.bg }}>
-                <SignedImage url={photoUrl} path={photoPath} focus={photoFocus} className="w-full h-full object-cover" width={800}
-                  fallback={<div className="w-full h-full grid place-items-center"><meta.icon size={28} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
-                <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-black/55 text-white">
-                  <IconCrop size={12} /> แตะเพื่อปรับครอป
-                </span>
-              </button>
-            )
+          <div className={lbl}>รูปภาพ{cropping ? ' — ลากเพื่อจัดตำแหน่ง / เลื่อนเพื่อซูม' : ''}</div>
+          {cropping && (photoPath || photoUrl) ? (
+            <>
+              <PhotoCropper url={photoUrl} path={photoPath} focus={photoFocus} onChange={setPhotoFocus}
+                fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><meta.icon size={28} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
+              <button onClick={() => setCropping(false)} className="btn-icon !w-auto px-3 gap-1.5 text-[12px]"><IconCheck size={14} /> เสร็จ</button>
+            </>
           ) : (
-            <label htmlFor="place-photo-input" aria-disabled={uploading}
-              className="w-full aspect-[16/10] rounded-lg hairline grid place-items-center gap-1 text-ink-3 cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]" style={{ background: meta.bg }}>
-              {uploading ? <IconLoader2 size={20} className="animate-spin" /> : <><IconPhoto size={22} style={{ color: meta.fg, opacity: 0.85 }} /><span className="text-[12px]" style={{ color: meta.fg }}>เพิ่มรูปสถานที่</span></>}
-            </label>
-          )}
-          {(photoPath || photoUrl) && (
             <div className="flex items-center gap-3">
-              <label htmlFor="place-photo-input" aria-disabled={uploading}
-                className="btn-icon !w-auto px-3 gap-1.5 text-[12px] cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
-                {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />}
-                เปลี่ยนรูป
-              </label>
-              <button onClick={() => { setPhotoPath(null); setPhotoUrl(null); setPhotoFocus(null); setCropping(false) }} className="btn-link text-[12px]">เอาออก</button>
+              {/* small thumbnail — tap to crop */}
+              <button type="button" onClick={() => (photoPath || photoUrl) && setCropping(true)} disabled={!(photoPath || photoUrl)}
+                className="w-20 h-16 rounded-md overflow-hidden shrink-0 grid place-items-center relative disabled:cursor-default [-webkit-tap-highlight-color:transparent]" style={{ background: meta.bg }}>
+                {(photoPath || photoUrl) ? (
+                  <>
+                    <SignedImage url={photoUrl} path={photoPath} focus={photoFocus} className="w-full h-full object-cover" width={240}
+                      fallback={<meta.icon size={22} style={{ color: meta.fg, opacity: 0.85 }} />} />
+                    <span className="absolute bottom-0.5 right-0.5 size-4 rounded-full bg-black/55 text-white grid place-items-center"><IconCrop size={10} /></span>
+                  </>
+                ) : <meta.icon size={22} style={{ color: meta.fg, opacity: 0.85 }} />}
+              </button>
+              <div>
+                <label htmlFor="place-photo-input" aria-disabled={uploading}
+                  className="btn-icon !w-auto px-3 gap-1.5 text-[12px] cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
+                  {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />} {(photoPath || photoUrl) ? 'เปลี่ยนรูป' : 'เพิ่มรูปสถานที่'}
+                </label>
+                {(photoPath || photoUrl) && <button onClick={() => { setPhotoPath(null); setPhotoUrl(null); setPhotoFocus(null); setCropping(false) }} className="btn-link text-[12px] ml-2">เอาออก</button>}
+                {(photoPath || photoUrl) && <div className="text-[11px] text-ink-3 mt-1">แตะรูปเพื่อปรับครอป</div>}
+              </div>
             </div>
           )}
           <input id="place-photo-input" type="file" accept="image/*" hidden onChange={onPickPhoto} />
