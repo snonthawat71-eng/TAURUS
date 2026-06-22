@@ -50,7 +50,7 @@ export function TripEditor({
     setBusy(true)
     const cleanCities = (multi ? cities : cities.slice(0, 1)).map((c) => c.trim()).filter(Boolean)
     const endSafe = end && start && end < start ? start : end
-    await onSave({ name, country, flag, cities: cleanCities, currency, start_date: start || null, end_date: endSafe || null })
+    await onSave({ name: name.trim(), country: country.trim(), flag, cities: cleanCities, currency, start_date: start || null, end_date: endSafe || null })
     setBusy(false)
     onClose()
   }

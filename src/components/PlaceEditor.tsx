@@ -121,7 +121,7 @@ export function PlaceEditor({
     const cleanBranches = branches.filter((b) => b.label || b.map_url || b.line || b.station)
     const finalCategory = category === 'other' ? (customCat.trim() || 'other') : category
     await onSave({
-      group_type: group, name, category: finalCategory,
+      group_type: group, name: name.trim(), category: finalCategory,
       station_line: first?.line || null, station_color: first?.color || null, station_name: first?.station || null,
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
@@ -312,7 +312,7 @@ export function PlaceEditor({
             value={note} onChange={(e) => setNote(e.target.value)} placeholder="รายละเอียด เช่น ควรจองล่วงหน้า" />
         </div>
         <div><div className={lbl}>ลิงก์แผนที่</div><input className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps.apple.com/?q=..." /></div>
-        <button onClick={save} disabled={busy || !name} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+        <button onClick={save} disabled={busy || !name.trim()} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
         {initial && onDelete && (
           <button onClick={del} disabled={busy} className="w-full h-10 flex items-center justify-center gap-1.5 text-[13px] text-[#D85A30]"><IconTrash size={15} /> ลบรายการ</button>
         )}

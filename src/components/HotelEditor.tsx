@@ -4,6 +4,7 @@ import { Drawer } from './Drawer'
 import { HotelPhoto } from './HotelPhoto'
 import { uploadImage } from '@/lib/files'
 import { confirmDialog } from '@/lib/confirm'
+import { toast } from '@/lib/toast'
 import type { Hotel, HotelRoom } from '@/lib/database.types'
 import type { HotelInput } from '@/lib/tripMutations'
 
@@ -66,11 +67,18 @@ export function HotelEditor({
   }
 
   async function save() {
+    const nm = name.trim()
+    if (!nm) { toast.error('กรุณาใส่ชื่อที่พัก'); return }
+    const ci = checkin ? new Date(checkin) : null
+    const co = checkout ? new Date(checkout) : null
+    if (ci && co && co <= ci) { toast.error('เวลา Check-out ต้องอยู่หลัง Check-in'); return }
+    const n = nights.trim() ? Number(nights) : null
+    if (n != null && (!Number.isFinite(n) || n < 0)) { toast.error('จำนวนคืนต้องเป็นตัวเลขไม่ติดลบ'); return }
     setBusy(true)
     await onSave({
-      name, city, nights: nights ? Number(nights) : null, booking_id: bookingId, map_url: mapUrl,
-      checkin: checkin ? new Date(checkin).toISOString() : null,
-      checkout: checkout ? new Date(checkout).toISOString() : null,
+      name: nm, city: city.trim(), nights: n, booking_id: bookingId, map_url: mapUrl,
+      checkin: ci ? ci.toISOString() : null,
+      checkout: co ? co.toISOString() : null,
       rooms: rooms.filter((r) => r.name),
       photo_path: photoPath,
     })
@@ -125,7 +133,7 @@ export function HotelEditor({
           </div>
         </div>
 
-        <button onClick={save} disabled={busy || !name} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+        <button onClick={save} disabled={busy || !name.trim()} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
         {initial && onDelete && (
           <button onClick={del} disabled={busy} className="w-full h-10 flex items-center justify-center gap-1.5 text-[13px] text-[#D85A30]"><IconTrash size={15} /> ลบที่พัก</button>
         )}

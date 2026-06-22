@@ -4,6 +4,7 @@ import { Drawer } from './Drawer'
 import type { Flight, FlightDirection } from '@/lib/database.types'
 import type { FlightInput } from '@/lib/tripMutations'
 import { confirmDialog } from '@/lib/confirm'
+import { toast } from '@/lib/toast'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
@@ -30,6 +31,7 @@ export function FlightEditor({
   }, [open, initial])
 
   async function save() {
+    if (v.seats != null && (!Number.isFinite(v.seats) || v.seats < 0)) { toast.error('จำนวนที่นั่งต้องเป็นตัวเลขไม่ติดลบ'); return }
     setBusy(true)
     await onSave(v)
     setBusy(false)

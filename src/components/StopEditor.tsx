@@ -52,7 +52,7 @@ export function StopEditor({
 
   async function save() {
     setBusy(true)
-    await onSave({ time: time || null, place_name: place || null, note: note || null, map_url: mapUrl || null, link_mode: linkMode })
+    await onSave({ time: time || null, place_name: place.trim() || null, note: note || null, map_url: mapUrl || null, link_mode: linkMode })
     setBusy(false)
     onClose()
   }
@@ -123,7 +123,7 @@ export function StopEditor({
           </div>
           <p className="text-[11px] text-ink-3 mt-1.5">"ดูรายละเอียด" ใช้ได้เมื่อชื่อตรงกับสถานที่ในหน้า Places/Food</p>
         </div>
-        <button onClick={save} disabled={busy || !place} className="btn-primary w-full h-10 disabled:opacity-50">
+        <button onClick={save} disabled={busy || !place.trim()} className="btn-primary w-full h-10 disabled:opacity-50">
           {busy ? 'กำลังบันทึก...' : 'บันทึก'}
         </button>
       </div>

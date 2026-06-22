@@ -68,8 +68,12 @@ export function ExpenseEditor({
   const perHead = split.length && total ? Number(total) / split.length : 0
 
   async function save() {
+    const nm = name.trim()
+    if (!nm) { toast.error('กรุณาใส่ชื่อรายการ'); return }
+    const amount = total.trim() ? Number(total) : null
+    if (amount != null && (!Number.isFinite(amount) || amount < 0)) { toast.error('ยอดรวมต้องเป็นตัวเลขไม่ติดลบ'); return }
     setBusy(true)
-    await onSave({ name, payer_id: payer || null, total: total ? Number(total) : null, split_user_ids: split, receipt_path: receipt })
+    await onSave({ name: nm, payer_id: payer || null, total: amount, split_user_ids: split, receipt_path: receipt })
     setBusy(false)
     onClose()
   }
@@ -120,7 +124,7 @@ export function ExpenseEditor({
           <input ref={slipInput} type="file" accept="image/*,application/pdf" hidden onChange={onSlip} />
         </div>
 
-        <button onClick={save} disabled={busy || !name} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+        <button onClick={save} disabled={busy || !name.trim()} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
         {initial && onDelete && (
           <button onClick={del} disabled={busy} className="w-full h-10 flex items-center justify-center gap-1.5 text-[13px] text-[#D85A30]"><IconTrash size={15} /> ลบรายการ</button>
         )}

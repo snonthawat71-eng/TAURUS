@@ -32,8 +32,10 @@ export function TravelerEditor({
   }, [open, initial, defaultColor])
 
   async function save() {
+    const nick = nickname.trim()
+    if (!nick) return
     setBusy(true)
-    await onSave({ nickname, full_name: fullName, avatar_color: color })
+    await onSave({ nickname: nick, full_name: fullName.trim(), avatar_color: color })
     setBusy(false)
     onClose()
   }
@@ -71,7 +73,7 @@ export function TravelerEditor({
           <label className="text-[11px] text-ink-3">ชื่อ-นามสกุล</label>
           <input className={field} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="เช่น Nuttaporn Saengthong" />
         </div>
-        <button onClick={save} disabled={busy || !nickname} className="btn-primary w-full h-10 disabled:opacity-50">
+        <button onClick={save} disabled={busy || !nickname.trim()} className="btn-primary w-full h-10 disabled:opacity-50">
           {busy ? 'กำลังบันทึก...' : 'บันทึก'}
         </button>
         {initial && onDelete && (
