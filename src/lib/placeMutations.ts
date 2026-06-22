@@ -68,6 +68,19 @@ export async function removeExploreCopies(exploreId: string, tripIds: string[]) 
   return supabase.from('places').delete().eq('source_explore_id', exploreId).in('trip_id', tripIds)
 }
 
+/**
+ * Propagate an Explore edit to every saved copy in the given trips, so a place
+ * the user saved stays in sync when its Explore source is edited. RLS limits
+ * the write to trips the user can edit; copies elsewhere are simply untouched.
+ */
+export async function updateExploreCopies(exploreId: string, fields: PlaceInput, tripIds: string[]) {
+  if (!tripIds.length) return
+  const payload: Record<string, unknown> = { ...fields }
+  let res = await supabase.from('places').update(payload).eq('source_explore_id', exploreId).in('trip_id', tripIds)
+  if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').update(s).eq('source_explore_id', exploreId).in('trip_id', tripIds) }
+  return res
+}
+
 export async function setInPlan(id: string, in_plan: boolean) {
   return supabase.from('places').update({ in_plan }).eq('id', id)
 }

@@ -11,7 +11,7 @@ import { ExploreNotifications } from '@/components/ExploreNotifications'
 import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, logExploreEvent, type VoteStat, type PopStat } from '@/lib/exploreMutations'
-import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
+import { savedExploreIds, removeExploreCopies, updateExploreCopies, type PlaceInput } from '@/lib/placeMutations'
 import { confirmDialog } from '@/lib/confirm'
 import { useBack } from '@/lib/useBack'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -170,9 +170,16 @@ export default function Explore() {
 
       <ExploreEditor open={!!editor} initial={editor && editor !== 'new' ? editor : null} existing={items} onClose={() => setEditor(null)}
         onSave={async (input) => {
-          if (editor && editor !== 'new') await updateExplore(editor.id, input)
+          if (editor && editor !== 'new') {
+            await updateExplore(editor.id, input)
+            // keep places already saved into my trips in sync with this edit.
+            // `country` isn't a `places` column — drop it before propagating.
+            const { country, ...placeFields } = input // eslint-disable-line @typescript-eslint/no-unused-vars
+            await updateExploreCopies(editor.id, placeFields as PlaceInput, myTripIds)
+          }
           else if (user) await addExplore(user.id, input)
-          load()
+          // quiet reload (no full-page spinner) so the scroll position is kept
+          reloadItems()
         }} />
 
       <ExploreDetail e={detail} open={!!detail} saved={detail ? savedSet.has(detail.id) : false}
