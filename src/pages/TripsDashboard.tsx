@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  IconPlus, IconPencil, IconTrash, IconCopy, IconDownload, IconCalendar, IconCrown,
+  IconPlus, IconPencil, IconTrash, IconCopy, IconDownload, IconCalendar, IconCrown, IconLoader2,
   IconUserCircle, IconArrowRight, IconWorldSearch, IconLogout,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
@@ -148,7 +148,7 @@ export default function TripsDashboard() {
                     <button onClick={() => downloadItineraryPdf(t)} title="ดาวน์โหลด Itinerary (PDF)"
                       className="btn-icon !size-9"><IconDownload size={16} /></button>
                     <button onClick={() => duplicate(t)} disabled={busyId === t.id} title="ทำสำเนา"
-                      className="btn-icon !size-9 disabled:opacity-50"><IconCopy size={16} /></button>
+                      className="btn-icon !size-9 disabled:opacity-50">{busyId === t.id ? <IconLoader2 size={16} className="animate-spin" /> : <IconCopy size={16} />}</button>
                   </div>
                 </div>
               )

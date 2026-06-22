@@ -83,7 +83,13 @@ export default function Budget() {
       </div>
 
       <div className="space-y-2.5">
-        {expenses.length === 0 && <div className="card p-6 text-center text-[12px] text-ink-3">ยังไม่มีค่าใช้จ่าย</div>}
+        {expenses.length === 0 && (
+          <div className="card p-8 flex flex-col items-center gap-2 text-center">
+            <IconReceipt size={28} className="text-ink-3" />
+            <p className="text-[13px] text-ink-2">ยังไม่มีค่าใช้จ่าย</p>
+            {canEdit && <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-[13px] mt-1"><IconPlus size={15} /> เพิ่มค่าใช้จ่าย</button>}
+          </div>
+        )}
         {expenses.map((e) => {
           const payer = e.payer_id ? personOf(e.payer_id) : null
           const n = (e.split_user_ids ?? []).length || 1

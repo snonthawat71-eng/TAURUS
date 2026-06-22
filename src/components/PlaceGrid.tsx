@@ -177,7 +177,11 @@ export function PlaceGrid({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card p-8 text-center text-[12px] text-ink-3">{query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</div>
+        <div className="card p-8 flex flex-col items-center gap-2 text-center">
+          <IconSearch size={28} className="text-ink-3" />
+          <p className="text-[13px] text-ink-2">{query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</p>
+          {canEdit && !query && <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-[13px] mt-1"><IconPlus size={15} /> {addLabel}</button>}
+        </div>
       ) : (dim === 'none' || chip !== 'all') ? (
         <div className="grid grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
       ) : (
