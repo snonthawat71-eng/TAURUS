@@ -6,6 +6,7 @@ import { ExpenseEditor } from '@/components/ExpenseEditor'
 import { PopMenu } from '@/components/PopMenu'
 import { baht } from '@/lib/format'
 import { confirmDialog } from '@/lib/confirm'
+import { toast } from '@/lib/toast'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
 import { settle, addExpense, updateExpense, deleteExpense } from '@/lib/budgetMutations'
 import { getRateToTHB, CURRENCIES } from '@/lib/fx'
@@ -152,7 +153,7 @@ export default function Budget() {
 function SlipButton({ path }: { path: string | null }) {
   if (!path) return <span className="size-9 shrink-0" />
   async function view() {
-    if (isSampleFile(path)) { alert('สลิปตัวอย่าง'); return }
+    if (isSampleFile(path)) { toast.info('สลิปตัวอย่าง — อัปโหลดสลิปจริงเพื่อเปิดดู'); return }
     const url = await getSignedUrl(path!)
     if (url) window.open(url, '_blank', 'noopener,noreferrer')
   }

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { IconPaperclip, IconLoader2, IconFileCheck, IconEye, IconRefresh, IconTrash } from '@tabler/icons-react'
 import { uploadEntityFile, getSignedUrl, isSampleFile, removeEntityFile } from '@/lib/files'
 import { confirmDialog } from '@/lib/confirm'
+import { toast } from '@/lib/toast'
 import { useTrip } from '@/contexts/TripContext'
 import { PopMenu } from './PopMenu'
 
@@ -22,7 +23,7 @@ export function AttachLink({
   const hasFile = !!storagePath
 
   async function view() {
-    if (isSampleFile(storagePath)) { alert('ไฟล์ตัวอย่าง — อัปโหลดไฟล์จริงเพื่อเปิดดู'); return }
+    if (isSampleFile(storagePath)) { toast.info('ไฟล์ตัวอย่าง — อัปโหลดไฟล์จริงเพื่อเปิดดู'); return }
     if (!storagePath) return
     setBusy(true)
     const url = await getSignedUrl(storagePath)

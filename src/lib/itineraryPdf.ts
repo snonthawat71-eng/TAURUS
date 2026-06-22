@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { toast } from './toast'
 import { formatLongDate, formatDateRange } from './format'
 import type { ItineraryDay, ItineraryStop, Transit, Trip } from './database.types'
 
@@ -80,7 +81,7 @@ export async function downloadItineraryPdf(trip: Trip) {
   </body></html>`
 
   const w = window.open('', '_blank')
-  if (!w) { alert('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาต pop-up แล้วลองใหม่'); return }
+  if (!w) { toast.error('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาต pop-up แล้วลองใหม่'); return }
   w.document.write(html)
   w.document.close()
   w.focus()

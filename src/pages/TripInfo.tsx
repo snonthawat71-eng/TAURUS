@@ -15,6 +15,7 @@ import { AttachLink } from '@/components/AttachLink'
 import { PopMenu } from '@/components/PopMenu'
 import { openMap } from '@/lib/maps'
 import { confirmDialog } from '@/lib/confirm'
+import { toast } from '@/lib/toast'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
 import { flightDuration, formatFlightDate, formatCheckTime } from '@/lib/format'
 import { travelerColor, ORDER } from '@/lib/avatars'
@@ -49,7 +50,7 @@ function AMapPill({ url }: { url: string | null }) {
 
 async function viewFile(f: TravelerFile) {
   if (isSampleFile(f.storage_path)) {
-    alert('นี่เป็นไฟล์ตัวอย่าง — แตะ "เพิ่มไฟล์" เพื่ออัปโหลดไฟล์จริง (QR / Arrival card / Visa) แล้วจะเปิดดูได้')
+    toast.info('นี่เป็นไฟล์ตัวอย่าง — แตะ "เพิ่มไฟล์" เพื่ออัปโหลดไฟล์จริง (QR / Arrival card / Visa) แล้วจะเปิดดูได้')
     return
   }
   const url = await getSignedUrl(f.storage_path)

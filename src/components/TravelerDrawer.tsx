@@ -8,8 +8,8 @@ import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
 import { supabase } from '@/lib/supabase'
 import { uploadTravelerFile, isSampleFile, getSignedUrl } from '@/lib/files'
-import { confirmDialog } from '@/lib/confirm'
-import { toastResult } from '@/lib/toast'
+import { confirmDialog, promptDialog } from '@/lib/confirm'
+import { toast, toastResult } from '@/lib/toast'
 import { useTrip } from '@/contexts/TripContext'
 import type { Traveler, TravelerFile, TravelerFileKind } from '@/lib/database.types'
 
@@ -61,7 +61,7 @@ function QrTile({ file, canEdit, onOpen, onRename, onReplace, onDelete }: {
           <button onClick={onDelete} className="size-6 rounded-full bg-white/90 grid place-items-center text-[#D85A30] shadow-sm" aria-label="ลบ"><IconTrash size={12} /></button>
         </div>
       )}
-      <button onClick={() => (url ? onOpen(url) : alert('นี่เป็นตัวอย่าง — อัปโหลด QR จริงเพื่อแสดงเต็มจอ'))} className="block w-full text-left">
+      <button onClick={() => (url ? onOpen(url) : toast.info('นี่เป็นตัวอย่าง — อัปโหลด QR จริงเพื่อแสดงเต็มจอ'))} className="block w-full text-left">
         <div className="aspect-square bg-surface-2 grid place-items-center">
           {url ? <img src={url} alt={file.label ?? ''} className="w-full h-full object-contain bg-white" />
             : <IconQrcode size={40} className="text-ink-3" />}
@@ -95,7 +95,7 @@ export function TravelerDrawer({
   const qrReplaceInput = useRef<HTMLInputElement>(null)
 
   async function openDoc(f: TravelerFile) {
-    if (isSampleFile(f.storage_path)) { alert('นี่เป็นไฟล์ตัวอย่าง — อัปโหลดไฟล์จริงเพื่อเปิดดู'); return }
+    if (isSampleFile(f.storage_path)) { toast.info('นี่เป็นไฟล์ตัวอย่าง — อัปโหลดไฟล์จริงเพื่อเปิดดู'); return }
     const url = await getSignedUrl(f.storage_path)
     if (!url) return
     if (isImage(f.storage_path)) setLightbox(url)
@@ -139,7 +139,7 @@ export function TravelerDrawer({
     await reload()
   }
   async function rename(f: TravelerFile) {
-    const label = prompt('ตั้งชื่อ QR / เอกสารนี้', f.label ?? '')
+    const label = await promptDialog({ title: 'ตั้งชื่อ QR / เอกสารนี้', input: { defaultValue: f.label ?? '', placeholder: 'เช่น QR ค่าโดยสาร' }, confirmLabel: 'บันทึก' })
     if (label == null) return
     const res = await supabase.from('traveler_files').update({ label: label.trim() || 'QR' }).eq('id', f.id)
     toastResult(res, { success: 'เปลี่ยนชื่อแล้ว', fail: 'เปลี่ยนชื่อไม่สำเร็จ' })

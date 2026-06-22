@@ -1,20 +1,22 @@
-// Imperative, promise-based confirm dialog — mirrors the toast store so any
-// callsite can `await confirmDialog(...)` instead of using window.confirm.
-// <ConfirmHost /> subscribes and renders the styled dialog.
+// Imperative, promise-based dialogs — mirror the toast store so any callsite
+// can `await confirmDialog(...)` / `await promptDialog(...)` instead of using
+// window.confirm / window.prompt. <ConfirmHost /> subscribes and renders them.
 
-export interface ConfirmOptions {
+export interface DialogOptions {
   title?: string
   message?: string
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
+  /** When present, the dialog shows a text input and resolves its value. */
+  input?: { placeholder?: string; defaultValue?: string }
 }
-export interface ConfirmState extends ConfirmOptions { id: number }
+export interface DialogState extends DialogOptions { id: number }
 
-type Listener = (state: ConfirmState | null) => void
+type Listener = (state: DialogState | null) => void
 
-let current: ConfirmState | null = null
-let resolver: ((ok: boolean) => void) | null = null
+let current: DialogState | null = null
+let resolver: ((result: boolean | string | null) => void) | null = null
 const listeners = new Set<Listener>()
 let nextId = 1
 
@@ -26,23 +28,34 @@ export function subscribeConfirm(l: Listener) {
   return () => { listeners.delete(l) }
 }
 
-/** Show a confirm dialog. Pass a string for a plain message, or options for a
- *  title / custom labels / danger styling. Resolves true when confirmed. */
-export function confirmDialog(opts: ConfirmOptions | string): Promise<boolean> {
-  const options = typeof opts === 'string' ? { message: opts } : opts
+function open(options: DialogOptions): Promise<boolean | string | null> {
   // A second dialog opening cancels any pending one.
   if (resolver) resolver(false)
-  return new Promise<boolean>((resolve) => {
+  return new Promise((resolve) => {
     resolver = resolve
     current = { id: nextId++, ...options }
     emit()
   })
 }
 
-/** Called by <ConfirmHost /> when the user picks an answer (or dismisses). */
-export function resolveConfirm(ok: boolean) {
+/** Confirm dialog. Pass a string for a plain message, or options for a title /
+ *  custom labels / danger styling. Resolves true when confirmed. */
+export function confirmDialog(opts: DialogOptions | string): Promise<boolean> {
+  const options = typeof opts === 'string' ? { message: opts } : opts
+  return open(options).then((r) => r === true)
+}
+
+/** Prompt dialog with a text field. Resolves the entered string, or null when
+ *  cancelled. */
+export function promptDialog(opts: DialogOptions & { input?: DialogOptions['input'] } | string): Promise<string | null> {
+  const options = typeof opts === 'string' ? { message: opts } : opts
+  return open({ ...options, input: options.input ?? {} }).then((r) => (typeof r === 'string' ? r : null))
+}
+
+/** Called by <ConfirmHost /> when the user answers (or dismisses). */
+export function resolveDialog(result: boolean | string | null) {
   if (!resolver) return
-  resolver(ok)
+  resolver(result)
   resolver = null
   current = null
   emit()

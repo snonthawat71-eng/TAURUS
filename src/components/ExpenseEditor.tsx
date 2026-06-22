@@ -5,6 +5,7 @@ import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { uploadImage, getSignedUrl, isSampleFile } from '@/lib/files'
 import { confirmDialog } from '@/lib/confirm'
+import { toast } from '@/lib/toast'
 import { baht } from '@/lib/format'
 import type { Expense } from '@/lib/database.types'
 import type { ExpenseInput } from '@/lib/budgetMutations'
@@ -58,7 +59,7 @@ export function ExpenseEditor({
   }
   async function viewSlip() {
     if (!receipt) return
-    if (isSampleFile(receipt)) { alert('สลิปตัวอย่าง'); return }
+    if (isSampleFile(receipt)) { toast.info('สลิปตัวอย่าง — อัปโหลดสลิปจริงเพื่อเปิดดู'); return }
     if (/^https?:\/\//.test(receipt)) { window.open(receipt, '_blank', 'noopener,noreferrer'); return }
     const url = await getSignedUrl(receipt)
     if (url) window.open(url, '_blank', 'noopener,noreferrer')
