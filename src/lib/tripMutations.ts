@@ -159,6 +159,26 @@ export async function deleteTraveler(id: string) {
   return supabase.from('travelers').delete().eq('id', id)
 }
 
+/**
+ * Link my profile to the matching traveler in EVERY trip — not just the current
+ * one. Updates nickname/colour on all travelers whose name matches any of the
+ * given candidates (case-insensitive), so my identity stays in sync across
+ * trips. RLS limits the write to trips I can edit; travelers elsewhere are left
+ * untouched.
+ */
+export async function linkMyTravelers(names: string[], fields: { nickname?: string | null; avatar_color?: string | null }) {
+  const wanted = [...new Set(names.map((n) => (n ?? '').trim()).filter(Boolean))]
+  if (!wanted.length) return
+  const payload: Record<string, unknown> = { ...fields }
+  for (const name of wanted) {
+    let res = await supabase.from('travelers').update(payload).ilike('nickname', name)
+    if (res.error) {
+      const stripped = stripMentioned(payload, res.error.message)
+      if (stripped) await supabase.from('travelers').update(stripped).ilike('nickname', name)
+    }
+  }
+}
+
 // ---------- Flights ----------
 
 export type FlightInput = Partial<Omit<Flight, 'id' | 'trip_id' | 'created_at'>>

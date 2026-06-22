@@ -5,7 +5,7 @@ import { Avatar } from './Avatar'
 import { AVATAR_COLORS, travelerColor, toHexColor } from '@/lib/avatars'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { updateProfile, updateTraveler } from '@/lib/tripMutations'
+import { updateProfile, linkMyTravelers } from '@/lib/tripMutations'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 
@@ -28,12 +28,9 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
     if (!user) return
     setBusy(true)
     await updateProfile(user.id, { nickname, avatar_color: color })
-    // keep the traveler that represents me in sync (match by old or new name)
-    const oldName = profile?.nickname?.trim().toLowerCase()
-    const newName = nickname.trim().toLowerCase()
-    const me = travelers.find((t) => t.nickname?.trim().toLowerCase() === oldName)
-      ?? travelers.find((t) => t.nickname?.trim().toLowerCase() === newName)
-    if (me) await updateTraveler(me.id, { nickname, avatar_color: color })
+    // keep the traveler that represents me in sync across EVERY trip — match by
+    // my old name and my new name (covers a rename), not just the current trip.
+    await linkMyTravelers([profile?.nickname ?? '', nickname], { nickname, avatar_color: color })
     setBusy(false)
     await reload()
     onClose()
@@ -81,7 +78,7 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
           <label className="text-[11px] text-ink-3">ชื่อที่แสดง</label>
           <input className={field} value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="เช่น Elf" />
           <p className="text-[11px] text-ink-3 mt-1">
-            {match ? `✓ เชื่อมกับผู้เดินทาง "${match.nickname}" — แก้ชื่อ/สีที่นี่ ผู้เดินทางจะอัปเดตตาม` : 'เลือกหรือพิมพ์ให้ตรงกับผู้เดินทางของคุณ เพื่อให้งบ/การแชร์อ้างอิงถูกคน'}
+            {match ? `✓ เชื่อมกับผู้เดินทางชื่อ "${match.nickname}" ทุกทริป — แก้ชื่อ/สีที่นี่ ผู้เดินทางที่ชื่อนี้จะอัปเดตตามทุกทริป` : 'เลือกหรือพิมพ์ให้ตรงกับผู้เดินทางของคุณ ชื่อเดียวกันจะถูกลิงก์เป็นคนเดียวกันทุกทริป'}
           </p>
         </div>
         <div className="text-[11px] text-ink-3">อีเมล: {user?.email}</div>
