@@ -5,6 +5,9 @@ import App from './App.tsx'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { Toaster } from '@/components/Toaster'
 import { ConfirmHost } from '@/components/ConfirmHost'
+import { registerPWA } from '@/lib/pwa'
+
+registerPWA()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
