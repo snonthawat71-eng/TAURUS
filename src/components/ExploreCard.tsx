@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore, IconZoomScan } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
-import { Lightbox } from './Lightbox'
+import { Lightbox, type PhotoRef } from './Lightbox'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
 import { openMap } from '@/lib/maps'
-import { photoFullUrl } from '@/lib/files'
 import type { ExplorePlace } from '@/lib/database.types'
 import type { VoteStat, PopStat } from '@/lib/exploreMutations'
 
@@ -22,9 +21,15 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
   onEdit: () => void
   onOpen: () => void
 }) {
-  const [lightbox, setLightbox] = useState<string | null>(null)
+  // photo viewer — index into the gallery (cover + extra photos); null = closed
+  const [lightbox, setLightbox] = useState<number | null>(null)
   const meta = catMeta(e.category)
   const Icon = meta.icon
+  // unified gallery: cover photo first, then any extra photos — all swipeable
+  const gallery: PhotoRef[] = [
+    ...(e.photo_url ? [{ url: e.photo_url }] : []),
+    ...(e.photos ?? []).map((ref) => ({ url: ref })),
+  ]
   const routes = (e.routes && e.routes.length)
     ? e.routes
     : (e.station_line || e.station_name) ? [{ line: e.station_line, color: e.station_color, station: e.station_name }] : []
@@ -42,7 +47,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
             fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
           {e.photo_url && (
             <>
-              <button onClick={async (ev) => { ev.stopPropagation(); const u = await photoFullUrl(e.photo_url, null); if (u) setLightbox(u) }}
+              <button onClick={(ev) => { ev.stopPropagation(); setLightbox(0) }}
                 aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
               <span className="absolute bottom-1.5 right-1.5 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
             </>
@@ -130,7 +135,9 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
         </div>
       )}
       {saved && <div className="absolute inset-0 rounded-[12px] pointer-events-none z-10" style={{ background: 'rgba(120,118,110,0.16)' }} />}
-      <Lightbox src={lightbox} alt={e.name ?? ''} onClose={() => setLightbox(null)} />
+      {lightbox !== null && (
+        <Lightbox photos={gallery} index={lightbox} alt={e.name ?? ''} onClose={() => setLightbox(null)} />
+      )}
     </div>
   )
 }

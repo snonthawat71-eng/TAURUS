@@ -3,10 +3,9 @@ import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, Icon
 import { AvatarStack } from './Avatar'
 import { PopMenu } from './PopMenu'
 import { SignedImage } from './SignedImage'
-import { Lightbox } from './Lightbox'
+import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
-import { photoFullUrl } from '@/lib/files'
 import type { Place } from '@/lib/database.types'
 
 export interface Interested { name: string; color?: string }
@@ -27,12 +26,14 @@ export function PlaceCard({
   onDelete: () => void
   onPin?: () => void
 }) {
-  const [lightbox, setLightbox] = useState<string | null>(null)
+  // photo viewer — index into the gallery (cover + extra photos); null = closed
+  const [lightbox, setLightbox] = useState<number | null>(null)
   const hasPhoto = !!(place.photo_url || place.photo_path)
-  async function openPhoto() {
-    const u = await photoFullUrl(place.photo_url, place.photo_path)
-    if (u) setLightbox(u)
-  }
+  // unified gallery: cover photo first, then any extra photos — all swipeable
+  const gallery: PhotoRef[] = [
+    ...(hasPhoto ? [{ url: place.photo_url, path: place.photo_path }] : []),
+    ...(place.photos ?? []).map((ref) => (ref.startsWith('http') ? { url: ref } : { path: ref })),
+  ]
   const meta = catMeta(place.category)
   const Icon = meta.icon
   const placeholder = (
@@ -53,7 +54,7 @@ export function PlaceCard({
 
         {hasPhoto && (
           <>
-            <button onClick={openPhoto} aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
+            <button onClick={() => setLightbox(0)} aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
             <span className="absolute bottom-2 left-2 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
           </>
         )}
@@ -127,7 +128,9 @@ export function PlaceCard({
       </div>
 
       {dimmed && <div className="absolute inset-0 rounded-[12px] pointer-events-none" style={{ background: 'rgba(120,118,110,0.16)' }} />}
-      <Lightbox src={lightbox} alt={place.name ?? ''} onClose={() => setLightbox(null)} />
+      {lightbox !== null && (
+        <Lightbox photos={gallery} index={lightbox} alt={place.name ?? ''} onClose={() => setLightbox(null)} />
+      )}
     </div>
   )
 }
