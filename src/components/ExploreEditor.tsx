@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconPhoto, IconLoader2, IconPlus, IconTrash, IconBuildingStore, IconCheck, IconToolsKitchen2, IconFileTypePdf, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { PhotoCropper } from './PhotoCropper'
 import { ColorPicker } from './ColorPicker'
 import { Combobox, type ComboOption } from './Combobox'
 import { ModePicker } from './ModePicker'
@@ -39,6 +40,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [multiBranch, setMultiBranch] = useState(false)
   const [mapUrl, setMapUrl] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
+  const [photoFocus, setPhotoFocus] = useState<string | null>(null)
   const [menuPaths, setMenuPaths] = useState<string[]>([])
   const [note, setNote] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -103,6 +105,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     setMultiBranch(!!initial?.multi_branch)
     setMapUrl(initial?.map_url ?? '')
     setPhotoUrl(initial?.photo_url ?? '')
+    setPhotoFocus(initial?.photo_focus ?? null)
     setMenuPaths(initial?.menu_paths ?? [])
     setNote(initial?.note ?? '')
   }, [open, initial])
@@ -132,7 +135,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     if (!file) return
     setUploading(true)
     const { url } = await uploadPublicImage(file)
-    if (url) setPhotoUrl(url)
+    if (url) { setPhotoUrl(url); setPhotoFocus(null) }
     setUploading(false)
     if (photoInput.current) photoInput.current.value = ''
   }
@@ -162,7 +165,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
       branches: cleanBranches.length ? cleanBranches : null,
       multi_branch: multiBranch ? true : null,
       menu_paths: group === 'food' && menuPaths.length ? menuPaths : null,
-      map_url: mapUrl || null, photo_url: photoUrl || null, note: note || null,
+      map_url: mapUrl || null, photo_url: photoUrl || null, photo_focus: photoUrl ? photoFocus : null, note: note || null,
     })
     setBusy(false)
     onClose()
@@ -301,20 +304,26 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
         </div>
 
         <div>
-          <div className={lbl}>รูปภาพ</div>
-          <div className="flex items-center gap-3 mt-1">
-            <div className="w-20 h-16 rounded-md overflow-hidden shrink-0 bg-surface-2 grid place-items-center">
-              {photoUrl ? <img src={photoUrl} alt="" className="w-full h-full object-cover" /> : <IconPhoto size={20} className="text-ink-3" />}
+          <div className={lbl}>รูปภาพ — ลากเพื่อจัดตำแหน่ง / เลื่อนเพื่อซูม</div>
+          {photoUrl ? (
+            <div className="space-y-2 mt-1">
+              <PhotoCropper url={photoUrl} focus={photoFocus} onChange={setPhotoFocus}
+                fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconPhoto size={22} className="text-ink-3" /></div>} />
+              <div className="flex items-center gap-3">
+                <button onClick={() => photoInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
+                  {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />} เปลี่ยนรูป
+                </button>
+                <button onClick={() => { setPhotoUrl(''); setPhotoFocus(null) }} className="btn-link text-[12px]">เอาออก</button>
+              </div>
             </div>
-            <div>
-              <button onClick={() => photoInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
-                {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />} {photoUrl ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}
-              </button>
-              {photoUrl && <button onClick={() => setPhotoUrl('')} className="btn-link text-[12px] ml-2">เอาออก</button>}
-              <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPick} />
-            </div>
-          </div>
-          <input className={`${field} mt-2`} value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="หรือวาง URL รูปภาพ" />
+          ) : (
+            <button onClick={() => photoInput.current?.click()} disabled={uploading}
+              className="w-full aspect-[16/10] mt-1 rounded-lg hairline grid place-items-center gap-1 text-ink-3 bg-surface-2 disabled:opacity-50">
+              {uploading ? <IconLoader2 size={20} className="animate-spin" /> : <><IconPhoto size={22} /><span className="text-[12px]">อัปโหลดรูป</span></>}
+            </button>
+          )}
+          <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPick} />
+          <input className={`${field} mt-2`} value={photoUrl} onChange={(e) => { setPhotoUrl(e.target.value); setPhotoFocus(null) }} placeholder="หรือวาง URL รูปภาพ" />
         </div>
 
         {/* menu files (restaurants) — photos/PDFs of the menu */}

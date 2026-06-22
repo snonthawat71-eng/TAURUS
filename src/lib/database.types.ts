@@ -219,6 +219,8 @@ export interface ExplorePlace {
   map_url: string | null
   note: string | null
   photo_url: string | null
+  /** optional — present after photo_focus column is added; crop "x y scale" */
+  photo_focus?: string | null
   created_by: string | null
   created_at: string
 }

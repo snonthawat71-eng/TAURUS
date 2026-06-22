@@ -31,6 +31,9 @@ create policy "explore insert" on explore_places for insert with check (auth.uid
 create policy "explore update" on explore_places for update using (auth.uid() = created_by) with check (auth.uid() = created_by);
 create policy "explore delete" on explore_places for delete using (auth.uid() = created_by);
 
+-- การครอปรูป Explore เก็บเป็น "x y scale" (จุดโฟกัส % + ซูม) ดู src/lib/photoFocus.ts
+alter table explore_places add column if not exists photo_focus text;
+
 -- ให้สถานที่ในทริปเก็บรูปจาก URL ได้ (ตอน fav จาก Explore เข้าทริป รูปจะติดไปด้วย)
 alter table places add column if not exists photo_url text;
 

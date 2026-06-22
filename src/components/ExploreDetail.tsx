@@ -1,11 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import {
   IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
   IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
-  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf,
+  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconX,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
+import { optimizeImageUrl } from '@/lib/cloudinary'
 import { Avatar } from './Avatar'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
@@ -41,6 +43,8 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
   const [replyText, setReplyText] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
+  // full-size photo viewer (the uncropped original)
+  const [lightbox, setLightbox] = useState<string | null>(null)
   // which branch (chain location) is selected; null = the item's own location
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
   const hasOwnLocation = !!(e && (e.map_url || e.station_name || e.station_line))
@@ -161,8 +165,14 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
       {/* cover (contained card so the drag handle stays usable) */}
       <div className="relative h-52 rounded-[14px] overflow-hidden mt-1 bg-surface-2">
-        <SignedImage url={e.photo_url} alt={e.name ?? ''} className="absolute inset-0 w-full h-full object-cover" width={800}
+        <SignedImage url={e.photo_url} focus={e.photo_focus} alt={e.name ?? ''} className="absolute inset-0 w-full h-full object-cover" width={800}
           fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={52} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
+        {e.photo_url && (
+          <>
+            <button onClick={() => setLightbox(optimizeImageUrl(e.photo_url, 1600) ?? e.photo_url)} aria-label="ดูรูปเต็ม" className="absolute inset-0 cursor-zoom-in" />
+            <span className="absolute top-2.5 left-2.5 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
+          </>
+        )}
         <button onClick={onFav} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'}
           className="absolute bottom-2.5 right-2.5 size-10 rounded-full grid place-items-center shadow-md z-10"
           style={{ background: saved ? 'var(--color-brand)' : 'rgba(255,255,255,.95)', color: saved ? '#fff' : 'var(--color-brand)' }}>
@@ -296,6 +306,14 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
           <div className="space-y-3">{renderThread(null, 0)}</div>
         )}
       </div>
+
+      {lightbox && createPortal(
+        <div className="fixed inset-0 z-[130] bg-black/85 grid place-items-center p-4" onClick={() => setLightbox(null)}>
+          <button className="absolute top-4 right-4 text-white/90" aria-label="ปิด"><IconX size={24} /></button>
+          <img src={lightbox} alt={e.name ?? ''} className="max-w-full max-h-[88dvh] rounded-lg" onClick={(ev) => ev.stopPropagation()} />
+        </div>,
+        document.body,
+      )}
     </Drawer>
   )
 }
