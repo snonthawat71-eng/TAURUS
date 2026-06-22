@@ -15,6 +15,7 @@ import { MetroRoute } from '@/components/MetroRoute'
 import { StopEditor } from '@/components/StopEditor'
 import { DayEditor } from '@/components/DayEditor'
 import { TransitEditor } from '@/components/TransitEditor'
+import { NotificationSettings } from '@/components/NotificationSettings'
 import { PopMenu } from '@/components/PopMenu'
 import { PlaceDetail } from '@/components/PlaceDetail'
 import { openMap } from '@/lib/maps'
@@ -288,6 +289,7 @@ export default function Itinerary() {
 
   return (
     <div className="space-y-4">
+      <NotificationSettings />
       <DndContext sensors={daySensors} collisionDetection={closestCenter} onDragEnd={onDayDragEnd}>
         <SortableContext items={localDays.map((d) => d.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-4">

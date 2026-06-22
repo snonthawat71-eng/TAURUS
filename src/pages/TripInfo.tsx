@@ -12,7 +12,6 @@ import { FlightEditor } from '@/components/FlightEditor'
 import { HotelEditor } from '@/components/HotelEditor'
 import { HotelPhoto } from '@/components/HotelPhoto'
 import { AttachLink } from '@/components/AttachLink'
-import { NotificationSettings } from '@/components/NotificationSettings'
 import { PopMenu } from '@/components/PopMenu'
 import { openMap } from '@/lib/maps'
 import { confirmDialog } from '@/lib/confirm'
@@ -157,7 +156,6 @@ export default function TripInfo() {
 
   return (
     <div>
-      <NotificationSettings />
       {/* Travelers */}
       <SectionHead title="Travelers • ผู้เดินทาง"
         action={canEdit ? <button onClick={() => setTravelerEdit('new')} className="btn-link flex items-center gap-1"><IconUserPlus size={14} /> เพิ่มคน</button> : undefined} />
