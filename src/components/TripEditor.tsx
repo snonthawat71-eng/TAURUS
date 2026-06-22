@@ -11,13 +11,34 @@ const lbl = 'text-[11px] text-ink-3'
 const FLAGS = ['🇨🇳', '🇯🇵', '🇰🇷', '🇹🇼', '🇹🇭', '🇸🇬', '🇻🇳', '🇭🇰', '🇲🇾', '🇮🇩', '🇵🇭', '🇮🇳',
   '🇺🇸', '🇬🇧', '🇫🇷', '🇮🇹', '🇪🇸', '🇩🇪', '🇨🇭', '🇳🇱', '🇦🇺', '🇳🇿', '🇦🇪', '🌍']
 
+// Trip timezone — used to interpret itinerary stop times for push reminders.
+const TIMEZONES = [
+  { tz: 'Asia/Bangkok', label: 'ไทย / เวียดนาม (GMT+7)' },
+  { tz: 'Asia/Tokyo', label: 'ญี่ปุ่น (GMT+9)' },
+  { tz: 'Asia/Seoul', label: 'เกาหลีใต้ (GMT+9)' },
+  { tz: 'Asia/Shanghai', label: 'จีน (GMT+8)' },
+  { tz: 'Asia/Hong_Kong', label: 'ฮ่องกง (GMT+8)' },
+  { tz: 'Asia/Taipei', label: 'ไต้หวัน (GMT+8)' },
+  { tz: 'Asia/Singapore', label: 'สิงคโปร์ / มาเลเซีย (GMT+8)' },
+  { tz: 'Asia/Jakarta', label: 'อินโดนีเซีย-จาการ์ตา (GMT+7)' },
+  { tz: 'Asia/Manila', label: 'ฟิลิปปินส์ (GMT+8)' },
+  { tz: 'Asia/Kolkata', label: 'อินเดีย (GMT+5:30)' },
+  { tz: 'Asia/Dubai', label: 'ดูไบ / UAE (GMT+4)' },
+  { tz: 'Europe/London', label: 'อังกฤษ (GMT+0/+1)' },
+  { tz: 'Europe/Paris', label: 'ยุโรปกลาง (GMT+1/+2)' },
+  { tz: 'America/New_York', label: 'สหรัฐ-ตะวันออก (GMT-5/-4)' },
+  { tz: 'America/Los_Angeles', label: 'สหรัฐ-ตะวันตก (GMT-8/-7)' },
+  { tz: 'Australia/Sydney', label: 'ออสเตรเลีย-ซิดนีย์ (GMT+10/+11)' },
+]
+const deviceTz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone } catch { return 'Asia/Bangkok' } })()
+
 export function TripEditor({
   open, onClose, initial, onSave, onDelete,
 }: {
   open: boolean
   onClose: () => void
   initial: Trip | null
-  onSave: (fields: { name: string; country: string; flag: string; cities: string[]; currency: string; start_date: string | null; end_date: string | null }) => Promise<void>
+  onSave: (fields: { name: string; country: string; flag: string; cities: string[]; currency: string; timezone: string; start_date: string | null; end_date: string | null }) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
   const [name, setName] = useState('')
@@ -28,6 +49,7 @@ export function TripEditor({
   const [multi, setMulti] = useState(false)
   const [cities, setCities] = useState<string[]>([''])
   const [currency, setCurrency] = useState('CNY')
+  const [timezone, setTimezone] = useState('Asia/Bangkok')
   const [busy, setBusy] = useState(false)
   const [pickFlag, setPickFlag] = useState(false)
 
@@ -39,6 +61,7 @@ export function TripEditor({
     setStart(initial?.start_date ?? '')
     setEnd(initial?.end_date ?? '')
     setCurrency(initial?.currency ?? 'CNY')
+    setTimezone(initial?.timezone ?? deviceTz)
     const c = initial?.cities ?? []
     setMulti(c.length > 1)
     setCities(c.length ? c : [''])
@@ -50,7 +73,7 @@ export function TripEditor({
     setBusy(true)
     const cleanCities = (multi ? cities : cities.slice(0, 1)).map((c) => c.trim()).filter(Boolean)
     const endSafe = end && start && end < start ? start : end
-    await onSave({ name: name.trim(), country: country.trim(), flag, cities: cleanCities, currency, start_date: start || null, end_date: endSafe || null })
+    await onSave({ name: name.trim(), country: country.trim(), flag, cities: cleanCities, currency, timezone, start_date: start || null, end_date: endSafe || null })
     setBusy(false)
     onClose()
   }
@@ -105,6 +128,15 @@ export function TripEditor({
             {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.code} · {c.name}</option>)}
           </select>
           <p className="text-[11px] text-ink-3 mt-1">อัตราแลกเปลี่ยน/งบในเว็บจะอ้างอิงสกุลนี้</p>
+        </div>
+
+        <div>
+          <div className={lbl}>โซนเวลาของทริป (ปลายทาง)</div>
+          <select className={field} value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+            {!TIMEZONES.some((t) => t.tz === timezone) && <option value={timezone}>{timezone}</option>}
+            {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
+          </select>
+          <p className="text-[11px] text-ink-3 mt-1">ใช้คิดเวลาแจ้งเตือนตามแผน — ตั้งเป็นเวลาประเทศปลายทางที่ไป</p>
         </div>
 
         {/* Cities */}

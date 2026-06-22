@@ -3,7 +3,7 @@ import type { Flight, HotelRoom, Trip } from './database.types'
 
 // Columns added by supabase/extra_columns.sql — the app still works before the
 // migration is run by stripping any column the API reports as unknown.
-const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency']
+const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone']
 
 function stripMentioned(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
@@ -43,6 +43,7 @@ export interface TripInput {
   flag?: string | null
   cities?: string[] | null
   currency?: string | null
+  timezone?: string | null
   start_date?: string | null
   end_date?: string | null
 }
@@ -67,7 +68,7 @@ export async function duplicateTrip(source: Trip, ownerId: string): Promise<{ id
   const id = crypto.randomUUID()
   const created = await insertGraceful('trips', {
     id, owner_id: ownerId, name: `${source.name} (สำเนา)`,
-    country: source.country, flag: source.flag, cities: source.cities, currency: source.currency,
+    country: source.country, flag: source.flag, cities: source.cities, currency: source.currency, timezone: source.timezone,
     start_date: null, end_date: null,
   })
   if (created.error) return { id, error: created.error.message }

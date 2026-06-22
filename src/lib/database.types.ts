@@ -19,6 +19,8 @@ export interface Trip {
   flag?: string | null
   cities?: string[] | null
   currency?: string | null
+  /** optional — present after notifications.sql; IANA tz for stop-time reminders */
+  timezone?: string | null
   start_date: string | null
   end_date: string | null
   owner_id: string
