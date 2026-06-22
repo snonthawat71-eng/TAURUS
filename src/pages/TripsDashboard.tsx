@@ -39,6 +39,16 @@ export default function TripsDashboard() {
       .then(({ data }) => setTravelers((data ?? []) as TravelerLite[]))
   }, [trips])
 
+  // First time on the web: pop the profile setup so the user picks a name/colour
+  // straight away. Shown once per account (remembered in localStorage).
+  useEffect(() => {
+    if (!user || loading) return
+    const key = `taurus:onboarded:profile:${user.id}`
+    if (localStorage.getItem(key)) return
+    setProfileOpen(true)
+    localStorage.setItem(key, '1')
+  }, [user, loading])
+
   const byTrip = useMemo(() => {
     const m = new Map<string, TravelerLite[]>()
     for (const t of travelers) { if (!m.has(t.trip_id)) m.set(t.trip_id, []); m.get(t.trip_id)!.push(t) }
