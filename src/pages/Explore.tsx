@@ -69,6 +69,10 @@ export default function Explore() {
   }
 
   const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
+  // every trip I can reach — used only to propagate an Explore edit to saved
+  // copies. RLS (can_edit_trip) blocks view/places-only shared trips, so this
+  // safely covers owned + edit-shared trips without touching Explore itself.
+  const editableTripIds = useMemo(() => trips.map((t) => t.id), [trips])
 
   async function refreshSaved() {
     setSavedSet(await savedExploreIds(myTripIds))
@@ -175,7 +179,7 @@ export default function Explore() {
             // keep places already saved into my trips in sync with this edit.
             // `country` isn't a `places` column — drop it before propagating.
             const { country, ...placeFields } = input // eslint-disable-line @typescript-eslint/no-unused-vars
-            await updateExploreCopies(editor.id, placeFields as PlaceInput, myTripIds)
+            await updateExploreCopies(editor.id, placeFields as PlaceInput, editableTripIds)
           }
           else if (user) await addExplore(user.id, input)
           // quiet reload (no full-page spinner) so the scroll position is kept
