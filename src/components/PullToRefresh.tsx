@@ -23,7 +23,9 @@ export function PullToRefresh() {
 
   useEffect(() => {
     function onStart(e: TouchEvent) {
-      if (busy.current || window.scrollY > 0 || e.touches.length !== 1) { startY.current = null; return }
+      // stand down while an overlay (Drawer/bottom-sheet) has locked body scroll —
+      // otherwise swiping a sheet down to close it would trigger a refresh
+      if (busy.current || window.scrollY > 0 || e.touches.length !== 1 || document.body.style.overflow === 'hidden') { startY.current = null; return }
       startY.current = e.touches[0].clientY
       startX.current = e.touches[0].clientX
     }

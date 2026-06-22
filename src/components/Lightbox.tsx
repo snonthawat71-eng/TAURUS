@@ -54,7 +54,13 @@ export function Lightbox({ src, photos, index = 0, alt, onClose }: {
       else if (e.key === 'ArrowRight') go(1)
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // lock body scroll while open (also keeps pull-to-refresh from firing behind it)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
   }, [open, go, onClose])
 
   if (!open) return null
