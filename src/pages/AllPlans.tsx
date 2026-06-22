@@ -3,6 +3,7 @@ import { IconMapPin, IconBuildingMonument, IconToolsKitchen2, IconCake, IconBuil
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
+import { SignedImage } from '@/components/SignedImage'
 import type { Place } from '@/lib/database.types'
 
 function Section({ icon, title, items }: { icon: React.ReactNode; title: string; items: Place[] }) {
@@ -21,8 +22,10 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
           return (
             <div key={p.id} className="card p-3 flex items-center gap-3">
               <button onClick={() => navigate(to)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-                <span className="size-10 rounded-md grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}>
-                  <Icon size={18} stroke={1.5} />
+                <span className="size-12 rounded-md overflow-hidden grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}>
+                  <SignedImage url={p.photo_url} path={p.photo_path} focus={p.photo_focus} alt={p.name ?? ''} width={96}
+                    className="w-full h-full object-cover"
+                    fallback={<Icon size={20} stroke={1.5} />} />
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
