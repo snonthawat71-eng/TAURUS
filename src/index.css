@@ -52,6 +52,8 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* our own pull-to-refresh handles the top overscroll (see PullToRefresh) */
+    overscroll-behavior-y: contain;
   }
   body {
     margin: 0;
