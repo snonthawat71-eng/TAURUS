@@ -3,7 +3,8 @@
 // component subscribes and renders the stack.
 
 export type ToastKind = 'success' | 'error' | 'info'
-export interface Toast { id: number; kind: ToastKind; message: string }
+export interface ToastAction { label: string; run: () => void }
+export interface Toast { id: number; kind: ToastKind; message: string; action?: ToastAction }
 type Listener = (toasts: Toast[]) => void
 
 let toasts: Toast[] = []
@@ -17,9 +18,9 @@ export function dismissToast(id: number) {
   emit()
 }
 
-function push(kind: ToastKind, message: string, ttl: number) {
+function push(kind: ToastKind, message: string, ttl: number, action?: ToastAction) {
   const id = nextId++
-  toasts = [...toasts, { id, kind, message }]
+  toasts = [...toasts, { id, kind, message, action }]
   emit()
   if (ttl) setTimeout(() => dismissToast(id), ttl)
   return id
@@ -35,6 +36,9 @@ export const toast = {
   success: (m: string) => push('success', m, 3500),
   error: (m: string) => push('error', m, 5500),
   info: (m: string) => push('info', m, 3500),
+  /** A toast with an action button (e.g. Undo). Longer-lived by default. */
+  action: (m: string, action: ToastAction, opts: { kind?: ToastKind; ttl?: number } = {}) =>
+    push(opts.kind ?? 'info', m, opts.ttl ?? 7000, action),
 }
 
 /** Surface the outcome of a `{ error }`-returning helper as a toast.

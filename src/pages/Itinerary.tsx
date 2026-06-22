@@ -19,6 +19,7 @@ import { PopMenu } from '@/components/PopMenu'
 import { PlaceDetail } from '@/components/PlaceDetail'
 import { openMap } from '@/lib/maps'
 import { confirmDialog } from '@/lib/confirm'
+import { offerUndo } from '@/lib/undo'
 import { formatLongDate } from '@/lib/format'
 import { setInPlan, toggleInterest } from '@/lib/placeMutations'
 import {
@@ -250,7 +251,9 @@ export default function Itinerary() {
   }
   async function removeStop(id: string) {
     if (!(await confirmDialog({ message: 'ลบจุดแวะนี้?', danger: true, confirmLabel: 'ลบ' }))) return
+    const row = stops.find((s) => s.id === id)
     await deleteStop(id); await reload()
+    if (row) offerUndo('ลบจุดแวะแล้ว', [{ table: 'itinerary_stops', rows: [row] }], reload)
   }
   async function saveRoute(transit: Parameters<typeof updateStop>[1]['transit']) {
     if (!routeEdit) return
@@ -270,7 +273,10 @@ export default function Itinerary() {
   }
   async function removeDay(id: string) {
     if (!(await confirmDialog({ message: 'ลบวันนี้และจุดแวะทั้งหมดในวัน?', danger: true, confirmLabel: 'ลบ' }))) return
+    const dayRow = days.find((d) => d.id === id)
+    const stopRows = stops.filter((s) => s.day_id === id)
     await deleteDay(id); await reload()
+    if (dayRow) offerUndo('ลบวันแล้ว', [{ table: 'itinerary_days', rows: [dayRow] }, { table: 'itinerary_stops', rows: stopRows }], reload)
   }
 
   return (

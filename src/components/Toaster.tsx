@@ -24,6 +24,12 @@ export function Toaster() {
             style={{ background: bg, color: fg }} role="status">
             <Icon size={18} className="shrink-0" />
             <span className="text-[13px] leading-snug flex-1">{t.message}</span>
+            {t.action && (
+              <button onClick={() => { t.action!.run(); dismissToast(t.id) }}
+                className="shrink-0 text-[13px] font-semibold underline underline-offset-2 px-1 opacity-95 hover:opacity-100">
+                {t.action.label}
+              </button>
+            )}
             <button onClick={() => dismissToast(t.id)} className="shrink-0 opacity-80 hover:opacity-100" aria-label="ปิด">
               <IconX size={15} />
             </button>
