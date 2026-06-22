@@ -142,7 +142,10 @@ export default function Budget() {
         initial={editor && editor !== 'new' ? editor : null}
         onSave={async (fields) => {
           if (editor === 'new' || !editor) await addExpense(trip!.id, fields)
-          else await updateExpense(editor.id, fields)
+          else {
+            const r = await updateExpense(editor.id, fields, editor.version)
+            if (r.conflict) toast.error('มีคนอื่นแก้ไขรายการนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
+          }
           await reload()
         }}
         onDelete={editor && editor !== 'new' ? async () => { await deleteExpense(editor.id); await reload() } : undefined}

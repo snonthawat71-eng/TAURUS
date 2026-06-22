@@ -9,6 +9,7 @@ import { SaveToTripDialog } from './SaveToTripDialog'
 import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
 import { confirmDialog } from '@/lib/confirm'
 import { offerUndo } from '@/lib/undo'
+import { toast } from '@/lib/toast'
 import { catMeta, catTabKey, type CategoryTab } from '@/lib/placeMeta'
 import { hscroll } from '@/lib/hscroll'
 import type { Place, PlaceGroup } from '@/lib/database.types'
@@ -201,7 +202,10 @@ export function PlaceGrid({
         initial={editor && editor !== 'new' ? editor : null}
         onSave={async (fields) => {
           if (editor === 'new' || !editor) await addPlace(trip!.id, fields)
-          else await updatePlace(editor.id, fields)
+          else {
+            const r = await updatePlace(editor.id, fields, editor.version)
+            if (r.conflict) toast.error('มีคนอื่นแก้ไขรายการนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
+          }
           await reload()
         }}
         onDelete={editor && editor !== 'new' ? async () => { await deletePlace(editor.id); await reload() } : undefined}

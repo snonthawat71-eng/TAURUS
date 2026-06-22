@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { updateWithVersion } from './concurrency'
 import type { ItineraryStop, Transit } from './database.types'
 
 // ---- Days ----
@@ -13,8 +14,8 @@ export async function addDay(trip_id: string, position: number, day_date: string
   })
 }
 
-export async function updateDay(id: string, fields: { label?: string; day_date?: string | null }) {
-  return supabase.from('itinerary_days').update(fields).eq('id', id)
+export async function updateDay(id: string, fields: { label?: string; day_date?: string | null }, expectedVersion?: number) {
+  return updateWithVersion('itinerary_days', id, { ...fields }, expectedVersion)
 }
 
 export async function deleteDay(id: string) {
@@ -56,15 +57,11 @@ export async function addStop(trip_id: string, day_id: string, position: number,
   return res
 }
 
-export async function updateStop(id: string, fields: StopInput) {
-  const payload: Record<string, unknown> = { ...fields }
-  let res = await supabase.from('itinerary_stops').update(payload).eq('id', id)
-  if (res.error && res.error.message.includes('link_mode')) {
-    const { link_mode: _omit, ...rest } = payload
-    void _omit
-    res = await supabase.from('itinerary_stops').update(rest).eq('id', id)
-  }
-  return res
+export async function updateStop(id: string, fields: StopInput, expectedVersion?: number) {
+  return updateWithVersion('itinerary_stops', id, { ...fields }, expectedVersion, (p, msg) => {
+    if (msg.includes('link_mode') && 'link_mode' in p) { const { link_mode: _omit, ...rest } = p; void _omit; return rest }
+    return null
+  })
 }
 
 export async function deleteStop(id: string) {

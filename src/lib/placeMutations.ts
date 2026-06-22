@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { updateWithVersion } from './concurrency'
 import type { Place } from './database.types'
 
 export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
@@ -20,11 +21,8 @@ export async function addPlace(trip_id: string, input: PlaceInput) {
   return res
 }
 
-export async function updatePlace(id: string, fields: PlaceInput) {
-  const payload: Record<string, unknown> = { ...fields }
-  let res = await supabase.from('places').update(payload).eq('id', id)
-  if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').update(s).eq('id', id) }
-  return res
+export async function updatePlace(id: string, fields: PlaceInput, expectedVersion?: number) {
+  return updateWithVersion('places', id, { ...fields }, expectedVersion, (p, msg) => stripUnknown(p, msg))
 }
 
 export async function deletePlace(id: string) {

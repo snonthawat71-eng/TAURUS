@@ -20,6 +20,7 @@ import { PlaceDetail } from '@/components/PlaceDetail'
 import { openMap } from '@/lib/maps'
 import { confirmDialog } from '@/lib/confirm'
 import { offerUndo } from '@/lib/undo'
+import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
 import { setInPlan, toggleInterest } from '@/lib/placeMutations'
 import {
@@ -195,7 +196,7 @@ export default function Itinerary() {
   const [localStops, setLocalStops] = useState<ItineraryStop[]>(stops)
   const [localDays, setLocalDays] = useState<ItineraryDay[]>(days)
   const [editor, setEditor] = useState<{ dayId: string; stop?: ItineraryStop } | null>(null)
-  const [dayEdit, setDayEdit] = useState<{ id: string; label: string | null; day_date: string | null } | null>(null)
+  const [dayEdit, setDayEdit] = useState<{ id: string; label: string | null; day_date: string | null; version?: number } | null>(null)
   const [routeEdit, setRouteEdit] = useState<ItineraryStop | null>(null)
 
   useEffect(() => setLocalStops(stops), [stops])
@@ -245,8 +246,10 @@ export default function Itinerary() {
 
   async function saveStop(input: StopInput) {
     if (!trip || !editor) return
-    if (editor.stop) await updateStop(editor.stop.id, input)
-    else await addStop(trip.id, editor.dayId, stopsByDay.get(editor.dayId)?.length ?? 0, input)
+    if (editor.stop) {
+      const r = await updateStop(editor.stop.id, input, editor.stop.version)
+      if (r.conflict) toast.error('มีคนอื่นแก้ไขจุดแวะนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
+    } else await addStop(trip.id, editor.dayId, stopsByDay.get(editor.dayId)?.length ?? 0, input)
     await reload()
   }
   async function removeStop(id: string) {
@@ -257,7 +260,9 @@ export default function Itinerary() {
   }
   async function saveRoute(transit: Parameters<typeof updateStop>[1]['transit']) {
     if (!routeEdit) return
-    await updateStop(routeEdit.id, { transit }); await reload()
+    const r = await updateStop(routeEdit.id, { transit }, routeEdit.version)
+    if (r.conflict) toast.error('มีคนอื่นแก้ไขจุดแวะนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
+    await reload()
   }
   async function onAddDay() {
     if (!trip) return
@@ -269,7 +274,9 @@ export default function Itinerary() {
   }
   async function saveDay(fields: { label: string; day_date: string | null }) {
     if (!dayEdit) return
-    await updateDay(dayEdit.id, fields); await reload()
+    const r = await updateDay(dayEdit.id, fields, dayEdit.version)
+    if (r.conflict) toast.error('มีคนอื่นแก้ไขวันนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
+    await reload()
   }
   async function removeDay(id: string) {
     if (!(await confirmDialog({ message: 'ลบวันนี้และจุดแวะทั้งหมดในวัน?', danger: true, confirmLabel: 'ลบ' }))) return
@@ -293,7 +300,7 @@ export default function Itinerary() {
                 getMatchedPlace={getMatchedPlace}
                 canEdit={canEdit}
                 onOpenDetail={setDetailPlace}
-                onEditDay={() => setDayEdit({ id: day.id, label: day.label, day_date: day.day_date })}
+                onEditDay={() => setDayEdit({ id: day.id, label: day.label, day_date: day.day_date, version: day.version })}
                 onDeleteDay={() => removeDay(day.id)}
                 onAddStop={() => setEditor({ dayId: day.id })}
                 onStopDragEnd={(e) => onStopDragEnd(e, day.id)}

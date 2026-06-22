@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { updateWithVersion } from './concurrency'
 
 export interface ExpenseInput {
   name?: string | null
@@ -11,8 +12,8 @@ export interface ExpenseInput {
 export async function addExpense(trip_id: string, input: ExpenseInput) {
   return supabase.from('expenses').insert({ id: crypto.randomUUID(), trip_id, ...input })
 }
-export async function updateExpense(id: string, fields: ExpenseInput) {
-  return supabase.from('expenses').update(fields).eq('id', id)
+export async function updateExpense(id: string, fields: ExpenseInput, expectedVersion?: number) {
+  return updateWithVersion('expenses', id, { ...fields }, expectedVersion)
 }
 export async function deleteExpense(id: string) {
   return supabase.from('expenses').delete().eq('id', id)

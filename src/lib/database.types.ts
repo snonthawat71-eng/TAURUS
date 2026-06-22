@@ -108,6 +108,8 @@ export interface ItineraryDay {
   label: string | null
   position: number
   created_at: string
+  /** optional — present after the concurrency.sql migration (optimistic lock) */
+  version?: number
 }
 
 /** Structured transit (metro route) stored in itinerary_stops.transit */
@@ -143,6 +145,8 @@ export interface ItineraryStop {
   link_mode?: string | null
   position: number
   created_at: string
+  /** optional — present after the concurrency.sql migration (optimistic lock) */
+  version?: number
 }
 
 export type PlaceGroup = 'place' | 'food'
@@ -176,6 +180,8 @@ export interface Place {
   /** optional — present after menu.sql (menu images/PDFs for restaurants) */
   menu_paths?: string[] | null
   created_at: string
+  /** optional — present after the concurrency.sql migration (optimistic lock) */
+  version?: number
 }
 
 /** One way to reach a place (line + station). Stored in explore_places.routes */
@@ -260,4 +266,6 @@ export interface Expense {
   split_user_ids: string[] | null
   receipt_path: string | null
   created_at: string
+  /** optional — present after the concurrency.sql migration (optimistic lock) */
+  version?: number
 }
