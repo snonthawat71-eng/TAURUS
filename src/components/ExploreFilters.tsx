@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { IconWorldSearch, IconMapPin, IconFlame, IconSearch, IconX } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { hscroll } from '@/lib/hscroll'
@@ -10,27 +10,54 @@ import type { ExplorePlace } from '@/lib/database.types'
 /** A city is flagged "new" when it has a place added within this window. */
 const NEW_CITY_WINDOW_MS = 3 * 24 * 60 * 60 * 1000
 
+// Per-user record of the newest item the user has already seen in each city, so
+// the "new" badge clears once they tap into that city (kept in localStorage).
+const seenKey = (uid: string) => `explore:cityNewSeen:${uid}`
+function loadSeen(uid: string): Record<string, string> {
+  try { return JSON.parse(localStorage.getItem(seenKey(uid)) || '{}') } catch { return {} }
+}
+
 /** Search box + group / sort / category / city filters shared by the Explore
  *  and "my shares" pages. City chips are derived from the items passed in. */
-export function ExploreFilters({ items, f, set, showSort = true }: {
+export function ExploreFilters({ items, f, set, showSort = true, userId }: {
   items: ExplorePlace[]
   f: ExploreFilterState
   set: (patch: Partial<ExploreFilterState>) => void
   /** show the "sort by popularity" toggle (hidden on the manage page) */
   showSort?: boolean
+  /** owner of the "seen new cities" record (badge clears per user) */
+  userId?: string
 }) {
+  const [seen, setSeen] = useState<Record<string, string>>(() => (userId ? loadSeen(userId) : {}))
+
   const cities = useMemo(() => {
     const now = Date.now()
-    const m = new Map<string, { sample: ExplorePlace; isNew: boolean }>()
+    const m = new Map<string, { sample: ExplorePlace; fresh: boolean; newestAt: string }>()
     for (const e of items) {
       if (!e.city) continue
-      const fresh = !!e.created_at && now - new Date(e.created_at).getTime() < NEW_CITY_WINDOW_MS
+      const at = e.created_at ?? ''
+      const fresh = !!at && now - new Date(at).getTime() < NEW_CITY_WINDOW_MS
       const cur = m.get(e.city)
-      if (!cur) m.set(e.city, { sample: e, isNew: fresh })
-      else if (fresh) cur.isNew = true
+      if (!cur) m.set(e.city, { sample: e, fresh, newestAt: at })
+      else { if (fresh) cur.fresh = true; if (at > cur.newestAt) cur.newestAt = at }
     }
-    return Array.from(m.entries()).map(([name, v]) => ({ name, photo: cityImage(name) ?? v.sample.photo_url, isNew: v.isNew }))
-  }, [items])
+    return Array.from(m.entries()).map(([name, v]) => ({
+      name, photo: cityImage(name) ?? v.sample.photo_url, newestAt: v.newestAt,
+      // still "new" until the user has viewed something at least as recent
+      isNew: v.fresh && (!seen[name] || v.newestAt > seen[name]),
+    }))
+  }, [items, seen])
+
+  // mark a city's newest item as seen → clears its "new" badge
+  function markSeen(name: string, newestAt: string) {
+    if (!userId || !newestAt) return
+    setSeen((prev) => {
+      if (prev[name] === newestAt) return prev
+      const next = { ...prev, [name]: newestAt }
+      try { localStorage.setItem(seenKey(userId), JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
 
   const catTabs = f.group === 'place' ? PLACE_TABS : f.group === 'food' ? FOOD_TABS : []
 
@@ -79,7 +106,7 @@ export function ExploreFilters({ items, f, set, showSort = true }: {
             <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">ทุกเมือง</div>
           </button>
           {cities.map((c) => (
-            <button key={c.name} onClick={() => set({ city: c.name })}
+            <button key={c.name} onClick={() => { set({ city: c.name }); markSeen(c.name, c.newestAt) }}
               className="relative shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
               style={{ border: `1.5px solid ${f.city === c.name ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
               {c.isNew && (

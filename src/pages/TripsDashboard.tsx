@@ -44,6 +44,20 @@ export default function TripsDashboard() {
     return m
   }, [travelers])
 
+  // Upcoming/ongoing trips first (soonest start at the top), then undated trips,
+  // then finished trips (most recently ended first).
+  const sortedTrips = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const t0 = today.getTime()
+    const rank = (t: Trip) => {
+      if (!t.start_date) return { bucket: 1, key: 0 }
+      const startMs = new Date(t.start_date).getTime()
+      const endMs = new Date(t.end_date || t.start_date).getTime()
+      return endMs >= t0 ? { bucket: 0, key: startMs } : { bucket: 2, key: -startMs }
+    }
+    return [...trips].sort((a, b) => { const ra = rank(a), rb = rank(b); return ra.bucket - rb.bucket || ra.key - rb.key })
+  }, [trips])
+
   function open(t: Trip) { switchTrip(t.id); navigate(t.owner_id === user?.id ? '/info' : '/places') }
   async function duplicate(t: Trip) {
     if (!user) return
@@ -98,7 +112,7 @@ export default function TripsDashboard() {
           <div className="grid place-items-center py-20"><span className="animate-pulse"><TaurusMark size={36} /></span></div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {trips.map((t) => {
+            {sortedTrips.map((t) => {
               const isOwner = t.owner_id === user?.id
               const tvs = byTrip.get(t.id) ?? []
               return (

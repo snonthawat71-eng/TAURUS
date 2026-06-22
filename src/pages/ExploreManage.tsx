@@ -124,7 +124,7 @@ export default function ExploreManage() {
         )}
 
         {!loading && !error && items.length > 0 && (
-          <ExploreFilters items={items} f={filter} set={setF} showSort={false} />
+          <ExploreFilters items={items} f={filter} set={setF} showSort={false} userId={user?.id} />
         )}
 
         {loading ? (

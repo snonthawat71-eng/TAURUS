@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { IconCheck, IconLoader2, IconHeartFilled } from '@tabler/icons-react'
+import { IconCheck, IconLoader2, IconHeartFilled, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { copyPlaceToTrip, exploreSavedInTrips } from '@/lib/placeMutations'
+import { copyPlaceToTrip, exploreSavedInTrips, removeExploreCopies } from '@/lib/placeMutations'
 import { logExploreEvent } from '@/lib/exploreMutations'
 import { countryFlag } from '@/lib/countries'
 import { formatDateRange } from '@/lib/format'
@@ -34,13 +34,19 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, sourceExploreId])
 
-  async function save(tripId: string) {
-    if (!place || done.has(tripId)) return
+  async function toggle(tripId: string) {
+    if (!place) return
     setBusyId(tripId)
-    await copyPlaceToTrip(place, tripId, sourceExploreId)
-    if (sourceExploreId && user) logExploreEvent(sourceExploreId, user.id, 'save')
+    if (done.has(tripId)) {
+      // un-save: remove this place's copy from the chosen trip (explore-sourced only)
+      if (sourceExploreId) await removeExploreCopies(sourceExploreId, [tripId])
+      setDone((prev) => { const n = new Set(prev); n.delete(tripId); return n })
+    } else {
+      await copyPlaceToTrip(place, tripId, sourceExploreId)
+      if (sourceExploreId && user) logExploreEvent(sourceExploreId, user.id, 'save')
+      setDone((prev) => new Set(prev).add(tripId))
+    }
     setBusyId(null)
-    setDone((prev) => new Set(prev).add(tripId))
     onChanged?.()
   }
 
@@ -58,8 +64,10 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
         <div className="space-y-1.5">
           {myTrips.map((t) => {
             const saved = done.has(t.id)
+            const removable = saved && !!sourceExploreId // can only un-save explore-sourced copies
             return (
-              <button key={t.id} onClick={() => save(t.id)} disabled={busyId === t.id || saved}
+              <button key={t.id} onClick={() => toggle(t.id)} disabled={busyId === t.id || (saved && !removable)}
+                title={removable ? 'แตะเพื่อเอาออกจากทริปนี้' : undefined}
                 className="relative w-full flex items-center gap-2.5 card p-3 text-left enabled:hover:bg-surface-2/40">
                 <span className="text-[20px] shrink-0">{t.flag || countryFlag(t.country)}</span>
                 <div className="min-w-0 flex-1">
@@ -67,9 +75,14 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
                   <div className="text-[11px] text-ink-3">{formatDateRange(t.start_date, t.end_date) || t.country || '—'}</div>
                 </div>
                 {busyId === t.id ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
-                  : saved ? <span className="chip !bg-brand-soft !text-brand-dark"><IconCheck size={12} /> เซฟแล้ว</span>
+                  : saved ? (
+                    <span className="inline-flex items-center gap-1.5 shrink-0">
+                      <span className="chip !bg-brand-soft !text-brand-dark"><IconCheck size={12} /> เซฟแล้ว</span>
+                      {removable && <span className="inline-flex items-center gap-0.5 text-[12px] text-[#D85A30]"><IconX size={12} /> เอาออก</span>}
+                    </span>
+                  )
                   : <span className="btn-link text-[12px]">เซฟที่นี่</span>}
-                {saved && <div className="absolute inset-0 rounded-[12px] pointer-events-none" style={{ background: 'rgba(120,118,110,0.16)' }} />}
+                {saved && !removable && <div className="absolute inset-0 rounded-[12px] pointer-events-none" style={{ background: 'rgba(120,118,110,0.16)' }} />}
               </button>
             )
           })}

@@ -83,6 +83,21 @@ export default function Explore() {
   useEffect(() => { load(); refreshStats() }, [])
   useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Re-check what's saved whenever the page is shown again — covers deleting a
+  // saved place from the trip's Places page (or back/forward bfcache restores),
+  // which would otherwise leave the ♥ stale here.
+  useEffect(() => {
+    const onShow = () => { if (document.visibilityState !== 'hidden') refreshSaved() }
+    document.addEventListener('visibilitychange', onShow)
+    window.addEventListener('focus', onShow)
+    window.addEventListener('pageshow', onShow)
+    return () => {
+      document.removeEventListener('visibilitychange', onShow)
+      window.removeEventListener('focus', onShow)
+      window.removeEventListener('pageshow', onShow)
+    }
+  }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // live updates — refresh stats on votes/clicks/comments, reload the list when
   // items are added/edited, and track whether the realtime connection is alive
   useEffect(() => {
@@ -131,7 +146,7 @@ export default function Explore() {
           </button>
         </div>
 
-        <ExploreFilters items={items} f={filter} set={setF} />
+        <ExploreFilters items={items} f={filter} set={setF} userId={user?.id} />
 
         {loading ? (
           <div className="py-16 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
