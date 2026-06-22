@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { isCloudinaryConfigured, uploadToCloudinary } from './cloudinary'
+import { isCloudinaryConfigured, uploadToCloudinary, optimizeImageUrl } from './cloudinary'
 import { toast } from './toast'
 import type { TravelerFileKind } from './database.types'
 
@@ -23,6 +23,16 @@ export async function getSignedUrl(storagePath: string): Promise<string | null> 
   if (error) return null
   signedCache.set(storagePath, { url: data.signedUrl, exp: Date.now() + (SIGNED_TTL - 60) * 1000 })
   return data.signedUrl
+}
+
+/** Resolve a photo (external `url` or private `path`) to a viewable full-size
+ *  URL — for opening it in a lightbox. Cloudinary URLs get a larger width. */
+export async function photoFullUrl(url: string | null | undefined, path: string | null | undefined, width = 1600): Promise<string | null> {
+  if (url) return optimizeImageUrl(url, width) ?? url
+  if (!path) return null
+  if (/^https?:\/\//.test(path)) return optimizeImageUrl(path, width) ?? path
+  if (isSampleFile(path)) return null
+  return getSignedUrl(path)
 }
 
 /** Upload a secret file into the trip's private folder and record it. */

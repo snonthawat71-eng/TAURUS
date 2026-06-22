@@ -1,9 +1,12 @@
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, IconHeartFilled, IconStar, IconBuildingStore } from '@tabler/icons-react'
+import { useState } from 'react'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, IconHeartFilled, IconStar, IconBuildingStore, IconZoomScan } from '@tabler/icons-react'
 import { AvatarStack } from './Avatar'
 import { PopMenu } from './PopMenu'
 import { SignedImage } from './SignedImage'
+import { Lightbox } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
+import { photoFullUrl } from '@/lib/files'
 import type { Place } from '@/lib/database.types'
 
 export interface Interested { name: string; color?: string }
@@ -24,6 +27,12 @@ export function PlaceCard({
   onDelete: () => void
   onPin?: () => void
 }) {
+  const [lightbox, setLightbox] = useState<string | null>(null)
+  const hasPhoto = !!(place.photo_url || place.photo_path)
+  async function openPhoto() {
+    const u = await photoFullUrl(place.photo_url, place.photo_path)
+    if (u) setLightbox(u)
+  }
   const meta = catMeta(place.category)
   const Icon = meta.icon
   const placeholder = (
@@ -38,9 +47,16 @@ export function PlaceCard({
     <div className="card overflow-hidden flex flex-col relative">
       {/* Header image */}
       <div className="relative h-36">
-        {place.photo_url || place.photo_path
+        {hasPhoto
           ? <SignedImage url={place.photo_url} path={place.photo_path} focus={place.photo_focus} alt={place.name ?? ''} className="w-full h-full object-cover" width={500} fallback={placeholder} />
           : placeholder}
+
+        {hasPhoto && (
+          <>
+            <button onClick={openPhoto} aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
+            <span className="absolute bottom-2 left-2 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
+          </>
+        )}
 
         {multiBranch && (
           <span className="absolute top-2 left-2 z-20 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm"
@@ -111,6 +127,7 @@ export function PlaceCard({
       </div>
 
       {dimmed && <div className="absolute inset-0 rounded-[12px] pointer-events-none" style={{ background: 'rgba(120,118,110,0.16)' }} />}
+      <Lightbox src={lightbox} alt={place.name ?? ''} onClose={() => setLightbox(null)} />
     </div>
   )
 }

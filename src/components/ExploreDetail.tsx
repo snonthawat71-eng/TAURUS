@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import {
   IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
   IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
-  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconX,
+  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
+import { Lightbox } from './Lightbox'
 import { optimizeImageUrl } from '@/lib/cloudinary'
 import { Avatar } from './Avatar'
 import { StarRating } from './StarRating'
@@ -307,13 +307,7 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
         )}
       </div>
 
-      {lightbox && createPortal(
-        <div className="fixed inset-0 z-[130] bg-black/85 grid place-items-center p-4" onClick={() => setLightbox(null)}>
-          <button className="absolute top-4 right-4 text-white/90" aria-label="ปิด"><IconX size={24} /></button>
-          <img src={lightbox} alt={e.name ?? ''} className="max-w-full max-h-[88dvh] rounded-lg" onClick={(ev) => ev.stopPropagation()} />
-        </div>,
-        document.body,
-      )}
+      <Lightbox src={lightbox} alt={e.name ?? ''} onClose={() => setLightbox(null)} />
     </Drawer>
   )
 }

@@ -1,9 +1,12 @@
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore } from '@tabler/icons-react'
+import { useState } from 'react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore, IconZoomScan } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
+import { Lightbox } from './Lightbox'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
 import { openMap } from '@/lib/maps'
+import { photoFullUrl } from '@/lib/files'
 import type { ExplorePlace } from '@/lib/database.types'
 import type { VoteStat, PopStat } from '@/lib/exploreMutations'
 
@@ -19,6 +22,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
   onEdit: () => void
   onOpen: () => void
 }) {
+  const [lightbox, setLightbox] = useState<string | null>(null)
   const meta = catMeta(e.category)
   const Icon = meta.icon
   const routes = (e.routes && e.routes.length)
@@ -36,6 +40,13 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
         <div className="w-32 sm:w-36 shrink-0 aspect-[4/5] rounded-[10px] overflow-hidden bg-surface-2 relative">
           <SignedImage url={e.photo_url} focus={e.photo_focus} alt={e.name ?? ''} className="w-full h-full object-cover" width={400}
             fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
+          {e.photo_url && (
+            <>
+              <button onClick={async (ev) => { ev.stopPropagation(); const u = await photoFullUrl(e.photo_url, null); if (u) setLightbox(u) }}
+                aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
+              <span className="absolute bottom-1.5 right-1.5 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
+            </>
+          )}
           {popular && (
             <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 rounded-full pl-1.5 pr-2 py-0.5 text-[10px] font-semibold text-white shadow-sm"
               style={{ background: 'linear-gradient(90deg,#FB7022,#EF4444)' }}>
@@ -119,6 +130,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
         </div>
       )}
       {saved && <div className="absolute inset-0 rounded-[12px] pointer-events-none z-10" style={{ background: 'rgba(120,118,110,0.16)' }} />}
+      <Lightbox src={lightbox} alt={e.name ?? ''} onClose={() => setLightbox(null)} />
     </div>
   )
 }
