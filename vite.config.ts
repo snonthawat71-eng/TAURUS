@@ -26,6 +26,8 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/rest/, /^\/auth/, /^\/storage/, /^\/realtime/],
+        // pull in the push / notificationclick handlers (public/push-sw.js)
+        importScripts: ['push-sw.js'],
         // Cache app shell + Supabase API/storage responses for offline viewing
         runtimeCaching: [
           {
