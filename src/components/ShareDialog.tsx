@@ -3,6 +3,7 @@ import { IconMail, IconTrash, IconCrown, IconLoader2, IconClock } from '@tabler/
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
 import { supabase } from '@/lib/supabase'
+import { confirmDialog } from '@/lib/confirm'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { addInvite, revokeAccess, updateMemberPermission, type SharePermission } from '@/lib/tripMutations'
@@ -70,7 +71,7 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
                       className="hairline rounded-md text-[11px] h-7 px-1.5 bg-surface">
                       {PERMS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
                     </select>
-                    <button onClick={async () => { if (confirm(`นำ "${m.nickname ?? 'สมาชิกคนนี้'}" ออกจากทริป?`)) { const res = await revokeAccess(trip!.id, { user_id: m.id }); toastResult(res, { success: 'นำสมาชิกออกแล้ว', fail: 'นำสมาชิกออกไม่สำเร็จ' }); await reload(); loadData() } }}
+                    <button onClick={async () => { if (await confirmDialog({ message: `นำ "${m.nickname ?? 'สมาชิกคนนี้'}" ออกจากทริป?`, danger: true, confirmLabel: 'นำออก' })) { const res = await revokeAccess(trip!.id, { user_id: m.id }); toastResult(res, { success: 'นำสมาชิกออกแล้ว', fail: 'นำสมาชิกออกไม่สำเร็จ' }); await reload(); loadData() } }}
                       className="text-ink-3 hover:text-[#D85A30] shrink-0" aria-label="ลบสมาชิก"><IconTrash size={15} /></button>
                   </>
                 ) : (

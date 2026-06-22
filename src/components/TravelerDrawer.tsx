@@ -8,6 +8,7 @@ import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
 import { supabase } from '@/lib/supabase'
 import { uploadTravelerFile, isSampleFile, getSignedUrl } from '@/lib/files'
+import { confirmDialog } from '@/lib/confirm'
 import { toastResult } from '@/lib/toast'
 import { useTrip } from '@/contexts/TripContext'
 import type { Traveler, TravelerFile, TravelerFileKind } from '@/lib/database.types'
@@ -131,7 +132,7 @@ export function TravelerDrawer({
     if (qrReplaceInput.current) qrReplaceInput.current.value = ''
   }
   async function remove(f: TravelerFile) {
-    if (!confirm('ลบไฟล์นี้?')) return
+    if (!(await confirmDialog({ message: 'ลบไฟล์นี้?', danger: true, confirmLabel: 'ลบ' }))) return
     if (!isSampleFile(f.storage_path)) await supabase.storage.from('trip-files').remove([f.storage_path])
     const res = await supabase.from('traveler_files').delete().eq('id', f.id)
     toastResult(res, { success: 'ลบไฟล์แล้ว', fail: 'ลบไฟล์ไม่สำเร็จ' })

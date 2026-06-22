@@ -12,6 +12,7 @@ import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, logExploreEvent, type VoteStat, type PopStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
+import { confirmDialog } from '@/lib/confirm'
 import { useBack } from '@/lib/useBack'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { filterExplore, initialExploreFilter, type ExploreFilterState } from '@/lib/exploreFilter'
@@ -161,7 +162,7 @@ export default function Explore() {
                 onOpen={() => openDetail(e)}
                 onFav={() => toggleFav(e)}
                 onEdit={() => setEditor(e)}
-                onDelete={async () => { if (confirm('ลบรายการนี้ออกจาก Explore?')) { await deleteExplore(e.id); load() } }} />
+                onDelete={async () => { if (await confirmDialog({ message: 'ลบรายการนี้ออกจาก Explore?', danger: true, confirmLabel: 'ลบ' })) { await deleteExplore(e.id); load() } }} />
             ))}
           </div>
         )}

@@ -7,6 +7,7 @@ import { PlaceEditor } from './PlaceEditor'
 import { PlaceDetail } from './PlaceDetail'
 import { SaveToTripDialog } from './SaveToTripDialog'
 import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
+import { confirmDialog } from '@/lib/confirm'
 import { catMeta, catTabKey, type CategoryTab } from '@/lib/placeMeta'
 import { hscroll } from '@/lib/hscroll'
 import type { Place, PlaceGroup } from '@/lib/database.types'
@@ -98,7 +99,7 @@ export function PlaceGrid({
     const mine = interests.some((i) => i.place_id === p.id && i.user_id === user.id)
     await toggleInterest(p.id, user.id, mine); await reload()
   }
-  async function remove(p: Place) { if (confirm('ลบรายการนี้?')) { await deletePlace(p.id); await reload() } }
+  async function remove(p: Place) { if (await confirmDialog({ message: 'ลบรายการนี้?', danger: true, confirmLabel: 'ลบ' })) { await deletePlace(p.id); await reload() } }
 
   const renderCard = (p: Place) => {
     const { list, mine } = interestFor(p)

@@ -3,6 +3,7 @@ import { IconTrash } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import type { Flight, FlightDirection } from '@/lib/database.types'
 import type { FlightInput } from '@/lib/tripMutations'
+import { confirmDialog } from '@/lib/confirm'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
@@ -35,7 +36,7 @@ export function FlightEditor({
     onClose()
   }
   async function del() {
-    if (!onDelete || !confirm('ลบไฟลต์นี้?')) return
+    if (!onDelete || !(await confirmDialog({ message: 'ลบไฟลต์นี้?', danger: true, confirmLabel: 'ลบ' }))) return
     setBusy(true); await onDelete(); setBusy(false); onClose()
   }
 

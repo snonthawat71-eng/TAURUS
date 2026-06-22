@@ -18,6 +18,7 @@ import { TransitEditor } from '@/components/TransitEditor'
 import { PopMenu } from '@/components/PopMenu'
 import { PlaceDetail } from '@/components/PlaceDetail'
 import { openMap } from '@/lib/maps'
+import { confirmDialog } from '@/lib/confirm'
 import { formatLongDate } from '@/lib/format'
 import { setInPlan, toggleInterest } from '@/lib/placeMutations'
 import {
@@ -248,7 +249,7 @@ export default function Itinerary() {
     await reload()
   }
   async function removeStop(id: string) {
-    if (!confirm('ลบจุดแวะนี้?')) return
+    if (!(await confirmDialog({ message: 'ลบจุดแวะนี้?', danger: true, confirmLabel: 'ลบ' }))) return
     await deleteStop(id); await reload()
   }
   async function saveRoute(transit: Parameters<typeof updateStop>[1]['transit']) {
@@ -268,7 +269,7 @@ export default function Itinerary() {
     await updateDay(dayEdit.id, fields); await reload()
   }
   async function removeDay(id: string) {
-    if (!confirm('ลบวันนี้และจุดแวะทั้งหมดในวัน?')) return
+    if (!(await confirmDialog({ message: 'ลบวันนี้และจุดแวะทั้งหมดในวัน?', danger: true, confirmLabel: 'ลบ' }))) return
     await deleteDay(id); await reload()
   }
 

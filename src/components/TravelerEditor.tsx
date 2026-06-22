@@ -3,6 +3,7 @@ import { IconTrash } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
 import { toHexColor } from '@/lib/avatars'
+import { confirmDialog } from '@/lib/confirm'
 import type { Traveler } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
@@ -38,7 +39,7 @@ export function TravelerEditor({
   }
 
   async function del() {
-    if (!onDelete || !confirm('ลบผู้เดินทางคนนี้?')) return
+    if (!onDelete || !(await confirmDialog({ message: 'ลบผู้เดินทางคนนี้?', danger: true, confirmLabel: 'ลบ' }))) return
     setBusy(true)
     await onDelete()
     setBusy(false)

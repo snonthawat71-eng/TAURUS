@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { IconTrash, IconMoodSmile, IconPlus } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { CURRENCIES } from '@/lib/fx'
+import { confirmDialog } from '@/lib/confirm'
 import type { Trip } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
@@ -54,7 +55,7 @@ export function TripEditor({
     onClose()
   }
   async function del() {
-    if (!onDelete || !confirm('ลบทริปนี้และข้อมูลทั้งหมดในทริป?')) return
+    if (!onDelete || !(await confirmDialog({ title: 'ลบทริป', message: 'ลบทริปนี้และข้อมูลทั้งหมดในทริป? กู้คืนไม่ได้', danger: true, confirmLabel: 'ลบ' }))) return
     setBusy(true); await onDelete(); setBusy(false); onClose()
   }
 

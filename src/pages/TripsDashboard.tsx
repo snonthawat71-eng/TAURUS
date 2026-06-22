@@ -7,6 +7,7 @@ import {
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { confirmDialog } from '@/lib/confirm'
 import { TaurusMark } from '@/components/TaurusMark'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { AvatarStack } from '@/components/Avatar'
@@ -131,7 +132,7 @@ export default function TripsDashboard() {
                     </button>
                     <PopMenu items={[
                       { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
-                      ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (confirm('ลบทริปนี้?')) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
+                      ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
                     ]} />
                   </div>
 

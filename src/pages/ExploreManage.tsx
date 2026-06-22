@@ -3,6 +3,7 @@ import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCi
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { useBack } from '@/lib/useBack'
+import { confirmDialog } from '@/lib/confirm'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { ExploreCard } from '@/components/ExploreCard'
 import { ExploreDetail } from '@/components/ExploreDetail'
@@ -142,7 +143,7 @@ export default function ExploreManage() {
                 onOpen={() => openDetail(e)}
                 onFav={() => toggleFav(e)}
                 onEdit={() => setEditor(e)}
-                onDelete={async () => { if (confirm('ลบรายการนี้ออกจาก Explore?')) { await deleteExplore(e.id); load() } }} />
+                onDelete={async () => { if (await confirmDialog({ message: 'ลบรายการนี้ออกจาก Explore?', danger: true, confirmLabel: 'ลบ' })) { await deleteExplore(e.id); load() } }} />
             ))}
           </div>
         )}

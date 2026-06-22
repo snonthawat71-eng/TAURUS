@@ -6,6 +6,7 @@ import { Combobox } from './Combobox'
 import { SignedImage } from './SignedImage'
 import { PhotoCropper } from './PhotoCropper'
 import { uploadImage } from '@/lib/files'
+import { confirmDialog } from '@/lib/confirm'
 import { useTrip } from '@/contexts/TripContext'
 import { getTransitSuggestions, findLine } from '@/lib/metro/suggest'
 import { catMeta, CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
@@ -133,7 +134,7 @@ export function PlaceEditor({
   }
   const meta = catMeta(category === 'other' ? (customCat.trim() || 'other') : category)
   async function del() {
-    if (!onDelete || !confirm('ลบรายการนี้?')) return
+    if (!onDelete || !(await confirmDialog({ message: 'ลบรายการนี้?', danger: true, confirmLabel: 'ลบ' }))) return
     setBusy(true); await onDelete(); setBusy(false); onClose()
   }
 

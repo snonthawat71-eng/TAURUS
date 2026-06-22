@@ -14,6 +14,7 @@ import { HotelPhoto } from '@/components/HotelPhoto'
 import { AttachLink } from '@/components/AttachLink'
 import { PopMenu } from '@/components/PopMenu'
 import { openMap } from '@/lib/maps'
+import { confirmDialog } from '@/lib/confirm'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
 import { flightDuration, formatFlightDate, formatCheckTime } from '@/lib/format'
 import { travelerColor, ORDER } from '@/lib/avatars'
@@ -195,7 +196,7 @@ export default function TripInfo() {
         <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลไฟลต์</div>
       ) : (
         <FlightCard flights={flights} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(f) => setFlightEdit(f)}
-          onDelete={async (f) => { if (confirm('ลบไฟลต์นี้?')) { await deleteFlight(f.id); await reload() } }} />
+          onDelete={async (f) => { if (await confirmDialog({ message: 'ลบไฟลต์นี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteFlight(f.id); await reload() } }} />
       )}
 
       {/* Hotels */}
@@ -217,7 +218,7 @@ export default function TripInfo() {
                     {canEdit && (
                       <PopMenu items={[
                         { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setHotelEdit(h) },
-                        { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (confirm('ลบที่พักนี้?')) { await deleteHotel(h.id); await reload() } }, danger: true },
+                        { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ message: 'ลบที่พักนี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteHotel(h.id); await reload() } }, danger: true },
                       ]} />
                     )}
                   </div>

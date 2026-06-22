@@ -67,6 +67,13 @@
   * {
     box-sizing: border-box;
   }
+  /* Visible keyboard focus for accessibility — only on keyboard nav, not mouse
+     clicks. :where() keeps specificity 0 so components can still override. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 1px;
+    border-radius: 4px;
+  }
 }
 
 @layer components {

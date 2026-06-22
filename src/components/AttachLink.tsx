@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { IconPaperclip, IconLoader2, IconFileCheck, IconEye, IconRefresh, IconTrash } from '@tabler/icons-react'
 import { uploadEntityFile, getSignedUrl, isSampleFile, removeEntityFile } from '@/lib/files'
+import { confirmDialog } from '@/lib/confirm'
 import { useTrip } from '@/contexts/TripContext'
 import { PopMenu } from './PopMenu'
 
@@ -38,7 +39,7 @@ export function AttachLink({
     await reload()
   }
   async function del() {
-    if (!storagePath || !confirm('ลบไฟล์จองนี้?')) return
+    if (!storagePath || !(await confirmDialog({ message: 'ลบไฟล์จองนี้?', danger: true, confirmLabel: 'ลบ' }))) return
     setBusy(true)
     await removeEntityFile(table, id, storagePath)
     setBusy(false)

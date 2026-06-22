@@ -5,6 +5,7 @@ import { Avatar } from '@/components/Avatar'
 import { ExpenseEditor } from '@/components/ExpenseEditor'
 import { PopMenu } from '@/components/PopMenu'
 import { baht } from '@/lib/format'
+import { confirmDialog } from '@/lib/confirm'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
 import { settle, addExpense, updateExpense, deleteExpense } from '@/lib/budgetMutations'
 import { getRateToTHB, CURRENCIES } from '@/lib/fx'
@@ -102,7 +103,7 @@ export default function Budget() {
               {canEdit && (
                 <PopMenu items={[
                   { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(e) },
-                  { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (confirm('ลบรายการนี้?')) { await deleteExpense(e.id); await reload() } }, danger: true },
+                  { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ message: 'ลบรายการนี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteExpense(e.id); await reload() } }, danger: true },
                 ]} />
               )}
             </div>

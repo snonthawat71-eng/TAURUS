@@ -3,6 +3,7 @@ import { IconTrash, IconPlus, IconPhoto, IconLoader2 } from '@tabler/icons-react
 import { Drawer } from './Drawer'
 import { HotelPhoto } from './HotelPhoto'
 import { uploadImage } from '@/lib/files'
+import { confirmDialog } from '@/lib/confirm'
 import type { Hotel, HotelRoom } from '@/lib/database.types'
 import type { HotelInput } from '@/lib/tripMutations'
 
@@ -77,7 +78,7 @@ export function HotelEditor({
     onClose()
   }
   async function del() {
-    if (!onDelete || !confirm('ลบที่พักนี้?')) return
+    if (!onDelete || !(await confirmDialog({ message: 'ลบที่พักนี้?', danger: true, confirmLabel: 'ลบ' }))) return
     setBusy(true); await onDelete(); setBusy(false); onClose()
   }
 

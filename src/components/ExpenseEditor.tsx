@@ -4,6 +4,7 @@ import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { uploadImage, getSignedUrl, isSampleFile } from '@/lib/files'
+import { confirmDialog } from '@/lib/confirm'
 import { baht } from '@/lib/format'
 import type { Expense } from '@/lib/database.types'
 import type { ExpenseInput } from '@/lib/budgetMutations'
@@ -72,7 +73,7 @@ export function ExpenseEditor({
     onClose()
   }
   async function del() {
-    if (!onDelete || !confirm('ลบรายการนี้?')) return
+    if (!onDelete || !(await confirmDialog({ message: 'ลบรายการนี้?', danger: true, confirmLabel: 'ลบ' }))) return
     setBusy(true); await onDelete(); setBusy(false); onClose()
   }
 
