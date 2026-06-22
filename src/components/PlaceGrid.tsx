@@ -176,7 +176,7 @@ export function PlaceGrid({
       {filtered.length === 0 ? (
         <div className="card p-8 text-center text-[12px] text-ink-3">{query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</div>
       ) : (dim === 'none' || chip !== 'all') ? (
-        <div className="grid sm:grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
+        <div className="grid grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
       ) : (
         <div className="space-y-6">
           {sections.map((s) => {
@@ -187,7 +187,7 @@ export function PlaceGrid({
                 <div className="flex items-center gap-1.5 mb-2 text-[13px] font-medium text-ink-2">
                   {Icon && <Icon size={15} />}{s.label} <span className="text-ink-3 font-normal">{list.length}</span>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-2.5">{list.map(renderCard)}</div>
+                <div className="grid grid-cols-2 gap-2.5">{list.map(renderCard)}</div>
               </div>
             )
           })}
