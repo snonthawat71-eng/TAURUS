@@ -9,11 +9,6 @@ import { registerPWA } from '@/lib/pwa'
 
 registerPWA()
 
-// If we landed on an invite link while logged out, remember the token before the
-// login round-trip can drop the /join/<token> path (see PendingInvite in App).
-const joinMatch = window.location.pathname.match(/^\/join\/([^/?#]+)/)
-if (joinMatch) localStorage.setItem('taurus:pendingInvite', decodeURIComponent(joinMatch[1]))
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>

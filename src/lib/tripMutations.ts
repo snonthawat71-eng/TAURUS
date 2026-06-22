@@ -108,19 +108,6 @@ export async function deleteInvite(id: string) {
   return supabase.from('trip_invites').delete().eq('id', id)
 }
 
-/**
- * Create a shareable invite *link* (no email): inserts a tokenised invite the
- * owner can copy and send via LINE/chat. Anyone who opens the link and logs in
- * joins the trip with the embedded permission (see accept_invite_token in
- * supabase/invite_links.sql). Returns the absolute /join/<token> URL.
- */
-export async function createInviteLink(trip_id: string, invited_by: string, permission: SharePermission = 'edit') {
-  const token = crypto.randomUUID().replace(/-/g, '')
-  const payload = { trip_id, email: null, invited_by, status: 'pending', permission, token }
-  const { error } = await supabase.from('trip_invites').insert(payload)
-  if (error) return { url: null as string | null, error }
-  return { url: `${window.location.origin}/join/${token}`, error: null }
-}
 export async function updateMemberPermission(trip_id: string, user_id: string, permission: SharePermission) {
   return supabase.from('trip_members').update({ permission }).eq('trip_id', trip_id).eq('user_id', user_id)
 }

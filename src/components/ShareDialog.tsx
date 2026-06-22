@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import { IconMail, IconTrash, IconCrown, IconLoader2, IconClock, IconLink, IconCopy } from '@tabler/icons-react'
+import { IconMail, IconTrash, IconCrown, IconLoader2, IconClock, IconLink } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
 import { supabase } from '@/lib/supabase'
 import { confirmDialog } from '@/lib/confirm'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { addInvite, createInviteLink, deleteInvite, revokeAccess, updateMemberPermission, type SharePermission } from '@/lib/tripMutations'
-import { toast, toastResult } from '@/lib/toast'
+import { addInvite, deleteInvite, revokeAccess, updateMemberPermission, type SharePermission } from '@/lib/tripMutations'
+import { toastResult } from '@/lib/toast'
 
 interface Invite { id: string; email: string | null; status: string; permission?: string | null }
 interface Member { user_id: string; permission?: string | null }
@@ -30,8 +30,6 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
   const [members, setMembers] = useState<Member[]>([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-  const [link, setLink] = useState<string | null>(null)
-  const [linking, setLinking] = useState(false)
 
   async function loadData() {
     if (!trip || !isOwner) return
@@ -42,27 +40,9 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
     setInvites((inv.data ?? []) as Invite[])
     setMembers((mem.data ?? []) as Member[])
   }
-  useEffect(() => { if (open) { setMsg(null); setEmail(''); setPerm('edit'); setLink(null); loadData() } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) { setMsg(null); setEmail(''); setPerm('edit'); loadData() } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const permOf = (id: string) => members.find((m) => m.user_id === id)?.permission ?? 'edit'
-
-  function pickPerm(p: SharePermission) { setPerm(p); setLink(null) } // link carries the permission — regenerate on change
-
-  async function makeLink() {
-    if (!trip || !user) return
-    setLinking(true); setMsg(null)
-    const { url, error } = await createInviteLink(trip.id, user.id, perm)
-    setLinking(false)
-    if (error || !url) { setMsg('สร้างลิงก์ไม่สำเร็จ — ต้องรัน supabase/invite_links.sql ใน Supabase ก่อน'); return }
-    setLink(url)
-    try { await navigator.clipboard.writeText(url); toast.success('สร้างและคัดลอกลิงก์แล้ว') } catch { /* คัดลอกเองจากช่องได้ */ }
-    loadData()
-  }
-
-  async function copyLink() {
-    if (!link) return
-    try { await navigator.clipboard.writeText(link); toast.success('คัดลอกลิงก์แล้ว') } catch { /* คัดลอกเองจากช่องได้ */ }
-  }
 
   async function invite() {
     if (!trip || !user || !email.trim()) return
@@ -106,10 +86,10 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
           <>
             <div>
               <div className="text-[12px] font-medium text-ink-2 mb-2">เชิญสมาชิก — เลือกสิทธิ์</div>
-              {/* permission picker (applies to both the link and email below) */}
+              {/* permission picker (applies to the email invite below) */}
               <div className="space-y-1.5 mb-2.5">
                 {PERMS.map((p) => (
-                  <button key={p.key} onClick={() => pickPerm(p.key)}
+                  <button key={p.key} onClick={() => setPerm(p.key)}
                     className="w-full flex items-start gap-2.5 rounded-md p-2.5 text-left"
                     style={{ border: `0.5px solid ${perm === p.key ? 'var(--color-brand-border)' : 'var(--color-line)'}`, background: perm === p.key ? 'var(--color-brand-soft)' : 'var(--color-surface)' }}>
                     <span className="mt-0.5 size-4 rounded-full grid place-items-center shrink-0"
@@ -124,22 +104,8 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
                 ))}
               </div>
 
-              {/* invite link — recommended: copy & send via LINE/chat */}
-              {link ? (
-                <div className="flex gap-2">
-                  <input readOnly value={link} onFocus={(e) => e.currentTarget.select()}
-                    className="flex-1 hairline rounded-md px-3 h-10 bg-surface text-[12px] outline-none" />
-                  <button onClick={copyLink} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium"><IconCopy size={14} /> คัดลอก</button>
-                </div>
-              ) : (
-                <button onClick={makeLink} disabled={linking} className="btn-primary w-full h-10 flex items-center justify-center gap-1.5 disabled:opacity-50">
-                  {linking ? <IconLoader2 size={15} className="animate-spin" /> : <IconLink size={15} />} สร้างลิงก์เชิญ
-                </button>
-              )}
-              <p className="text-[11px] text-ink-3 mt-1.5">ส่งลิงก์นี้ให้เพื่อนทาง LINE/แชท — เปิดลิงก์แล้ว login จะเข้าทริปได้เลย (ตามสิทธิ์ที่เลือกด้านบน)</p>
-
-              {/* alternative: pre-authorise by email (no email is sent) */}
-              <div className="text-[11px] text-ink-3 mt-3 mb-1.5">หรืออนุญาตล่วงหน้าด้วยอีเมล — ระบบ<b>ไม่ได้ส่งเมล</b> เพื่อนแค่ login ด้วยอีเมลนี้แล้วจะเข้าได้เอง</div>
+              {/* pre-authorise by email (no email is sent) */}
+              <div className="text-[11px] text-ink-3 mb-1.5">อนุญาตเข้าทริปด้วยอีเมล — ระบบ<b>ไม่ได้ส่งเมล</b> เพื่อนแค่ login ด้วยอีเมลนี้แล้วจะเข้าได้เอง (ตามสิทธิ์ที่เลือกด้านบน)</div>
               <div className="flex gap-2">
                 <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface flex-1">
                   <IconMail size={15} className="text-ink-3" />
