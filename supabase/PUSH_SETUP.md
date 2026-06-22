@@ -39,7 +39,7 @@ supabase secrets set \
 ```
 (`SUPABASE_URL` และ `SUPABASE_SERVICE_ROLE_KEY` มีให้อัตโนมัติในรันไทม์)
 
-## 5) ตั้งเวลาเรียกทุก 5 นาที (pg_cron + pg_net)
+## 5) ตั้งเวลาเรียกทุก 1 นาที (pg_cron + pg_net)
 ใน Supabase → SQL Editor:
 ```sql
 create extension if not exists pg_cron;
@@ -47,7 +47,7 @@ create extension if not exists pg_net;
 
 select cron.schedule(
   'send-due-reminders',
-  '*/5 * * * *',
+  '* * * * *',
   $$
   select net.http_post(
     url     := 'https://<PROJECT_REF>.supabase.co/functions/v1/send-due-reminders',
@@ -61,7 +61,7 @@ select cron.schedule(
 > ยกเลิกงาน cron: `select cron.unschedule('send-due-reminders');`
 
 ## วิธีทำงาน
-- ทุก 5 นาที cron เรียกฟังก์ชัน → ฟังก์ชันหาสต็อปที่ `day_date + time` (ตีความตาม `trips.timezone` หรือค่าเริ่มต้น Asia/Bangkok) ลบด้วยเวลาเตือนล่วงหน้าของผู้ใช้ ถ้าตกอยู่ในช่วง ~6 นาทีนี้ก็ส่ง push
+- ทุก 1 นาที cron เรียกฟังก์ชัน → ฟังก์ชันหาสต็อปที่ `day_date + time` (ตีความตาม `trips.timezone` หรือค่าเริ่มต้น Asia/Bangkok) ลบด้วยเวลาเตือนล่วงหน้าของผู้ใช้ ถ้าตกอยู่ในช่วง ~6 นาทีนี้ก็ส่ง push
 - ตาราง `sent_reminders` กันส่งซ้ำ (สต็อปละ 1 ครั้งต่อผู้ใช้)
 - ส่งให้ทุกสมาชิกของทริป (เจ้าของ + ผู้ถูกแชร์) ที่เปิดแจ้งเตือนไว้
 - subscription ที่หมดอายุ (404/410) จะถูกลบอัตโนมัติ
