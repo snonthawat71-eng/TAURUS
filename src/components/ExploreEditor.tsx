@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { IconPhoto, IconLoader2, IconPlus, IconTrash, IconBuildingStore, IconCheck, IconToolsKitchen2, IconFileTypePdf, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { PhotoCropper } from './PhotoCropper'
@@ -48,9 +48,6 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [morePhotoUploading, setMorePhotoUploading] = useState(false)
   const [menuUploading, setMenuUploading] = useState(false)
   const [busy, setBusy] = useState(false)
-  const photoInput = useRef<HTMLInputElement>(null)
-  const morePhotoInput = useRef<HTMLInputElement>(null)
-  const menuInput = useRef<HTMLInputElement>(null)
 
   // previously-used city/country pairs — for the quick city chips + comboboxes.
   const sugg = useMemo(() => {
@@ -135,18 +132,20 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   }
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+    const input = e.target
+    const file = input.files?.[0]
     if (!file) return
     setUploading(true)
     const { url } = await uploadPublicImage(file)
     if (url) { setPhotoUrl(url); setPhotoFocus(null) }
     setUploading(false)
-    if (photoInput.current) photoInput.current.value = ''
+    input.value = '' // allow re-picking the same file
   }
 
   // extra photos — up to 3 more (4 total with the primary above)
   async function onPickMorePhotos(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
+    const input = e.target
+    const files = Array.from(input.files ?? [])
     if (!files.length) return
     setMorePhotoUploading(true)
     for (const file of files) {
@@ -154,11 +153,12 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
       if (url) setPhotos((m) => (m.length >= 3 ? m : [...m, url]))
     }
     setMorePhotoUploading(false)
-    if (morePhotoInput.current) morePhotoInput.current.value = ''
+    input.value = ''
   }
 
   async function onPickMenu(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
+    const input = e.target
+    const files = Array.from(input.files ?? [])
     if (!files.length) return
     setMenuUploading(true)
     for (const file of files) {
@@ -166,7 +166,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
       if (url) setMenuPaths((m) => [...m, url])
     }
     setMenuUploading(false)
-    if (menuInput.current) menuInput.current.value = ''
+    input.value = ''
   }
 
   async function save() {
@@ -327,19 +327,20 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
               <PhotoCropper url={photoUrl} focus={photoFocus} onChange={setPhotoFocus}
                 fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconPhoto size={22} className="text-ink-3" /></div>} />
               <div className="flex items-center gap-3">
-                <button onClick={() => photoInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
+                <label htmlFor="exp-photo-input" aria-disabled={uploading}
+                  className="btn-icon !w-auto px-3 gap-1.5 text-[12px] cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
                   {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />} เปลี่ยนรูป
-                </button>
+                </label>
                 <button onClick={() => { setPhotoUrl(''); setPhotoFocus(null) }} className="btn-link text-[12px]">เอาออก</button>
               </div>
             </div>
           ) : (
-            <button onClick={() => photoInput.current?.click()} disabled={uploading}
-              className="w-full aspect-[16/10] mt-1 rounded-lg hairline grid place-items-center gap-1 text-ink-3 bg-surface-2 disabled:opacity-50">
+            <label htmlFor="exp-photo-input" aria-disabled={uploading}
+              className="w-full aspect-[16/10] mt-1 rounded-lg hairline flex flex-col items-center justify-center gap-1 text-ink-3 bg-surface-2 cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
               {uploading ? <IconLoader2 size={20} className="animate-spin" /> : <><IconPhoto size={22} /><span className="text-[12px]">อัปโหลดรูป</span></>}
-            </button>
+            </label>
           )}
-          <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPick} />
+          <input id="exp-photo-input" type="file" accept="image/*" hidden onChange={onPick} />
           <input className={`${field} mt-2`} value={photoUrl} onChange={(e) => { setPhotoUrl(e.target.value); setPhotoFocus(null) }} placeholder="หรือวาง URL รูปภาพ" />
         </div>
 
@@ -357,12 +358,12 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
               </div>
             ))}
             {photos.length < 3 && (
-              <button onClick={() => morePhotoInput.current?.click()} disabled={morePhotoUploading}
-                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 disabled:opacity-50">
+              <label htmlFor="exp-morephotos-input" aria-disabled={morePhotoUploading}
+                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
                 {morePhotoUploading ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlus size={18} />}
-              </button>
+              </label>
             )}
-            <input ref={morePhotoInput} type="file" accept="image/*" multiple hidden onChange={onPickMorePhotos} />
+            <input id="exp-morephotos-input" type="file" accept="image/*" multiple hidden onChange={onPickMorePhotos} />
           </div>
         </div>
 
@@ -385,11 +386,11 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
                   </button>
                 </div>
               ))}
-              <button onClick={() => menuInput.current?.click()} disabled={menuUploading}
-                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 disabled:opacity-50">
+              <label htmlFor="exp-menu-input" aria-disabled={menuUploading}
+                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
                 {menuUploading ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlus size={18} />}
-              </button>
-              <input ref={menuInput} type="file" accept="image/*,application/pdf" multiple hidden onChange={onPickMenu} />
+              </label>
+              <input id="exp-menu-input" type="file" accept="image/*,application/pdf" multiple hidden onChange={onPickMenu} />
             </div>
           </div>
         )}

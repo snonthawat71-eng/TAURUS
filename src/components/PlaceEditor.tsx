@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { IconTrash, IconPhoto, IconLoader2, IconCheck, IconPlus, IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
@@ -61,9 +61,6 @@ export function PlaceEditor({
   const [morePhotoUploading, setMorePhotoUploading] = useState(false)
   const [menuUploading, setMenuUploading] = useState(false)
   const [busy, setBusy] = useState(false)
-  const photoInput = useRef<HTMLInputElement>(null)
-  const morePhotoInput = useRef<HTMLInputElement>(null)
-  const menuInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -90,18 +87,20 @@ export function PlaceEditor({
   }, [open, initial]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+    const input = e.target
+    const file = input.files?.[0]
     if (!file) return
     setUploading(true)
     const { path } = await uploadImage(tripId, 'place-photo', file)
     if (path) { setPhotoPath(path); setPhotoUrl(null); setPhotoFocus(null) }
     setUploading(false)
-    if (photoInput.current) photoInput.current.value = ''
+    input.value = '' // allow re-picking the same file
   }
 
   // extra photos — up to 3 more (4 total with the primary above)
   async function onPickMorePhotos(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
+    const input = e.target
+    const files = Array.from(input.files ?? [])
     if (!files.length) return
     setMorePhotoUploading(true)
     for (const file of files) {
@@ -109,11 +108,12 @@ export function PlaceEditor({
       if (path) setPhotos((m) => (m.length >= 3 ? m : [...m, path]))
     }
     setMorePhotoUploading(false)
-    if (morePhotoInput.current) morePhotoInput.current.value = ''
+    input.value = ''
   }
 
   async function onPickMenu(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
+    const input = e.target
+    const files = Array.from(input.files ?? [])
     if (!files.length) return
     setMenuUploading(true)
     for (const file of files) {
@@ -121,7 +121,7 @@ export function PlaceEditor({
       if (path) setMenuPaths((m) => [...m, path])
     }
     setMenuUploading(false)
-    if (menuInput.current) menuInput.current.value = ''
+    input.value = ''
   }
 
   function patchRoute(i: number, p: Partial<ExploreRoute>) {
@@ -165,21 +165,22 @@ export function PlaceEditor({
             <PhotoCropper url={photoUrl} path={photoPath} focus={photoFocus} onChange={setPhotoFocus}
               fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><meta.icon size={28} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
           ) : (
-            <button onClick={() => photoInput.current?.click()} disabled={uploading}
-              className="w-full aspect-[16/10] rounded-lg hairline grid place-items-center gap-1 text-ink-3 disabled:opacity-50" style={{ background: meta.bg }}>
+            <label htmlFor="place-photo-input" aria-disabled={uploading}
+              className="w-full aspect-[16/10] rounded-lg hairline flex flex-col items-center justify-center gap-1 text-ink-3 cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]" style={{ background: meta.bg }}>
               {uploading ? <IconLoader2 size={20} className="animate-spin" /> : <><IconPhoto size={22} style={{ color: meta.fg, opacity: 0.85 }} /><span className="text-[12px]" style={{ color: meta.fg }}>เพิ่มรูปสถานที่</span></>}
-            </button>
+            </label>
           )}
           {(photoPath || photoUrl) && (
             <div className="flex items-center gap-3">
-              <button onClick={() => photoInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
+              <label htmlFor="place-photo-input" aria-disabled={uploading}
+                className="btn-icon !w-auto px-3 gap-1.5 text-[12px] cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
                 {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPhoto size={14} />}
                 เปลี่ยนรูป
-              </button>
+              </label>
               <button onClick={() => { setPhotoPath(null); setPhotoUrl(null); setPhotoFocus(null) }} className="btn-link text-[12px]">เอาออก</button>
             </div>
           )}
-          <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPickPhoto} />
+          <input id="place-photo-input" type="file" accept="image/*" hidden onChange={onPickPhoto} />
         </div>
 
         {/* extra photos — up to 3 more (4 total). Shown in the detail view, not the card */}
@@ -198,12 +199,12 @@ export function PlaceEditor({
               </div>
             ))}
             {photos.length < 3 && (
-              <button onClick={() => morePhotoInput.current?.click()} disabled={morePhotoUploading}
-                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 disabled:opacity-50">
+              <label htmlFor="place-morephotos-input" aria-disabled={morePhotoUploading}
+                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
                 {morePhotoUploading ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlus size={18} />}
-              </button>
+              </label>
             )}
-            <input ref={morePhotoInput} type="file" accept="image/*" multiple hidden onChange={onPickMorePhotos} />
+            <input id="place-morephotos-input" type="file" accept="image/*" multiple hidden onChange={onPickMorePhotos} />
           </div>
         </div>
         <div><div className={lbl}>ชื่อ</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Forbidden City" /></div>
@@ -340,11 +341,11 @@ export function PlaceEditor({
                   </button>
                 </div>
               ))}
-              <button onClick={() => menuInput.current?.click()} disabled={menuUploading}
-                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 disabled:opacity-50">
+              <label htmlFor="place-menu-input" aria-disabled={menuUploading}
+                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]">
                 {menuUploading ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlus size={18} />}
-              </button>
-              <input ref={menuInput} type="file" accept="image/*,application/pdf" multiple hidden onChange={onPickMenu} />
+              </label>
+              <input id="place-menu-input" type="file" accept="image/*,application/pdf" multiple hidden onChange={onPickMenu} />
             </div>
           </div>
         )}
