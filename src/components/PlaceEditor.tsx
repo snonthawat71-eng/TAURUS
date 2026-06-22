@@ -297,13 +297,18 @@ export function PlaceEditor({
               <IconBuildingStore size={13} className="text-ink-3" />
               <span className={lbl}>หลายสาขา (ถ้ามีหลายที่ — ใส่แค่ชื่อสาขาก็ได้ ไม่ต้องระบุโลเคชั่น)</span>
             </div>
-            {/* simple flag: just mark "has many branches" → shows a label on the card */}
-            <button onClick={() => setMultiBranch((v) => !v)}
-              className={['chip mt-1.5', multiBranch ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
-              style={multiBranch ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
-              {multiBranch && <IconCheck size={12} />} มีหลายสาขา
-            </button>
-            <div className="space-y-2 mt-1">
+            {/* simple flag + add-branch action on one row */}
+            <div className="flex items-center gap-2.5 mt-1.5">
+              <button onClick={() => setMultiBranch((v) => !v)}
+                className={['chip !text-[13px] !px-3.5 !py-2', multiBranch ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+                style={multiBranch ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+                {multiBranch && <IconCheck size={14} />} มีหลายสาขา
+              </button>
+              <button onClick={() => setBranches((bs) => [...bs, emptyBranch()])} className="btn-link flex items-center gap-1.5">
+                <IconPlus size={15} /> เพิ่มสาขา
+              </button>
+            </div>
+            <div className="space-y-2 mt-2">
               {branches.map((b, i) => {
                 const known = findLine(sug, b.line ?? '')
                 const stationOpts = known
@@ -327,9 +332,6 @@ export function PlaceEditor({
                   </div>
                 )
               })}
-              <button onClick={() => setBranches((bs) => [...bs, emptyBranch()])} className="btn-link flex items-center gap-1.5 text-[12px]">
-                <IconPlus size={14} /> เพิ่มสาขา
-              </button>
             </div>
         </div>
 
