@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { toast } from '@/lib/toast'
+import { initOfflineSync } from '@/lib/offlineQueue'
 import { useAuth } from './AuthContext'
 import type {
   Expense, Flight, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
@@ -179,6 +180,11 @@ export function TripProvider({ children }: { children: ReactNode }) {
     channel.subscribe()
     return () => { clearTimeout(timer); supabase.removeChannel(channel) }
   }, [currentTripId, load])
+
+  // Replay any offline writes on reconnect (and once on mount), then refresh.
+  const loadRef = useRef(load)
+  useEffect(() => { loadRef.current = load }, [load])
+  useEffect(() => initOfflineSync(() => loadRef.current()), [])
 
   return (
     <TripContext.Provider value={{ loading, error, trips, currentTripId, switchTrip, reload: load, ...data, canEdit: data.myPermission === 'owner' || data.myPermission === 'edit' }}>

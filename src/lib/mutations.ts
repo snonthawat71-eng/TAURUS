@@ -1,17 +1,13 @@
 import { supabase } from './supabase'
 import { updateWithVersion } from './concurrency'
+import { runOrQueue } from './offlineQueue'
 import type { ItineraryStop, Transit } from './database.types'
 
 // ---- Days ----
 
 export async function addDay(trip_id: string, position: number, day_date: string | null) {
-  return supabase.from('itinerary_days').insert({
-    id: crypto.randomUUID(),
-    trip_id,
-    position,
-    day_date,
-    label: 'วันใหม่',
-  })
+  const payload = { id: crypto.randomUUID(), trip_id, position, day_date, label: 'วันใหม่' }
+  return runOrQueue(() => supabase.from('itinerary_days').insert(payload), { kind: 'insert', table: 'itinerary_days', payload })
 }
 
 export async function updateDay(id: string, fields: { label?: string; day_date?: string | null }, expectedVersion?: number) {
@@ -19,7 +15,7 @@ export async function updateDay(id: string, fields: { label?: string; day_date?:
 }
 
 export async function deleteDay(id: string) {
-  return supabase.from('itinerary_days').delete().eq('id', id)
+  return runOrQueue(() => supabase.from('itinerary_days').delete().eq('id', id), { kind: 'delete', table: 'itinerary_days', id })
 }
 
 /** Persist a new day order by writing each day's position. */
@@ -48,13 +44,15 @@ export async function addStop(trip_id: string, day_id: string, position: number,
     note: input.note ?? null, map_url: input.map_url ?? null,
     transit: input.transit ?? null, link_mode: input.link_mode ?? null,
   }
-  let res = await supabase.from('itinerary_stops').insert(payload)
-  if (res.error && res.error.message.includes('link_mode')) {
-    const { link_mode: _omit, ...rest } = payload
-    void _omit
-    res = await supabase.from('itinerary_stops').insert(rest)
-  }
-  return res
+  return runOrQueue(async () => {
+    let res = await supabase.from('itinerary_stops').insert(payload)
+    if (res.error && res.error.message.includes('link_mode')) {
+      const { link_mode: _omit, ...rest } = payload
+      void _omit
+      res = await supabase.from('itinerary_stops').insert(rest)
+    }
+    return res
+  }, { kind: 'insert', table: 'itinerary_stops', payload })
 }
 
 export async function updateStop(id: string, fields: StopInput, expectedVersion?: number) {
@@ -65,7 +63,7 @@ export async function updateStop(id: string, fields: StopInput, expectedVersion?
 }
 
 export async function deleteStop(id: string) {
-  return supabase.from('itinerary_stops').delete().eq('id', id)
+  return runOrQueue(() => supabase.from('itinerary_stops').delete().eq('id', id), { kind: 'delete', table: 'itinerary_stops', id })
 }
 
 /** Persist a new order by writing each stop's position. The `time` travels with

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { updateWithVersion } from './concurrency'
+import { runOrQueue } from './offlineQueue'
 
 export interface ExpenseInput {
   name?: string | null
@@ -10,13 +11,14 @@ export interface ExpenseInput {
 }
 
 export async function addExpense(trip_id: string, input: ExpenseInput) {
-  return supabase.from('expenses').insert({ id: crypto.randomUUID(), trip_id, ...input })
+  const payload = { id: crypto.randomUUID(), trip_id, ...input }
+  return runOrQueue(() => supabase.from('expenses').insert(payload), { kind: 'insert', table: 'expenses', payload })
 }
 export async function updateExpense(id: string, fields: ExpenseInput, expectedVersion?: number) {
   return updateWithVersion('expenses', id, { ...fields }, expectedVersion)
 }
 export async function deleteExpense(id: string) {
-  return supabase.from('expenses').delete().eq('id', id)
+  return runOrQueue(() => supabase.from('expenses').delete().eq('id', id), { kind: 'delete', table: 'expenses', id })
 }
 
 // ---- settlement maths ----

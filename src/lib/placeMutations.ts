@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { updateWithVersion } from './concurrency'
+import { runOrQueue } from './offlineQueue'
 import type { Place } from './database.types'
 
 export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
@@ -16,9 +17,11 @@ function stripUnknown(payload: Record<string, unknown>, msg: string) {
 
 export async function addPlace(trip_id: string, input: PlaceInput) {
   const payload: Record<string, unknown> = { id: crypto.randomUUID(), trip_id, in_plan: false, ...input }
-  let res = await supabase.from('places').insert(payload)
-  if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').insert(s) }
-  return res
+  return runOrQueue(async () => {
+    let res = await supabase.from('places').insert(payload)
+    if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').insert(s) }
+    return res
+  }, { kind: 'insert', table: 'places', payload })
 }
 
 export async function updatePlace(id: string, fields: PlaceInput, expectedVersion?: number) {
@@ -26,7 +29,7 @@ export async function updatePlace(id: string, fields: PlaceInput, expectedVersio
 }
 
 export async function deletePlace(id: string) {
-  return supabase.from('places').delete().eq('id', id)
+  return runOrQueue(() => supabase.from('places').delete().eq('id', id), { kind: 'delete', table: 'places', id })
 }
 
 /** Copy a place (from a shared trip / Explore) into one of the user's own trips. */
