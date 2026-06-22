@@ -7,7 +7,7 @@ export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
 
 // photo_path & city are optional (added by extra_columns.sql); strip whichever
 // the API reports as unknown so older databases still work.
-const OPTIONAL = ['photo_path', 'photo_url', 'photo_focus', 'city', 'source_explore_id', 'routes', 'branches', 'multi_branch', 'menu_paths']
+const OPTIONAL = ['photo_path', 'photo_url', 'photo_focus', 'photos', 'city', 'source_explore_id', 'routes', 'branches', 'multi_branch', 'menu_paths']
 function stripUnknown(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
   let changed = false
@@ -38,7 +38,7 @@ export async function copyPlaceToTrip(place: Place, targetTripId: string, source
     id: crypto.randomUUID(), trip_id: targetTripId, group_type: place.group_type, category: place.category,
     name: place.name, station_line: place.station_line, station_color: place.station_color, station_name: place.station_name,
     routes: place.routes ?? null, branches: place.branches ?? null, multi_branch: place.multi_branch ?? null,
-    map_url: place.map_url, note: place.note, in_plan: false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, photo_focus: place.photo_focus ?? null, city: place.city,
+    map_url: place.map_url, note: place.note, in_plan: false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, photo_focus: place.photo_focus ?? null, photos: place.photos ?? null, city: place.city,
     menu_paths: place.menu_paths ?? null,
     source_explore_id: sourceExploreId ?? null,
   }

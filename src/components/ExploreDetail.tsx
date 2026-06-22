@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import {
   IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
   IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
-  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan,
+  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconPhoto,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
@@ -227,6 +227,23 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
         </span>
       </div>
       {e.note && <p className="text-[13px] text-ink-2 mt-2.5 whitespace-pre-wrap">{e.note}</p>}
+
+      {/* extra photos — tap a thumbnail to view full size */}
+      {!!e.photos?.length && (
+        <div className="mt-4">
+          <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mb-1.5">
+            <IconPhoto size={14} /> รูปภาพ ({e.photos.length + (e.photo_url ? 1 : 0)})
+          </div>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {e.photos.map((ref) => (
+              <button key={ref} onClick={() => setLightbox(optimizeImageUrl(ref, 1600) ?? ref)}
+                className="shrink-0 w-20 h-20 rounded-md overflow-hidden bg-surface-2 hairline grid place-items-center">
+                <img src={ref} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {mapUrl && (
         <button onClick={() => openMap(mapUrl)} className="inline-flex items-center gap-1 text-[12px] text-brand-mid mt-2.5">
           <IconMapPin size={14} /> {sel ? `เปิดแผนที่ (${sel.label || `สาขา ${branchIdx! + 1}`})` : 'เปิดแผนที่'}

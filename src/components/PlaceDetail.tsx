@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore, IconZoomScan } from '@tabler/icons-react'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore, IconZoomScan, IconPhoto } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
 import { SignedImage } from './SignedImage'
@@ -116,6 +116,25 @@ export function PlaceDetail({
         )}
 
         {place.note && <p className="text-[13px] text-ink-2 mt-3 leading-relaxed">{place.note}</p>}
+
+        {/* extra photos — tap a thumbnail to view full size */}
+        {!!place.photos?.length && (
+          <div className="mt-4">
+            <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mb-1.5">
+              <IconPhoto size={14} /> รูปภาพ ({place.photos.length + (hasPhoto ? 1 : 0)})
+            </div>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar">
+              {place.photos.map((ref) => (
+                <button key={ref} onClick={async () => { const u = await photoFullUrl(ref.startsWith('http') ? ref : null, ref.startsWith('http') ? null : ref); if (u) setLightbox(u) }}
+                  className="shrink-0 w-20 h-20 rounded-md overflow-hidden bg-surface-2 hairline grid place-items-center">
+                  <SignedImage url={ref.startsWith('http') ? ref : undefined} path={ref.startsWith('http') ? undefined : ref}
+                    className="w-full h-full object-cover" width={200}
+                    fallback={<IconPhoto size={20} className="text-ink-3" />} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* menu (restaurants) — tap a thumbnail to view full size / open the PDF */}
         {!!place.menu_paths?.length && (

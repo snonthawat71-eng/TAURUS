@@ -41,12 +41,15 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [mapUrl, setMapUrl] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
   const [photoFocus, setPhotoFocus] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<string[]>([]) // extra photos (2nd–4th)
   const [menuPaths, setMenuPaths] = useState<string[]>([])
   const [note, setNote] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [morePhotoUploading, setMorePhotoUploading] = useState(false)
   const [menuUploading, setMenuUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
+  const morePhotoInput = useRef<HTMLInputElement>(null)
   const menuInput = useRef<HTMLInputElement>(null)
 
   // previously-used city/country pairs — for the quick city chips + comboboxes.
@@ -106,6 +109,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     setMapUrl(initial?.map_url ?? '')
     setPhotoUrl(initial?.photo_url ?? '')
     setPhotoFocus(initial?.photo_focus ?? null)
+    setPhotos(initial?.photos ?? [])
     setMenuPaths(initial?.menu_paths ?? [])
     setNote(initial?.note ?? '')
   }, [open, initial])
@@ -140,6 +144,19 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     if (photoInput.current) photoInput.current.value = ''
   }
 
+  // extra photos — up to 3 more (4 total with the primary above)
+  async function onPickMorePhotos(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setMorePhotoUploading(true)
+    for (const file of files) {
+      const { url } = await uploadPublicImage(file)
+      if (url) setPhotos((m) => (m.length >= 3 ? m : [...m, url]))
+    }
+    setMorePhotoUploading(false)
+    if (morePhotoInput.current) morePhotoInput.current.value = ''
+  }
+
   async function onPickMenu(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
@@ -165,7 +182,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
       branches: cleanBranches.length ? cleanBranches : null,
       multi_branch: multiBranch ? true : null,
       menu_paths: group === 'food' && menuPaths.length ? menuPaths : null,
-      map_url: mapUrl || null, photo_url: photoUrl || null, photo_focus: photoUrl ? photoFocus : null, note: note || null,
+      map_url: mapUrl || null, photo_url: photoUrl || null, photo_focus: photoUrl ? photoFocus : null, photos: photos.length ? photos : null, note: note || null,
     })
     setBusy(false)
     onClose()
@@ -324,6 +341,29 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
           )}
           <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPick} />
           <input className={`${field} mt-2`} value={photoUrl} onChange={(e) => { setPhotoUrl(e.target.value); setPhotoFocus(null) }} placeholder="หรือวาง URL รูปภาพ" />
+        </div>
+
+        {/* extra photos — up to 3 more (4 total). Shown in the detail view, not the card */}
+        <div>
+          <div className={lbl}>รูปเพิ่มเติม (อีกสูงสุด 3 รูป — โชว์ตอนเปิดดูรายละเอียด)</div>
+          <div className="flex flex-wrap gap-2 mt-1.5">
+            {photos.map((ref, i) => (
+              <div key={ref} className="relative w-16 h-16 rounded-md overflow-hidden bg-surface-2 hairline">
+                <img src={ref} alt="" className="w-full h-full object-cover" />
+                <button onClick={() => setPhotos((m) => m.filter((_, idx) => idx !== i))}
+                  aria-label="ลบรูป" className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/55 text-white grid place-items-center">
+                  <IconX size={12} />
+                </button>
+              </div>
+            ))}
+            {photos.length < 3 && (
+              <button onClick={() => morePhotoInput.current?.click()} disabled={morePhotoUploading}
+                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 disabled:opacity-50">
+                {morePhotoUploading ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlus size={18} />}
+              </button>
+            )}
+            <input ref={morePhotoInput} type="file" accept="image/*" multiple hidden onChange={onPickMorePhotos} />
+          </div>
         </div>
 
         {/* menu files (restaurants) — photos/PDFs of the menu */}

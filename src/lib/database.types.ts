@@ -181,6 +181,9 @@ export interface Place {
   city?: string | null
   /** optional — present after menu.sql (menu images/PDFs for restaurants) */
   menu_paths?: string[] | null
+  /** optional — present after photos.sql; extra photos (2nd–4th) shown only in
+   *  the detail view. The 1st photo stays in photo_url/photo_path. */
+  photos?: string[] | null
   created_at: string
   /** optional — present after the concurrency.sql migration (optimistic lock) */
   version?: number
@@ -229,6 +232,9 @@ export interface ExplorePlace {
   photo_url: string | null
   /** optional — present after photo_focus column is added; crop "x y scale" */
   photo_focus?: string | null
+  /** optional — present after photos.sql; extra photos (2nd–4th, public URLs)
+   *  shown only in the detail view. The 1st photo stays in photo_url. */
+  photos?: string[] | null
   created_by: string | null
   created_at: string
 }

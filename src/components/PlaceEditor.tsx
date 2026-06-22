@@ -55,11 +55,14 @@ export function PlaceEditor({
   const [photoPath, setPhotoPath] = useState<string | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [photoFocus, setPhotoFocus] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<string[]>([]) // extra photos (2nd–4th)
   const [menuPaths, setMenuPaths] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
+  const [morePhotoUploading, setMorePhotoUploading] = useState(false)
   const [menuUploading, setMenuUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
+  const morePhotoInput = useRef<HTMLInputElement>(null)
   const menuInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -81,6 +84,7 @@ export function PlaceEditor({
     setPhotoPath(initial?.photo_path ?? null)
     setPhotoUrl(initial?.photo_url ?? null)
     setPhotoFocus(initial?.photo_focus ?? null)
+    setPhotos(initial?.photos ?? [])
     setMenuPaths(initial?.menu_paths ?? [])
     setCity(initial?.city ?? (tripCities.length === 1 ? tripCities[0] : ''))
   }, [open, initial]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -93,6 +97,19 @@ export function PlaceEditor({
     if (path) { setPhotoPath(path); setPhotoUrl(null); setPhotoFocus(null) }
     setUploading(false)
     if (photoInput.current) photoInput.current.value = ''
+  }
+
+  // extra photos — up to 3 more (4 total with the primary above)
+  async function onPickMorePhotos(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setMorePhotoUploading(true)
+    for (const file of files) {
+      const { path } = await uploadImage(tripId, 'place-photo', file)
+      if (path) setPhotos((m) => (m.length >= 3 ? m : [...m, path]))
+    }
+    setMorePhotoUploading(false)
+    if (morePhotoInput.current) morePhotoInput.current.value = ''
   }
 
   async function onPickMenu(e: React.ChangeEvent<HTMLInputElement>) {
@@ -126,7 +143,7 @@ export function PlaceEditor({
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
       multi_branch: multiBranch ? true : null,
-      map_url: mapUrl, note, photo_path: photoPath, photo_url: photoUrl, photo_focus: (photoPath || photoUrl) ? photoFocus : null, city: city || null,
+      map_url: mapUrl, note, photo_path: photoPath, photo_url: photoUrl, photo_focus: (photoPath || photoUrl) ? photoFocus : null, photos: photos.length ? photos : null, city: city || null,
       menu_paths: group === 'food' && menuPaths.length ? menuPaths : null,
     })
     setBusy(false)
@@ -163,6 +180,31 @@ export function PlaceEditor({
             </div>
           )}
           <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPickPhoto} />
+        </div>
+
+        {/* extra photos — up to 3 more (4 total). Shown in the detail view, not the card */}
+        <div>
+          <div className={lbl}>รูปเพิ่มเติม (อีกสูงสุด 3 รูป — โชว์ตอนเปิดดูรายละเอียด)</div>
+          <div className="flex flex-wrap gap-2 mt-1.5">
+            {photos.map((ref, i) => (
+              <div key={ref} className="relative w-16 h-16 rounded-md overflow-hidden bg-surface-2 hairline">
+                <SignedImage url={ref.startsWith('http') ? ref : undefined} path={ref.startsWith('http') ? undefined : ref}
+                  className="w-full h-full object-cover" width={160}
+                  fallback={<div className="w-full h-full grid place-items-center text-ink-3"><IconPhoto size={18} /></div>} />
+                <button onClick={() => setPhotos((m) => m.filter((_, idx) => idx !== i))}
+                  aria-label="ลบรูป" className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/55 text-white grid place-items-center">
+                  <IconX size={12} />
+                </button>
+              </div>
+            ))}
+            {photos.length < 3 && (
+              <button onClick={() => morePhotoInput.current?.click()} disabled={morePhotoUploading}
+                className="w-16 h-16 rounded-md hairline grid place-items-center text-ink-3 disabled:opacity-50">
+                {morePhotoUploading ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlus size={18} />}
+              </button>
+            )}
+            <input ref={morePhotoInput} type="file" accept="image/*" multiple hidden onChange={onPickMorePhotos} />
+          </div>
         </div>
         <div><div className={lbl}>ชื่อ</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Forbidden City" /></div>
         <div>
