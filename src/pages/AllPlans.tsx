@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconMapPin, IconBuildingMonument, IconToolsKitchen2, IconCake, IconBuildingStore } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
@@ -52,12 +53,32 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
   )
 }
 
+const NO_CITY = '__none__'
+
 export default function AllPlans() {
-  const { places } = useTrip()
-  const inPlan = places.filter((p) => p.in_plan)
-  const sights = inPlan.filter((p) => p.group_type === 'place')
-  const restaurants = inPlan.filter((p) => p.category === 'restaurant')
-  const cafesDesserts = inPlan.filter((p) => p.category === 'cafe' || p.category === 'dessert')
+  const { trip, places } = useTrip()
+  const [city, setCity] = useState('all')
+  const inPlan = useMemo(() => places.filter((p) => p.in_plan), [places])
+
+  // cities present among in-plan items, ordered by the trip's city list first
+  const cityOrder = useMemo(() => {
+    const set = new Set<string>()
+    ;(trip?.cities ?? []).forEach((c) => { if (inPlan.some((p) => p.city === c)) set.add(c) })
+    inPlan.forEach((p) => { if (p.city) set.add(p.city) })
+    return Array.from(set)
+  }, [trip?.cities, inPlan])
+  const hasNoCity = inPlan.some((p) => !p.city)
+  const showCityFilter = cityOrder.length > 1 || (cityOrder.length === 1 && hasNoCity)
+
+  const visible = useMemo(() => {
+    if (city === 'all') return inPlan
+    if (city === NO_CITY) return inPlan.filter((p) => !p.city)
+    return inPlan.filter((p) => p.city === city)
+  }, [inPlan, city])
+
+  const sights = visible.filter((p) => p.group_type === 'place')
+  const restaurants = visible.filter((p) => p.category === 'restaurant')
+  const cafesDesserts = visible.filter((p) => p.category === 'cafe' || p.category === 'dessert')
 
   if (inPlan.length === 0) {
     return (
@@ -68,11 +89,34 @@ export default function AllPlans() {
     )
   }
 
+  const cityChips = [
+    { key: 'all', label: 'ทั้งหมด' },
+    ...cityOrder.map((c) => ({ key: c, label: c })),
+    ...(hasNoCity ? [{ key: NO_CITY, label: 'ไม่ระบุเมือง' }] : []),
+  ]
+
   return (
     <div>
-      <Section icon={<IconBuildingMonument size={15} />} title="Attractions • สถานที่ท่องเที่ยว" items={sights} />
-      <Section icon={<IconToolsKitchen2 size={15} />} title="Restaurants • ร้านอาหาร" items={restaurants} />
-      <Section icon={<IconCake size={15} />} title="Cafés & Desserts • คาเฟ่ & ร้านขนม" items={cafesDesserts} />
+      {showCityFilter && (
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-4">
+          {cityChips.map((c) => (
+            <button key={c.key} onClick={() => setCity(c.key)}
+              className={['shrink-0 rounded-full px-3 h-7 text-[12px] font-medium transition-colors',
+                city === c.key ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2 hover:bg-surface-2/70'].join(' ')}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {visible.length === 0 ? (
+        <div className="card p-8 text-center text-[13px] text-ink-2">ไม่มีรายการในเมืองนี้</div>
+      ) : (
+        <>
+          <Section icon={<IconBuildingMonument size={15} />} title="Attractions • สถานที่ท่องเที่ยว" items={sights} />
+          <Section icon={<IconToolsKitchen2 size={15} />} title="Restaurants • ร้านอาหาร" items={restaurants} />
+          <Section icon={<IconCake size={15} />} title="Cafés & Desserts • คาเฟ่ & ร้านขนม" items={cafesDesserts} />
+        </>
+      )}
     </div>
   )
 }
