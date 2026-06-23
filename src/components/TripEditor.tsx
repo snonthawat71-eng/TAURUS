@@ -30,7 +30,6 @@ const TIMEZONES = [
   { tz: 'America/Los_Angeles', label: 'สหรัฐ-ตะวันตก (GMT-8/-7)' },
   { tz: 'Australia/Sydney', label: 'ออสเตรเลีย-ซิดนีย์ (GMT+10/+11)' },
 ]
-const deviceTz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone } catch { return 'Asia/Bangkok' } })()
 
 export function TripEditor({
   open, onClose, initial, onSave, onDelete,
@@ -61,7 +60,9 @@ export function TripEditor({
     setStart(initial?.start_date ?? '')
     setEnd(initial?.end_date ?? '')
     setCurrency(initial?.currency ?? 'CNY')
-    setTimezone(initial?.timezone ?? deviceTz)
+    // require an explicit choice (empty until picked) so the destination tz is
+    // never silently wrong — that would break push reminder times
+    setTimezone(initial?.timezone ?? '')
     const c = initial?.cities ?? []
     setMulti(c.length > 1)
     setCities(c.length ? c : [''])
@@ -70,6 +71,7 @@ export function TripEditor({
   function setCity(i: number, v: string) { setCities((cs) => cs.map((c, idx) => (idx === i ? v : c))) }
 
   async function save() {
+    if (!name.trim() || !timezone) return
     setBusy(true)
     const cleanCities = (multi ? cities : cities.slice(0, 1)).map((c) => c.trim()).filter(Boolean)
     const endSafe = end && start && end < start ? start : end
@@ -131,12 +133,13 @@ export function TripEditor({
         </div>
 
         <div>
-          <div className={lbl}>โซนเวลาของทริป (ปลายทาง)</div>
-          <select className={field} value={timezone} onChange={(e) => setTimezone(e.target.value)}>
-            {!TIMEZONES.some((t) => t.tz === timezone) && <option value={timezone}>{timezone}</option>}
+          <div className={lbl}>โซนเวลาของทริป (ปลายทาง) <span className="text-[#D85A30]">*</span></div>
+          <select className={[field, !timezone ? 'text-ink-3' : ''].join(' ')} value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+            <option value="" disabled>— เลือกโซนเวลาปลายทาง —</option>
+            {!!timezone && !TIMEZONES.some((t) => t.tz === timezone) && <option value={timezone}>{timezone}</option>}
             {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
           </select>
-          <p className="text-[11px] text-ink-3 mt-1">ใช้คิดเวลาแจ้งเตือนตามแผน — ตั้งเป็นเวลาประเทศปลายทางที่ไป</p>
+          <p className="text-[11px] text-ink-3 mt-1">จำเป็นต้องเลือก — ใช้คิดเวลาแจ้งเตือนตามแผน ตั้งเป็นเวลาประเทศปลายทางที่ไป</p>
         </div>
 
         {/* Cities */}
@@ -167,7 +170,7 @@ export function TripEditor({
           )}
         </div>
 
-        <button onClick={save} disabled={busy || !name} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+        <button onClick={save} disabled={busy || !name || !timezone} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
         {initial && onDelete && (
           <button onClick={del} disabled={busy} className="w-full h-10 flex items-center justify-center gap-1.5 text-[13px] text-[#D85A30]"><IconTrash size={15} /> ลบทริป</button>
         )}
