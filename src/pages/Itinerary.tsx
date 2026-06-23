@@ -173,7 +173,7 @@ function DayCard({
 }
 
 export default function Itinerary() {
-  const { trip, days, stops, places, interests, memberProfiles, reload, canEdit } = useTrip()
+  const { trip, days, stops, places, interests, memberProfiles, reload, patch, canEdit } = useTrip()
   const { user } = useAuth()
   const [detailPlace, setDetailPlace] = useState<Place | null>(null)
 
@@ -199,11 +199,20 @@ export default function Itinerary() {
     })
     return { list, mine: !!user && rows.some((r) => r.user_id === user.id) }
   }
-  async function togglePlan(p: Place) { await setInPlan(p.id, !p.in_plan); await reload() }
-  async function toggleWant(p: Place) {
+  function togglePlan(p: Place) {
+    const next = !p.in_plan
+    patch((d) => ({ places: d.places.map((x) => (x.id === p.id ? { ...x, in_plan: next } : x)) })) // instant
+    setInPlan(p.id, next).then(() => reload()) // persist + reconcile in the background
+  }
+  function toggleWant(p: Place) {
     if (!user) return
     const mine = interests.some((i) => i.place_id === p.id && i.user_id === user.id)
-    await toggleInterest(p.id, user.id, mine); await reload()
+    patch((d) => ({
+      interests: mine
+        ? d.interests.filter((i) => !(i.place_id === p.id && i.user_id === user.id))
+        : [...d.interests, { place_id: p.id, user_id: user.id }],
+    }))
+    toggleInterest(p.id, user.id, mine).then(() => reload())
   }
   const [localStops, setLocalStops] = useState<ItineraryStop[]>(stops)
   const [localDays, setLocalDays] = useState<ItineraryDay[]>(days)

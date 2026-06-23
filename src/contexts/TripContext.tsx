@@ -29,7 +29,12 @@ interface TripData {
   myPermission: 'owner' | 'edit' | 'places' | 'view'
   canEdit: boolean
   reload: () => Promise<void>
+  /** Optimistically patch local state for instant UI; the real write + a
+   *  background reload (or realtime) reconcile afterwards. */
+  patch: (updater: (prev: TripState) => Partial<TripState>) => void
 }
+
+type TripState = Omit<TripData, 'loading' | 'error' | 'reload' | 'trips' | 'currentTripId' | 'switchTrip' | 'canEdit' | 'patch'>
 
 const TripContext = createContext<TripData | undefined>(undefined)
 
@@ -48,29 +53,38 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const [currentTripId, setCurrentTripId] = useState<string | null>(
     () => localStorage.getItem(STORAGE_KEY),
   )
-  const [data, setData] = useState<Omit<TripData, 'loading' | 'error' | 'reload' | 'trips' | 'currentTripId' | 'switchTrip' | 'canEdit'>>(empty)
+  const [data, setData] = useState<TripState>(empty)
+  // user id we've already run the one-time bootstrap (profile upsert + invites) for
+  const bootstrappedFor = useRef<string | null>(null)
 
   const switchTrip = useCallback((id: string) => {
     localStorage.setItem(STORAGE_KEY, id)
     setCurrentTripId(id)
   }, [])
 
+  const patch = useCallback((updater: (prev: TripState) => Partial<TripState>) => {
+    setData((prev) => ({ ...prev, ...updater(prev) }))
+  }, [])
+
   const load = useCallback(async () => {
     if (!user) return
     setError(null)
     try {
-      // Ensure a profile row exists for this user
-      const profUpsert = await supabase
-        .from('profiles')
-        .upsert(
-          { id: user.id, nickname: user.email?.split('@')[0] ?? 'me', avatar_color: 'av3' },
-          { onConflict: 'id', ignoreDuplicates: true },
-        )
-      if (profUpsert.error) throw new Error(`[โปรไฟล์] ${profUpsert.error.message}`)
-
-      // Accept any pending invites addressed to this user's email (owner-controlled
-      // sharing). No-op if the accept_my_invites() function hasn't been added yet.
-      await supabase.rpc('accept_my_invites') // no-op if the function isn't added yet
+      // One-time-per-session bootstrap: ensure a profile row exists and accept any
+      // pending invites. These don't change between reloads, so skipping them on
+      // every refresh removes two sequential round-trips from each button press.
+      if (bootstrappedFor.current !== user.id) {
+        const profUpsert = await supabase
+          .from('profiles')
+          .upsert(
+            { id: user.id, nickname: user.email?.split('@')[0] ?? 'me', avatar_color: 'av3' },
+            { onConflict: 'id', ignoreDuplicates: true },
+          )
+        if (profUpsert.error) throw new Error(`[โปรไฟล์] ${profUpsert.error.message}`)
+        // No-op if the accept_my_invites() function hasn't been added yet.
+        await supabase.rpc('accept_my_invites')
+        bootstrappedFor.current = user.id
+      }
 
       // Fetch all trips the user belongs to (new users start with none)
       const tripsRes = await supabase.from('trips').select('*').order('created_at', { ascending: true })
@@ -187,7 +201,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
   useEffect(() => initOfflineSync(() => loadRef.current()), [])
 
   return (
-    <TripContext.Provider value={{ loading, error, trips, currentTripId, switchTrip, reload: load, ...data, canEdit: data.myPermission === 'owner' || data.myPermission === 'edit' }}>
+    <TripContext.Provider value={{ loading, error, trips, currentTripId, switchTrip, reload: load, patch, ...data, canEdit: data.myPermission === 'owner' || data.myPermission === 'edit' }}>
       {children}
     </TripContext.Provider>
   )
