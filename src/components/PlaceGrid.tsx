@@ -110,7 +110,12 @@ export function PlaceGrid({
     }))
     toggleInterest(p.id, user.id, mine).then(() => reload())
   }
-  async function remove(p: Place) { if (await confirmDialog({ message: 'ลบรายการนี้?', danger: true, confirmLabel: 'ลบ' })) { await deletePlace(p.id); await reload(); offerUndo('ลบรายการแล้ว', [{ table: 'places', rows: [p] }], reload) } }
+  async function remove(p: Place) {
+    if (!(await confirmDialog({ message: 'ลบรายการนี้?', danger: true, confirmLabel: 'ลบ' }))) return
+    patch((d) => ({ places: d.places.filter((x) => x.id !== p.id) })) // vanish instantly
+    await deletePlace(p.id); await reload()
+    offerUndo('ลบรายการแล้ว', [{ table: 'places', rows: [p] }], reload)
+  }
 
   const renderCard = (p: Place) => {
     const { list, mine } = interestFor(p)
