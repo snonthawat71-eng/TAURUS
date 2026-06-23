@@ -38,7 +38,7 @@ export function AppShell() {
       <div className="max-md:hidden">
         <Sidebar />
       </div>
-      <main className="flex-1 min-w-0 flex flex-col pb-14 md:pb-0">
+      <main className="flex-1 min-w-0 flex flex-col pb-[calc(env(safe-area-inset-bottom)+4.5rem)] md:pb-0">
         <OfflineBanner />
         <TopBar />
         <div className="flex-1 px-5 md:px-6 py-5 max-w-[860px] w-full mx-auto">
