@@ -86,25 +86,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
         bootstrappedFor.current = user.id
       }
 
-      // Fetch all trips the user belongs to (new users start with none)
-      const tripsRes = await supabase.from('trips').select('*').order('created_at', { ascending: true })
-      if (tripsRes.error) throw new Error(`[อ่านทริป] ${tripsRes.error.message}`)
-      const allTrips = tripsRes.data ?? []
-      setTrips(allTrips)
-
-      // Pick the current trip (saved, else first). No trip yet → empty state.
-      const current = allTrips.find((t) => t.id === currentTripId) ?? allTrips[0]
-      if (!current) { setData(empty); return }
-      if (current.id !== currentTripId) {
-        localStorage.setItem(STORAGE_KEY, current.id)
-        setCurrentTripId(current.id)
-      }
-      const trip_id = current.id
-
-      const [
-        profileRes, travelersRes, travelerFilesRes, flightsRes, hotelsRes, daysRes, stopsRes,
-        placesRes, expensesRes, membersRes,
-      ] = await Promise.all([
+      // All of the current trip's data in one parallel batch (1 round-trip).
+      const fetchTripData = (trip_id: string) => Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('travelers').select('*').eq('trip_id', trip_id).order('created_at'),
         supabase.from('traveler_files').select('*').eq('trip_id', trip_id).order('created_at'),
@@ -116,6 +99,33 @@ export function TripProvider({ children }: { children: ReactNode }) {
         supabase.from('expenses').select('*').eq('trip_id', trip_id).order('created_at'),
         supabase.from('trip_members').select('user_id,permission').eq('trip_id', trip_id),
       ])
+
+      // Fetch the trips list and (when we already know the current trip — i.e. on
+      // every reload, not just the first load) its data concurrently, so a button
+      // press doesn't wait for the trips list before the trip data even starts.
+      const knownId = currentTripId
+      const tripsP = supabase.from('trips').select('*').order('created_at', { ascending: true })
+      const batchP = knownId ? fetchTripData(knownId) : null
+
+      const tripsRes = await tripsP
+      if (tripsRes.error) throw new Error(`[อ่านทริป] ${tripsRes.error.message}`)
+      const allTrips = tripsRes.data ?? []
+      setTrips(allTrips)
+
+      // Pick the current trip (saved, else first). No trip yet → empty state.
+      const current = allTrips.find((t) => t.id === currentTripId) ?? allTrips[0]
+      if (!current) { setData(empty); return }
+      if (current.id !== currentTripId) {
+        localStorage.setItem(STORAGE_KEY, current.id)
+        setCurrentTripId(current.id)
+      }
+
+      // Reuse the concurrent batch if it was for the trip we resolved to; otherwise
+      // (first load, or the saved id was stale) fetch for the real current trip.
+      const [
+        profileRes, travelersRes, travelerFilesRes, flightsRes, hotelsRes, daysRes, stopsRes,
+        placesRes, expensesRes, membersRes,
+      ] = (batchP && current.id === knownId) ? await batchP : await fetchTripData(current.id)
 
       // Supabase returns failures as an `error` value (not a thrown exception),
       // so check each one — otherwise a failed query silently shows an empty list.
@@ -129,18 +139,21 @@ export function TripProvider({ children }: { children: ReactNode }) {
       const failed = failures.find(([, err]) => err)
       if (failed) throw new Error(`[${failed[0]}] ${failed[1]!.message}`)
 
+      // Interests (by place) and member profiles (by member) both depend on the
+      // batch above — fetch them together in a single second round-trip.
       const places = (placesRes.data ?? []) as Place[]
       const placeIds = places.map((p) => p.id)
-      const interestsRes = placeIds.length
-        ? await supabase.from('place_interest').select('*').in('place_id', placeIds)
-        : { data: [] as PlaceInterest[], error: null }
-      if (interestsRes.error) throw new Error(`[ความสนใจ] ${interestsRes.error.message}`)
-
       const members = (membersRes.data ?? []) as { user_id: string; permission?: string | null }[]
       const memberIds = members.map((m) => m.user_id)
-      const memberProfilesRes = memberIds.length
-        ? await supabase.from('profiles').select('*').in('id', memberIds)
-        : { data: [] as Profile[], error: null }
+      const [interestsRes, memberProfilesRes] = await Promise.all([
+        placeIds.length
+          ? supabase.from('place_interest').select('*').in('place_id', placeIds)
+          : Promise.resolve({ data: [] as PlaceInterest[], error: null }),
+        memberIds.length
+          ? supabase.from('profiles').select('*').in('id', memberIds)
+          : Promise.resolve({ data: [] as Profile[], error: null }),
+      ])
+      if (interestsRes.error) throw new Error(`[ความสนใจ] ${interestsRes.error.message}`)
       if (memberProfilesRes.error) throw new Error(`[สมาชิก] ${memberProfilesRes.error.message}`)
 
       const myPermission: 'owner' | 'edit' | 'places' | 'view' =
