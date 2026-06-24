@@ -10,11 +10,12 @@ const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outli
 const lbl = 'text-[11px] text-ink-3'
 
 export function FlightEditor({
-  open, onClose, initial, onSave, onDelete,
+  open, onClose, initial, defaultDirection = 'outbound', onSave, onDelete,
 }: {
   open: boolean
   onClose: () => void
   initial: Flight | null
+  defaultDirection?: FlightDirection
   onSave: (fields: FlightInput) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
@@ -26,9 +27,9 @@ export function FlightEditor({
     if (open) {
       setV(initial
         ? { ...initial }
-        : { direction: 'outbound', airline: '', flight_no: '', dep_code: '', dep_name: '', dep_time: '', arr_code: '', arr_name: '', arr_time: '', flight_date: '', booking_ref: '', seat_class: 'Economy', seats: undefined })
+        : { direction: defaultDirection, airline: '', flight_no: '', dep_code: '', dep_name: '', dep_time: '', arr_code: '', arr_name: '', arr_time: '', flight_date: '', booking_ref: '', seat_class: 'Economy', seats: undefined })
     }
-  }, [open, initial])
+  }, [open, initial, defaultDirection])
 
   async function save() {
     if (v.seats != null && (!Number.isFinite(v.seats) || v.seats < 0)) { toast.error('จำนวนที่นั่งต้องเป็นตัวเลขไม่ติดลบ'); return }

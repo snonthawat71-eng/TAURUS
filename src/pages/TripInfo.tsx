@@ -25,7 +25,7 @@ import {
   addFlight, updateFlight, deleteFlight,
   addHotel, updateHotel, deleteHotel, updateProfile,
 } from '@/lib/tripMutations'
-import type { Flight, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
+import type { Flight, FlightDirection, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
 
 type EditState<T> = 'new' | T | null
 
@@ -58,24 +58,27 @@ async function viewFile(f: TravelerFile) {
   if (url) window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-function FlightCard({ flights, tripId, canEdit, onEdit, onDelete }: {
+function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   flights: Flight[]
   tripId: string
   canEdit: boolean
   onEdit: (f: Flight) => void
   onDelete: (f: Flight) => void
+  onAdd: (dir: FlightDirection) => void
 }) {
   const { travelers } = useTrip()
-  const [dir, setDir] = useState<'outbound' | 'return'>('outbound')
-  const f = flights.find((x) => (x.direction ?? 'outbound') === dir) ?? flights[0]
-  if (!f) return null
+  const [dir, setDir] = useState<FlightDirection>('outbound')
+  // show the flight for the selected direction only — never fall back to the
+  // other direction (that let editing the "return" tab overwrite the outbound)
+  const f = flights.find((x) => (x.direction ?? 'outbound') === dir)
   const Icon = dir === 'return' ? IconPlaneArrival : IconPlaneDeparture
+  const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
 
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2">
         <Icon size={16} className="text-brand shrink-0" />
-        <span className="text-[13px] font-medium truncate min-w-0 flex-1">{f.flight_no} · {f.airline}</span>
+        <span className="text-[13px] font-medium truncate min-w-0 flex-1">{f ? `${f.flight_no} · ${f.airline}` : `เที่ยวบิน${dirLabel}`}</span>
         {/* outbound / return segmented toggle (moved here, replacing the status badge) */}
         <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
           <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
@@ -87,7 +90,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete }: {
             </button>
           ))}
         </div>
-        {canEdit && (
+        {canEdit && f && (
           <PopMenu items={[
             { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
             { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
@@ -95,6 +98,15 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete }: {
         )}
       </div>
 
+      {!f ? (
+        <div className="text-center py-7">
+          <p className="text-[12px] text-ink-3">ยังไม่มีเที่ยวบิน{dirLabel}</p>
+          {canEdit && (
+            <button onClick={() => onAdd(dir)} className="btn-link inline-flex items-center gap-1 mt-2"><IconPlus size={14} /> เพิ่มเที่ยวบิน{dirLabel}</button>
+          )}
+        </div>
+      ) : (
+      <>
       {/* route graphic — fixed columns so ขาไป/ขากลับ don't shift */}
       <div className="flex items-start mt-4">
         <div className="w-[88px] shrink-0">
@@ -130,6 +142,8 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete }: {
         )}
         <span className="ml-auto"><AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} /></span>
       </div>
+      </>
+      )}
     </div>
   )
 }
@@ -140,6 +154,7 @@ export default function TripInfo() {
   const [selected, setSelected] = useState<Traveler | null>(null)
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
   const [flightEdit, setFlightEdit] = useState<EditState<Flight>>(null)
+  const [newFlightDir, setNewFlightDir] = useState<FlightDirection>('outbound')
   const [hotelEdit, setHotelEdit] = useState<EditState<Hotel>>(null)
 
   const filesByTraveler = useMemo(() => {
@@ -193,11 +208,12 @@ export default function TripInfo() {
 
       {/* Flights */}
       <SectionHead title="Flights • ข้อมูลเที่ยวบิน"
-        action={canEdit ? <button onClick={() => setFlightEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มเที่ยวบิน</button> : undefined} />
+        action={canEdit ? <button onClick={() => { setNewFlightDir(flights.some((f) => (f.direction ?? 'outbound') === 'outbound') ? 'return' : 'outbound'); setFlightEdit('new') }} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มเที่ยวบิน</button> : undefined} />
       {flights.length === 0 ? (
         <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลไฟลต์</div>
       ) : (
         <FlightCard flights={flights} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(f) => setFlightEdit(f)}
+          onAdd={(d) => { setNewFlightDir(d); setFlightEdit('new') }}
           onDelete={async (f) => { if (await confirmDialog({ message: 'ลบไฟลต์นี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteFlight(f.id); await reload(); offerUndo('ลบไฟลต์แล้ว', [{ table: 'flights', rows: [f] }], reload) } }} />
       )}
 
@@ -293,6 +309,7 @@ export default function TripInfo() {
         open={flightEdit !== null}
         onClose={() => setFlightEdit(null)}
         initial={flightEdit && flightEdit !== 'new' ? flightEdit : null}
+        defaultDirection={newFlightDir}
         onSave={async (fields) => {
           if (flightEdit === 'new' || !flightEdit) await addFlight(trip!.id, fields)
           else await updateFlight(flightEdit.id, fields)

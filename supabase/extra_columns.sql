@@ -11,6 +11,9 @@ alter table flights add column if not exists seat_class text;
 alter table flights add column if not exists seats int;
 alter table flights add column if not exists status text;
 
+-- ทิศทางของไฟล์ต ('outbound' = ขาไป | 'return' = ขากลับ) — แยกเที่ยวบินไป/กลับได้
+alter table flights add column if not exists direction text not null default 'outbound';
+
 -- รูปภาพโรงแรม (เก็บ path ใน private bucket 'trip-files')
 alter table hotels add column if not exists photo_path text;
 
