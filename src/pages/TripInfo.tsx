@@ -312,6 +312,12 @@ export default function TripInfo() {
         initial={flightEdit && flightEdit !== 'new' ? flightEdit : null}
         defaultDirection={newFlightDir}
         prefillFrom={flights.find((f) => (f.direction ?? 'outbound') === 'outbound') ?? null}
+        onSwitchDirection={(dir) => {
+          // toggle in the editor = jump to that leg's real flight, or an add form for it
+          const existing = flights.find((f) => (f.direction ?? 'outbound') === dir)
+          if (existing) setFlightEdit(existing)
+          else { setNewFlightDir(dir); setFlightEdit('new') }
+        }}
         onSave={async (fields) => {
           const isNew = flightEdit === 'new' || !flightEdit
           const savedDir = fields.direction ?? 'outbound'

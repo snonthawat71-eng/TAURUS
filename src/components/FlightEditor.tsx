@@ -12,7 +12,7 @@ const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w
 const lbl = 'text-[11px] text-ink-3'
 
 export function FlightEditor({
-  open, onClose, initial, defaultDirection = 'outbound', prefillFrom, onSave, onDelete,
+  open, onClose, initial, defaultDirection = 'outbound', prefillFrom, onSave, onDelete, onSwitchDirection,
 }: {
   open: boolean
   onClose: () => void
@@ -24,6 +24,9 @@ export function FlightEditor({
    *  return-leg form); otherwise it closes after saving. */
   onSave: (fields: FlightInput) => Promise<void | boolean>
   onDelete?: () => Promise<void>
+  /** Tapping the ขาไป/ขากลับ toggle switches to editing that leg's real flight
+   *  (the parent loads it, or opens an add form for that direction). */
+  onSwitchDirection?: (dir: FlightDirection) => void
 }) {
   const [v, setV] = useState<FlightInput>({})
   const [busy, setBusy] = useState(false)
@@ -69,7 +72,7 @@ export function FlightEditor({
       <div className="space-y-3">
         <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2">
           {(['outbound', 'return'] as FlightDirection[]).map((d) => (
-            <button key={d} onClick={() => set({ direction: d })}
+            <button key={d} onClick={() => onSwitchDirection ? onSwitchDirection(d) : set({ direction: d })}
               className={['px-3 h-7 rounded-[6px] text-[12px] font-medium', v.direction === d ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>
               {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
             </button>
