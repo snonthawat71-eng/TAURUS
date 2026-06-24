@@ -306,6 +306,7 @@ export default function TripInfo() {
           : undefined}
       />
       <FlightEditor
+        key={flightEdit && flightEdit !== 'new' ? flightEdit.id : `new-${newFlightDir}`}
         open={flightEdit !== null}
         onClose={() => setFlightEdit(null)}
         initial={flightEdit && flightEdit !== 'new' ? flightEdit : null}
