@@ -72,7 +72,14 @@ export function FlightEditor({
           <div><div className={lbl}>เที่ยวบิน</div><input className={field} value={v.flight_no ?? ''} onChange={(e) => set({ flight_no: e.target.value })} placeholder="TG614" /></div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="min-w-0"><div className={lbl}>วันที่บิน</div><input type="date" className={field} value={v.flight_date ?? ''} onChange={(e) => set({ flight_date: e.target.value })} /></div>
+          <div className="min-w-0">
+            <div className={lbl}>วันที่บิน</div>
+            <div className="relative">
+              <input type="date" className={[field, 'appearance-none', 'pr-8'].join(' ')} value={v.flight_date ?? ''} onChange={(e) => set({ flight_date: e.target.value })} />
+              {v.flight_date && <button type="button" onClick={() => set({ flight_date: '' })} aria-label="ล้างวันที่"
+                className="absolute right-1 top-1/2 -translate-y-1/2 size-6 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={14} /></button>}
+            </div>
+          </div>
           <div className="min-w-0"><div className={lbl}>รหัสจอง</div><input className={field} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="XKQP34" /></div>
         </div>
         {/* ── ต้นทาง (Departure) — รหัส/ชื่อสนามบิน + เวลา/โซนเวลา อยู่กลุ่มเดียวกัน ── */}
