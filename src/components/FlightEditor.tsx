@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { IconTrash, IconPlaneDeparture, IconPlaneArrival, IconX } from '@tabler/icons-react'
+import { IconTrash, IconPlaneDeparture, IconPlaneArrival } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { ClearableField } from './ClearableField'
 import type { Flight, FlightDirection } from '@/lib/database.types'
 import type { FlightInput } from '@/lib/tripMutations'
 import { confirmDialog } from '@/lib/confirm'
@@ -9,30 +10,6 @@ import { TIMEZONES } from '@/lib/timezones'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w-0 outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
-// Box wrapper for native date/time inputs: the ✕ is a real flex sibling (not an
-// overlay) so iOS Safari's native control can never paint over it, and overflow
-// is clipped so a long localized value (e.g. "27 Oct BE 2569") can't push past the box.
-const fieldBox = 'hairline rounded-md h-10 bg-surface w-full min-w-0 flex items-center overflow-hidden focus-within:border-brand'
-
-/** Native date/time field with a working ✕ clear button on iOS. */
-function ClearableField({ type, value, onChange, onClear, ariaLabel }: {
-  type: 'date' | 'time'
-  value: string
-  onChange: (val: string) => void
-  onClear: () => void
-  ariaLabel: string
-}) {
-  return (
-    <div className={fieldBox}>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)}
-        className="flex-1 min-w-0 h-full bg-transparent outline-none px-3 text-[13px] appearance-none" />
-      {value && (
-        <button type="button" onClick={onClear} aria-label={ariaLabel}
-          className="shrink-0 size-8 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={14} /></button>
-      )}
-    </div>
-  )
-}
 
 export function FlightEditor({
   open, onClose, initial, defaultDirection = 'outbound', prefillFrom, onSave, onDelete,

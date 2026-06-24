@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { IconTrash, IconPlus, IconPhoto, IconLoader2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { ClearableField } from './ClearableField'
 import { HotelPhoto } from './HotelPhoto'
 import { uploadImage } from '@/lib/files'
 import { confirmDialog } from '@/lib/confirm'
@@ -111,8 +112,14 @@ export function HotelEditor({
           <div><div className={lbl}>จำนวนคืน</div><input type="number" className={field} value={nights} onChange={(e) => setNights(e.target.value)} placeholder="4" /></div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div><div className={lbl}>Check-in</div><input type="datetime-local" className={field} value={checkin} onChange={(e) => setCheckin(e.target.value)} /></div>
-          <div><div className={lbl}>Check-out</div><input type="datetime-local" className={field} value={checkout} onChange={(e) => setCheckout(e.target.value)} /></div>
+          <div><div className={lbl}>Check-in</div>
+            <ClearableField type="datetime-local" ariaLabel="ล้าง Check-in" value={checkin}
+              onChange={setCheckin} onClear={() => setCheckin('')} />
+          </div>
+          <div><div className={lbl}>Check-out</div>
+            <ClearableField type="datetime-local" ariaLabel="ล้าง Check-out" value={checkout}
+              onChange={setCheckout} onClear={() => setCheckout('')} />
+          </div>
         </div>
         <div><div className={lbl}>Booking ID</div><input className={field} value={bookingId} onChange={(e) => setBookingId(e.target.value)} placeholder="BK-4892301" /></div>
         <div><div className={lbl}>ลิงก์แผนที่</div><input className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps.apple.com/?q=..." /></div>

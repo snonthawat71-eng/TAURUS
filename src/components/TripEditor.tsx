@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { IconTrash, IconMoodSmile, IconPlus } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { ClearableField } from './ClearableField'
 import { CURRENCIES } from '@/lib/fx'
 import { confirmDialog } from '@/lib/confirm'
 import { TIMEZONES } from '@/lib/timezones'
@@ -102,8 +103,14 @@ export function TripEditor({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div><div className={lbl}>วันเริ่ม</div><input type="date" className={field} value={start} onChange={(e) => { setStart(e.target.value); if (end && e.target.value && end < e.target.value) setEnd(e.target.value) }} /></div>
-          <div><div className={lbl}>วันสิ้นสุด</div><input type="date" className={field} value={end} min={start || undefined} onChange={(e) => { const v = e.target.value; setEnd(v && start && v < start ? start : v) }} /></div>
+          <div><div className={lbl}>วันเริ่ม</div>
+            <ClearableField type="date" ariaLabel="ล้างวันเริ่ม" value={start}
+              onChange={(val) => { setStart(val); if (end && val && end < val) setEnd(val) }} onClear={() => setStart('')} />
+          </div>
+          <div><div className={lbl}>วันสิ้นสุด</div>
+            <ClearableField type="date" ariaLabel="ล้างวันสิ้นสุด" value={end} min={start || undefined}
+              onChange={(val) => setEnd(val && start && val < start ? start : val)} onClear={() => setEnd('')} />
+          </div>
         </div>
 
         <div>

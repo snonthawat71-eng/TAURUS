@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Drawer } from './Drawer'
+import { ClearableField } from './ClearableField'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 
@@ -34,7 +35,8 @@ export function DayEditor({
       <div className="space-y-3">
         <div>
           <label className="text-[11px] text-ink-3">วันที่</label>
-          <input type="date" className={field} value={date ?? ''} onChange={(e) => setDate(e.target.value)} />
+          <ClearableField type="date" ariaLabel="ล้างวันที่" value={date ?? ''}
+            onChange={setDate} onClear={() => setDate('')} />
         </div>
         <div>
           <label className="text-[11px] text-ink-3">หัวข้อวัน</label>
