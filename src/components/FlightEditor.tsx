@@ -9,6 +9,30 @@ import { TIMEZONES } from '@/lib/timezones'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w-0 outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
+// Box wrapper for native date/time inputs: the ✕ is a real flex sibling (not an
+// overlay) so iOS Safari's native control can never paint over it, and overflow
+// is clipped so a long localized value (e.g. "27 Oct BE 2569") can't push past the box.
+const fieldBox = 'hairline rounded-md h-10 bg-surface w-full min-w-0 flex items-center overflow-hidden focus-within:border-brand'
+
+/** Native date/time field with a working ✕ clear button on iOS. */
+function ClearableField({ type, value, onChange, onClear, ariaLabel }: {
+  type: 'date' | 'time'
+  value: string
+  onChange: (val: string) => void
+  onClear: () => void
+  ariaLabel: string
+}) {
+  return (
+    <div className={fieldBox}>
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)}
+        className="flex-1 min-w-0 h-full bg-transparent outline-none px-3 text-[13px] appearance-none" />
+      {value && (
+        <button type="button" onClick={onClear} aria-label={ariaLabel}
+          className="shrink-0 size-8 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={14} /></button>
+      )}
+    </div>
+  )
+}
 
 export function FlightEditor({
   open, onClose, initial, defaultDirection = 'outbound', prefillFrom, onSave, onDelete,
@@ -74,11 +98,8 @@ export function FlightEditor({
         <div className="grid grid-cols-2 gap-2">
           <div className="min-w-0">
             <div className={lbl}>วันที่บิน</div>
-            <div className="relative">
-              <input type="date" className={[field, 'appearance-none', 'pr-8'].join(' ')} value={v.flight_date ?? ''} onChange={(e) => set({ flight_date: e.target.value })} />
-              {v.flight_date && <button type="button" onClick={() => set({ flight_date: '' })} aria-label="ล้างวันที่"
-                className="absolute right-1 top-1/2 -translate-y-1/2 size-6 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={14} /></button>}
-            </div>
+            <ClearableField type="date" ariaLabel="ล้างวันที่" value={v.flight_date ?? ''}
+              onChange={(val) => set({ flight_date: val })} onClear={() => set({ flight_date: '' })} />
           </div>
           <div className="min-w-0"><div className={lbl}>รหัสจอง</div><input className={field} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="XKQP34" /></div>
         </div>
@@ -92,11 +113,8 @@ export function FlightEditor({
           <div className="grid grid-cols-3 gap-2">
             <div className="min-w-0">
               <div className={lbl}>เวลาออก</div>
-              <div className="relative">
-                <input type="time" className={[field, 'appearance-none', 'pr-8'].join(' ')} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} />
-                {v.dep_time && <button type="button" onClick={() => set({ dep_time: '' })} aria-label="ล้างเวลา"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 size-6 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={14} /></button>}
-              </div>
+              <ClearableField type="time" ariaLabel="ล้างเวลา" value={v.dep_time ?? ''}
+                onChange={(val) => set({ dep_time: val })} onClear={() => set({ dep_time: '' })} />
             </div>
             <div className="col-span-2 min-w-0">
               <div className={lbl}>โซนเวลา</div>
@@ -119,11 +137,8 @@ export function FlightEditor({
           <div className="grid grid-cols-3 gap-2">
             <div className="min-w-0">
               <div className={lbl}>เวลาถึง</div>
-              <div className="relative">
-                <input type="time" className={[field, 'appearance-none', 'pr-8'].join(' ')} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} />
-                {v.arr_time && <button type="button" onClick={() => set({ arr_time: '' })} aria-label="ล้างเวลา"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 size-6 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={14} /></button>}
-              </div>
+              <ClearableField type="time" ariaLabel="ล้างเวลา" value={v.arr_time ?? ''}
+                onChange={(val) => set({ arr_time: val })} onClear={() => set({ arr_time: '' })} />
             </div>
             <div className="col-span-2 min-w-0">
               <div className={lbl}>โซนเวลา</div>
