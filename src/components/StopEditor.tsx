@@ -91,7 +91,7 @@ export function StopEditor({
         )}
         <div>
           <label className="text-[11px] text-ink-3">เวลา</label>
-          <input type="time" className={field} value={time} onChange={(e) => setTime(e.target.value)} />
+          <input type="time" className={[field, 'appearance-none'].join(' ')} value={time} onChange={(e) => setTime(e.target.value)} />
         </div>
         <div>
           <label className="text-[11px] text-ink-3">ชื่อสถานที่ / กิจกรรม</label>
