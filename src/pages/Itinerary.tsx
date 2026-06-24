@@ -85,7 +85,7 @@ function SortableStop({
             <PopMenu items={[
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
               // once the user opted out, the "set transit" action lives here instead
-              ...(!stop.transit && stop.skip_transit ? [{ label: 'กำหนดวิธีการเดินทาง', icon: <IconRoute size={15} />, onClick: onEditRoute }] : []),
+              ...(!stop.transit && stop.skip_transit ? [{ label: 'กำหนดการเดินทาง', icon: <IconRoute size={15} />, onClick: onEditRoute }] : []),
               { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
             ]} />
           )}
@@ -95,7 +95,7 @@ function SortableStop({
             <button onClick={onEditRoute}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium"
               style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
-              <IconRoute size={14} /> กำหนดวิธีการเดินทาง
+              <IconRoute size={14} /> กำหนดการเดินทาง
             </button>
             <button onClick={onSkipRoute}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium text-ink-2 hover:bg-surface-2"
