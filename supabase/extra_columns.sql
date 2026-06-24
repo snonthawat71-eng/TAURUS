@@ -14,6 +14,10 @@ alter table flights add column if not exists status text;
 -- ทิศทางของไฟล์ต ('outbound' = ขาไป | 'return' = ขากลับ) — แยกเที่ยวบินไป/กลับได้
 alter table flights add column if not exists direction text not null default 'outbound';
 
+-- โซนเวลาสนามบินต้นทาง/ปลายทาง (IANA เช่น 'Asia/Bangkok') — คิดระยะเวลาบินข้ามโซนเวลาให้ถูก
+alter table flights add column if not exists dep_tz text;
+alter table flights add column if not exists arr_tz text;
+
 -- รูปภาพโรงแรม (เก็บ path ใน private bucket 'trip-files')
 alter table hotels add column if not exists photo_path text;
 

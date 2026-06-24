@@ -115,7 +115,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
           <div className="text-[14px] mt-0.5 tabular-nums">{f.dep_time}</div>
         </div>
         <div className="flex-1 flex flex-col items-center pt-1">
-          <div className="text-[11px] text-ink-3 tabular-nums">{flightDuration(f.dep_time, f.arr_time)}</div>
+          <div className="text-[11px] text-ink-3 tabular-nums">{flightDuration(f.dep_time, f.arr_time, f.dep_tz, f.arr_tz, f.flight_date)}</div>
           <div className="w-full flex items-center my-1.5">
             <span className="size-2 rounded-full shrink-0" style={{ background: 'var(--color-brand)' }} />
             <span className="flex-1 h-px bg-line-2" />
@@ -310,6 +310,7 @@ export default function TripInfo() {
         onClose={() => setFlightEdit(null)}
         initial={flightEdit && flightEdit !== 'new' ? flightEdit : null}
         defaultDirection={newFlightDir}
+        prefillFrom={flights.find((f) => (f.direction ?? 'outbound') === 'outbound') ?? null}
         onSave={async (fields) => {
           if (flightEdit === 'new' || !flightEdit) await addFlight(trip!.id, fields)
           else await updateFlight(flightEdit.id, fields)

@@ -5,17 +5,20 @@ import type { Flight, FlightDirection } from '@/lib/database.types'
 import type { FlightInput } from '@/lib/tripMutations'
 import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
+import { TIMEZONES } from '@/lib/timezones'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
 
 export function FlightEditor({
-  open, onClose, initial, defaultDirection = 'outbound', onSave, onDelete,
+  open, onClose, initial, defaultDirection = 'outbound', prefillFrom, onSave, onDelete,
 }: {
   open: boolean
   onClose: () => void
   initial: Flight | null
   defaultDirection?: FlightDirection
+  /** when adding a RETURN flight, seed the form from the outbound (route swapped) */
+  prefillFrom?: Flight | null
   onSave: (fields: FlightInput) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
@@ -24,12 +27,22 @@ export function FlightEditor({
   const set = (p: FlightInput) => setV((s) => ({ ...s, ...p }))
 
   useEffect(() => {
-    if (open) {
-      setV(initial
-        ? { ...initial }
-        : { direction: defaultDirection, airline: '', flight_no: '', dep_code: '', dep_name: '', dep_time: '', arr_code: '', arr_name: '', arr_time: '', flight_date: '', booking_ref: '', seat_class: 'Economy', seats: undefined })
+    if (!open) return
+    if (initial) { setV({ ...initial }); return }
+    const blank: FlightInput = { direction: defaultDirection, airline: '', flight_no: '', dep_code: '', dep_name: '', dep_time: '', arr_code: '', arr_name: '', arr_time: '', flight_date: '', booking_ref: '', seat_class: 'Economy', seats: undefined }
+    // adding the return leg: prefill from the outbound with the route reversed
+    if (defaultDirection === 'return' && prefillFrom) {
+      setV({
+        ...blank,
+        airline: prefillFrom.airline ?? '', seat_class: prefillFrom.seat_class ?? 'Economy',
+        seats: prefillFrom.seats ?? undefined, booking_ref: prefillFrom.booking_ref ?? '',
+        dep_code: prefillFrom.arr_code ?? '', dep_name: prefillFrom.arr_name ?? '', dep_tz: prefillFrom.arr_tz ?? null,
+        arr_code: prefillFrom.dep_code ?? '', arr_name: prefillFrom.dep_name ?? '', arr_tz: prefillFrom.dep_tz ?? null,
+      })
+      return
     }
-  }, [open, initial, defaultDirection])
+    setV(blank)
+  }, [open, initial, defaultDirection, prefillFrom])
 
   async function save() {
     if (v.seats != null && (!Number.isFinite(v.seats) || v.seats < 0)) { toast.error('จำนวนที่นั่งต้องเป็นตัวเลขไม่ติดลบ'); return }
@@ -68,6 +81,25 @@ export function FlightEditor({
           <div><div className={lbl}>เวลาถึง</div><input className={field} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} placeholder="15:35" /></div>
         </div>
         <div><div className={lbl}>ชื่อปลายทาง</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <div className={lbl}>โซนเวลาต้นทาง</div>
+            <select className={[field, !v.dep_tz ? 'text-ink-3' : ''].join(' ')} value={v.dep_tz ?? ''} onChange={(e) => set({ dep_tz: e.target.value || null })}>
+              <option value="">— ไม่ระบุ —</option>
+              {!!v.dep_tz && !TIMEZONES.some((t) => t.tz === v.dep_tz) && <option value={v.dep_tz}>{v.dep_tz}</option>}
+              {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <div className={lbl}>โซนเวลาปลายทาง</div>
+            <select className={[field, !v.arr_tz ? 'text-ink-3' : ''].join(' ')} value={v.arr_tz ?? ''} onChange={(e) => set({ arr_tz: e.target.value || null })}>
+              <option value="">— ไม่ระบุ —</option>
+              {!!v.arr_tz && !TIMEZONES.some((t) => t.tz === v.arr_tz) && <option value={v.arr_tz}>{v.arr_tz}</option>}
+              {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
+            </select>
+          </div>
+          <p className="col-span-2 text-[11px] text-ink-3 -mt-0.5">ใส่โซนเวลาสนามบินทั้งสองฝั่ง เพื่อให้คำนวณระยะเวลาบินข้ามโซนเวลาได้ถูกต้อง</p>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>วันที่บิน</div><input type="date" className={field} value={v.flight_date ?? ''} onChange={(e) => set({ flight_date: e.target.value })} /></div>
           <div><div className={lbl}>รหัสจอง</div><input className={field} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="XKQP34" /></div>

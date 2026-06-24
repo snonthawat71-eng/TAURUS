@@ -1,5 +1,7 @@
 // Formatting helpers (Thai locale)
 
+import { tzOffsetMinutes } from './timezones'
+
 const THAI_MONTHS_SHORT = [
   'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
   'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
@@ -63,14 +65,31 @@ export function baht(n: number | null | undefined): string {
   return '฿' + Math.round(n).toLocaleString('en-US')
 }
 
-/** "5h 50m" from "09:45" -> "15:35" (clock difference; wraps past midnight) */
-export function flightDuration(dep: string | null, arr: string | null): string {
+/**
+ * "5h 50m" from a departure → arrival clock time. When `depTz`/`arrTz` (IANA
+ * zones) are given, the two clocks are converted to UTC first so the duration is
+ * real (e.g. BKK→PEK isn't off by the +7/+8 difference). Without zones it falls
+ * back to a plain clock difference. Wraps a clock that lands earlier into the
+ * next day. `flightDate` (YYYY-MM-DD) fixes the offsets to the travel date (DST).
+ */
+export function flightDuration(
+  dep: string | null, arr: string | null,
+  depTz?: string | null, arrTz?: string | null, flightDate?: string | null,
+): string {
   if (!dep || !arr) return ''
   const [dh, dm] = dep.split(':').map(Number)
   const [ah, am] = arr.split(':').map(Number)
   if ([dh, dm, ah, am].some((n) => isNaN(n))) return ''
-  let mins = ah * 60 + am - (dh * 60 + dm)
-  if (mins < 0) mins += 24 * 60
+  let depMin = dh * 60 + dm
+  let arrMin = ah * 60 + am
+  if (depTz && arrTz) {
+    const at = flightDate ? new Date(`${flightDate}T12:00:00Z`) : new Date()
+    const ref = isNaN(at.getTime()) ? new Date() : at
+    depMin -= tzOffsetMinutes(depTz, ref) // → UTC minutes
+    arrMin -= tzOffsetMinutes(arrTz, ref)
+  }
+  let mins = arrMin - depMin
+  while (mins <= 0) mins += 24 * 60 // arrival on a later day
   const h = Math.floor(mins / 60)
   const m = mins % 60
   return `${h}h${m ? ` ${m}m` : ''}`

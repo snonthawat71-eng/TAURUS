@@ -3,6 +3,7 @@ import { IconTrash, IconMoodSmile, IconPlus } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { CURRENCIES } from '@/lib/fx'
 import { confirmDialog } from '@/lib/confirm'
+import { TIMEZONES } from '@/lib/timezones'
 import type { Trip } from '@/lib/database.types'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
@@ -11,25 +12,6 @@ const lbl = 'text-[11px] text-ink-3'
 const FLAGS = ['🇨🇳', '🇯🇵', '🇰🇷', '🇹🇼', '🇹🇭', '🇸🇬', '🇻🇳', '🇭🇰', '🇲🇾', '🇮🇩', '🇵🇭', '🇮🇳',
   '🇺🇸', '🇬🇧', '🇫🇷', '🇮🇹', '🇪🇸', '🇩🇪', '🇨🇭', '🇳🇱', '🇦🇺', '🇳🇿', '🇦🇪', '🌍']
 
-// Trip timezone — used to interpret itinerary stop times for push reminders.
-const TIMEZONES = [
-  { tz: 'Asia/Bangkok', label: 'ไทย / เวียดนาม (GMT+7)' },
-  { tz: 'Asia/Tokyo', label: 'ญี่ปุ่น (GMT+9)' },
-  { tz: 'Asia/Seoul', label: 'เกาหลีใต้ (GMT+9)' },
-  { tz: 'Asia/Shanghai', label: 'จีน (GMT+8)' },
-  { tz: 'Asia/Hong_Kong', label: 'ฮ่องกง (GMT+8)' },
-  { tz: 'Asia/Taipei', label: 'ไต้หวัน (GMT+8)' },
-  { tz: 'Asia/Singapore', label: 'สิงคโปร์ / มาเลเซีย (GMT+8)' },
-  { tz: 'Asia/Jakarta', label: 'อินโดนีเซีย-จาการ์ตา (GMT+7)' },
-  { tz: 'Asia/Manila', label: 'ฟิลิปปินส์ (GMT+8)' },
-  { tz: 'Asia/Kolkata', label: 'อินเดีย (GMT+5:30)' },
-  { tz: 'Asia/Dubai', label: 'ดูไบ / UAE (GMT+4)' },
-  { tz: 'Europe/London', label: 'อังกฤษ (GMT+0/+1)' },
-  { tz: 'Europe/Paris', label: 'ยุโรปกลาง (GMT+1/+2)' },
-  { tz: 'America/New_York', label: 'สหรัฐ-ตะวันออก (GMT-5/-4)' },
-  { tz: 'America/Los_Angeles', label: 'สหรัฐ-ตะวันตก (GMT-8/-7)' },
-  { tz: 'Australia/Sydney', label: 'ออสเตรเลีย-ซิดนีย์ (GMT+10/+11)' },
-]
 
 export function TripEditor({
   open, onClose, initial, onSave, onDelete,

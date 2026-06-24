@@ -78,6 +78,10 @@ export interface Flight {
   seat_class?: string | null
   seats?: number | null
   status?: string | null
+  /** IANA timezone of the departure / arrival airport — for a correct flight
+   *  duration across timezones (optional; added by extra_columns.sql) */
+  dep_tz?: string | null
+  arr_tz?: string | null
   created_at: string
 }
 
