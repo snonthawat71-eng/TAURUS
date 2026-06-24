@@ -66,7 +66,12 @@ export function FlightEditor({
       return
     }
     setV(blank)
-  }, [open, initial, defaultDirection, prefillFrom])
+    // Re-seed the form ONLY when the drawer opens or the edited flight changes.
+    // Do NOT depend on `initial`/`prefillFrom` objects: the parent rebuilds
+    // `prefillFrom` (flights.find(...)) on every render, so a realtime reload
+    // mid-edit would re-run this and wipe whatever the user just typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initial?.id])
 
   async function save() {
     if (v.seats != null && (!Number.isFinite(v.seats) || v.seats < 0)) { toast.error('จำนวนที่นั่งต้องเป็นตัวเลขไม่ติดลบ'); return }
