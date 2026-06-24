@@ -8,6 +8,9 @@ import { toast } from '@/lib/toast'
 import { TIMEZONES } from '@/lib/timezones'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w-0 outline-none focus:border-brand'
+// native time inputs have a wide intrinsic size on iOS — size it to "HH:MM" so
+// it doesn't overflow the drawer (value is short, no need for full width)
+const timeField = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-32 max-w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
 
 export function FlightEditor({
@@ -82,7 +85,7 @@ export function FlightEditor({
             <div><div className={lbl}>รหัสสนามบิน</div><input className={field} value={v.dep_code ?? ''} onChange={(e) => set({ dep_code: e.target.value })} placeholder="BKK" /></div>
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="Suvarnabhumi" /></div>
           </div>
-          <div><div className={lbl}>เวลาออก</div><input type="time" className={field} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} /></div>
+          <div><div className={lbl}>เวลาออก</div><input type="time" className={timeField} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} /></div>
           <div>
             <div className={lbl}>โซนเวลา</div>
             <select className={[field, !v.dep_tz ? 'text-ink-3' : ''].join(' ')} value={v.dep_tz ?? ''} onChange={(e) => set({ dep_tz: e.target.value || null })}>
@@ -100,7 +103,7 @@ export function FlightEditor({
             <div><div className={lbl}>รหัสสนามบิน</div><input className={field} value={v.arr_code ?? ''} onChange={(e) => set({ arr_code: e.target.value })} placeholder="PEK" /></div>
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
           </div>
-          <div><div className={lbl}>เวลาถึง</div><input type="time" className={field} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} /></div>
+          <div><div className={lbl}>เวลาถึง</div><input type="time" className={timeField} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} /></div>
           <div>
             <div className={lbl}>โซนเวลา</div>
             <select className={[field, !v.arr_tz ? 'text-ink-3' : ''].join(' ')} value={v.arr_tz ?? ''} onChange={(e) => set({ arr_tz: e.target.value || null })}>
