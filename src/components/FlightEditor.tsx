@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconTrash, IconPlaneDeparture, IconPlaneArrival } from '@tabler/icons-react'
+import { IconTrash, IconPlaneDeparture, IconPlaneArrival, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import type { Flight, FlightDirection } from '@/lib/database.types'
 import type { FlightInput } from '@/lib/tripMutations'
@@ -9,6 +9,34 @@ import { TIMEZONES } from '@/lib/timezones'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w-0 outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
+
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))
+
+/** Custom "HH:MM" picker (hour + minute selects + clear) — avoids the native
+ *  type=time popup, which overlapped neighbours and couldn't be reset on iOS. */
+function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [h, m] = value && value.includes(':') ? value.split(':') : ['', '']
+  const update = (nh: string, nm: string) => {
+    if (!nh && !nm) { onChange(''); return }
+    onChange(`${(nh || '00').padStart(2, '0')}:${(nm || '00').padStart(2, '0')}`)
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <select className={[field, '!px-2', !h ? 'text-ink-3' : ''].join(' ')} value={h} onChange={(e) => update(e.target.value, m)}>
+        <option value="">ชม.</option>
+        {HOURS.map((x) => <option key={x} value={x}>{x}</option>)}
+      </select>
+      <span className="text-ink-3 shrink-0">:</span>
+      <select className={[field, '!px-2', !m ? 'text-ink-3' : ''].join(' ')} value={m} onChange={(e) => update(h, e.target.value)}>
+        <option value="">นาที</option>
+        {MINUTES.map((x) => <option key={x} value={x}>{x}</option>)}
+      </select>
+      <button type="button" onClick={() => onChange('')} disabled={!value}
+        className="btn-icon !size-9 shrink-0 disabled:opacity-40" aria-label="ล้างเวลา"><IconX size={15} /></button>
+    </div>
+  )
+}
 
 export function FlightEditor({
   open, onClose, initial, defaultDirection = 'outbound', prefillFrom, onSave, onDelete,
@@ -82,16 +110,14 @@ export function FlightEditor({
             <div><div className={lbl}>รหัสสนามบิน</div><input className={field} value={v.dep_code ?? ''} onChange={(e) => set({ dep_code: e.target.value })} placeholder="BKK" /></div>
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="Suvarnabhumi" /></div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="min-w-0"><div className={lbl}>เวลาออก</div><input type="time" className={field} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} /></div>
-            <div className="min-w-0">
-              <div className={lbl}>โซนเวลา</div>
-              <select className={[field, !v.dep_tz ? 'text-ink-3' : ''].join(' ')} value={v.dep_tz ?? ''} onChange={(e) => set({ dep_tz: e.target.value || null })}>
-                <option value="">— ไม่ระบุ —</option>
-                {!!v.dep_tz && !TIMEZONES.some((t) => t.tz === v.dep_tz) && <option value={v.dep_tz}>{v.dep_tz}</option>}
-                {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
-              </select>
-            </div>
+          <div><div className={lbl}>เวลาออก</div><TimeSelect value={v.dep_time ?? ''} onChange={(t) => set({ dep_time: t })} /></div>
+          <div>
+            <div className={lbl}>โซนเวลา</div>
+            <select className={[field, !v.dep_tz ? 'text-ink-3' : ''].join(' ')} value={v.dep_tz ?? ''} onChange={(e) => set({ dep_tz: e.target.value || null })}>
+              <option value="">— ไม่ระบุ —</option>
+              {!!v.dep_tz && !TIMEZONES.some((t) => t.tz === v.dep_tz) && <option value={v.dep_tz}>{v.dep_tz}</option>}
+              {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
+            </select>
           </div>
         </div>
 
@@ -102,16 +128,14 @@ export function FlightEditor({
             <div><div className={lbl}>รหัสสนามบิน</div><input className={field} value={v.arr_code ?? ''} onChange={(e) => set({ arr_code: e.target.value })} placeholder="PEK" /></div>
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="min-w-0"><div className={lbl}>เวลาถึง</div><input type="time" className={field} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} /></div>
-            <div className="min-w-0">
-              <div className={lbl}>โซนเวลา</div>
-              <select className={[field, !v.arr_tz ? 'text-ink-3' : ''].join(' ')} value={v.arr_tz ?? ''} onChange={(e) => set({ arr_tz: e.target.value || null })}>
-                <option value="">— ไม่ระบุ —</option>
-                {!!v.arr_tz && !TIMEZONES.some((t) => t.tz === v.arr_tz) && <option value={v.arr_tz}>{v.arr_tz}</option>}
-                {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
-              </select>
-            </div>
+          <div><div className={lbl}>เวลาถึง</div><TimeSelect value={v.arr_time ?? ''} onChange={(t) => set({ arr_time: t })} /></div>
+          <div>
+            <div className={lbl}>โซนเวลา</div>
+            <select className={[field, !v.arr_tz ? 'text-ink-3' : ''].join(' ')} value={v.arr_tz ?? ''} onChange={(e) => set({ arr_tz: e.target.value || null })}>
+              <option value="">— ไม่ระบุ —</option>
+              {!!v.arr_tz && !TIMEZONES.some((t) => t.tz === v.arr_tz) && <option value={v.arr_tz}>{v.arr_tz}</option>}
+              {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
+            </select>
           </div>
         </div>
         <p className="text-[11px] text-ink-3">ใส่โซนเวลาสนามบินทั้งสองฝั่ง เพื่อให้คำนวณระยะเวลาบินข้ามโซนเวลาได้ถูกต้อง</p>
