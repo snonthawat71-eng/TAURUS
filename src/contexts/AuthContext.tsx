@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { resyncSubscription } from '@/lib/push'
 
 interface AuthState {
   session: Session | null
@@ -31,6 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     return () => sub.subscription.unsubscribe()
   }, [])
+
+  // Keep this device's push subscription alive in the DB (heals endpoint rotation
+  // that otherwise makes plan reminders silently stop).
+  useEffect(() => { if (session?.user) resyncSubscription() }, [session?.user?.id])
 
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({

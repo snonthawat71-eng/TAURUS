@@ -72,6 +72,32 @@ export async function enablePush(leadMinutes: number): Promise<{ error: string |
   return { error: error?.message ?? null }
 }
 
+// Self-heal: browsers (esp. iOS PWAs after a service-worker update) rotate the
+// push endpoint, leaving the DB row pointing at a dead endpoint so reminders
+// silently stop. On load, re-upsert the *current* browser subscription so the DB
+// always has a live, enabled row. Never re-subscribes when none exists (that
+// would resurrect a subscription the user intentionally turned off).
+export async function resyncSubscription(): Promise<void> {
+  if (!pushSupported || !VAPID_PUBLIC || Notification.permission !== 'granted') return
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    if (!sub) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const json = sub.toJSON()
+    const { data } = await supabase.from('push_subscriptions').select('lead_minutes').eq('endpoint', sub.endpoint).maybeSingle()
+    await supabase.from('push_subscriptions').upsert({
+      user_id: user.id,
+      endpoint: sub.endpoint,
+      p256dh: json.keys?.p256dh ?? '',
+      auth: json.keys?.auth ?? '',
+      lead_minutes: data?.lead_minutes ?? 30,
+      enabled: true,
+    }, { onConflict: 'endpoint' })
+  } catch { /* best-effort */ }
+}
+
 export async function setLead(leadMinutes: number): Promise<void> {
   const reg = await navigator.serviceWorker.ready
   const sub = await reg.pushManager.getSubscription()
