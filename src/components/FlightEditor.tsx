@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconTrash, IconPlaneDeparture, IconPlaneArrival } from '@tabler/icons-react'
+import { IconTrash, IconPlaneDeparture, IconPlaneArrival, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import type { Flight, FlightDirection } from '@/lib/database.types'
 import type { FlightInput } from '@/lib/tripMutations'
@@ -83,7 +83,14 @@ export function FlightEditor({
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="Suvarnabhumi" /></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div className="min-w-0"><div className={lbl}>เวลาออก</div><input type="time" className={[field, 'appearance-none'].join(' ')} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} /></div>
+            <div className="min-w-0">
+              <div className={lbl}>เวลาออก</div>
+              <div className="relative">
+                <input type="time" className={[field, 'appearance-none', 'pr-8'].join(' ')} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} />
+                {v.dep_time && <button type="button" onClick={() => set({ dep_time: '' })} aria-label="ล้างเวลา"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 size-6 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={14} /></button>}
+              </div>
+            </div>
             <div className="col-span-2 min-w-0">
               <div className={lbl}>โซนเวลา</div>
               <select className={[field, !v.dep_tz ? 'text-ink-3' : ''].join(' ')} value={v.dep_tz ?? ''} onChange={(e) => set({ dep_tz: e.target.value || null })}>
@@ -103,7 +110,14 @@ export function FlightEditor({
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div className="min-w-0"><div className={lbl}>เวลาถึง</div><input type="time" className={[field, 'appearance-none'].join(' ')} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} /></div>
+            <div className="min-w-0">
+              <div className={lbl}>เวลาถึง</div>
+              <div className="relative">
+                <input type="time" className={[field, 'appearance-none', 'pr-8'].join(' ')} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} />
+                {v.arr_time && <button type="button" onClick={() => set({ arr_time: '' })} aria-label="ล้างเวลา"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 size-6 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={14} /></button>}
+              </div>
+            </div>
             <div className="col-span-2 min-w-0">
               <div className={lbl}>โซนเวลา</div>
               <select className={[field, !v.arr_tz ? 'text-ink-3' : ''].join(' ')} value={v.arr_tz ?? ''} onChange={(e) => set({ arr_tz: e.target.value || null })}>

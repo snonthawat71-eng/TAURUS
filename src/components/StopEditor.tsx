@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconCheck } from '@tabler/icons-react'
+import { IconCheck, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { useTrip } from '@/contexts/TripContext'
@@ -91,7 +91,11 @@ export function StopEditor({
         )}
         <div>
           <label className="text-[11px] text-ink-3">เวลา</label>
-          <input type="time" className={[field, 'appearance-none'].join(' ')} value={time} onChange={(e) => setTime(e.target.value)} />
+          <div className="relative">
+            <input type="time" className={[field, 'appearance-none', 'pr-9'].join(' ')} value={time} onChange={(e) => setTime(e.target.value)} />
+            {time && <button type="button" onClick={() => setTime('')} aria-label="ล้างเวลา"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 size-7 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={16} /></button>}
+          </div>
         </div>
         <div>
           <label className="text-[11px] text-ink-3">ชื่อสถานที่ / กิจกรรม</label>
