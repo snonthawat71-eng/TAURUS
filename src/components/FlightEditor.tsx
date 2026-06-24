@@ -83,7 +83,7 @@ export function FlightEditor({
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="Suvarnabhumi" /></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div className="min-w-0"><div className={lbl}>เวลาออก</div><input type="time" className={field} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} /></div>
+            <div className="min-w-0"><div className={lbl}>เวลาออก</div><input type="time" className={[field, 'appearance-none'].join(' ')} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} /></div>
             <div className="col-span-2 min-w-0">
               <div className={lbl}>โซนเวลา</div>
               <select className={[field, !v.dep_tz ? 'text-ink-3' : ''].join(' ')} value={v.dep_tz ?? ''} onChange={(e) => set({ dep_tz: e.target.value || null })}>
@@ -103,7 +103,7 @@ export function FlightEditor({
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div className="min-w-0"><div className={lbl}>เวลาถึง</div><input type="time" className={field} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} /></div>
+            <div className="min-w-0"><div className={lbl}>เวลาถึง</div><input type="time" className={[field, 'appearance-none'].join(' ')} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} /></div>
             <div className="col-span-2 min-w-0">
               <div className={lbl}>โซนเวลา</div>
               <select className={[field, !v.arr_tz ? 'text-ink-3' : ''].join(' ')} value={v.arr_tz ?? ''} onChange={(e) => set({ arr_tz: e.target.value || null })}>
