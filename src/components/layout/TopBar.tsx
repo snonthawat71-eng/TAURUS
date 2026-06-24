@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { IconShare2, IconUserCircle, IconLayoutGrid, IconWorldSearch } from '@tabler/icons-react'
+import { IconShare2, IconUserCircle, IconHome, IconWorldSearch } from '@tabler/icons-react'
 import { NAV_ITEMS } from './nav'
 import { TripSwitcher } from '@/components/TripSwitcher'
 import { ShareDialog } from '@/components/ShareDialog'
@@ -49,9 +49,9 @@ export function TopBar() {
           style={{ background: 'linear-gradient(120deg, #0270FB, #4BC5D9)' }}>
           <IconWorldSearch size={16} /> <span className="max-md:hidden">Explore</span>
         </button>
-        {/* ทริปทั้งหมด */}
-        <button onClick={() => navigate('/')} className="btn-icon" aria-label="ทริปทั้งหมด" title="ทริปทั้งหมด">
-          <IconLayoutGrid size={16} />
+        {/* หน้าแรก / ทริปทั้งหมด */}
+        <button onClick={() => navigate('/')} className="btn-icon" aria-label="หน้าแรก" title="หน้าแรก">
+          <IconHome size={16} />
         </button>
         {/* แชร์ทริป */}
         <button onClick={() => setShare(true)} className="btn-icon" aria-label="แชร์ทริป" title="แชร์ทริป">
