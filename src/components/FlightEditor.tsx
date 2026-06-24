@@ -20,7 +20,9 @@ export function FlightEditor({
   defaultDirection?: FlightDirection
   /** when adding a RETURN flight, seed the form from the outbound (route swapped) */
   prefillFrom?: Flight | null
-  onSave: (fields: FlightInput) => Promise<void>
+  /** Return `true` to keep the drawer open (e.g. the parent swapped it to the
+   *  return-leg form); otherwise it closes after saving. */
+  onSave: (fields: FlightInput) => Promise<void | boolean>
   onDelete?: () => Promise<void>
 }) {
   const [v, setV] = useState<FlightInput>({})
@@ -53,9 +55,9 @@ export function FlightEditor({
   async function save() {
     if (v.seats != null && (!Number.isFinite(v.seats) || v.seats < 0)) { toast.error('จำนวนที่นั่งต้องเป็นตัวเลขไม่ติดลบ'); return }
     setBusy(true)
-    await onSave(v)
+    const keepOpen = await onSave(v)
     setBusy(false)
-    onClose()
+    if (!keepOpen) onClose()
   }
   async function del() {
     if (!onDelete || !(await confirmDialog({ message: 'ลบไฟลต์นี้?', danger: true, confirmLabel: 'ลบ' }))) return

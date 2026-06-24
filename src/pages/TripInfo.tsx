@@ -313,9 +313,28 @@ export default function TripInfo() {
         defaultDirection={newFlightDir}
         prefillFrom={flights.find((f) => (f.direction ?? 'outbound') === 'outbound') ?? null}
         onSave={async (fields) => {
-          if (flightEdit === 'new' || !flightEdit) await addFlight(trip!.id, fields)
+          const isNew = flightEdit === 'new' || !flightEdit
+          const savedDir = fields.direction ?? 'outbound'
+          const hadReturn = flights.some((f) => (f.direction ?? 'outbound') === 'return')
+          if (isNew) await addFlight(trip!.id, fields)
           else await updateFlight(flightEdit.id, fields)
           await reload()
+          // After adding a NEW outbound leg (and no return exists yet), offer to
+          // add the return right away — swapping the editor to a prefilled return
+          // form so the user can keep going without hunting for the add button.
+          if (isNew && savedDir === 'outbound' && !hadReturn) {
+            const addReturn = await confirmDialog({
+              title: 'เพิ่มเที่ยวบินขากลับ?',
+              message: 'มีเที่ยวบินขากลับไหม? เพิ่มต่อเลยได้ ระบบเติมข้อมูลจากขาไปให้แล้ว',
+              confirmLabel: 'เพิ่มขากลับ',
+              cancelLabel: 'ไว้ทีหลัง',
+            })
+            if (addReturn) {
+              setNewFlightDir('return')
+              setFlightEdit('new')
+              return true // keep the drawer open; it remounts as the return form
+            }
+          }
         }}
         onDelete={flightEdit && flightEdit !== 'new'
           ? async () => { await deleteFlight(flightEdit.id); await reload() }
