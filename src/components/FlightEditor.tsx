@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconTrash } from '@tabler/icons-react'
+import { IconTrash, IconPlaneDeparture, IconPlaneArrival } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import type { Flight, FlightDirection } from '@/lib/database.types'
 import type { FlightInput } from '@/lib/tripMutations'
@@ -71,35 +71,46 @@ export function FlightEditor({
           <div><div className={lbl}>สายการบิน</div><input className={field} value={v.airline ?? ''} onChange={(e) => set({ airline: e.target.value })} placeholder="Thai Airways" /></div>
           <div><div className={lbl}>เที่ยวบิน</div><input className={field} value={v.flight_no ?? ''} onChange={(e) => set({ flight_no: e.target.value })} placeholder="TG614" /></div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div><div className={lbl}>รหัสต้นทาง</div><input className={field} value={v.dep_code ?? ''} onChange={(e) => set({ dep_code: e.target.value })} placeholder="BKK" /></div>
-          <div className="col-span-2"><div className={lbl}>ชื่อต้นทาง</div><input className={field} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="Suvarnabhumi" /></div>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div><div className={lbl}>เวลาออก</div><input className={field} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} placeholder="09:45" /></div>
-          <div><div className={lbl}>รหัสปลายทาง</div><input className={field} value={v.arr_code ?? ''} onChange={(e) => set({ arr_code: e.target.value })} placeholder="PEK" /></div>
-          <div><div className={lbl}>เวลาถึง</div><input className={field} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} placeholder="15:35" /></div>
-        </div>
-        <div><div className={lbl}>ชื่อปลายทาง</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <div className={lbl}>โซนเวลาต้นทาง</div>
-            <select className={[field, !v.dep_tz ? 'text-ink-3' : ''].join(' ')} value={v.dep_tz ?? ''} onChange={(e) => set({ dep_tz: e.target.value || null })}>
-              <option value="">— ไม่ระบุ —</option>
-              {!!v.dep_tz && !TIMEZONES.some((t) => t.tz === v.dep_tz) && <option value={v.dep_tz}>{v.dep_tz}</option>}
-              {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
-            </select>
+        {/* ── ต้นทาง (Departure) — รหัส/ชื่อสนามบิน + เวลา/โซนเวลา อยู่กลุ่มเดียวกัน ── */}
+        <div className="rounded-lg p-3 space-y-2" style={{ border: '0.5px solid var(--color-line)' }}>
+          <div className="text-[12px] font-medium text-ink-2 flex items-center gap-1.5"><IconPlaneDeparture size={14} className="text-brand" /> ต้นทาง</div>
+          <div className="grid grid-cols-3 gap-2">
+            <div><div className={lbl}>รหัสสนามบิน</div><input className={field} value={v.dep_code ?? ''} onChange={(e) => set({ dep_code: e.target.value })} placeholder="BKK" /></div>
+            <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="Suvarnabhumi" /></div>
           </div>
-          <div>
-            <div className={lbl}>โซนเวลาปลายทาง</div>
-            <select className={[field, !v.arr_tz ? 'text-ink-3' : ''].join(' ')} value={v.arr_tz ?? ''} onChange={(e) => set({ arr_tz: e.target.value || null })}>
-              <option value="">— ไม่ระบุ —</option>
-              {!!v.arr_tz && !TIMEZONES.some((t) => t.tz === v.arr_tz) && <option value={v.arr_tz}>{v.arr_tz}</option>}
-              {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
-            </select>
+          <div className="grid grid-cols-2 gap-2">
+            <div><div className={lbl}>เวลาออก</div><input type="time" className={field} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} /></div>
+            <div>
+              <div className={lbl}>โซนเวลา</div>
+              <select className={[field, !v.dep_tz ? 'text-ink-3' : ''].join(' ')} value={v.dep_tz ?? ''} onChange={(e) => set({ dep_tz: e.target.value || null })}>
+                <option value="">— ไม่ระบุ —</option>
+                {!!v.dep_tz && !TIMEZONES.some((t) => t.tz === v.dep_tz) && <option value={v.dep_tz}>{v.dep_tz}</option>}
+                {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
+              </select>
+            </div>
           </div>
-          <p className="col-span-2 text-[11px] text-ink-3 -mt-0.5">ใส่โซนเวลาสนามบินทั้งสองฝั่ง เพื่อให้คำนวณระยะเวลาบินข้ามโซนเวลาได้ถูกต้อง</p>
         </div>
+
+        {/* ── ปลายทาง (Arrival) — รูปแบบเดียวกับต้นทาง ── */}
+        <div className="rounded-lg p-3 space-y-2" style={{ border: '0.5px solid var(--color-line)' }}>
+          <div className="text-[12px] font-medium text-ink-2 flex items-center gap-1.5"><IconPlaneArrival size={14} className="text-brand" /> ปลายทาง</div>
+          <div className="grid grid-cols-3 gap-2">
+            <div><div className={lbl}>รหัสสนามบิน</div><input className={field} value={v.arr_code ?? ''} onChange={(e) => set({ arr_code: e.target.value })} placeholder="PEK" /></div>
+            <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div><div className={lbl}>เวลาถึง</div><input type="time" className={field} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} /></div>
+            <div>
+              <div className={lbl}>โซนเวลา</div>
+              <select className={[field, !v.arr_tz ? 'text-ink-3' : ''].join(' ')} value={v.arr_tz ?? ''} onChange={(e) => set({ arr_tz: e.target.value || null })}>
+                <option value="">— ไม่ระบุ —</option>
+                {!!v.arr_tz && !TIMEZONES.some((t) => t.tz === v.arr_tz) && <option value={v.arr_tz}>{v.arr_tz}</option>}
+                {TIMEZONES.map((t) => <option key={t.tz} value={t.tz}>{t.label}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+        <p className="text-[11px] text-ink-3 -mt-1">ใส่โซนเวลาสนามบินทั้งสองฝั่ง เพื่อให้คำนวณระยะเวลาบินข้ามโซนเวลาได้ถูกต้อง</p>
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>วันที่บิน</div><input type="date" className={field} value={v.flight_date ?? ''} onChange={(e) => set({ flight_date: e.target.value })} /></div>
           <div><div className={lbl}>รหัสจอง</div><input className={field} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="XKQP34" /></div>
