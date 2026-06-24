@@ -6,25 +6,10 @@ import type { FlightInput } from '@/lib/tripMutations'
 import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import { TIMEZONES } from '@/lib/timezones'
+import { TimeText } from './TimeField'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w-0 outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
-
-/** Compact "HH:MM" time field. A plain text input (auto-inserts the colon) —
- *  unlike the native type=time input it actually shrinks to its column on iOS,
- *  so it can sit narrow (airport-code width) next to the timezone without overlap. */
-function TimeText({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <input
-      type="text" inputMode="numeric" placeholder="09:45" maxLength={5} className={field} value={value}
-      onChange={(e) => {
-        let s = e.target.value.replace(/[^\d:]/g, '').replace(/^(\d{2})(\d)/, '$1:$2')
-        if (s.length > 5) s = s.slice(0, 5)
-        onChange(s)
-      }}
-    />
-  )
-}
 
 export function FlightEditor({
   open, onClose, initial, defaultDirection = 'outbound', prefillFrom, onSave, onDelete,

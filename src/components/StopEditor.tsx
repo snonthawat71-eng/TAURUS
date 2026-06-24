@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { IconCheck } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
+import { TimeText } from './TimeField'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import type { StopInput } from '@/lib/mutations'
@@ -91,7 +92,7 @@ export function StopEditor({
         )}
         <div>
           <label className="text-[11px] text-ink-3">เวลา</label>
-          <input type="time" className={field} value={time} onChange={(e) => setTime(e.target.value)} />
+          <div><TimeText value={time} onChange={setTime} className="w-28" /></div>
         </div>
         <div>
           <label className="text-[11px] text-ink-3">ชื่อสถานที่ / กิจกรรม</label>
