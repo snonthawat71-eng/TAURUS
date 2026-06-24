@@ -10,6 +10,22 @@ import { TIMEZONES } from '@/lib/timezones'
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w-0 outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
 
+/** Compact "HH:MM" time field. A plain text input (auto-inserts the colon) —
+ *  unlike the native type=time input it actually shrinks to its column on iOS,
+ *  so it can sit narrow (airport-code width) next to the timezone without overlap. */
+function TimeText({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <input
+      type="text" inputMode="numeric" placeholder="09:45" maxLength={5} className={field} value={value}
+      onChange={(e) => {
+        let s = e.target.value.replace(/[^\d:]/g, '').replace(/^(\d{2})(\d)/, '$1:$2')
+        if (s.length > 5) s = s.slice(0, 5)
+        onChange(s)
+      }}
+    />
+  )
+}
+
 export function FlightEditor({
   open, onClose, initial, defaultDirection = 'outbound', prefillFrom, onSave, onDelete,
 }: {
@@ -83,7 +99,7 @@ export function FlightEditor({
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="Suvarnabhumi" /></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div className="min-w-0"><div className={lbl}>เวลาออก</div><input type="time" className={field} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} /></div>
+            <div className="min-w-0"><div className={lbl}>เวลาออก</div><TimeText value={v.dep_time ?? ''} onChange={(t) => set({ dep_time: t })} /></div>
             <div className="col-span-2 min-w-0">
               <div className={lbl}>โซนเวลา</div>
               <select className={[field, !v.dep_tz ? 'text-ink-3' : ''].join(' ')} value={v.dep_tz ?? ''} onChange={(e) => set({ dep_tz: e.target.value || null })}>
@@ -103,7 +119,7 @@ export function FlightEditor({
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div className="min-w-0"><div className={lbl}>เวลาถึง</div><input type="time" className={field} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} /></div>
+            <div className="min-w-0"><div className={lbl}>เวลาถึง</div><TimeText value={v.arr_time ?? ''} onChange={(t) => set({ arr_time: t })} /></div>
             <div className="col-span-2 min-w-0">
               <div className={lbl}>โซนเวลา</div>
               <select className={[field, !v.arr_tz ? 'text-ink-3' : ''].join(' ')} value={v.arr_tz ?? ''} onChange={(e) => set({ arr_tz: e.target.value || null })}>
