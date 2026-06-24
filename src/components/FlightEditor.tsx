@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { IconTrash, IconPlaneDeparture, IconPlaneArrival } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ClearableField } from './ClearableField'
@@ -32,7 +32,10 @@ export function FlightEditor({
   const [busy, setBusy] = useState(false)
   const set = (p: FlightInput) => setV((s) => ({ ...s, ...p }))
 
-  useEffect(() => {
+  // Re-seed the form synchronously (before paint, no flash) whenever the drawer
+  // opens, the edited flight changes, or the target direction changes. This lets
+  // the ขาไป/ขากลับ toggle swap legs in place — no drawer remount, no animation.
+  useLayoutEffect(() => {
     if (!open) return
     if (initial) { setV({ ...initial }); return }
     const blank: FlightInput = { direction: defaultDirection, airline: '', flight_no: '', dep_code: '', dep_name: '', dep_time: '', arr_code: '', arr_name: '', arr_time: '', flight_date: '', booking_ref: '', seat_class: 'Economy', seats: undefined }
@@ -48,12 +51,11 @@ export function FlightEditor({
       return
     }
     setV(blank)
-    // Re-seed the form ONLY when the drawer opens or the edited flight changes.
-    // Do NOT depend on `initial`/`prefillFrom` objects: the parent rebuilds
-    // `prefillFrom` (flights.find(...)) on every render, so a realtime reload
-    // mid-edit would re-run this and wipe whatever the user just typed.
+    // Depend on identity/strings only — NOT the `initial`/`prefillFrom` objects:
+    // the parent rebuilds `prefillFrom` (flights.find(...)) on every render, so a
+    // realtime reload mid-edit must not re-run this and wipe in-progress edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial?.id])
+  }, [open, initial?.id, defaultDirection])
 
   async function save() {
     if (v.seats != null && (!Number.isFinite(v.seats) || v.seats < 0)) { toast.error('จำนวนที่นั่งต้องเป็นตัวเลขไม่ติดลบ'); return }
