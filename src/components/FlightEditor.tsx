@@ -7,7 +7,7 @@ import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import { TIMEZONES } from '@/lib/timezones'
 
-const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
+const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w-0 outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
 
 export function FlightEditor({
@@ -71,6 +71,10 @@ export function FlightEditor({
           <div><div className={lbl}>สายการบิน</div><input className={field} value={v.airline ?? ''} onChange={(e) => set({ airline: e.target.value })} placeholder="Thai Airways" /></div>
           <div><div className={lbl}>เที่ยวบิน</div><input className={field} value={v.flight_no ?? ''} onChange={(e) => set({ flight_no: e.target.value })} placeholder="TG614" /></div>
         </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="min-w-0"><div className={lbl}>วันที่บิน</div><input type="date" className={field} value={v.flight_date ?? ''} onChange={(e) => set({ flight_date: e.target.value })} /></div>
+          <div className="min-w-0"><div className={lbl}>รหัสจอง</div><input className={field} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="XKQP34" /></div>
+        </div>
         {/* ── ต้นทาง (Departure) — รหัส/ชื่อสนามบิน + เวลา/โซนเวลา อยู่กลุ่มเดียวกัน ── */}
         <div className="rounded-lg p-3 space-y-2" style={{ border: '0.5px solid var(--color-line)' }}>
           <div className="text-[12px] font-medium text-ink-2 flex items-center gap-1.5"><IconPlaneDeparture size={14} className="text-brand" /> ต้นทาง</div>
@@ -79,8 +83,8 @@ export function FlightEditor({
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="Suvarnabhumi" /></div>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div><div className={lbl}>เวลาออก</div><input type="time" className={field} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} /></div>
-            <div>
+            <div className="min-w-0"><div className={lbl}>เวลาออก</div><input type="time" className={field} value={v.dep_time ?? ''} onChange={(e) => set({ dep_time: e.target.value })} /></div>
+            <div className="min-w-0">
               <div className={lbl}>โซนเวลา</div>
               <select className={[field, !v.dep_tz ? 'text-ink-3' : ''].join(' ')} value={v.dep_tz ?? ''} onChange={(e) => set({ dep_tz: e.target.value || null })}>
                 <option value="">— ไม่ระบุ —</option>
@@ -99,8 +103,8 @@ export function FlightEditor({
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div><div className={lbl}>เวลาถึง</div><input type="time" className={field} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} /></div>
-            <div>
+            <div className="min-w-0"><div className={lbl}>เวลาถึง</div><input type="time" className={field} value={v.arr_time ?? ''} onChange={(e) => set({ arr_time: e.target.value })} /></div>
+            <div className="min-w-0">
               <div className={lbl}>โซนเวลา</div>
               <select className={[field, !v.arr_tz ? 'text-ink-3' : ''].join(' ')} value={v.arr_tz ?? ''} onChange={(e) => set({ arr_tz: e.target.value || null })}>
                 <option value="">— ไม่ระบุ —</option>
@@ -110,11 +114,7 @@ export function FlightEditor({
             </div>
           </div>
         </div>
-        <p className="text-[11px] text-ink-3 -mt-1">ใส่โซนเวลาสนามบินทั้งสองฝั่ง เพื่อให้คำนวณระยะเวลาบินข้ามโซนเวลาได้ถูกต้อง</p>
-        <div className="grid grid-cols-2 gap-2">
-          <div><div className={lbl}>วันที่บิน</div><input type="date" className={field} value={v.flight_date ?? ''} onChange={(e) => set({ flight_date: e.target.value })} /></div>
-          <div><div className={lbl}>รหัสจอง</div><input className={field} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="XKQP34" /></div>
-        </div>
+        <p className="text-[11px] text-ink-3">ใส่โซนเวลาสนามบินทั้งสองฝั่ง เพื่อให้คำนวณระยะเวลาบินข้ามโซนเวลาได้ถูกต้อง</p>
         <div className="grid grid-cols-2 gap-2">
           <div><div className={lbl}>ชั้นโดยสาร</div><input className={field} value={v.seat_class ?? ''} onChange={(e) => set({ seat_class: e.target.value })} placeholder="Economy" /></div>
           <div><div className={lbl}>จำนวนที่นั่ง</div><input type="number" className={field} value={v.seats ?? ''} onChange={(e) => set({ seats: e.target.value ? Number(e.target.value) : null })} placeholder="4" /></div>
