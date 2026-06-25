@@ -221,11 +221,12 @@ export default function TripsDashboard() {
                 <div key={t.id} className="card p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white" style={{ background: heroGradient(t) }}>
                   {/* full photo (shifted right) */}
                   <CoverImage url={coverImage(t)} />
-                  {/* duotone blend: a brand-blue→navy gradient multiplied over the whole photo
-                      so its colours melt into one cohesive tone (like the reference) */}
-                  <div className="absolute inset-0 mix-blend-multiply" style={{ background: 'linear-gradient(145deg, #2f54c8 0%, #1a2c72 42%, #070f2b 100%)' }} />
-                  {/* deepen the left a touch so the text stays readable */}
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(6,16,42,0.68) 0%, rgba(6,16,42,0.32) 44%, rgba(6,16,42,0.00) 76%)' }} />
+                  {/* colour blend: a brand-blue→navy gradient blended (overlay) over the whole
+                      photo so colours melt into one cohesive tone but the photo stays visible */}
+                  <div className="absolute inset-0 mix-blend-overlay" style={{ background: 'linear-gradient(135deg, #4f7bff 0%, #08184a 100%)' }} />
+                  {/* deepen the left so the title/buttons read; right stays clear */}
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(100deg, rgba(7,22,60,0.82) 0%, rgba(9,28,74,0.40) 40%, rgba(9,28,74,0.04) 68%, rgba(9,28,74,0) 100%)' }} />
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 52%, rgba(4,12,32,0.48) 100%)' }} />
 
                   {/* everything sits on the photo */}
                   <div className="relative flex-1 flex flex-col p-3.5">
