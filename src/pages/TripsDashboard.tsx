@@ -218,12 +218,14 @@ export default function TripsDashboard() {
               const isOwner = t.owner_id === user?.id
               const tvs = byTrip.get(t.id) ?? []
               return (
-                <div key={t.id} className="card p-0 overflow-hidden relative min-h-[200px] flex flex-col text-white" style={{ background: heroGradient(t) }}>
+                <div key={t.id} className="card p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white" style={{ background: heroGradient(t) }}>
                   {/* full photo (shifted right) */}
                   <CoverImage url={coverImage(t)} />
-                  {/* navy gradient: ~90% on the left (photo barely shows), fading clear to the right */}
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(8,32,72,0.90) 0%, rgba(6,24,58,0.82) 34%, rgba(5,20,48,0.32) 64%, rgba(5,20,48,0.00) 100%)' }} />
-                  <div className="absolute inset-x-0 bottom-0 h-1/3" style={{ background: 'linear-gradient(180deg, transparent, rgba(3,12,30,0.40))' }} />
+                  {/* duotone blend: a brand-blue→navy gradient multiplied over the whole photo
+                      so its colours melt into one cohesive tone (like the reference) */}
+                  <div className="absolute inset-0 mix-blend-multiply" style={{ background: 'linear-gradient(145deg, #2f54c8 0%, #1a2c72 42%, #070f2b 100%)' }} />
+                  {/* deepen the left a touch so the text stays readable */}
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(6,16,42,0.68) 0%, rgba(6,16,42,0.32) 44%, rgba(6,16,42,0.00) 76%)' }} />
 
                   {/* everything sits on the photo */}
                   <div className="relative flex-1 flex flex-col p-3.5">
