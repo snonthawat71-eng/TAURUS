@@ -10,7 +10,6 @@ export function Drawer({
   title?: ReactNode
   children: ReactNode
 }) {
-  const sheetRef = useRef<HTMLDivElement>(null)
   const startY = useRef<number | null>(null)
   const [dy, setDy] = useState(0)
   const [dragging, setDragging] = useState(false)
@@ -29,19 +28,20 @@ export function Drawer({
 
   if (!open) return null
 
-  // swipe-down-to-close (only when the sheet is scrolled to the top)
+  // swipe-down-to-close — ONLY from the grab handle, so scrolling/typing in the
+  // form never drags the sheet closed.
   function onTouchStart(e: React.TouchEvent) {
-    if ((sheetRef.current?.scrollTop ?? 0) > 0) { startY.current = null; return }
     startY.current = e.touches[0].clientY
   }
   function onTouchMove(e: React.TouchEvent) {
     if (startY.current == null) return
     const d = e.touches[0].clientY - startY.current
-    if (d > 0) { setDy(d); setDragging(true) }
+    setDy(d > 0 ? d : 0)
+    if (d > 0) setDragging(true)
   }
   function onTouchEnd() {
     if (startY.current == null) return
-    if (dy > 110) onClose(); else setDy(0)
+    if (dy > 140) onClose(); else setDy(0)
     startY.current = null
     setDragging(false)
   }
@@ -51,13 +51,13 @@ export function Drawer({
     <div className="fixed inset-0 z-[100] overflow-y-auto">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
       <div className="relative min-h-full flex items-end justify-center sm:items-center p-0 sm:p-6">
-        <div ref={sheetRef}
+        <div
           className="relative bg-surface w-full sm:max-w-[440px] rounded-t-[20px] sm:rounded-[18px] max-h-[90dvh] overflow-y-auto shadow-2xl animate-[slideup_.2s_ease]"
-          style={{ transform: dy ? `translateY(${dy}px)` : undefined, transition: dragging ? 'none' : 'transform .2s ease' }}
-          onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-          {/* drag handle (mobile) — swipe down to close */}
-          <div className="sm:hidden pt-2.5 pb-1 flex justify-center cursor-grab">
-            <span className="h-1 w-9 rounded-full bg-line-2" />
+          style={{ transform: dy ? `translateY(${dy}px)` : undefined, transition: dragging ? 'none' : 'transform .2s ease' }}>
+          {/* drag handle (mobile) — swipe down here to close (only this zone) */}
+          <div className="sm:hidden flex justify-center pt-3 pb-2.5 cursor-grab touch-none"
+            onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+            <span className="h-1.5 w-10 rounded-full bg-line-2" />
           </div>
           <button onClick={onClose} aria-label="ปิด"
             className="absolute top-3.5 right-3.5 size-8 rounded-full bg-surface-2 grid place-items-center text-ink-2 hover:bg-line z-10">

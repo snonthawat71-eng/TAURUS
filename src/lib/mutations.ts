@@ -5,8 +5,8 @@ import type { ItineraryStop, Transit } from './database.types'
 
 // ---- Days ----
 
-export async function addDay(trip_id: string, position: number, day_date: string | null) {
-  const payload = { id: crypto.randomUUID(), trip_id, position, day_date, label: 'วันใหม่' }
+export async function addDay(trip_id: string, position: number, day_date: string | null, id: string = crypto.randomUUID()) {
+  const payload = { id, trip_id, position, day_date, label: 'วันใหม่' }
   return runOrQueue(() => supabase.from('itinerary_days').insert(payload), { kind: 'insert', table: 'itinerary_days', payload })
 }
 

@@ -290,13 +290,17 @@ export default function Itinerary() {
     await updateStop(s.id, { skip_transit: true }, s.version)
     await reload()
   }
-  async function onAddDay() {
+  function onAddDay() {
     if (!trip) return
     const last = localDays[localDays.length - 1]
     const nextDate = last?.day_date
       ? new Date(new Date(last.day_date).getTime() + 86400000).toISOString().slice(0, 10)
       : trip.start_date
-    await addDay(trip.id, localDays.length, nextDate); await reload()
+    const id = crypto.randomUUID()
+    const position = localDays.length
+    const row: ItineraryDay = { id, trip_id: trip.id, day_date: nextDate, label: 'วันใหม่', position, created_at: new Date().toISOString() }
+    patch((d) => ({ days: [...d.days, row] })) // show instantly
+    addDay(trip.id, position, nextDate, id).then(() => reload()) // persist + reconcile in the background
   }
   async function saveDay(fields: { label: string; day_date: string | null }) {
     if (!dayEdit) return
