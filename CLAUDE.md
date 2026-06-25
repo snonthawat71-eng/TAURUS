@@ -7,6 +7,7 @@ TAURUS is a group travel-planner web app (React + Supabase, deploys to Vercel). 
 ## Working with the user
 
 - **Always provide ready-to-run code inline.** Whenever a change needs the user to run something manually (SQL migrations, `supabase` CLI / deploy commands, env vars, `npm` commands, cron setup, etc.), include the exact copy-paste-ready snippet in that same reply — in a fenced code block, complete and in order. Don't make the user ask for it. The user reads/writes Thai; keep explanations in Thai.
+- **Always test before deploy.** Before any deploy, run `npm run lint` then `npm run build` and only deploy if both pass. If either fails, stop and report to the user — never deploy over a broken build.
 
 ## Commands
 
