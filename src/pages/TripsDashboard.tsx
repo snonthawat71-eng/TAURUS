@@ -72,13 +72,13 @@ function CoverImage({ url, gradient }: { url?: string; gradient: string }) {
   return (
     <div className="absolute inset-0" style={{ background: gradient }}>
       {tiny && !broken && (
-        <div className="absolute inset-0 bg-cover bg-center scale-105"
+        <div className="absolute inset-0 bg-cover bg-right scale-105"
           style={{ backgroundImage: `url(${tiny})`, filter: 'blur(2px)' }} />
       )}
       {full && !broken && (
         <img src={full} alt="" loading="eager" decoding="async"
           onLoad={() => setLoaded(true)} onError={() => setBroken(true)}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
+          className={`absolute inset-0 w-full h-full object-cover object-right transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
       )}
     </div>
   )
@@ -224,34 +224,34 @@ export default function TripsDashboard() {
                 <div key={t.id} className="card p-0 overflow-hidden relative min-h-[200px] flex flex-col text-white">
                   {/* full-photo background (brand gradient shows through while it loads) */}
                   <CoverImage url={coverImage(t)} gradient={heroGradient(t)} />
-                  {/* left half = brand colour (90%), fading to clear photo on the right */}
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(2,112,251,0.90) 0%, rgba(2,112,251,0.80) 32%, rgba(2,112,251,0.32) 62%, rgba(2,112,251,0.00) 100%)' }} />
+                  {/* left half = dark navy-black brand tint (90%), fading to clear photo on the right */}
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(3,14,33,0.92) 0%, rgba(4,18,44,0.82) 32%, rgba(4,18,44,0.30) 62%, rgba(4,18,44,0.00) 100%)' }} />
 
                   {/* everything sits on the photo */}
                   <div className="relative flex-1 flex flex-col p-3.5">
                     <div className="flex items-start justify-between">
-                      <span className="text-[24px] leading-none drop-shadow-md">{flagOf(t)}</span>
+                      <span className="text-[24px] leading-none">{flagOf(t)}</span>
                       <PopMenu items={[
                         { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
                         ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
-                      ]} buttonClassName="!bg-transparent !text-white hover:!bg-white/25 [text-shadow:0_1px_2px_rgba(0,0,0,0.4)]" />
+                      ]} buttonClassName="!bg-transparent !text-white hover:!bg-white/25" />
                     </div>
 
                     <div className="flex-1 min-h-3" />
 
-                    <button onClick={() => open(t)} className="text-left [text-shadow:0_1px_3px_rgba(0,0,0,0.45)]">
+                    <button onClick={() => open(t)} className="text-left">
                       <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/85">Trip to</div>
                       <div className="text-[20px] font-semibold leading-tight truncate">{t.name}</div>
                       <div className="flex items-center gap-1.5 text-[11px] text-white/95 mt-0.5">
                         <IconCalendar size={12} />
                         {formatDateRange(t.start_date, t.end_date) || 'ยังไม่กำหนดวัน'}
-                        {t.start_date && t.end_date && <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-medium [text-shadow:none]">{dayCount(t.start_date, t.end_date)} วัน</span>}
+                        {t.start_date && t.end_date && <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-medium">{dayCount(t.start_date, t.end_date)} วัน</span>}
                       </div>
                     </button>
 
                     <div className="flex items-center justify-between mt-2.5">
                       <AvatarStack people={tvs.map((tv, i) => ({ name: tv.nickname, color: AV[i % 4] }))} size={22} />
-                      <span className="rounded-full bg-white/25 px-2.5 py-1 text-[10px] font-medium flex items-center gap-1 [text-shadow:none]">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
+                      <span className="rounded-full bg-white/25 px-2.5 py-1 text-[10px] font-medium flex items-center gap-1">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
                     </div>
 
                     <div className="flex items-center gap-2 mt-2.5">
