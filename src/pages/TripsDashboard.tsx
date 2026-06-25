@@ -24,17 +24,14 @@ import type { Trip } from '@/lib/database.types'
 interface TravelerLite { id: string; trip_id: string; nickname: string | null }
 const AV = ['av1', 'av2', 'av3', 'av4']
 
-// Curated postcard gradients for trip-card heros. Picked deterministically from
-// the trip id/name so each trip keeps a stable, always-pleasant colour.
+// Brand-toned gradients used as the card background when there's no city photo
+// (and as the colour that shows through while the photo loads). On-brand blues,
+// picked deterministically from the trip so each card stays stable.
 const HERO_GRADIENTS = [
-  'linear-gradient(135deg,#2563EB,#4BC5D9)',
-  'linear-gradient(135deg,#7C3AED,#EC4899)',
-  'linear-gradient(135deg,#0EA5E9,#6366F1)',
-  'linear-gradient(135deg,#F59E0B,#EF4444)',
-  'linear-gradient(135deg,#059669,#0EA5E9)',
-  'linear-gradient(135deg,#DB2777,#F59E0B)',
-  'linear-gradient(135deg,#6366F1,#14B8A6)',
-  'linear-gradient(135deg,#0F766E,#155E75)',
+  'linear-gradient(135deg,#0270FB,#4BC5D9)',
+  'linear-gradient(135deg,#0257D9,#2E9BD6)',
+  'linear-gradient(135deg,#0270FB,#6E8BF5)',
+  'linear-gradient(135deg,#0B86C9,#4BC5D9)',
 ]
 function heroGradient(t: Trip) {
   const s = t.id || t.name || ''
@@ -57,12 +54,34 @@ function coverImage(t: Trip): string | undefined {
   return hit ? CITY_IMAGES[hit] : undefined
 }
 
-// Ask Cloudinary for a small, auto-format/quality version so cards load fast and
-// pop in together (the originals are multi-MB full-res photos).
-function fastImg(url: string): string {
-  return url.includes('res.cloudinary.com') && url.includes('/upload/')
-    ? url.replace('/upload/', '/upload/f_auto,q_auto,w_640/')
-    : url
+// Insert a Cloudinary transform right after `/image/upload/` (originals are
+// multi-MB; we never want to ship those to a card).
+function cld(url: string, transform: string): string {
+  const m = '/image/upload/'
+  const i = url.indexOf(m)
+  return i < 0 ? url : url.slice(0, i + m.length) + transform + '/' + url.slice(i + m.length)
+}
+
+// Card cover image with a blur-up placeholder: a tiny (~1KB) blurred version
+// shows instantly so the card never looks empty, then the sharp image fades in.
+function CoverImage({ url, gradient }: { url?: string; gradient: string }) {
+  const [loaded, setLoaded] = useState(false)
+  const [broken, setBroken] = useState(false)
+  const full = url ? cld(url, 'f_auto,q_auto,w_560,c_limit') : undefined
+  const tiny = url ? cld(url, 'f_auto,q_auto:low,w_32,e_blur:1200') : undefined
+  return (
+    <div className="absolute inset-0" style={{ background: gradient }}>
+      {tiny && !broken && (
+        <div className="absolute inset-0 bg-cover bg-center scale-105"
+          style={{ backgroundImage: `url(${tiny})`, filter: 'blur(2px)' }} />
+      )}
+      {full && !broken && (
+        <img src={full} alt="" loading="eager" decoding="async"
+          onLoad={() => setLoaded(true)} onError={() => setBroken(true)}
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
+      )}
+    </div>
+  )
 }
 
 export default function TripsDashboard() {
@@ -202,52 +221,47 @@ export default function TripsDashboard() {
               const isOwner = t.owner_id === user?.id
               const tvs = byTrip.get(t.id) ?? []
               return (
-                <div key={t.id} className="card p-0 overflow-hidden relative min-h-[244px] flex flex-col text-white">
-                  {/* full-photo background */}
-                  <div className="absolute inset-0" style={{ background: heroGradient(t) }} />
-                  {(() => { const cover = coverImage(t); return cover ? (
-                    <img src={fastImg(cover)} alt="" loading="eager" decoding="async" fetchPriority="high"
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                  ) : null })()}
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.30) 0%, rgba(15,23,42,0.10) 30%, rgba(15,23,42,0.72) 100%)' }} />
+                <div key={t.id} className="card p-0 overflow-hidden relative min-h-[200px] flex flex-col text-white">
+                  {/* full-photo background (brand gradient shows through while it loads) */}
+                  <CoverImage url={coverImage(t)} gradient={heroGradient(t)} />
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.34) 0%, rgba(15,23,42,0.04) 34%, rgba(15,23,42,0.78) 100%)' }} />
 
                   {/* everything sits on the photo */}
-                  <div className="relative flex-1 flex flex-col p-4">
+                  <div className="relative flex-1 flex flex-col p-3.5">
                     <div className="flex items-start justify-between">
-                      <span className="text-[24px] leading-none drop-shadow-sm">{flagOf(t)}</span>
+                      <span className="text-[24px] leading-none drop-shadow-md">{flagOf(t)}</span>
                       <PopMenu items={[
                         { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
                         ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
-                      ]} buttonClassName="!text-white" />
+                      ]} buttonClassName="!bg-transparent !text-white hover:!bg-white/25 [text-shadow:0_1px_2px_rgba(0,0,0,0.4)]" />
                     </div>
 
-                    <div className="flex-1" />
+                    <div className="flex-1 min-h-3" />
 
-                    <button onClick={() => open(t)} className="text-left">
-                      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/80">Trip to</div>
-                      <div className="text-[21px] font-semibold leading-tight truncate drop-shadow-sm">{t.name}</div>
-                      <div className="flex items-center gap-1.5 text-[11px] text-white/90 mt-1">
+                    <button onClick={() => open(t)} className="text-left [text-shadow:0_1px_3px_rgba(0,0,0,0.45)]">
+                      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/85">Trip to</div>
+                      <div className="text-[20px] font-semibold leading-tight truncate">{t.name}</div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-white/95 mt-0.5">
                         <IconCalendar size={12} />
                         {formatDateRange(t.start_date, t.end_date) || 'ยังไม่กำหนดวัน'}
-                        {t.start_date && t.end_date && <span className="chip !bg-white/20 !text-white !border-white/25 !py-0.5">{dayCount(t.start_date, t.end_date)} วัน</span>}
+                        {t.start_date && t.end_date && <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-medium [text-shadow:none]">{dayCount(t.start_date, t.end_date)} วัน</span>}
                       </div>
                     </button>
 
-                    <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center justify-between mt-2.5">
                       <AvatarStack people={tvs.map((tv, i) => ({ name: tv.nickname, color: AV[i % 4] }))} size={22} />
-                      <span className="chip !text-[10px] !bg-white/20 !text-white !border-white/25">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
+                      <span className="rounded-full bg-white/25 px-2.5 py-1 text-[10px] font-medium flex items-center gap-1 [text-shadow:none]">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-3">
+                    <div className="flex items-center gap-2 mt-2.5">
                       <button onClick={() => open(t)}
-                        className="h-9 flex-1 flex items-center justify-center gap-1.5 text-[13px] font-medium rounded-[10px] bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 transition-colors">
+                        className="h-9 flex-1 flex items-center justify-center gap-1.5 text-[13px] font-semibold rounded-[10px] bg-white/90 hover:bg-white text-brand-dark transition-colors">
                         เปิดทริป <IconArrowRight size={15} />
                       </button>
                       <button onClick={() => downloadItineraryPdf(t)} title="ดาวน์โหลด Itinerary (PDF)"
-                        className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 transition-colors"><IconDownload size={16} /></button>
+                        className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/30 transition-colors"><IconDownload size={16} /></button>
                       <button onClick={() => duplicate(t)} disabled={busyId === t.id} title="ทำสำเนา"
-                        className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 transition-colors disabled:opacity-50">{busyId === t.id ? <IconLoader2 size={16} className="animate-spin" /> : <IconCopy size={16} />}</button>
+                        className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/30 transition-colors disabled:opacity-50">{busyId === t.id ? <IconLoader2 size={16} className="animate-spin" /> : <IconCopy size={16} />}</button>
                     </div>
                   </div>
                 </div>
