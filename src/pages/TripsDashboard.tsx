@@ -224,7 +224,8 @@ export default function TripsDashboard() {
                 <div key={t.id} className="card p-0 overflow-hidden relative min-h-[200px] flex flex-col text-white">
                   {/* full-photo background (brand gradient shows through while it loads) */}
                   <CoverImage url={coverImage(t)} gradient={heroGradient(t)} />
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(150deg, rgba(2,112,251,0.52) 0%, rgba(20,40,90,0.42) 42%, rgba(6,14,30,0.86) 100%)' }} />
+                  {/* left half = brand colour (90%), fading to clear photo on the right */}
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(2,112,251,0.90) 0%, rgba(2,112,251,0.80) 32%, rgba(2,112,251,0.32) 62%, rgba(2,112,251,0.00) 100%)' }} />
 
                   {/* everything sits on the photo */}
                   <div className="relative flex-1 flex flex-col p-3.5">
