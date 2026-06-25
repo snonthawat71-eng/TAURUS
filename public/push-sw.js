@@ -5,7 +5,7 @@ self.addEventListener('push', (event) => {
   let data = {}
   try { data = event.data ? event.data.json() : {} }
   catch (e) { data = { body: event.data ? event.data.text() : '' } }
-  const title = data.title || 'TAURUS Notifications'
+  const title = data.title || 'TAURUS'
   const options = {
     body: data.body || '',
     icon: data.icon || '/taurus-01.svg',
