@@ -31,6 +31,7 @@ export default function TripsDashboard() {
   const [editor, setEditor] = useState<'new' | Trip | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
 
   useEffect(() => {
     const ids = trips.map((t) => t.id)
@@ -55,9 +56,10 @@ export default function TripsDashboard() {
     return m
   }, [travelers])
 
-  // Upcoming/ongoing trips first (soonest start at the top), then undated trips,
-  // then finished trips (most recently ended first).
-  const sortedTrips = useMemo(() => {
+  // Split into two tabs:
+  //  - Upcoming: trips that haven't finished yet (soonest first) + undated trips.
+  //  - Past: trips whose end date is before today (most recently ended first).
+  const { upcoming, past } = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0)
     const t0 = today.getTime()
     const rank = (t: Trip) => {
@@ -66,8 +68,14 @@ export default function TripsDashboard() {
       const endMs = new Date(t.end_date || t.start_date).getTime()
       return endMs >= t0 ? { bucket: 0, key: startMs } : { bucket: 2, key: -startMs }
     }
-    return [...trips].sort((a, b) => { const ra = rank(a), rb = rank(b); return ra.bucket - rb.bucket || ra.key - rb.key })
+    const sorted = [...trips].sort((a, b) => { const ra = rank(a), rb = rank(b); return ra.bucket - rb.bucket || ra.key - rb.key })
+    return {
+      upcoming: sorted.filter((t) => rank(t).bucket !== 2),
+      past: sorted.filter((t) => rank(t).bucket === 2),
+    }
   }, [trips])
+
+  const visibleTrips = tab === 'upcoming' ? upcoming : past
 
   function open(t: Trip) { switchTrip(t.id); navigate(t.owner_id === user?.id ? '/info' : '/places') }
   async function duplicate(t: Trip) {
@@ -109,7 +117,7 @@ export default function TripsDashboard() {
           <IconArrowRight size={22} className="shrink-0" />
         </button>
 
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-[20px] font-medium">ทริปของฉัน</h1>
             <p className="text-[13px] text-ink-3 mt-0.5">{trips.length} ทริป · วางแผนการเดินทางของคุณ</p>
@@ -119,11 +127,41 @@ export default function TripsDashboard() {
           </button>
         </div>
 
+        {/* Upcoming / Past tabs */}
+        <div className="flex items-center gap-6 mb-5" style={{ borderBottom: '0.5px solid var(--color-line)' }} role="tablist">
+          {([
+            { key: 'upcoming', label: 'Upcoming Trips', count: upcoming.length },
+            { key: 'past', label: 'Past Trips', count: past.length },
+          ] as const).map((tt) => {
+            const active = tab === tt.key
+            return (
+              <button key={tt.key} role="tab" aria-selected={active} onClick={() => setTab(tt.key)}
+                className={`relative -mb-px pb-2.5 text-[15px] font-semibold transition-colors ${active ? 'text-brand' : 'text-ink-3 hover:text-ink-2'}`}>
+                {tt.label}
+                <span className={`ml-1.5 text-[12px] font-medium ${active ? 'text-brand' : 'text-ink-3'}`}>{tt.count}</span>
+                {active && <span className="absolute left-0 right-0 -bottom-px h-[2px] rounded-full bg-brand" />}
+              </button>
+            )
+          })}
+        </div>
+
         {loading ? (
           <div className="grid place-items-center py-20"><span className="animate-pulse"><TaurusMark size={36} /></span></div>
+        ) : visibleTrips.length === 0 ? (
+          <div className="card border-dashed py-16 grid place-items-center text-center gap-2">
+            <IconCalendar size={28} className="text-ink-3" />
+            <p className="text-[14px] text-ink-2 font-medium">
+              {tab === 'upcoming' ? 'ยังไม่มีทริปที่กำลังจะถึง' : 'ยังไม่มีทริปที่ผ่านไปแล้ว'}
+            </p>
+            {tab === 'upcoming' && (
+              <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 mt-1">
+                <IconPlus size={16} /> สร้างทริป
+              </button>
+            )}
+          </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {sortedTrips.map((t) => {
+            {visibleTrips.map((t) => {
               const isOwner = t.owner_id === user?.id
               const tvs = byTrip.get(t.id) ?? []
               return (
@@ -164,12 +202,14 @@ export default function TripsDashboard() {
               )
             })}
 
-            {/* create card */}
-            <button onClick={() => setEditor('new')}
-              className="card border-dashed p-4 min-h-[150px] flex flex-col items-center justify-center gap-2 text-ink-3 hover:bg-surface-2/40">
-              <div className="size-10 rounded-full bg-brand-soft grid place-items-center text-brand"><IconPlus size={20} /></div>
-              <span className="text-[13px] font-medium text-ink-2">สร้างทริปใหม่</span>
-            </button>
+            {/* create card — only on the Upcoming tab */}
+            {tab === 'upcoming' && (
+              <button onClick={() => setEditor('new')}
+                className="card border-dashed p-4 min-h-[150px] flex flex-col items-center justify-center gap-2 text-ink-3 hover:bg-surface-2/40">
+                <div className="size-10 rounded-full bg-brand-soft grid place-items-center text-brand"><IconPlus size={20} /></div>
+                <span className="text-[13px] font-medium text-ink-2">สร้างทริปใหม่</span>
+              </button>
+            )}
           </div>
         )}
 
