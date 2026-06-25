@@ -74,3 +74,12 @@ create policy "interest_write" on place_interest for all using (
 ) with check (
   exists (select 1 from places p where p.id = place_id and can_edit_trip(p.trip_id))
 );
+
+-- trips: the dashboard lists trips straight from this table, so EVERY member
+-- (incl. 'places'/'view') must be able to READ the shared trip row — otherwise
+-- shared trips never appear on a non-owner's dashboard (no card / no cover image
+-- / wrong tab counts). Writing the trip row itself stays owner-only (unchanged).
+drop policy if exists "trips_read_member" on trips;
+create policy "trips_read_member" on trips for select using (
+  owner_id = auth.uid() or is_trip_member(id)
+);
