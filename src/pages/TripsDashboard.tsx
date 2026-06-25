@@ -57,6 +57,14 @@ function coverImage(t: Trip): string | undefined {
   return hit ? CITY_IMAGES[hit] : undefined
 }
 
+// Ask Cloudinary for a small, auto-format/quality version so cards load fast and
+// pop in together (the originals are multi-MB full-res photos).
+function fastImg(url: string): string {
+  return url.includes('res.cloudinary.com') && url.includes('/upload/')
+    ? url.replace('/upload/', '/upload/f_auto,q_auto,w_640/')
+    : url
+}
+
 export default function TripsDashboard() {
   const { trips, loading, switchTrip, reload } = useTrip()
   const { user, signOut } = useAuth()
@@ -194,49 +202,52 @@ export default function TripsDashboard() {
               const isOwner = t.owner_id === user?.id
               const tvs = byTrip.get(t.id) ?? []
               return (
-                <div key={t.id} className="card p-0 overflow-hidden flex flex-col">
-                  {/* postcard hero */}
-                  <div className="relative h-32">
-                    <div className="absolute inset-0" style={{ background: heroGradient(t) }} />
-                    {(() => { const cover = coverImage(t); return cover ? (
-                      <img src={cover} alt="" loading="lazy"
-                        className="absolute inset-0 w-full h-full object-cover"
-                        onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                    ) : null })()}
-                    <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.28) 0%, rgba(15,23,42,0.12) 38%, rgba(15,23,42,0.62) 100%)' }} />
-                    <span className="absolute top-3 left-3.5 text-[22px] leading-none drop-shadow-sm">{flagOf(t)}</span>
-                    <div className="absolute top-2.5 right-2.5 z-10">
+                <div key={t.id} className="card p-0 overflow-hidden relative min-h-[244px] flex flex-col text-white">
+                  {/* full-photo background */}
+                  <div className="absolute inset-0" style={{ background: heroGradient(t) }} />
+                  {(() => { const cover = coverImage(t); return cover ? (
+                    <img src={fastImg(cover)} alt="" loading="eager" decoding="async" fetchPriority="high"
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                  ) : null })()}
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.30) 0%, rgba(15,23,42,0.10) 30%, rgba(15,23,42,0.72) 100%)' }} />
+
+                  {/* everything sits on the photo */}
+                  <div className="relative flex-1 flex flex-col p-4">
+                    <div className="flex items-start justify-between">
+                      <span className="text-[24px] leading-none drop-shadow-sm">{flagOf(t)}</span>
                       <PopMenu items={[
                         { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
                         ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
                       ]} buttonClassName="!text-white" />
                     </div>
-                    <button onClick={() => open(t)} className="absolute inset-0 w-full text-left text-white p-3.5 flex flex-col justify-end">
+
+                    <div className="flex-1" />
+
+                    <button onClick={() => open(t)} className="text-left">
                       <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/80">Trip to</div>
-                      <div className="text-[20px] font-semibold leading-tight truncate drop-shadow-sm">{t.name}</div>
+                      <div className="text-[21px] font-semibold leading-tight truncate drop-shadow-sm">{t.name}</div>
                       <div className="flex items-center gap-1.5 text-[11px] text-white/90 mt-1">
                         <IconCalendar size={12} />
                         {formatDateRange(t.start_date, t.end_date) || 'ยังไม่กำหนดวัน'}
-                        {t.start_date && t.end_date && <span className="chip !bg-white/22 !text-white !py-0.5">{dayCount(t.start_date, t.end_date)} วัน</span>}
+                        {t.start_date && t.end_date && <span className="chip !bg-white/20 !text-white !border-white/25 !py-0.5">{dayCount(t.start_date, t.end_date)} วัน</span>}
                       </div>
                     </button>
-                  </div>
 
-                  {/* body — unchanged */}
-                  <div className="p-4 flex flex-col">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mt-3">
                       <AvatarStack people={tvs.map((tv, i) => ({ name: tv.nickname, color: AV[i % 4] }))} size={22} />
-                      <span className="chip !text-[10px]">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
+                      <span className="chip !text-[10px] !bg-white/20 !text-white !border-white/25">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-3.5 pt-3.5" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-                      <button onClick={() => open(t)} className="btn-primary h-9 flex-1 flex items-center justify-center gap-1.5 text-[13px]">
+                    <div className="flex items-center gap-2 mt-3">
+                      <button onClick={() => open(t)}
+                        className="h-9 flex-1 flex items-center justify-center gap-1.5 text-[13px] font-medium rounded-[10px] bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 transition-colors">
                         เปิดทริป <IconArrowRight size={15} />
                       </button>
                       <button onClick={() => downloadItineraryPdf(t)} title="ดาวน์โหลด Itinerary (PDF)"
-                        className="btn-icon !size-9"><IconDownload size={16} /></button>
+                        className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 transition-colors"><IconDownload size={16} /></button>
                       <button onClick={() => duplicate(t)} disabled={busyId === t.id} title="ทำสำเนา"
-                        className="btn-icon !size-9 disabled:opacity-50">{busyId === t.id ? <IconLoader2 size={16} className="animate-spin" /> : <IconCopy size={16} />}</button>
+                        className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 transition-colors disabled:opacity-50">{busyId === t.id ? <IconLoader2 size={16} className="animate-spin" /> : <IconCopy size={16} />}</button>
                     </div>
                   </div>
                 </div>
