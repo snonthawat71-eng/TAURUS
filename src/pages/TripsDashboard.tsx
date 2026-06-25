@@ -117,18 +117,13 @@ export default function TripsDashboard() {
           <IconArrowRight size={22} className="shrink-0" />
         </button>
 
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-[20px] font-medium">ทริปของฉัน</h1>
-            <p className="text-[13px] text-ink-3 mt-0.5">{trips.length} ทริป · วางแผนการเดินทางของคุณ</p>
-          </div>
-          <button onClick={() => setEditor('new')} className="btn-primary h-10 px-4 flex items-center gap-1.5">
-            <IconPlus size={16} /> สร้างทริป
-          </button>
+        <div className="mb-4">
+          <h1 className="text-[20px] font-medium">ทริปของฉัน</h1>
+          <p className="text-[13px] text-ink-3 mt-0.5">{trips.length} ทริป · วางแผนการเดินทางของคุณ</p>
         </div>
 
-        {/* Upcoming / Past tabs */}
-        <div className="flex items-center gap-6 mb-5" style={{ borderBottom: '0.5px solid var(--color-line)' }} role="tablist">
+        {/* Upcoming / Past tabs — full width, split evenly */}
+        <div className="flex mb-5" style={{ borderBottom: '0.5px solid var(--color-line)' }} role="tablist">
           {([
             { key: 'upcoming', label: 'Upcoming Trips', count: upcoming.length },
             { key: 'past', label: 'Past Trips', count: past.length },
@@ -136,7 +131,7 @@ export default function TripsDashboard() {
             const active = tab === tt.key
             return (
               <button key={tt.key} role="tab" aria-selected={active} onClick={() => setTab(tt.key)}
-                className={`relative -mb-px pb-2.5 text-[15px] font-semibold transition-colors ${active ? 'text-brand' : 'text-ink-3 hover:text-ink-2'}`}>
+                className={`relative -mb-px flex-1 pb-3 text-center text-[15px] font-semibold transition-colors ${active ? 'text-brand' : 'text-ink-3 hover:text-ink-2'}`}>
                 {tt.label}
                 <span className={`ml-1.5 text-[12px] font-medium ${active ? 'text-brand' : 'text-ink-3'}`}>{tt.count}</span>
                 {active && <span className="absolute left-0 right-0 -bottom-px h-[2px] rounded-full bg-brand" />}
