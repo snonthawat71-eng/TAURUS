@@ -24,14 +24,13 @@ import type { Trip } from '@/lib/database.types'
 interface TravelerLite { id: string; trip_id: string; nickname: string | null }
 const AV = ['av1', 'av2', 'av3', 'av4']
 
-// Brand-toned gradients used as the card background when there's no city photo
-// (and as the colour that shows through while the photo loads). On-brand blues,
-// picked deterministically from the trip so each card stays stable.
+// Dark navy brand gradients for the card's left side. Picked deterministically
+// from the trip so each card keeps a stable colour.
 const HERO_GRADIENTS = [
-  'linear-gradient(135deg,#0270FB,#4BC5D9)',
-  'linear-gradient(135deg,#0257D9,#2E9BD6)',
-  'linear-gradient(135deg,#0270FB,#6E8BF5)',
-  'linear-gradient(135deg,#0B86C9,#4BC5D9)',
+  'linear-gradient(135deg,#0f3b7e,#040f28)',
+  'linear-gradient(135deg,#123a72,#05152f)',
+  'linear-gradient(135deg,#0c2f63,#03101f)',
+  'linear-gradient(135deg,#143f80,#06182e)',
 ]
 function heroGradient(t: Trip) {
   const s = t.id || t.name || ''
@@ -62,24 +61,25 @@ function cld(url: string, transform: string): string {
   return i < 0 ? url : url.slice(0, i + m.length) + transform + '/' + url.slice(i + m.length)
 }
 
-// Card cover image with a blur-up placeholder: a tiny (~1KB) blurred version
+// The cover photo occupies only the RIGHT side of the card; its left edge fades
+// into the card's navy gradient. Blur-up placeholder: a tiny (~1KB) blurred copy
 // shows instantly so the card never looks empty, then the sharp image fades in.
-function CoverImage({ url, gradient }: { url?: string; gradient: string }) {
+const COVER_MASK = 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.65) 26%, #000 46%)'
+function CoverImage({ url }: { url?: string }) {
   const [loaded, setLoaded] = useState(false)
   const [broken, setBroken] = useState(false)
-  const full = url ? cld(url, 'f_auto,q_auto,w_560,c_limit') : undefined
-  const tiny = url ? cld(url, 'f_auto,q_auto:low,w_32,e_blur:1200') : undefined
+  if (!url || broken) return null
+  const full = cld(url, 'f_auto,q_auto,w_560,c_limit')
+  const tiny = cld(url, 'f_auto,q_auto:low,w_32,e_blur:1200')
   return (
-    <div className="absolute inset-0" style={{ background: gradient }}>
-      {tiny && !broken && (
-        <div className="absolute inset-0 bg-cover bg-right scale-105"
-          style={{ backgroundImage: `url(${tiny})`, filter: 'blur(2px)' }} />
-      )}
-      {full && !broken && (
-        <img src={full} alt="" loading="eager" decoding="async"
-          onLoad={() => setLoaded(true)} onError={() => setBroken(true)}
-          className={`absolute inset-0 w-full h-full object-cover object-right transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
-      )}
+    <div className="absolute inset-y-0 right-0 w-[60%]"
+      style={{ WebkitMaskImage: COVER_MASK, maskImage: COVER_MASK }}>
+      <div className="absolute inset-0 bg-cover bg-center scale-105"
+        style={{ backgroundImage: `url(${tiny})`, filter: 'blur(2px)' }} />
+      <img src={full} alt="" loading="eager" decoding="async"
+        onLoad={() => setLoaded(true)} onError={() => setBroken(true)}
+        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 58%, rgba(3,12,30,0.45) 100%)' }} />
     </div>
   )
 }
@@ -221,11 +221,9 @@ export default function TripsDashboard() {
               const isOwner = t.owner_id === user?.id
               const tvs = byTrip.get(t.id) ?? []
               return (
-                <div key={t.id} className="card p-0 overflow-hidden relative min-h-[200px] flex flex-col text-white">
-                  {/* full-photo background (brand gradient shows through while it loads) */}
-                  <CoverImage url={coverImage(t)} gradient={heroGradient(t)} />
-                  {/* left half = dark navy-black brand tint (90%), fading to clear photo on the right */}
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(3,14,33,0.92) 0%, rgba(4,18,44,0.82) 32%, rgba(4,18,44,0.30) 62%, rgba(4,18,44,0.00) 100%)' }} />
+                <div key={t.id} className="card p-0 overflow-hidden relative min-h-[200px] flex flex-col text-white" style={{ background: heroGradient(t) }}>
+                  {/* photo on the right; its left edge fades into the navy gradient */}
+                  <CoverImage url={coverImage(t)} />
 
                   {/* everything sits on the photo */}
                   <div className="relative flex-1 flex flex-col p-3.5">
