@@ -312,6 +312,15 @@ export default function Itinerary() {
     if (dayRow) offerUndo('ลบวันแล้ว', [{ table: 'itinerary_days', rows: [dayRow] }, { table: 'itinerary_stops', rows: stopRows }], reload)
   }
 
+  // The trip's start→end span is the source of truth for how many days the plan
+  // should have. Once that many days exist, adding more is "optional" (extra days).
+  const plannedDays = (() => {
+    if (!trip?.start_date || !trip?.end_date) return null
+    const ms = new Date(trip.end_date).getTime() - new Date(trip.start_date).getTime()
+    return ms >= 0 ? Math.round(ms / 86400000) + 1 : null
+  })()
+  const atDayCapacity = plannedDays != null && localDays.length >= plannedDays
+
   return (
     <div className="space-y-4">
       <NotificationSettings />
@@ -342,9 +351,16 @@ export default function Itinerary() {
       </DndContext>
 
       {canEdit && (
-        <button onClick={onAddDay} className="card w-full flex items-center justify-center gap-2 py-3 text-[13px] text-ink-2 hover:bg-surface-2/50 border-dashed">
-          <IconCalendarPlus size={16} /> เพิ่มวัน
-        </button>
+        atDayCapacity ? (
+          <button onClick={onAddDay} title="ครบตามจำนวนวันของทริปแล้ว — วันที่เพิ่มจะเป็นวันเสริม (ไม่บังคับ)"
+            className="w-full flex items-center justify-center gap-2 py-2.5 text-[12px] text-ink-3 hover:text-ink-2">
+            <IconCalendarPlus size={14} /> เพิ่มวันเสริม (optional)
+          </button>
+        ) : (
+          <button onClick={onAddDay} className="card w-full flex items-center justify-center gap-2 py-3 text-[13px] text-ink-2 hover:bg-surface-2/50 border-dashed">
+            <IconCalendarPlus size={16} /> เพิ่มวัน
+          </button>
+        )
       )}
       {days.length === 0 && !canEdit && <div className="card p-8 text-center text-[12px] text-ink-3">ยังไม่มีแผนการเดินทาง</div>}
 
