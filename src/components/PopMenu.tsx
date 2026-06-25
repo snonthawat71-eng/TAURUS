@@ -8,11 +8,11 @@ export interface PopMenuItem {
   danger?: boolean
 }
 
-export function PopMenu({ items, size = 28 }: { items: PopMenuItem[]; size?: number }) {
+export function PopMenu({ items, size = 28, buttonClassName = '' }: { items: PopMenuItem[]; size?: number; buttonClassName?: string }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="relative shrink-0">
-      <button className="btn-icon !border-0" style={{ width: size, height: size }} onClick={() => setOpen((v) => !v)} aria-label="เมนู">
+      <button className={`btn-icon !border-0 ${buttonClassName}`} style={{ width: size, height: size }} onClick={() => setOpen((v) => !v)} aria-label="เมนู">
         <IconDots size={16} />
       </button>
       {open && (

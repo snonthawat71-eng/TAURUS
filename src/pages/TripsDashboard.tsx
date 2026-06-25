@@ -23,6 +23,25 @@ import type { Trip } from '@/lib/database.types'
 interface TravelerLite { id: string; trip_id: string; nickname: string | null }
 const AV = ['av1', 'av2', 'av3', 'av4']
 
+// Curated postcard gradients for trip-card heros. Picked deterministically from
+// the trip id/name so each trip keeps a stable, always-pleasant colour.
+const HERO_GRADIENTS = [
+  'linear-gradient(135deg,#2563EB,#4BC5D9)',
+  'linear-gradient(135deg,#7C3AED,#EC4899)',
+  'linear-gradient(135deg,#0EA5E9,#6366F1)',
+  'linear-gradient(135deg,#F59E0B,#EF4444)',
+  'linear-gradient(135deg,#059669,#0EA5E9)',
+  'linear-gradient(135deg,#DB2777,#F59E0B)',
+  'linear-gradient(135deg,#6366F1,#14B8A6)',
+  'linear-gradient(135deg,#0F766E,#155E75)',
+]
+function heroGradient(t: Trip) {
+  const s = t.id || t.name || ''
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return HERO_GRADIENTS[h % HERO_GRADIENTS.length]
+}
+
 export default function TripsDashboard() {
   const { trips, loading, switchTrip, reload } = useTrip()
   const { user, signOut } = useAuth()
@@ -117,9 +136,9 @@ export default function TripsDashboard() {
           <IconArrowRight size={22} className="shrink-0" />
         </button>
 
-        <div className="mb-4">
+        <div className="mb-4 flex items-baseline gap-2 flex-wrap">
           <h1 className="text-[20px] font-medium">ทริปของฉัน</h1>
-          <p className="text-[13px] text-ink-3 mt-0.5">{trips.length} ทริป · วางแผนการเดินทางของคุณ</p>
+          <p className="text-[13px] text-ink-3">{trips.length} ทริป · วางแผนการเดินทางของคุณ</p>
         </div>
 
         {/* Upcoming / Past tabs — full width, split evenly */}
@@ -160,38 +179,45 @@ export default function TripsDashboard() {
               const isOwner = t.owner_id === user?.id
               const tvs = byTrip.get(t.id) ?? []
               return (
-                <div key={t.id} className="card p-4 flex flex-col">
-                  <div className="flex items-start justify-between gap-2">
-                    <button onClick={() => open(t)} className="flex items-start gap-2.5 text-left min-w-0">
-                      <span className="text-[26px] leading-none">{flagOf(t)}</span>
-                      <div className="min-w-0">
-                        <div className="text-[15px] font-medium leading-tight truncate">{t.name}</div>
-                        <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-1">
-                          <IconCalendar size={12} />
-                          {formatDateRange(t.start_date, t.end_date) || 'ยังไม่กำหนดวัน'}
-                          {t.start_date && t.end_date && <span className="chip !bg-brand-soft !text-brand-dark !py-0.5">{dayCount(t.start_date, t.end_date)} วัน</span>}
-                        </div>
+                <div key={t.id} className="card p-0 overflow-hidden flex flex-col">
+                  {/* postcard hero */}
+                  <div className="relative h-32">
+                    <div className="absolute inset-0" style={{ background: heroGradient(t) }} />
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.10) 0%, rgba(15,23,42,0.58) 100%)' }} />
+                    <span className="absolute top-3 left-3.5 text-[22px] leading-none drop-shadow-sm">{flagOf(t)}</span>
+                    <div className="absolute top-2.5 right-2.5 z-10">
+                      <PopMenu items={[
+                        { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
+                        ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
+                      ]} buttonClassName="!text-white" />
+                    </div>
+                    <button onClick={() => open(t)} className="absolute inset-0 w-full text-left text-white p-3.5 flex flex-col justify-end">
+                      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/80">Trip to</div>
+                      <div className="text-[20px] font-semibold leading-tight truncate drop-shadow-sm">{t.name}</div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-white/90 mt-1">
+                        <IconCalendar size={12} />
+                        {formatDateRange(t.start_date, t.end_date) || 'ยังไม่กำหนดวัน'}
+                        {t.start_date && t.end_date && <span className="chip !bg-white/22 !text-white !py-0.5">{dayCount(t.start_date, t.end_date)} วัน</span>}
                       </div>
                     </button>
-                    <PopMenu items={[
-                      { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
-                      ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
-                    ]} />
                   </div>
 
-                  <div className="flex items-center justify-between mt-3">
-                    <AvatarStack people={tvs.map((tv, i) => ({ name: tv.nickname, color: AV[i % 4] }))} size={22} />
-                    <span className="chip !text-[10px]">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
-                  </div>
+                  {/* body — unchanged */}
+                  <div className="p-4 flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <AvatarStack people={tvs.map((tv, i) => ({ name: tv.nickname, color: AV[i % 4] }))} size={22} />
+                      <span className="chip !text-[10px]">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
+                    </div>
 
-                  <div className="flex items-center gap-2 mt-3.5 pt-3.5" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-                    <button onClick={() => open(t)} className="btn-primary h-9 flex-1 flex items-center justify-center gap-1.5 text-[13px]">
-                      เปิดทริป <IconArrowRight size={15} />
-                    </button>
-                    <button onClick={() => downloadItineraryPdf(t)} title="ดาวน์โหลด Itinerary (PDF)"
-                      className="btn-icon !size-9"><IconDownload size={16} /></button>
-                    <button onClick={() => duplicate(t)} disabled={busyId === t.id} title="ทำสำเนา"
-                      className="btn-icon !size-9 disabled:opacity-50">{busyId === t.id ? <IconLoader2 size={16} className="animate-spin" /> : <IconCopy size={16} />}</button>
+                    <div className="flex items-center gap-2 mt-3.5 pt-3.5" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+                      <button onClick={() => open(t)} className="btn-primary h-9 flex-1 flex items-center justify-center gap-1.5 text-[13px]">
+                        เปิดทริป <IconArrowRight size={15} />
+                      </button>
+                      <button onClick={() => downloadItineraryPdf(t)} title="ดาวน์โหลด Itinerary (PDF)"
+                        className="btn-icon !size-9"><IconDownload size={16} /></button>
+                      <button onClick={() => duplicate(t)} disabled={busyId === t.id} title="ทำสำเนา"
+                        className="btn-icon !size-9 disabled:opacity-50">{busyId === t.id ? <IconLoader2 size={16} className="animate-spin" /> : <IconCopy size={16} />}</button>
+                    </div>
                   </div>
                 </div>
               )
