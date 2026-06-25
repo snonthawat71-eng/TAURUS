@@ -165,14 +165,11 @@ export default function TripsDashboard() {
       <main className="max-w-[960px] mx-auto px-5 sm:px-8 py-7">
         {/* Prominent Explore banner */}
         <button onClick={() => navigate('/explore')}
-          className="w-full rounded-[16px] p-5 sm:p-6 mb-6 flex items-center gap-4 text-left text-white shadow-sm"
+          className="w-full rounded-[16px] px-5 py-3.5 mb-6 flex items-center gap-3.5 text-left text-white shadow-sm"
           style={{ background: 'linear-gradient(120deg, #0270FB, #4BC5D9)' }}>
-          <span className="size-14 rounded-[14px] bg-white/20 grid place-items-center shrink-0"><IconWorldSearch size={30} /></span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[19px] font-semibold">Explore สถานที่ & ร้านเด็ด</div>
-            <div className="text-[13px] text-white/85 mt-1">รวมที่เที่ยว/ร้านที่ทุกคนแชร์ — กด ♥ เซฟเข้าทริปของคุณ</div>
-          </div>
-          <IconArrowRight size={22} className="shrink-0" />
+          <IconWorldSearch size={26} className="shrink-0" stroke={1.75} />
+          <div className="min-w-0 flex-1 text-[18px] font-semibold">Explore สถานที่ & ร้านเด็ด</div>
+          <IconArrowRight size={22} className="shrink-0 opacity-90" />
         </button>
 
         <div className="mb-4 flex items-baseline gap-2 flex-wrap">
