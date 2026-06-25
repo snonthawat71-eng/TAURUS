@@ -224,7 +224,7 @@ export default function TripsDashboard() {
                 <div key={t.id} className="card p-0 overflow-hidden relative min-h-[200px] flex flex-col text-white">
                   {/* full-photo background (brand gradient shows through while it loads) */}
                   <CoverImage url={coverImage(t)} gradient={heroGradient(t)} />
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.34) 0%, rgba(15,23,42,0.04) 34%, rgba(15,23,42,0.78) 100%)' }} />
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(150deg, rgba(2,112,251,0.52) 0%, rgba(20,40,90,0.42) 42%, rgba(6,14,30,0.86) 100%)' }} />
 
                   {/* everything sits on the photo */}
                   <div className="relative flex-1 flex flex-col p-3.5">
@@ -255,7 +255,7 @@ export default function TripsDashboard() {
 
                     <div className="flex items-center gap-2 mt-2.5">
                       <button onClick={() => open(t)}
-                        className="h-9 flex-1 flex items-center justify-center gap-1.5 text-[13px] font-semibold rounded-[10px] bg-white/90 hover:bg-white text-brand-dark transition-colors">
+                        className="h-9 flex-1 flex items-center justify-center gap-1.5 text-[13px] font-semibold rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/35 transition-colors">
                         เปิดทริป <IconArrowRight size={15} />
                       </button>
                       <button onClick={() => downloadItineraryPdf(t)} title="ดาวน์โหลด Itinerary (PDF)"
