@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
       if (dupeErr) continue // already sent (PK conflict) or insert failed
 
       const payload = JSON.stringify({
-        title: '⏰ ใกล้ถึงเวลาตามแผน',
+        title: 'TAURUS Notifications',
         body: `${stop.time} · ${stop.place_name ?? 'กิจกรรมถัดไป'}`,
         url: '/itinerary',
         tag: `stop-${stop.id}`,
