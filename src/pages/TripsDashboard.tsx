@@ -16,6 +16,7 @@ import { TripEditor } from '@/components/TripEditor'
 import { ProfileEditor } from '@/components/ProfileEditor'
 import { formatDateRange, dayCount } from '@/lib/format'
 import { countryFlag } from '@/lib/countries'
+import { cityImage, CITY_IMAGES } from '@/lib/cityImages'
 import { createTrip, updateTrip, deleteTrip, duplicateTrip } from '@/lib/tripMutations'
 import { downloadItineraryPdf } from '@/lib/itineraryPdf'
 import type { Trip } from '@/lib/database.types'
@@ -40,6 +41,20 @@ function heroGradient(t: Trip) {
   let h = 0
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
   return HERO_GRADIENTS[h % HERO_GRADIENTS.length]
+}
+
+// Cover photo for the card hero, reusing the curated city images (same source as
+// the Explore city-filter cards). We know the trip's city, so match on it first;
+// then fall back to country/name, and finally to a known city name appearing
+// inside the trip name (e.g. "Hongkong 2026" → Hongkong).
+const normCity = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
+function coverImage(t: Trip): string | undefined {
+  for (const c of t.cities ?? []) { const img = cityImage(c); if (img) return img }
+  const direct = cityImage(t.country ?? '') ?? cityImage(t.name ?? '')
+  if (direct) return direct
+  const n = normCity(t.name ?? '')
+  const hit = n ? Object.keys(CITY_IMAGES).find((k) => n.includes(normCity(k))) : undefined
+  return hit ? CITY_IMAGES[hit] : undefined
 }
 
 export default function TripsDashboard() {
@@ -183,7 +198,12 @@ export default function TripsDashboard() {
                   {/* postcard hero */}
                   <div className="relative h-32">
                     <div className="absolute inset-0" style={{ background: heroGradient(t) }} />
-                    <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.10) 0%, rgba(15,23,42,0.58) 100%)' }} />
+                    {(() => { const cover = coverImage(t); return cover ? (
+                      <img src={cover} alt="" loading="lazy"
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                    ) : null })()}
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.28) 0%, rgba(15,23,42,0.12) 38%, rgba(15,23,42,0.62) 100%)' }} />
                     <span className="absolute top-3 left-3.5 text-[22px] leading-none drop-shadow-sm">{flagOf(t)}</span>
                     <div className="absolute top-2.5 right-2.5 z-10">
                       <PopMenu items={[
