@@ -11,10 +11,12 @@ import { toast } from './toast'
  * (`persistSession`), so they stay signed in across the update.
  *
  * The browser only looks for a new worker on a fresh navigation, so a tab (or
- * installed PWA) left open for hours would never notice a deploy. To fix that we
- * poll for a new build on a timer and whenever the app regains focus.
+ * installed PWA) left open would never notice a deploy on its own. To surface the
+ * red "อัปเดต" bar quickly WITHOUT making the user quit & reopen, we re-check for
+ * a new build often: on a short timer, whenever the app regains focus/visibility,
+ * and when the network reconnects.
  */
-const CHECK_EVERY = 60 * 60 * 1000 // re-check for a new deploy hourly while open
+const CHECK_EVERY = 15 * 60 * 1000 // re-check for a new deploy every 15 min while open
 
 export function registerPWA() {
   if (!('serviceWorker' in navigator)) return
@@ -23,12 +25,17 @@ export function registerPWA() {
     immediate: true,
     onRegisteredSW(_swUrl, reg) {
       if (!reg) return
+      const check = () => { reg.update().catch(() => {}) }
       // periodic check while the app stays open
-      setInterval(() => { reg.update().catch(() => {}) }, CHECK_EVERY)
-      // and an immediate check whenever the tab/PWA comes back to the foreground
-      const check = () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}) }
-      document.addEventListener('visibilitychange', check)
+      setInterval(check, CHECK_EVERY)
+      // check whenever the tab/PWA comes back to the foreground...
+      const onVisible = () => { if (document.visibilityState === 'visible') check() }
+      document.addEventListener('visibilitychange', onVisible)
       window.addEventListener('focus', check)
+      // ...and right after the network comes back (e.g. phone left the app for a while)
+      window.addEventListener('online', check)
+      // and once shortly after load, in case a deploy happened seconds ago
+      setTimeout(check, 10 * 1000)
     },
     onNeedRefresh() {
       // ttl: 0 → stays until the user acts; kind 'error' → red bar; key → only
