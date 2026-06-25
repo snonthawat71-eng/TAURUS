@@ -228,10 +228,7 @@ export default function TripsDashboard() {
                   {/* everything sits on the photo */}
                   <div className="relative flex-1 flex flex-col p-3.5">
                     <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[24px] leading-none">{flagOf(t)}</span>
-                        <span className="rounded-full bg-white/25 px-2.5 py-1 text-[10px] font-medium flex items-center gap-1">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
-                      </div>
+                      <span className="text-[24px] leading-none">{flagOf(t)}</span>
                       <PopMenu items={[
                         { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
                         ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
@@ -250,8 +247,9 @@ export default function TripsDashboard() {
                       </div>
                     </button>
 
-                    <div className="flex items-center mt-2.5">
+                    <div className="flex items-center justify-between mt-2.5">
                       <AvatarStack people={tvs.map((tv, i) => ({ name: tv.nickname, color: AV[i % 4] }))} size={22} />
+                      <span className="rounded-full bg-white/25 px-2.5 py-1 text-[10px] font-medium flex items-center gap-1">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
                     </div>
 
                     <div className="flex items-center gap-2 mt-2.5">
