@@ -72,11 +72,11 @@ function CoverImage({ url }: { url?: string }) {
   const tiny = cld(url, 'f_auto,q_auto:low,w_32,e_blur:1200')
   return (
     <>
-      <div className="absolute inset-0 bg-cover bg-right scale-105"
+      <div className="absolute inset-0 bg-cover bg-center scale-105"
         style={{ backgroundImage: `url(${tiny})`, filter: 'blur(2px)' }} />
       <img src={full} alt="" loading="eager" decoding="async"
         onLoad={() => setLoaded(true)} onError={() => setBroken(true)}
-        className={`absolute inset-0 w-full h-full object-cover object-right transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
+        className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
     </>
   )
 }
