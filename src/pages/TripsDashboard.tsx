@@ -251,8 +251,8 @@ export default function TripsDashboard() {
 
                     <div className="flex items-center gap-2 mt-2.5">
                       <button onClick={() => open(t)}
-                        className="h-9 flex-1 flex items-center justify-center gap-1.5 text-[13px] font-semibold rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/35 transition-colors">
-                        เปิดทริป <IconArrowRight size={15} />
+                        className="h-9 flex-1 flex items-center gap-1.5 text-[16px] font-semibold text-left">
+                        เปิดทริป <IconArrowRight size={18} />
                       </button>
                       <button onClick={() => downloadItineraryPdf(t)} title="ดาวน์โหลด Itinerary (PDF)"
                         className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/30 transition-colors"><IconDownload size={16} /></button>
