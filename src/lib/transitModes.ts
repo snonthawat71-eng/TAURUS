@@ -1,10 +1,10 @@
 import {
   IconTrain, IconBus, IconTrainFilled,
-  IconCar, IconCarFilled, IconSailboat, IconPlane, type Icon,
+  IconCar, IconCarFilled, IconSailboat, IconPlane, IconWalk, IconBike, type Icon,
 } from '@tabler/icons-react'
 
 /** The ways a leg of a journey can be travelled. Stored on each TransitLeg. */
-export type TransitMode = 'metro' | 'bus' | 'tram' | 'hsr' | 'car' | 'taxi' | 'boat' | 'plane'
+export type TransitMode = 'metro' | 'bus' | 'tram' | 'hsr' | 'car' | 'taxi' | 'boat' | 'plane' | 'walk' | 'bike'
 
 /** Field labels adapt to the mode (a metro "line/station" reads as a "route/stop"
  *  for a bus, a "pier" for a boat, an "airport" for a plane, …). */
@@ -44,6 +44,10 @@ export const TRANSIT_MODES: TransitModeMeta[] = [
     fields: { line: 'เส้นทางเรือ', from: 'ท่าขึ้น', to: 'ท่าลง', linePlaceholder: 'เช่น Star Ferry' } },
   { key: 'plane', label: 'เครื่องบิน', short: 'เครื่องบิน', icon: IconPlane, color: '#0270FB', rail: false,
     fields: { line: 'เที่ยวบิน/สายการบิน', from: 'สนามบินต้นทาง', to: 'สนามบินปลายทาง', linePlaceholder: 'เช่น TG660' } },
+  { key: 'walk', label: 'เดิน', short: 'เดิน', icon: IconWalk, color: '#0270FB', rail: false,
+    fields: { line: 'เส้นทาง', from: 'จุดเริ่ม', to: 'จุดหมาย', linePlaceholder: 'เช่น ทางเดินเลียบแม่น้ำ' } },
+  { key: 'bike', label: 'จักรยาน', short: 'จักรยาน', icon: IconBike, color: '#0270FB', rail: false,
+    fields: { line: 'เส้นทาง/บริการ', from: 'จุดเริ่ม', to: 'จุดหมาย', linePlaceholder: 'เช่น จักรยานเช่า / bike lane' } },
 ]
 
 const BY_KEY = new Map(TRANSIT_MODES.map((m) => [m.key, m]))
