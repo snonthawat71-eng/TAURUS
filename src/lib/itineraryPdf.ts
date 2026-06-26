@@ -9,12 +9,14 @@ function esc(s: string | null | undefined) {
 
 function transitHtml(t: Transit | null): string {
   if (!t?.legs?.length) return ''
-  const legs = t.legs.map((l) => {
+  const last = t.legs.length - 1
+  const legs = t.legs.map((l, i) => {
     const meta = [l.direction, l.stops != null ? `${l.stops} สถานี` : '', l.minutes != null ? `${l.minutes} นาที` : ''].filter(Boolean).join(' · ')
-    return `<div class="leg"><span class="line" style="background:${l.color}">${esc(l.line)}</span> ${esc(l.from)} → ${esc(l.to)} <span class="muted">${esc(meta)}</span></div>`
+    const ex = l.exit ?? (i === last ? t.exit : undefined)
+    const exit = ex ? `<div class="leg exit">ออก ${esc(ex.label)}${ex.note ? ` · ${esc(ex.note)}` : ''}</div>` : ''
+    return `<div class="leg"><span class="line" style="background:${l.color}">${esc(l.line)}</span> ${esc(l.from)} → ${esc(l.to)} <span class="muted">${esc(meta)}</span></div>${exit}`
   }).join('')
-  const exit = t.exit ? `<div class="leg exit">ออก ${esc(t.exit.label)}${t.exit.note ? ` · ${esc(t.exit.note)}` : ''}</div>` : ''
-  return `<div class="transit">${legs}${exit}</div>`
+  return `<div class="transit">${legs}</div>`
 }
 
 /** Build a printable itinerary and open the browser print dialog (Save as PDF). */

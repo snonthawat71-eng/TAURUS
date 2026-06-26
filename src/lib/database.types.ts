@@ -129,6 +129,8 @@ export interface TransitLeg {
   direction?: string
   stops?: number
   minutes?: number
+  /** which exit to take when getting off this leg */
+  exit?: { label: string; note?: string }
   /** walking transfer shown AFTER this leg, before the next */
   transferAfter?: { walkMeters?: number; minutes?: number }
 }

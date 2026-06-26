@@ -82,12 +82,15 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
           </Row>
           <Row marker="alight" color={leg.color} line={i < last ? 'dashed' : 'none'}>
             <div className="text-[13px] font-medium leading-tight pt-0.5">{leg.to}</div>
-            {i === last && exit && (
-              <div className="mt-2 inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[11px] font-medium"
-                style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
-                <IconDoorExit size={13} /> ออก {exit.label}{exit.note && ` · ${exit.note}`}
-              </div>
-            )}
+            {(() => {
+              const ex = leg.exit ?? (i === last ? exit : undefined)
+              return ex ? (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[11px] font-medium"
+                  style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
+                  <IconDoorExit size={13} /> ออก {ex.label}{ex.note && ` · ${ex.note}`}
+                </div>
+              ) : null
+            })()}
           </Row>
           {i < last && (
             <Row marker="walk" color={leg.color} line="dashed">
