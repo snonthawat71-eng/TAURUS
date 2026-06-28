@@ -238,6 +238,24 @@ export default function Itinerary() {
   useEffect(() => setLocalDays(days), [days])
   useEffect(() => { stopsRef.current = localStops }, [localStops])
 
+  // remember which days are collapsed, per trip, across navigation / reloads
+  const collapseKey = trip?.id ? `taurus:itin:collapsed:${trip.id}` : null
+  useEffect(() => {
+    if (!collapseKey) { setCollapsed(new Set()); return }
+    try {
+      const raw = localStorage.getItem(collapseKey)
+      setCollapsed(new Set(raw ? (JSON.parse(raw) as string[]) : []))
+    } catch { setCollapsed(new Set()) }
+  }, [collapseKey])
+  function toggleCollapse(dayId: string) {
+    setCollapsed((prev) => {
+      const n = new Set(prev)
+      if (n.has(dayId)) n.delete(dayId); else n.add(dayId)
+      if (collapseKey) { try { localStorage.setItem(collapseKey, JSON.stringify([...n])) } catch { /* ignore */ } }
+      return n
+    })
+  }
+
   const daySensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const stopsByDay = useMemo(() => {
@@ -405,7 +423,7 @@ export default function Itinerary() {
                 getMatchedPlace={getMatchedPlace}
                 canEdit={canEdit}
                 collapsed={collapsed.has(day.id)}
-                onToggleCollapse={() => setCollapsed((prev) => { const n = new Set(prev); n.has(day.id) ? n.delete(day.id) : n.add(day.id); return n })}
+                onToggleCollapse={() => toggleCollapse(day.id)}
                 onOpenDetail={setDetailPlace}
                 onEditDay={() => setDayEdit({ id: day.id, label: day.label, day_date: day.day_date, version: day.version })}
                 onDeleteDay={() => removeDay(day.id)}
