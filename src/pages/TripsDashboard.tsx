@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   IconPlus, IconPencil, IconTrash, IconCopy, IconDownload, IconCalendar, IconCrown, IconLoader2,
-  IconUserCircle, IconArrowRight, IconWorldSearch, IconLogout,
+  IconUserCircle, IconArrowRight, IconLogout, IconHome, IconSparkles, IconUser,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -152,26 +152,12 @@ export default function TripsDashboard() {
       <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center justify-between px-5 sm:px-8 h-16"
         style={{ borderBottom: '0.5px solid var(--color-line)' }}>
         <TaurusLogo height={50} />
-        <div className="flex items-center gap-2">
-          <button onClick={() => setProfileOpen(true)} className="btn-icon" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
-            <IconUserCircle size={16} />
-          </button>
-          <button onClick={signOut} className="btn-icon" aria-label="ออกจากระบบ" title="ออกจากระบบ" style={{ color: '#D85A30' }}>
-            <IconLogout size={16} />
-          </button>
-        </div>
+        <button onClick={signOut} className="btn-icon" aria-label="ออกจากระบบ" title="ออกจากระบบ" style={{ color: '#D85A30' }}>
+          <IconLogout size={16} />
+        </button>
       </header>
 
-      <main className="max-w-[960px] mx-auto px-5 sm:px-8 py-7">
-        {/* Prominent Explore banner */}
-        <button onClick={() => navigate('/explore')}
-          className="w-full rounded-[16px] px-5 py-3.5 mb-6 flex items-center gap-3.5 text-left text-white shadow-sm"
-          style={{ background: 'linear-gradient(120deg, #0270FB, #4BC5D9)' }}>
-          <IconWorldSearch size={26} className="shrink-0" stroke={1.75} />
-          <div className="min-w-0 flex-1 text-[18px] font-semibold">Explore สถานที่ & ร้านเด็ด</div>
-          <IconArrowRight size={22} className="shrink-0 opacity-90" />
-        </button>
-
+      <main className="max-w-[960px] mx-auto px-5 sm:px-8 pt-7 pb-32">
         <div className="mb-4 flex items-baseline gap-2 flex-wrap">
           <h1 className="text-[20px] font-medium">ทริปของฉัน</h1>
           <p className="text-[13px] text-ink-3">{trips.length} ทริป · วางแผนการเดินทางของคุณ</p>
@@ -279,6 +265,31 @@ export default function TripsDashboard() {
           <IconUserCircle size={13} /> เข้าระบบด้วย {user?.email}
         </div>
       </main>
+
+      {/* Floating bottom nav — dashboard only */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 pointer-events-none" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="relative mx-auto max-w-[480px] px-4 pb-3">
+          <div className="pointer-events-auto h-[58px] rounded-[24px] bg-canvas/95 backdrop-blur shadow-[0_6px_24px_rgba(15,23,42,0.12)] flex items-center justify-between px-12"
+            style={{ border: '0.5px solid var(--color-line)' }}>
+            <button className="flex flex-col items-center gap-0.5 text-brand" aria-current="page"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+              <IconHome size={22} /><span className="text-[11px] font-medium">Home</span>
+            </button>
+            <button onClick={() => setProfileOpen(true)} className="flex flex-col items-center gap-0.5 text-ink-3 hover:text-ink-2">
+              <IconUser size={22} /><span className="text-[11px] font-medium">Profile</span>
+            </button>
+          </div>
+          {/* elevated Explore */}
+          <button onClick={() => navigate('/explore')} aria-label="Explore"
+            className="pointer-events-auto absolute left-1/2 -translate-x-1/2 bottom-7 size-16 rounded-full grid place-items-center text-white shadow-[0_8px_20px_rgba(139,92,246,0.45)]"
+            style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899 55%, #4BC5D9)' }}>
+            <div className="flex flex-col items-center leading-none">
+              <IconSparkles size={22} />
+              <span className="text-[9px] font-semibold mt-0.5">Explore</span>
+            </div>
+          </button>
+        </div>
+      </nav>
 
       <TripEditor
         open={editor !== null}
