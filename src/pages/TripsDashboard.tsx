@@ -157,7 +157,7 @@ export default function TripsDashboard() {
         </button>
       </header>
 
-      <main className="max-w-[960px] mx-auto px-5 sm:px-8 pt-7 pb-44">
+      <main className="max-w-[960px] mx-auto px-5 sm:px-8 pt-7 pb-36">
         <div className="mb-4 flex items-baseline gap-2 flex-wrap">
           <h1 className="text-[20px] font-medium">ทริปของฉัน</h1>
           <p className="text-[13px] text-ink-3">{trips.length} ทริป · วางแผนการเดินทางของคุณ</p>
@@ -270,19 +270,18 @@ export default function TripsDashboard() {
       <nav className="mobile-bottom-nav">
         <button className="bottom-nav-item active" aria-current="page" aria-label="Home"
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <IconHome size={28} stroke={1.8} />
+          <IconHome size={25} stroke={1.9} />
           <span>Home</span>
         </button>
         <button className="center-action" aria-label="Explore" onClick={() => navigate('/explore')}>
-          <IconSparkles size={30} stroke={1.8} />
+          <IconSparkles size={25} stroke={1.9} />
           <span>Explore</span>
         </button>
         <button className="bottom-nav-item" aria-label="Profile" onClick={() => setProfileOpen(true)}>
-          <IconUser size={28} stroke={1.8} />
+          <IconUser size={25} stroke={1.9} />
           <span>Profile</span>
         </button>
       </nav>
-      <div className="ios-home-indicator" />
 
       <TripEditor
         open={editor !== null}
