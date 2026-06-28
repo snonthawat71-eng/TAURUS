@@ -157,7 +157,7 @@ export default function TripsDashboard() {
         </button>
       </header>
 
-      <main className="max-w-[960px] mx-auto px-5 sm:px-8 pt-7 pb-32">
+      <main className="max-w-[960px] mx-auto px-5 sm:px-8 pt-7 pb-44">
         <div className="mb-4 flex items-baseline gap-2 flex-wrap">
           <h1 className="text-[20px] font-medium">ทริปของฉัน</h1>
           <p className="text-[13px] text-ink-3">{trips.length} ทริป · วางแผนการเดินทางของคุณ</p>
@@ -266,30 +266,23 @@ export default function TripsDashboard() {
         </div>
       </main>
 
-      {/* Floating bottom nav — dashboard only */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 pointer-events-none" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="relative mx-auto max-w-[480px] px-4 pb-3">
-          <div className="pointer-events-auto h-[58px] rounded-[24px] bg-canvas/95 backdrop-blur shadow-[0_6px_24px_rgba(15,23,42,0.12)] flex items-center justify-between px-12"
-            style={{ border: '0.5px solid var(--color-line)' }}>
-            <button className="flex flex-col items-center gap-0.5 text-brand" aria-current="page"
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-              <IconHome size={22} /><span className="text-[11px] font-medium">Home</span>
-            </button>
-            <button onClick={() => setProfileOpen(true)} className="flex flex-col items-center gap-0.5 text-ink-3 hover:text-ink-2">
-              <IconUser size={22} /><span className="text-[11px] font-medium">Profile</span>
-            </button>
-          </div>
-          {/* elevated Explore */}
-          <button onClick={() => navigate('/explore')} aria-label="Explore"
-            className="pointer-events-auto absolute left-1/2 -translate-x-1/2 bottom-7 size-16 rounded-full grid place-items-center text-white shadow-[0_8px_20px_rgba(139,92,246,0.45)]"
-            style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899 55%, #4BC5D9)' }}>
-            <div className="flex flex-col items-center leading-none">
-              <IconSparkles size={22} />
-              <span className="text-[9px] font-semibold mt-0.5">Explore</span>
-            </div>
-          </button>
-        </div>
+      {/* Edge-to-edge glass bottom nav — dashboard only */}
+      <nav className="mobile-bottom-nav">
+        <button className="bottom-nav-item active" aria-current="page" aria-label="Home"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <IconHome size={28} stroke={1.8} />
+          <span>Home</span>
+        </button>
+        <button className="center-action" aria-label="Explore" onClick={() => navigate('/explore')}>
+          <IconSparkles size={30} stroke={1.8} />
+          <span>Explore</span>
+        </button>
+        <button className="bottom-nav-item" aria-label="Profile" onClick={() => setProfileOpen(true)}>
+          <IconUser size={28} stroke={1.8} />
+          <span>Profile</span>
+        </button>
       </nav>
+      <div className="ios-home-indicator" />
 
       <TripEditor
         open={editor !== null}

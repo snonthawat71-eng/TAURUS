@@ -182,3 +182,112 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Edge-to-edge glass bottom navigation — TripsDashboard (home) only */
+.mobile-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 142px;
+  padding: 26px 42px calc(22px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: 1fr 120px 1fr;
+  align-items: center;
+  z-index: 40;
+  overflow: visible;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-top: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 46px 46px 0 0;
+  box-shadow: 0 -18px 60px rgba(2, 34, 73, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.70);
+}
+/* soft raised bump under the centre button */
+.mobile-bottom-nav::before {
+  content: "";
+  position: absolute;
+  top: -54px;
+  left: 50%;
+  width: 190px;
+  height: 112px;
+  transform: translateX(-50%);
+  z-index: -1;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-radius: 999px 999px 0 0;
+  box-shadow: 0 -14px 42px rgba(2, 34, 73, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.68);
+}
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #9CA3AF;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  opacity: 0.7;
+  cursor: pointer;
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+.bottom-nav-item:first-child { grid-column: 1; }
+.bottom-nav-item:last-child { grid-column: 3; }
+.bottom-nav-item.active {
+  color: #0270FB;
+  opacity: 1;
+  font-weight: 700;
+}
+.bottom-nav-item:hover { opacity: 1; transform: translateY(-1px); }
+
+.center-action {
+  grid-column: 2;
+  justify-self: center;
+  margin-top: -40px;
+  width: 92px;
+  height: 92px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.76);
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.44), transparent 30%),
+    linear-gradient(135deg, #F07BFF 0%, #7C5CFF 44%, #0270FB 100%);
+  color: #FFFFFF;
+  box-shadow:
+    0 20px 46px rgba(2, 112, 251, 0.28),
+    0 0 36px rgba(75, 197, 217, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.center-action:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 24px 56px rgba(2, 112, 251, 0.34),
+    0 0 44px rgba(75, 197, 217, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.50);
+}
+.ios-home-indicator {
+  position: fixed;
+  left: 50%;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  width: 134px;
+  height: 5px;
+  transform: translateX(-50%);
+  z-index: 41;
+  background: #000000;
+  border-radius: 999px;
+  opacity: 0.85;
+}
