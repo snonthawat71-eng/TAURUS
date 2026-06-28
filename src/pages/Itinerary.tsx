@@ -143,22 +143,24 @@ function DayCard({
             </button>
           )}
           <span className="chip !bg-brand-soft !text-brand-dark !font-medium shrink-0">Day {index + 1}</span>
-          <button onClick={onToggleCollapse} className="flex items-center gap-1.5 min-w-0 text-left" aria-expanded={!collapsed}>
-            <div className="min-w-0">
-              <div className="text-[13px] font-medium truncate">{formatLongDate(day.day_date)}</div>
-              {collapsed
-                ? <div className="text-[11px] text-ink-3 truncate">{stops.length} กิจกรรม{day.label ? ` · ${day.label}` : ''}</div>
-                : day.label && <div className="text-[11px] text-ink-3 truncate">{day.label}</div>}
-            </div>
-            <IconChevronDown size={16} className={`text-ink-3 shrink-0 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+          <button onClick={onToggleCollapse} className="min-w-0 text-left" aria-expanded={!collapsed}>
+            <div className="text-[13px] font-medium truncate">{formatLongDate(day.day_date)}</div>
+            {collapsed
+              ? <div className="text-[11px] text-ink-3 truncate">{stops.length} กิจกรรม{day.label ? ` · ${day.label}` : ''}</div>
+              : day.label && <div className="text-[11px] text-ink-3 truncate">{day.label}</div>}
           </button>
         </div>
-        {canEdit && (
-          <PopMenu items={[
-            { label: 'แก้ไขวัน', icon: <IconPencil size={15} />, onClick: onEditDay },
-            { label: 'ลบวัน', icon: <IconTrash size={15} />, onClick: onDeleteDay, danger: true },
-          ]} />
-        )}
+        <div className="flex items-center gap-0.5 shrink-0">
+          {canEdit && (
+            <PopMenu items={[
+              { label: 'แก้ไขวัน', icon: <IconPencil size={15} />, onClick: onEditDay },
+              { label: 'ลบวัน', icon: <IconTrash size={15} />, onClick: onDeleteDay, danger: true },
+            ]} />
+          )}
+          <button onClick={onToggleCollapse} className="btn-icon !border-0 !size-7 text-ink-3" aria-label={collapsed ? 'เปิดวัน' : 'พับวัน'} aria-expanded={!collapsed}>
+            <IconChevronDown size={16} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {!collapsed && (
