@@ -21,8 +21,9 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   const [busyId, setBusyId] = useState<string | null>(null)
   const [done, setDone] = useState<Set<string>>(new Set())
 
-  // trips the user owns (can save into)
-  const myTrips = trips.filter((t) => t.owner_id === user?.id)
+  // any trip the user can reach — owned OR shared in (RLS blocks the write if the
+  // share is view-only). Shared members no longer need a trip of their own.
+  const myTrips = trips
 
   useEffect(() => {
     if (!open) return
@@ -58,7 +59,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
       </div>
       {myTrips.length === 0 ? (
         <div className="card p-5 text-center text-[12px] text-ink-3">
-          คุณยังไม่มีทริปของตัวเอง — สร้างทริปก่อนแล้วค่อยเซฟสถานที่ที่แชร์มาได้
+          ยังไม่มีทริปให้เซฟ — สร้างทริป หรือให้เจ้าของแชร์ทริปเข้ามาก่อน
         </div>
       ) : (
         <div className="space-y-1.5">

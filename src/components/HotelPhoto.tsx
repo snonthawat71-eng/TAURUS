@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { IconBuildingSkyscraper } from '@tabler/icons-react'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
+import { optimizeImageUrl } from '@/lib/cloudinary'
 
 function gradientFor(name: string | null) {
   let h = 0
@@ -20,11 +21,16 @@ export function HotelPhoto({ photoPath, name, size = 56, radius = 10 }: {
   useEffect(() => {
     let active = true
     setUrl(null)
-    if (photoPath && !isSampleFile(photoPath)) {
+    if (!photoPath || isSampleFile(photoPath)) return
+    // Cloudinary (or any public) URLs are used as-is; only private storage paths
+    // need a short-lived signed URL.
+    if (/^https?:\/\//.test(photoPath)) {
+      setUrl(optimizeImageUrl(photoPath, size * 2) ?? photoPath)
+    } else {
       getSignedUrl(photoPath).then((u) => active && setUrl(u))
     }
     return () => { active = false }
-  }, [photoPath])
+  }, [photoPath, size])
 
   return (
     <div className="shrink-0 overflow-hidden grid place-items-center text-white/90"

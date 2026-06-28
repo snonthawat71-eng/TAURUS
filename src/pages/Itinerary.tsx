@@ -111,7 +111,7 @@ function SortableStop({
 }
 
 function DayCard({
-  day, index, stops, getMatchedPlace, canEdit, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onStopDragEnd, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
+  day, index, stops, getMatchedPlace, canEdit, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
 }: {
   day: ItineraryDay
   index: number
@@ -122,7 +122,6 @@ function DayCard({
   onEditDay: () => void
   onDeleteDay: () => void
   onAddStop: () => void
-  onStopDragEnd: (e: DragEndEvent) => void
   onEditStop: (s: ItineraryStop) => void
   onDeleteStop: (id: string) => void
   onEditRoute: (s: ItineraryStop) => void
@@ -130,7 +129,6 @@ function DayCard({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day.id, disabled: !canEdit })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   return (
     <div ref={setNodeRef} style={style} className="card">
@@ -155,17 +153,15 @@ function DayCard({
         )}
       </div>
 
-      <div className="p-4 space-y-3">
-        {stops.length === 0 && <div className="text-[12px] text-ink-3 text-center py-2">ยังไม่มีจุดแวะในวันนี้</div>}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onStopDragEnd}>
-          <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-3">
-              {stops.map((s) => (
-                <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+      <div className="p-4 space-y-3 min-h-[60px]">
+        {stops.length === 0 && <div className="text-[12px] text-ink-3 text-center py-2">ยังไม่มีจุดแวะในวันนี้ — ลากกิจกรรมมาวางที่นี่ได้</div>}
+        <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-3">
+            {stops.map((s) => (
+              <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />
+            ))}
+          </div>
+        </SortableContext>
         {canEdit && <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>}
       </div>
     </div>
@@ -235,33 +231,69 @@ export default function Itinerary() {
     return map
   }, [localStops, localDays])
 
-  async function onStopDragEnd(e: DragEndEvent, dayId: string) {
-    const { active, over } = e
-    if (!over || active.id === over.id) return
-    const list = stopsByDay.get(dayId) ?? []
-    const oldIdx = list.findIndex((s) => s.id === active.id)
-    const newIdx = list.findIndex((s) => s.id === over.id)
-    if (oldIdx < 0 || newIdx < 0) return
-    const reordered = arrayMove(list, oldIdx, newIdx)
-    // times stay bound to the slot/position, not the activity: reassign each
-    // moved stop the time that originally sat in its new position
-    const slotTimes = list.map((s) => s.time ?? null)
-    const withTimes = reordered.map((s, i) => ({ ...s, position: i, time: slotTimes[i] }))
-    const others = localStops.filter((s) => s.day_id !== dayId)
-    setLocalStops([...others, ...withTimes])
-    await persistStopOrder(withTimes)
-    await reload()
-  }
+  // map any drop target (a day card, a day's drop area, or a stop) to its day id
+  const dayOf = (overId: string): string | undefined =>
+    localDays.some((d) => d.id === overId) ? overId
+      : overId.startsWith('day:') ? overId.slice(4)
+        : localStops.find((s) => s.id === overId)?.day_id
 
-  async function onDayDragEnd(e: DragEndEvent) {
+  // one handler for the single DndContext: reorders days, reorders stops within a
+  // day, and moves a stop to another day (drop onto its card / list / a stop there)
+  async function onDragEnd(e: DragEndEvent) {
     const { active, over } = e
-    if (!over || active.id === over.id) return
-    const oldIdx = localDays.findIndex((d) => d.id === active.id)
-    const newIdx = localDays.findIndex((d) => d.id === over.id)
-    if (oldIdx < 0 || newIdx < 0) return
-    const reordered = arrayMove(localDays, oldIdx, newIdx)
-    setLocalDays(reordered)
-    await persistDayOrder(reordered)
+    if (!over) return
+    const activeId = String(active.id)
+    const overId = String(over.id)
+    if (activeId === overId) return
+
+    // --- dragging a DAY → reorder days ---
+    if (localDays.some((d) => d.id === activeId)) {
+      const overDay = dayOf(overId)
+      const oldIdx = localDays.findIndex((d) => d.id === activeId)
+      const newIdx = localDays.findIndex((d) => d.id === overDay)
+      if (oldIdx < 0 || newIdx < 0 || oldIdx === newIdx) return
+      const reordered = arrayMove(localDays, oldIdx, newIdx)
+      setLocalDays(reordered)
+      await persistDayOrder(reordered)
+      await reload()
+      return
+    }
+
+    // --- dragging a STOP ---
+    const moving = localStops.find((s) => s.id === activeId)
+    if (!moving) return
+    const fromDay = moving.day_id
+    const toDay = dayOf(overId)
+    if (!toDay) return
+
+    if (fromDay === toDay) {
+      // reorder within the same day — times stay bound to the slot, not the activity
+      const list = stopsByDay.get(fromDay) ?? []
+      const oldIdx = list.findIndex((s) => s.id === activeId)
+      let newIdx = list.findIndex((s) => s.id === overId)
+      if (newIdx < 0) newIdx = list.length - 1 // dropped on the day area → end
+      if (oldIdx < 0 || oldIdx === newIdx) return
+      const reordered = arrayMove(list, oldIdx, newIdx)
+      const slotTimes = list.map((s) => s.time ?? null)
+      const withPos = reordered.map((s, i) => ({ ...s, position: i, time: slotTimes[i] }))
+      const others = localStops.filter((s) => s.day_id !== fromDay)
+      setLocalStops([...others, ...withPos])
+      await persistStopOrder(withPos)
+      await reload()
+      return
+    }
+
+    // move the stop to another day (keeps its own time)
+    const src = (stopsByDay.get(fromDay) ?? []).filter((s) => s.id !== activeId)
+    const dst = [...(stopsByDay.get(toDay) ?? [])]
+    const overIdx = dst.findIndex((s) => s.id === overId)
+    const insertAt = overIdx >= 0 ? overIdx : dst.length
+    dst.splice(insertAt, 0, { ...moving, day_id: toDay })
+    const srcPos = src.map((s, i) => ({ ...s, position: i }))
+    const dstPos = dst.map((s, i) => ({ ...s, position: i, day_id: toDay }))
+    const others = localStops.filter((s) => s.day_id !== fromDay && s.day_id !== toDay)
+    setLocalStops([...others, ...srcPos, ...dstPos])
+    await persistStopOrder([...srcPos, ...dstPos])
     await reload()
   }
 
@@ -328,7 +360,7 @@ export default function Itinerary() {
   return (
     <div className="space-y-4">
       <NotificationSettings />
-      <DndContext sensors={daySensors} collisionDetection={closestCenter} onDragEnd={onDayDragEnd}>
+      <DndContext sensors={daySensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={localDays.map((d) => d.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-4">
             {localDays.map((day, idx) => (
@@ -343,7 +375,6 @@ export default function Itinerary() {
                 onEditDay={() => setDayEdit({ id: day.id, label: day.label, day_date: day.day_date, version: day.version })}
                 onDeleteDay={() => removeDay(day.id)}
                 onAddStop={() => setEditor({ dayId: day.id })}
-                onStopDragEnd={(e) => onStopDragEnd(e, day.id)}
                 onEditStop={(s) => setEditor({ dayId: day.id, stop: s })}
                 onDeleteStop={removeStop}
                 onEditRoute={(s) => setRouteEdit(s)}
