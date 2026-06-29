@@ -378,11 +378,13 @@ export default function Itinerary() {
         created_at: new Date().toISOString(),
       }
     }
-    // a stop with a clear time slots into its chronological position in the day
+    // a stop with a clear time slots into its chronological position AMONG THE
+    // OTHER TIMED stops. If nothing is scheduled later, it sits at the end of the
+    // timed group (just above any not-yet-timed stops) — never below them.
     if (input.time) {
       const rest = dayStops.filter((s) => s.id !== target.id)
-      const at = rest.findIndex((s) => s.time != null && s.time > input.time!)
-      const insertAt = at < 0 ? rest.length : at
+      let insertAt = rest.findIndex((s) => s.time != null && s.time > input.time!)
+      if (insertAt < 0) insertAt = rest.map((s) => s.time != null).lastIndexOf(true) + 1
       const ordered = [...rest.slice(0, insertAt), target, ...rest.slice(insertAt)]
       await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
     }
