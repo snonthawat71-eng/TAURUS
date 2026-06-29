@@ -200,6 +200,10 @@
   padding: 0 16px calc(16px + env(safe-area-inset-bottom));
   z-index: 40;
 }
+/* On desktop there's no home-bar inset, so lift the items off the bottom edge. */
+@media (min-width: 768px) {
+  .mobile-bottom-nav { padding-bottom: 30px; }
+}
 .mobile-bottom-nav .nav-bg {
   position: absolute;
   inset: 0;
