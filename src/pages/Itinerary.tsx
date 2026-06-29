@@ -87,7 +87,7 @@ function SortableStop({
             <button
               onClick={() => tapAction?.()}
               disabled={!tapAction || (mode === 'map' && !stop.map_url)}
-              className={['text-[14px] font-medium text-left leading-snug block', done ? 'line-through text-ink-3' : 'enabled:hover:text-brand-mid'].join(' ')}>
+              className="text-[14px] font-medium text-left leading-snug block enabled:hover:text-brand-mid">
               {stop.place_name}
             </button>
             {!done && (
@@ -322,12 +322,11 @@ export default function Itinerary() {
   function toggleDone(s: ItineraryStop) {
     const done = !s.done
     const done_at = done ? new Date().toISOString() : null
-    patch((d) => ({ stops: d.stops.map((x) => (x.id === s.id ? { ...x, done, done_at } : x)) })) // instant
+    // optimistic only — no reload() here (a full refetch re-renders every card and
+    // looks like a flicker). The realtime subscription reconciles in the background.
+    patch((d) => ({ stops: d.stops.map((x) => (x.id === s.id ? { ...x, done, done_at } : x)) }))
     setLocalStops((prev) => prev.map((x) => (x.id === s.id ? { ...x, done, done_at } : x)))
-    updateStop(s.id, { done, done_at }, s.version).then((r) => {
-      if (r.conflict) toast.error('มีคนอื่นแก้ไขจุดแวะนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
-      reload()
-    })
+    updateStop(s.id, { done, done_at }, s.version)
   }
 
   // resolve any drop target (a day card, a day's drop area, or a stop) to its day
