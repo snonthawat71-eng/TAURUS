@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
-  IconBed, IconHash, IconPlane, IconPencil, IconTrash, IconCalendar, IconTrain,
+  IconBed, IconPlane, IconPencil, IconTrash, IconTrain,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -36,6 +36,17 @@ function SectionHead({ title, action }: { title: string; action?: React.ReactNod
     <div className="flex items-center justify-between mb-2.5 mt-7 first:mt-0">
       <h2 className="text-[13px] font-medium text-ink-2">{title}</h2>
       {action}
+    </div>
+  )
+}
+
+// A tidy labelled value for the flight/train detail grid (skips empty values).
+function Field({ label, value, booking }: { label: string; value: React.ReactNode; booking?: boolean }) {
+  if (value == null || value === '') return null
+  return (
+    <div className="min-w-0">
+      <div className="text-[10px] text-ink-3">{label}</div>
+      <div className={`text-[12px] mt-0.5 truncate ${booking ? 'booking-id' : 'font-medium'}`}>{value}</div>
     </div>
   )
 }
@@ -78,9 +89,12 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
 
   return (
     <div className="card p-4">
-      <div className="flex items-center gap-2">
-        <Icon size={16} className="text-brand shrink-0" />
-        <span className="text-[13px] font-medium truncate min-w-0 flex-1">{f ? `${f.flight_no} · ${f.airline}` : `เที่ยวบิน${dirLabel}`}</span>
+      <div className="flex items-start gap-2">
+        <Icon size={16} className="text-brand shrink-0 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium truncate">{f ? `${f.flight_no} · ${f.airline}` : `เที่ยวบิน${dirLabel}`}</div>
+          {f?.flight_date && <div className="text-[12px] text-ink-2 mt-0.5">{formatFlightDate(f.flight_date)}</div>}
+        </div>
         {/* outbound / return segmented toggle (moved here, replacing the status badge) */}
         <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
           <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
@@ -136,14 +150,12 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mt-4 flex-wrap text-[11px]" style={{ borderTop: '0.5px solid var(--color-line)', paddingTop: 12 }}>
-        <span className="chip"><IconCalendar size={12} /> {formatFlightDate(f.flight_date)}</span>
-        <span className="chip">{f.seat_class || 'Economy'} · {f.seats ?? travelers.length} seats</span>
-        {f.booking_ref && (
-          <span className="inline-flex items-center gap-0.5 booking-id text-[12px]"><IconHash size={12} />{f.booking_ref}</span>
-        )}
-        <span className="ml-auto"><AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} /></span>
+      <div className="mt-4 pt-3 grid grid-cols-3 gap-y-2.5 gap-x-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+        <Field label="ชั้นโดยสาร" value={f.seat_class || 'Economy'} />
+        <Field label="ที่นั่ง" value={`${f.seats ?? travelers.length}`} />
+        <Field label="รหัสจอง" value={f.booking_ref} booking />
       </div>
+      <div className="mt-3 flex justify-end"><AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} /></div>
       </>
       )}
     </div>
@@ -164,9 +176,12 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
 
   return (
     <div className="card p-4">
-      <div className="flex items-center gap-2">
-        <IconTrain size={16} className="text-brand shrink-0" />
-        <span className="text-[13px] font-medium truncate min-w-0 flex-1">{t ? `${t.train_no} · ${t.operator}` : `รถไฟ${dirLabel}`}</span>
+      <div className="flex items-start gap-2">
+        <IconTrain size={16} className="text-brand shrink-0 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium truncate">{t ? `${t.train_no} · ${t.operator}` : `รถไฟ${dirLabel}`}</div>
+          {t?.travel_date && <div className="text-[12px] text-ink-2 mt-0.5">{formatFlightDate(t.travel_date)}</div>}
+        </div>
         <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
           <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
             style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
@@ -218,17 +233,14 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mt-4 flex-wrap text-[11px]" style={{ borderTop: '0.5px solid var(--color-line)', paddingTop: 12 }}>
-        <span className="chip"><IconCalendar size={12} /> {formatFlightDate(t.travel_date)}</span>
-        {t.seat_class && <span className="chip">{t.seat_class}</span>}
-        {t.gate && <span className="chip">ประตู {t.gate}</span>}
-        {t.car && <span className="chip">ตู้ {t.car}</span>}
-        {t.seat_no && <span className="chip">ที่นั่ง {t.seat_no}</span>}
-        {t.booking_ref && (
-          <span className="inline-flex items-center gap-0.5 booking-id text-[12px]"><IconHash size={12} />{t.booking_ref}</span>
-        )}
-        <span className="ml-auto"><AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} /></span>
+      <div className="mt-4 pt-3 grid grid-cols-3 gap-y-2.5 gap-x-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+        <Field label="ชั้นโดยสาร" value={t.seat_class} />
+        <Field label="ประตู" value={t.gate} />
+        <Field label="ตู้" value={t.car} />
+        <Field label="ที่นั่ง" value={t.seat_no} />
+        <Field label="รหัสจอง" value={t.booking_ref} booking />
       </div>
+      <div className="mt-3 flex justify-end"><AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} /></div>
       </>
       )}
     </div>
