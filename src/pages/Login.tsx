@@ -30,15 +30,13 @@ export default function Login() {
 
   return (
     <div className="min-h-dvh flex flex-col px-6 py-10 text-white relative overflow-hidden" style={{ background: 'var(--color-brand)' }}>
-      {/* Faint brand chevron watermark */}
-      <svg
+      {/* Faint oversized brand mark watermark */}
+      <img
+        src="/taurus-02.svg"
         aria-hidden="true"
-        viewBox="0 0 100 100"
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] max-w-none opacity-[0.07] pointer-events-none"
-        fill="none" stroke="white" strokeWidth="13" strokeLinecap="round" strokeLinejoin="round"
-      >
-        <path d="M28 16 L60 50 L28 84" />
-      </svg>
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] max-w-none opacity-[0.08] pointer-events-none"
+        style={{ filter: 'brightness(0) invert(1)' }}
+      />
 
       {/* Logo — centered in the available space */}
       <div className="flex-1 grid place-items-center relative z-10">
