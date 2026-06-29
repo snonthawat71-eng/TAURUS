@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore, IconZoomScan } from '@tabler/icons-react'
-import { SignedImage } from './SignedImage'
+import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
@@ -43,14 +43,13 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
         {/* image keeps a fixed 4:5 aspect ratio, vertically centered so a 2-line
             name on mobile doesn't push it off-balance */}
         <div className="w-32 sm:w-36 shrink-0 aspect-[4/5] rounded-[10px] overflow-hidden bg-surface-2 relative">
-          <SignedImage url={e.photo_url} focus={e.photo_focus} alt={e.name ?? ''} className="w-full h-full object-cover" width={400}
-            fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
-          {e.photo_url && (
-            <>
-              <button onClick={(ev) => { ev.stopPropagation(); setLightbox(0) }}
-                aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
-              <span className="absolute bottom-1.5 right-1.5 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
-            </>
+          {gallery.length > 0
+            ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={400} focus={e.photo_focus}
+                onExpand={(i) => setLightbox(i)}
+                fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
+            : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>}
+          {gallery.length > 0 && (
+            <span className="absolute bottom-1.5 right-1.5 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
           )}
           {popular && (
             <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 rounded-full pl-1.5 pr-2 py-0.5 text-[10px] font-semibold text-white shadow-sm"

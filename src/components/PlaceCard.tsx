@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, IconHeartFilled, IconStar, IconBuildingStore, IconZoomScan } from '@tabler/icons-react'
 import { AvatarStack } from './Avatar'
 import { PopMenu } from './PopMenu'
-import { SignedImage } from './SignedImage'
+import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
@@ -48,15 +48,12 @@ export function PlaceCard({
     <div className="card overflow-hidden flex flex-col relative">
       {/* Header image */}
       <div className="relative h-36">
-        {hasPhoto
-          ? <SignedImage url={place.photo_url} path={place.photo_path} focus={place.photo_focus} alt={place.name ?? ''} className="w-full h-full object-cover" width={500} fallback={placeholder} />
+        {gallery.length > 0
+          ? <PhotoCarousel photos={gallery} alt={place.name ?? ''} width={500} focus={place.photo_focus} fallback={placeholder} onExpand={(i) => setLightbox(i)} />
           : placeholder}
 
-        {hasPhoto && (
-          <>
-            <button onClick={() => setLightbox(0)} aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
-            <span className="absolute bottom-2 left-2 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
-          </>
+        {gallery.length > 0 && (
+          <span className="absolute bottom-2 left-2 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
         )}
 
         {multiBranch && (
