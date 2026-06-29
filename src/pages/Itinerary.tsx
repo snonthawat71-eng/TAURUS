@@ -332,8 +332,16 @@ export default function Itinerary() {
     if (newIdx < 0) newIdx = list.length - 1 // dropped on day area → end
     const reordered = (oldIdx >= 0 && newIdx >= 0) ? arrayMove(list, oldIdx, newIdx) : list
     const crossed = origin != null && origin !== finalDay
-    // the time belongs to the activity — it travels with the card when reordered
-    const finalPos = reordered.map((s, i) => ({ ...s, position: i }))
+    // Within a day the time is pinned to its SLOT: the activities reorder but the
+    // time column keeps its order, so dragging swaps the times along with the
+    // positions (a stop that had a time hands it to whatever now sits in its slot).
+    // Across days the time still travels with the moved card.
+    const slotTimes = list.map((s) => s.time ?? null)
+    const finalPos = reordered.map((s, i) => ({
+      ...s,
+      position: i,
+      ...(crossed ? {} : { time: slotTimes[i] ?? null }),
+    }))
     let next = [...cur.filter((s) => s.day_id !== finalDay), ...finalPos]
     let toPersist = [...finalPos]
     if (crossed) {
