@@ -368,56 +368,49 @@ export default function TripInfo() {
         action={canEdit ? <button onClick={() => setHotelEdit('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มที่พัก</button> : undefined} />
       <div className="space-y-2.5">
         {hotels.map((h) => (
-          <div key={h.id} className="card p-0 overflow-hidden flex">
-            {/* Full-height photo strip */}
-            <HotelPhoto photoPath={h.photo_path} name={h.name} fill size={240}
-              className="w-[96px] sm:w-[116px] self-stretch shrink-0" />
-
-            <div className="flex-1 min-w-0 p-3.5">
-              {/* Title row */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-[14px] font-medium leading-tight truncate">{h.name}</div>
-                  <div className="text-[11px] text-ink-3 mt-0.5">{h.city} · {h.nights} คืน</div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <AMapPill url={h.map_url} />
-                  {canEdit && (
-                    <PopMenu items={[
-                      { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setHotelEdit(h) },
-                      { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ message: 'ลบที่พักนี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteHotel(h.id); await reload(); offerUndo('ลบที่พักแล้ว', [{ table: 'hotels', rows: [h] }], reload) } }, danger: true },
-                    ]} />
-                  )}
-                </div>
-              </div>
-
-              {/* Check-in / Check-out / Booking — aligned row above a hairline */}
-              <div className="grid grid-cols-3 gap-2 mt-3 pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-                <div>
-                  <div className="text-[10px] text-ink-3">Check-in</div>
-                  <div className="text-[12px] font-medium mt-0.5">{formatCheckTime(h.checkin)}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[10px] text-ink-3">Check-out</div>
-                  <div className="text-[12px] font-medium mt-0.5">{formatCheckTime(h.checkout)}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[10px] text-ink-3">Booking ID</div>
-                  <div className="text-[12px] booking-id mt-0.5 truncate">{h.booking_id}</div>
-                </div>
-              </div>
-
-              {/* Rooms + booking file */}
-              {(h.rooms?.length || (trip && (canEdit || h.storage_path))) && (
-                <div className="flex items-center justify-between gap-2 mt-3 flex-wrap">
-                  <div className="flex flex-wrap gap-1.5">
-                    {h.rooms?.map((r, i) => (
-                      <span key={i} className="chip"><IconBed size={12} /> {r.name} · {r.members.join(', ')}</span>
-                    ))}
+          <div key={h.id} className="card p-4">
+            <div className="flex gap-3.5">
+              <HotelPhoto photoPath={h.photo_path} name={h.name} size={84} radius={12} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[14px] font-medium leading-tight">{h.name}</div>
+                    <div className="text-[11px] text-ink-3 mt-0.5">{h.city} · {h.nights} คืน</div>
                   </div>
-                  {trip && <AttachLink table="hotels" id={h.id} tripId={trip.id} storagePath={h.storage_path} attachLabel="ใบจอง" viewLabel="ดูใบจอง" canEdit={canEdit} />}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <AMapPill url={h.map_url} />
+                    {canEdit && (
+                      <PopMenu items={[
+                        { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setHotelEdit(h) },
+                        { label: 'ลบ', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ message: 'ลบที่พักนี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteHotel(h.id); await reload(); offerUndo('ลบที่พักแล้ว', [{ table: 'hotels', rows: [h] }], reload) } }, danger: true },
+                      ]} />
+                    )}
+                  </div>
                 </div>
-              )}
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  <div>
+                    <div className="text-[10px] text-ink-3">Check-in</div>
+                    <div className="text-[12px] font-medium mt-0.5">{formatCheckTime(h.checkin)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-ink-3">Check-out</div>
+                    <div className="text-[12px] font-medium mt-0.5">{formatCheckTime(h.checkout)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-ink-3">Booking ID</div>
+                    <div className="text-[12px] booking-id mt-0.5">{h.booking_id}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 mt-3.5 flex-wrap">
+              <div className="flex flex-wrap gap-1.5">
+                {h.rooms?.map((r, i) => (
+                  <span key={i} className="chip"><IconBed size={12} /> {r.name} · {r.members.join(', ')}</span>
+                ))}
+              </div>
+              {trip && <AttachLink table="hotels" id={h.id} tripId={trip.id} storagePath={h.storage_path} attachLabel="ใบจอง" viewLabel="ดูใบจอง" canEdit={canEdit} />}
             </div>
           </div>
         ))}

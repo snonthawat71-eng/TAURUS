@@ -10,14 +10,11 @@ function gradientFor(name: string | null) {
   return `linear-gradient(135deg, hsl(${hue} 45% 58%), hsl(${(hue + 40) % 360} 45% 42%))`
 }
 
-export function HotelPhoto({ photoPath, name, size = 56, radius = 10, fill = false, className }: {
+export function HotelPhoto({ photoPath, name, size = 56, radius = 10 }: {
   photoPath: string | null | undefined
   name: string | null
   size?: number
   radius?: number
-  /** Stretch to fill the parent (size controls only the fetched resolution). */
-  fill?: boolean
-  className?: string
 }) {
   const [url, setUrl] = useState<string | null>(null)
 
@@ -36,15 +33,12 @@ export function HotelPhoto({ photoPath, name, size = 56, radius = 10, fill = fal
   }, [photoPath, size])
 
   return (
-    <div className={`overflow-hidden grid place-items-center text-white/90 ${fill ? '' : 'shrink-0'} ${className ?? ''}`}
-      style={{
-        ...(fill ? {} : { width: size, height: size, borderRadius: radius }),
-        background: gradientFor(name),
-      }}>
+    <div className="shrink-0 overflow-hidden grid place-items-center text-white/90"
+      style={{ width: size, height: size, borderRadius: radius, background: gradientFor(name) }}>
       {url ? (
         <img src={url} alt={name ?? ''} className="w-full h-full object-cover" />
       ) : (
-        <IconBuildingSkyscraper size={fill ? 30 : size * 0.4} stroke={1.6} />
+        <IconBuildingSkyscraper size={size * 0.4} stroke={1.6} />
       )}
     </div>
   )
