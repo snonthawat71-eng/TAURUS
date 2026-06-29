@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconCheck } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ClearableField } from './ClearableField'
@@ -67,7 +67,27 @@ export function StopEditor({
     }
   }, [open, initial])
 
+  // Desktop: let the place strip be dragged with the mouse (touch already scrolls
+  // natively). We track the drag on a ref and swallow the click that follows a
+  // real drag so dragging never accidentally selects a card.
+  const rowRef = useRef<HTMLDivElement>(null)
+  const drag = useRef({ down: false, startX: 0, startLeft: 0, moved: false })
+  function onRowDown(e: React.MouseEvent) {
+    const el = rowRef.current
+    if (!el) return
+    drag.current = { down: true, startX: e.pageX, startLeft: el.scrollLeft, moved: false }
+  }
+  function onRowMove(e: React.MouseEvent) {
+    const el = rowRef.current
+    if (!el || !drag.current.down) return
+    const dx = e.pageX - drag.current.startX
+    if (Math.abs(dx) > 3) drag.current.moved = true
+    el.scrollLeft = drag.current.startLeft - dx
+  }
+  function onRowUp() { drag.current.down = false }
+
   function pickPlanned(id: string) {
+    if (drag.current.moved) return // ignore the click that ends a drag
     const p = inPlan.find((x) => x.id === id)
     if (!p) return
     if (pickedId === id) { setPickedId(null); return } // tap again to deselect
@@ -116,7 +136,8 @@ export function StopEditor({
             {shown.length === 0 ? (
               <p className="text-[12px] text-ink-3 mt-2">ไม่มีสถานที่ในหมวดนี้</p>
             ) : (
-            <div className="flex gap-2 overflow-x-auto no-scrollbar mt-1.5 -mx-1 px-1 pb-1">
+            <div ref={rowRef} onMouseDown={onRowDown} onMouseMove={onRowMove} onMouseUp={onRowUp} onMouseLeave={onRowUp}
+              className="flex gap-2 overflow-x-auto no-scrollbar mt-1.5 -mx-1 px-1 pb-1 cursor-grab active:cursor-grabbing select-none">
               {shown.map((p) => {
                 const meta = catMeta(p.category)
                 const Icon = meta.icon
@@ -126,12 +147,12 @@ export function StopEditor({
                     className="relative shrink-0 w-[104px] rounded-[10px] overflow-hidden text-left bg-surface transition"
                     style={{ border: `1.5px solid ${sel ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
                     <div className="h-[68px] relative overflow-hidden" style={{ background: meta.bg }}>
-                      {/* Fill the whole thumb. No focus crop, and we pin the photo to
-                          all edges with a forced centred object-cover so it can never
-                          sit low and leave a white strip at the top of the card. */}
-                      <SignedImage url={p.photo_url} path={p.photo_path} alt={p.name ?? ''}
+                      {/* Honour the place's saved crop (photo_focus) so the thumb shows
+                          the same framing as its card/detail — that crop is what hides
+                          plain sky / white edges the user cropped away. object-cover still
+                          fills the box; a coloured bg backs it so it never flashes white. */}
+                      <SignedImage url={p.photo_url} path={p.photo_path} focus={p.photo_focus} alt={p.name ?? ''}
                         className="absolute inset-0 w-full h-full object-cover"
-                        style={{ objectFit: 'cover', objectPosition: 'center' }}
                         fallback={<div className="absolute inset-0 grid place-items-center" style={{ background: meta.bg }}><Icon size={22} style={{ color: meta.fg }} /></div>} />
                       {sel && <div className="absolute inset-0 grid place-items-center" style={{ background: 'rgba(2,112,251,0.35)' }}><span className="size-6 rounded-full bg-brand grid place-items-center"><IconCheck size={15} className="text-white" /></span></div>}
                     </div>
