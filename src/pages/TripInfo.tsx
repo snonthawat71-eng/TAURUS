@@ -40,11 +40,12 @@ function SectionHead({ title, action }: { title: string; action?: React.ReactNod
   )
 }
 
-// A tidy labelled value for the flight/train detail grid (skips empty values).
+// A tidy labelled value for the flight/train detail row — items grow to fill the
+// width evenly and are centre-aligned (skips empty values).
 function Field({ label, value, booking }: { label: string; value: React.ReactNode; booking?: boolean }) {
   if (value == null || value === '') return null
   return (
-    <div className="min-w-0">
+    <div className="basis-[28%] grow min-w-0 text-center">
       <div className="text-[10px] text-ink-3">{label}</div>
       <div className={`text-[12px] mt-0.5 truncate ${booking ? 'booking-id' : 'font-medium'}`}>{value}</div>
     </div>
@@ -105,8 +106,14 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <div className="flex items-start gap-2">
         <Icon size={16} className="text-brand shrink-0 mt-0.5" />
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-medium truncate">{f ? `${f.flight_no} · ${f.airline}` : `เที่ยวบิน${dirLabel}`}</div>
-          {f?.flight_date && <div className="text-[12px] text-ink-2 mt-0.5">{formatFlightDate(f.flight_date)}</div>}
+          {f ? (
+            <>
+              {f.flight_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</span>}
+              <div className="text-[13px] font-medium truncate mt-1.5">{f.flight_no} · {f.airline}</div>
+            </>
+          ) : (
+            <div className="text-[13px] font-medium truncate">{`เที่ยวบิน${dirLabel}`}</div>
+          )}
         </div>
         {canEdit && f && (
           <PopMenu items={[
@@ -152,7 +159,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       </div>
 
-      <div className="mt-4 pt-3 grid grid-cols-3 gap-y-2.5 gap-x-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+      <div className="mt-4 pt-3 flex flex-wrap gap-y-3 gap-x-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
         <Field label="ชั้นโดยสาร" value={f.seat_class || 'Economy'} />
         <Field label="ที่นั่ง" value={`${f.seats ?? travelers.length}`} />
         <Field label="รหัสจอง" value={f.booking_ref} booking />
@@ -199,8 +206,14 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <div className="flex items-start gap-2">
         <IconTrain size={16} className="text-brand shrink-0 mt-0.5" />
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-medium truncate">{t ? `${t.train_no} · ${t.operator}` : `รถไฟ${dirLabel}`}</div>
-          {t?.travel_date && <div className="text-[12px] text-ink-2 mt-0.5">{formatFlightDate(t.travel_date)}</div>}
+          {t ? (
+            <>
+              {t.travel_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</span>}
+              <div className="text-[13px] font-medium truncate mt-1.5">{t.train_no} · {t.operator}</div>
+            </>
+          ) : (
+            <div className="text-[13px] font-medium truncate">{`รถไฟ${dirLabel}`}</div>
+          )}
         </div>
         {canEdit && t && (
           <PopMenu items={[
@@ -243,7 +256,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       </div>
 
-      <div className="mt-4 pt-3 grid grid-cols-3 gap-y-2.5 gap-x-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+      <div className="mt-4 pt-3 flex flex-wrap gap-y-3 gap-x-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
         <Field label="ชั้นโดยสาร" value={t.seat_class} />
         <Field label="ประตู" value={t.gate} />
         <Field label="ตู้" value={t.car} />
