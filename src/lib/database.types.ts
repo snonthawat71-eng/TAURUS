@@ -85,6 +85,29 @@ export interface Flight {
   created_at: string
 }
 
+/** Train trips — mirrors Flight (ขาไป/ขากลับ). Requires supabase/trains.sql. */
+export interface Train {
+  id: string
+  trip_id: string
+  direction: FlightDirection | string | null
+  operator: string | null
+  train_no: string | null
+  dep_code: string | null
+  dep_name: string | null
+  dep_time: string | null
+  arr_code: string | null
+  arr_name: string | null
+  arr_time: string | null
+  travel_date: string | null
+  booking_ref: string | null
+  storage_path: string | null
+  seat_class?: string | null
+  seats?: number | null
+  dep_tz?: string | null
+  arr_tz?: string | null
+  created_at: string
+}
+
 export interface HotelRoom {
   name: string
   members: string[]

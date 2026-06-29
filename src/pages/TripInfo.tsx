@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
-  IconBed, IconHash, IconPlane, IconPencil, IconTrash, IconCalendar,
+  IconBed, IconHash, IconPlane, IconPencil, IconTrash, IconCalendar, IconTrain,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -9,6 +9,7 @@ import { Avatar } from '@/components/Avatar'
 import { TravelerDrawer, KIND_META } from '@/components/TravelerDrawer'
 import { TravelerEditor } from '@/components/TravelerEditor'
 import { FlightEditor } from '@/components/FlightEditor'
+import { TrainEditor } from '@/components/TrainEditor'
 import { HotelEditor } from '@/components/HotelEditor'
 import { HotelPhoto } from '@/components/HotelPhoto'
 import { AttachLink } from '@/components/AttachLink'
@@ -23,9 +24,10 @@ import { travelerColor, ORDER } from '@/lib/avatars'
 import {
   addTraveler, updateTraveler, deleteTraveler,
   addFlight, updateFlight, deleteFlight,
+  addTrain, updateTrain, deleteTrain,
   addHotel, updateHotel, deleteHotel, updateProfile,
 } from '@/lib/tripMutations'
-import type { Flight, FlightDirection, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
+import type { Flight, Train, FlightDirection, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
 
 type EditState<T> = 'new' | T | null
 
@@ -148,13 +150,100 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   )
 }
 
+function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
+  trains: Train[]
+  tripId: string
+  canEdit: boolean
+  onEdit: (t: Train) => void
+  onDelete: (t: Train) => void
+  onAdd: (dir: FlightDirection) => void
+}) {
+  const { travelers } = useTrip()
+  const [dir, setDir] = useState<FlightDirection>('outbound')
+  const t = trains.find((x) => (x.direction ?? 'outbound') === dir)
+  const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center gap-2">
+        <IconTrain size={16} className="text-brand shrink-0" />
+        <span className="text-[13px] font-medium truncate min-w-0 flex-1">{t ? `${t.train_no} · ${t.operator}` : `รถไฟ${dirLabel}`}</span>
+        <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
+          <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
+            style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
+          {(['outbound', 'return'] as const).map((d) => (
+            <button key={d} onClick={() => setDir(d)}
+              className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
+              {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
+            </button>
+          ))}
+        </div>
+        {canEdit && t && (
+          <PopMenu items={[
+            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(t) },
+            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(t), danger: true },
+          ]} />
+        )}
+      </div>
+
+      {!t ? (
+        <div className="text-center py-7">
+          <p className="text-[12px] text-ink-3">ยังไม่มีรถไฟ{dirLabel}</p>
+          {canEdit && (
+            <button onClick={() => onAdd(dir)} className="btn-link inline-flex items-center gap-1 mt-2"><IconPlus size={14} /> เพิ่มรถไฟ{dirLabel}</button>
+          )}
+        </div>
+      ) : (
+      <>
+      <div className="flex items-start mt-4">
+        <div className="w-[88px] shrink-0">
+          <div className="text-[22px] font-medium leading-none">{t.dep_code}</div>
+          <div className="text-[11px] text-ink-3 mt-1.5 truncate">{t.dep_name}</div>
+          <div className="text-[14px] mt-0.5 tabular-nums">{t.dep_time}</div>
+        </div>
+        <div className="flex-1 flex flex-col items-center pt-1">
+          <div className="text-[11px] text-ink-3 tabular-nums">{flightDuration(t.dep_time, t.arr_time, t.dep_tz, t.arr_tz, t.travel_date)}</div>
+          <div className="w-full flex items-center my-1.5">
+            <span className="size-2 rounded-full shrink-0" style={{ background: 'var(--color-brand)' }} />
+            <span className="flex-1 h-px bg-line-2" />
+            <span className="size-6 rounded-full bg-surface grid place-items-center shrink-0" style={{ border: '0.5px solid var(--color-line)' }}>
+              <IconTrain size={13} className="text-brand" />
+            </span>
+            <span className="flex-1 h-px bg-line-2" />
+            <span className="size-2 rounded-full shrink-0 ring-2 bg-surface" style={{ '--tw-ring-color': 'var(--color-brand)' } as React.CSSProperties} />
+          </div>
+          <div className="text-[11px] text-ink-3">direct</div>
+        </div>
+        <div className="w-[88px] shrink-0 text-right">
+          <div className="text-[22px] font-medium leading-none">{t.arr_code}</div>
+          <div className="text-[11px] text-ink-3 mt-1.5 truncate">{t.arr_name}</div>
+          <div className="text-[14px] mt-0.5 tabular-nums">{t.arr_time}</div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mt-4 flex-wrap text-[11px]" style={{ borderTop: '0.5px solid var(--color-line)', paddingTop: 12 }}>
+        <span className="chip"><IconCalendar size={12} /> {formatFlightDate(t.travel_date)}</span>
+        <span className="chip">{t.seat_class || 'Standard'} · {t.seats ?? travelers.length} seats</span>
+        {t.booking_ref && (
+          <span className="inline-flex items-center gap-0.5 booking-id text-[12px]"><IconHash size={12} />{t.booking_ref}</span>
+        )}
+        <span className="ml-auto"><AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} /></span>
+      </div>
+      </>
+      )}
+    </div>
+  )
+}
+
 export default function TripInfo() {
-  const { trip, travelers, travelerFiles, flights, hotels, profile, reload, canEdit } = useTrip()
+  const { trip, travelers, travelerFiles, flights, trains, hotels, profile, reload, canEdit } = useTrip()
   const { user } = useAuth()
   const [selected, setSelected] = useState<Traveler | null>(null)
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
   const [flightEdit, setFlightEdit] = useState<EditState<Flight>>(null)
   const [newFlightDir, setNewFlightDir] = useState<FlightDirection>('outbound')
+  const [trainEdit, setTrainEdit] = useState<EditState<Train>>(null)
+  const [newTrainDir, setNewTrainDir] = useState<FlightDirection>('outbound')
   const [hotelEdit, setHotelEdit] = useState<EditState<Hotel>>(null)
 
   const filesByTraveler = useMemo(() => {
@@ -215,6 +304,17 @@ export default function TripInfo() {
         <FlightCard flights={flights} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(f) => setFlightEdit(f)}
           onAdd={(d) => { setNewFlightDir(d); setFlightEdit('new') }}
           onDelete={async (f) => { if (await confirmDialog({ message: 'ลบไฟลต์นี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteFlight(f.id); await reload(); offerUndo('ลบไฟลต์แล้ว', [{ table: 'flights', rows: [f] }], reload) } }} />
+      )}
+
+      {/* Trains */}
+      <SectionHead title="Trains • ข้อมูลรถไฟ"
+        action={canEdit ? <button onClick={() => { setNewTrainDir(trains.some((t) => (t.direction ?? 'outbound') === 'outbound') ? 'return' : 'outbound'); setTrainEdit('new') }} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มรถไฟ</button> : undefined} />
+      {trains.length === 0 ? (
+        <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลรถไฟ</div>
+      ) : (
+        <TrainCard trains={trains} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(t) => setTrainEdit(t)}
+          onAdd={(d) => { setNewTrainDir(d); setTrainEdit('new') }}
+          onDelete={async (t) => { if (await confirmDialog({ message: 'ลบรถไฟนี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteTrain(t.id); await reload(); offerUndo('ลบรถไฟแล้ว', [{ table: 'trains', rows: [t] }], reload) } }} />
       )}
 
       {/* Hotels */}
@@ -343,6 +443,42 @@ export default function TripInfo() {
         }}
         onDelete={flightEdit && flightEdit !== 'new'
           ? async () => { await deleteFlight(flightEdit.id); await reload() }
+          : undefined}
+      />
+      <TrainEditor
+        open={trainEdit !== null}
+        onClose={() => setTrainEdit(null)}
+        initial={trainEdit && trainEdit !== 'new' ? trainEdit : null}
+        defaultDirection={newTrainDir}
+        prefillFrom={trains.find((t) => (t.direction ?? 'outbound') === 'outbound') ?? null}
+        onSwitchDirection={(dir) => {
+          const existing = trains.find((t) => (t.direction ?? 'outbound') === dir)
+          if (existing) setTrainEdit(existing)
+          else { setNewTrainDir(dir); setTrainEdit('new') }
+        }}
+        onSave={async (fields) => {
+          const isNew = trainEdit === 'new' || !trainEdit
+          const savedDir = fields.direction ?? 'outbound'
+          const hadReturn = trains.some((t) => (t.direction ?? 'outbound') === 'return')
+          if (isNew) await addTrain(trip!.id, fields)
+          else await updateTrain(trainEdit.id, fields)
+          await reload()
+          if (isNew && savedDir === 'outbound' && !hadReturn) {
+            const addReturn = await confirmDialog({
+              title: 'เพิ่มรถไฟขากลับ?',
+              message: 'มีรถไฟขากลับไหม? เพิ่มต่อเลยได้ ระบบเติมข้อมูลจากขาไปให้แล้ว',
+              confirmLabel: 'เพิ่มขากลับ',
+              cancelLabel: 'ไว้ทีหลัง',
+            })
+            if (addReturn) {
+              setNewTrainDir('return')
+              setTrainEdit('new')
+              return true
+            }
+          }
+        }}
+        onDelete={trainEdit && trainEdit !== 'new'
+          ? async () => { await deleteTrain(trainEdit.id); await reload() }
           : undefined}
       />
       <HotelEditor
