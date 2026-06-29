@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown,
+  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -32,11 +32,13 @@ import {
 import type { ItineraryDay, ItineraryStop, Place } from '@/lib/database.types'
 
 function SortableStop({
-  stop, matchedPlace, canEdit, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute,
+  stop, matchedPlace, canEdit, isNext, onToggleDone, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute,
 }: {
   stop: ItineraryStop
   matchedPlace: Place | null
   canEdit: boolean
+  isNext: boolean
+  onToggleDone: () => void
   onOpenDetail: (p: Place) => void
   onEdit: () => void
   onDelete: () => void
@@ -44,48 +46,71 @@ function SortableStop({
   onSkipRoute: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id, disabled: !canEdit })
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+  const done = !!stop.done
+  const style = {
+    transform: CSS.Transform.toString(transform), transition,
+    opacity: isDragging ? 0.5 : done ? 0.5 : 1,
+    ...(isNext ? { background: 'var(--color-brand-soft)', boxShadow: 'inset 0 0 0 1px var(--color-brand-border)' } : {}),
+  }
   const mode = stop.link_mode ?? 'map'
   const detailMode = mode === 'detail' && !!matchedPlace
   const tapAction = mode === 'none' ? null : detailMode ? () => onOpenDetail(matchedPlace!) : () => openMap(stop.map_url)
 
   return (
-    <div ref={setNodeRef} style={style} className="flex gap-2.5">
-      {/* grip + time as one unit, top-aligned so the time sits on the SAME line as
-          the place name's first line; the grip stays right in front of the time */}
+    <div ref={setNodeRef} id={`stop-${stop.id}`} style={style}
+      className={['flex gap-2.5', isNext ? 'rounded-[10px] -mx-2 px-2 py-1.5' : ''].join(' ')}>
+      {/* grip + check-in + time, top-aligned so the time sits on the SAME line as
+          the place name's first line */}
       <div className="flex items-start gap-1.5 shrink-0">
         {canEdit ? (
           <button {...attributes} {...listeners} className="mt-0.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากจัดเรียง">
             <IconGripVertical size={16} />
           </button>
         ) : <span className="w-1 shrink-0" />}
+        {canEdit ? (
+          <button onClick={onToggleDone} aria-label={done ? 'ทำเครื่องหมายว่ายังไม่เสร็จ' : 'เช็คอินว่าไปมาแล้ว'} title={done ? 'ยังไม่เสร็จ' : 'เช็คอินว่าไปมาแล้ว'}
+            className="mt-0.5 size-[18px] rounded-full grid place-items-center shrink-0 transition-colors"
+            style={done ? { background: 'var(--color-brand)', color: '#fff' } : { border: '1.5px solid var(--color-line-2)' }}>
+            {done && <IconCheck size={12} />}
+          </button>
+        ) : done ? (
+          <span className="mt-0.5 size-[18px] rounded-full grid place-items-center shrink-0" style={{ background: 'var(--color-brand)', color: '#fff' }}><IconCheck size={12} /></span>
+        ) : <span className="w-[18px] shrink-0" />}
         <div className="w-10 text-[13px] font-medium tabular-nums leading-snug">{stop.time}</div>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
+            {isNext && (
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold mb-1" style={{ background: 'var(--color-brand)', color: '#fff' }}>ต่อไป</span>
+            )}
             <button
               onClick={() => tapAction?.()}
               disabled={!tapAction || (mode === 'map' && !stop.map_url)}
-              className="text-[14px] font-medium text-left leading-snug enabled:hover:text-brand-mid">
+              className={['text-[14px] font-medium text-left leading-snug block', done ? 'line-through text-ink-3' : 'enabled:hover:text-brand-mid'].join(' ')}>
               {stop.place_name}
             </button>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              {matchedPlace && (
-                <button onClick={() => onOpenDetail(matchedPlace)} className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-0.5">
-                  <IconInfoCircle size={11} /> รายละเอียด
-                </button>
-              )}
-              {stop.map_url && (
-                <button onClick={() => openMap(stop.map_url)} className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-0.5">
-                  <IconMapPin size={11} /> ดูแผนที่
-                </button>
-              )}
-            </div>
-            {stop.note && <div className="text-[12px] text-ink-2 mt-0.5">{stop.note}</div>}
+            {!done && (
+              <>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {matchedPlace && (
+                    <button onClick={() => onOpenDetail(matchedPlace)} className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-0.5">
+                      <IconInfoCircle size={11} /> รายละเอียด
+                    </button>
+                  )}
+                  {stop.map_url && (
+                    <button onClick={() => openMap(stop.map_url)} className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-0.5">
+                      <IconMapPin size={11} /> ดูแผนที่
+                    </button>
+                  )}
+                </div>
+                {stop.note && <div className="text-[12px] text-ink-2 mt-0.5">{stop.note}</div>}
+              </>
+            )}
           </div>
           {canEdit && (
             <PopMenu items={[
+              { label: done ? 'ยังไม่เสร็จ' : 'เช็คอินว่าไปมาแล้ว', icon: <IconCheck size={15} />, onClick: onToggleDone },
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
               // once the user opted out, the "set transit" action lives here instead
               ...(!stop.transit && stop.skip_transit ? [{ label: 'กำหนดการเดินทาง', icon: <IconRoute size={15} />, onClick: onEditRoute }] : []),
@@ -93,7 +118,7 @@ function SortableStop({
             ]} />
           )}
         </div>
-        {canEdit && !stop.transit && !stop.skip_transit && (
+        {!done && canEdit && !stop.transit && !stop.skip_transit && (
           <div className="mt-2 flex items-center gap-2">
             <button onClick={onEditRoute}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium"
@@ -107,14 +132,14 @@ function SortableStop({
             </button>
           </div>
         )}
-        {stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
+        {!done && stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
       </div>
     </div>
   )
 }
 
 function DayCard({
-  day, index, stops, getMatchedPlace, canEdit, collapsed, onToggleCollapse, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
+  day, index, stops, getMatchedPlace, canEdit, collapsed, nextStopId, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
 }: {
   day: ItineraryDay
   index: number
@@ -122,7 +147,9 @@ function DayCard({
   getMatchedPlace: (s: ItineraryStop) => Place | null
   canEdit: boolean
   collapsed: boolean
+  nextStopId: string | null
   onToggleCollapse: () => void
+  onToggleDone: (s: ItineraryStop) => void
   onOpenDetail: (p: Place) => void
   onEditDay: () => void
   onDeleteDay: () => void
@@ -134,6 +161,7 @@ function DayCard({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day.id, disabled: !canEdit })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }
+  const doneCount = stops.filter((s) => s.done).length
 
   return (
     <div ref={setNodeRef} style={style} className="card">
@@ -148,7 +176,7 @@ function DayCard({
           <button onClick={onToggleCollapse} className="min-w-0 text-left" aria-expanded={!collapsed}>
             <div className="text-[13px] font-medium truncate">{formatLongDate(day.day_date)}</div>
             {collapsed
-              ? <div className="text-[11px] text-ink-3 truncate">{stops.length} กิจกรรม{day.label ? ` · ${day.label}` : ''}</div>
+              ? <div className="text-[11px] text-ink-3 truncate">{stops.length} กิจกรรม{doneCount > 0 ? ` · เสร็จ ${doneCount}/${stops.length}` : ''}{day.label ? ` · ${day.label}` : ''}</div>
               : day.label && <div className="text-[11px] text-ink-3 truncate">{day.label}</div>}
           </button>
         </div>
@@ -171,7 +199,7 @@ function DayCard({
           <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-3">
               {stops.map((s) => (
-                <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />
+                <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />
               ))}
             </div>
           </SortableContext>
@@ -269,6 +297,38 @@ export default function Itinerary() {
     }
     return map
   }, [localStops, localDays])
+
+  // "Focus the next stop": today's day (in the trip's timezone) → its first stop
+  // that isn't checked off yet. That stop gets the "ต่อไป" highlight + auto-scroll.
+  const todayStr = useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: trip?.timezone || undefined, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+    } catch { return new Date().toISOString().slice(0, 10) }
+  }, [trip?.timezone])
+  const nextStopId = useMemo(() => {
+    const today = localDays.find((d) => d.day_date === todayStr)
+    if (!today) return null
+    return (stopsByDay.get(today.id) ?? []).find((s) => !s.done)?.id ?? null
+  }, [localDays, stopsByDay, todayStr])
+
+  // auto-scroll to the next stop once per visit (only if its day is expanded)
+  const scrolledRef = useRef(false)
+  useEffect(() => {
+    if (scrolledRef.current || !nextStopId) return
+    const el = document.getElementById(`stop-${nextStopId}`)
+    if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); scrolledRef.current = true }
+  }, [nextStopId])
+
+  function toggleDone(s: ItineraryStop) {
+    const done = !s.done
+    const done_at = done ? new Date().toISOString() : null
+    patch((d) => ({ stops: d.stops.map((x) => (x.id === s.id ? { ...x, done, done_at } : x)) })) // instant
+    setLocalStops((prev) => prev.map((x) => (x.id === s.id ? { ...x, done, done_at } : x)))
+    updateStop(s.id, { done, done_at }, s.version).then((r) => {
+      if (r.conflict) toast.error('มีคนอื่นแก้ไขจุดแวะนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
+      reload()
+    })
+  }
 
   // resolve any drop target (a day card, a day's drop area, or a stop) to its day
   const dayOf = (overId: string, list: ItineraryStop[]): string | undefined =>
@@ -459,7 +519,9 @@ export default function Itinerary() {
                 getMatchedPlace={getMatchedPlace}
                 canEdit={canEdit}
                 collapsed={collapsed.has(day.id)}
+                nextStopId={nextStopId}
                 onToggleCollapse={() => toggleCollapse(day.id)}
+                onToggleDone={toggleDone}
                 onOpenDetail={setDetailPlace}
                 onEditDay={() => setDayEdit({ id: day.id, label: day.label, day_date: day.day_date, version: day.version })}
                 onDeleteDay={() => removeDay(day.id)}
