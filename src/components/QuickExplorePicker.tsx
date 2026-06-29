@@ -6,7 +6,7 @@ import { ExploreDetail } from './ExploreDetail'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { listExplore, exploreAsPlace, logExploreEvent } from '@/lib/exploreMutations'
-import { copyPlaceToTrip, setInPlan } from '@/lib/placeMutations'
+import { copyPlaceToTrip, setInPlan, removeExploreCopies } from '@/lib/placeMutations'
 import { catMeta } from '@/lib/placeMeta'
 import type { ExplorePlace } from '@/lib/database.types'
 
@@ -101,6 +101,16 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
     finishPick({ id, name: e.name, map_url: e.map_url, note: e.note })
   }
 
+  // tap an already-added item again → cancel: remove its copy from this trip
+  async function unpick(e: ExplorePlace) {
+    if (!trip) return
+    setBusyId(e.id)
+    await removeExploreCopies(e.id, [trip.id])
+    await reload()
+    setBusyId(null)
+  }
+  const toggle = (e: ExplorePlace) => (savedHere.has(e.id) ? unpick(e) : pick(e))
+
   return (
     <Drawer open={open} onClose={onClose} title="เลือกด่วนจาก Explore">
       <div className="space-y-3">
@@ -169,8 +179,9 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
                       <span className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-1"><IconInfoCircle size={11} /> ดูรายละเอียด</span>
                     </div>
                   </button>
-                  {/* explicit add/select, separate from viewing the detail */}
-                  <button onClick={() => pick(e)} disabled={busyId === e.id} className="shrink-0 disabled:opacity-60">
+                  {/* add/select — or, if already added, tap again to cancel */}
+                  <button onClick={() => toggle(e)} disabled={busyId === e.id}
+                    title={saved ? 'แตะเพื่อยกเลิก' : undefined} className="shrink-0 disabled:opacity-60">
                     {busyId === e.id ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
                       : saved ? <span className="chip !bg-brand-soft !text-brand-dark"><IconCheck size={12} /> เพิ่มแล้ว</span>
                         : <span className="btn-primary inline-flex items-center h-8 px-3 text-[12px] rounded-full">เพิ่ม</span>}
@@ -184,7 +195,7 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
 
       {/* full Explore detail on top — the heart adds it to the plan & selects it */}
       <ExploreDetail e={detail} open={!!detail} saved={detail ? savedHere.has(detail.id) : false}
-        onClose={() => setDetail(null)} onFav={() => detail && pick(detail)} />
+        onClose={() => setDetail(null)} onFav={() => detail && toggle(detail)} />
     </Drawer>
   )
 }
