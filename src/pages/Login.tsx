@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconBrandGoogle, IconMail, IconCheck } from '@tabler/icons-react'
+import { IconBrandGoogle, IconMail, IconCheck, IconArrowLeft } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { TaurusLogo } from '@/components/TaurusLogo'
@@ -7,9 +7,15 @@ import { TaurusLogo } from '@/components/TaurusLogo'
 export default function Login() {
   const { signInWithGoogle, signInWithEmail } = useAuth()
   const [email, setEmail] = useState('')
+  const [mode, setMode] = useState<'main' | 'email'>('main')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  async function handleGoogle() {
+    const { error } = await signInWithGoogle()
+    if (error) setError(error)
+  }
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault()
@@ -23,83 +29,92 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-dvh grid place-items-center px-5 bg-canvas">
-      <div className="w-full max-w-[360px]">
-        {/* Brand */}
-        <div className="flex justify-center mb-8">
-          <TaurusLogo height={60} />
+    <div className="min-h-dvh flex flex-col px-6 py-10 text-white relative overflow-hidden" style={{ background: 'var(--color-brand)' }}>
+      {/* Faint brand chevron watermark */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 100 100"
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] max-w-none opacity-[0.07] pointer-events-none"
+        fill="none" stroke="white" strokeWidth="13" strokeLinecap="round" strokeLinejoin="round"
+      >
+        <path d="M28 16 L60 50 L28 84" />
+      </svg>
+
+      {/* Logo — centered in the available space */}
+      <div className="flex-1 grid place-items-center relative z-10">
+        <div style={{ filter: 'brightness(0) invert(1)' }}>
+          <TaurusLogo height={54} />
         </div>
+      </div>
 
-        <div className="card p-6">
-          <h1 className="text-[16px] font-medium text-ink">เข้าสู่ระบบ</h1>
-          <p className="text-[12px] text-ink-3 mt-1 mb-5">
-            วางแผนทริปกับเพื่อน — เฉพาะคนที่ถูกเชิญเท่านั้น
-          </p>
+      {/* Bottom actions */}
+      <div className="relative z-10 w-full max-w-[420px] mx-auto">
+        {!isSupabaseConfigured && (
+          <div className="mb-4 rounded-2xl bg-white/15 p-3 text-[12px] leading-relaxed">
+            ⚙️ Supabase is not configured — set{' '}
+            <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in{' '}
+            <code>.env.local</code>, then restart.
+          </div>
+        )}
 
-          {!isSupabaseConfigured && (
-            <div className="mb-4 rounded-md bg-surface-2 p-3 text-[12px] text-ink-2 leading-relaxed">
-              ⚙️ ยังไม่ได้ตั้งค่า Supabase — ใส่ค่า{' '}
-              <code className="text-booking">VITE_SUPABASE_URL</code> และ{' '}
-              <code className="text-booking">VITE_SUPABASE_ANON_KEY</code> ใน{' '}
-              <code className="text-booking">.env.local</code> ก่อน แล้วรันใหม่
+        {sent ? (
+          <div className="rounded-2xl bg-white/15 p-5 text-center">
+            <div className="mx-auto mb-2 size-9 rounded-full bg-white grid place-items-center text-brand">
+              <IconCheck size={18} />
             </div>
-          )}
-
-          {sent ? (
-            <div className="rounded-md bg-brand-soft p-4 text-center">
-              <div className="mx-auto mb-2 size-9 rounded-full bg-brand grid place-items-center text-white">
-                <IconCheck size={18} />
-              </div>
-              <p className="text-[13px] text-brand-dark font-medium">ส่งลิงก์ไปแล้ว!</p>
-              <p className="text-[12px] text-brand-dark/80 mt-1">
-                เช็กอีเมล <span className="font-medium">{email}</span> แล้วกดลิงก์เพื่อเข้าใช้งาน
-              </p>
+            <p className="text-[14px] font-medium">Link sent!</p>
+            <p className="text-[12px] text-white/80 mt-1">
+              Check <span className="font-medium">{email}</span> and tap the link to sign in.
+            </p>
+            <button onClick={() => { setSent(false); setMode('main') }} className="text-[12px] text-white/90 underline mt-3">
+              Back
+            </button>
+          </div>
+        ) : mode === 'email' ? (
+          <form onSubmit={handleEmail} className="space-y-3">
+            <button type="button" onClick={() => { setMode('main'); setError(null) }} className="flex items-center gap-1 text-[13px] text-white/90">
+              <IconArrowLeft size={15} /> Back
+            </button>
+            <div className="flex items-center gap-2 rounded-full bg-white px-5 h-14">
+              <IconMail size={18} className="text-ink-3" />
+              <input
+                type="email"
+                required
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Your email"
+                className="flex-1 bg-transparent outline-none text-[15px] text-ink placeholder:text-ink-3"
+              />
             </div>
-          ) : (
-            <>
-              <button
-                onClick={async () => { const { error } = await signInWithGoogle(); if (error) setError(error) }}
-                disabled={!isSupabaseConfigured}
-                className="btn-icon w-full !h-10 gap-2 !justify-center font-medium text-[13px] text-ink disabled:opacity-50"
-              >
-                <IconBrandGoogle size={17} stroke={2} />
-                เข้าสู่ระบบด้วย Google
+            {error && <p className="text-[12px] text-white font-medium">{error}</p>}
+            <button
+              type="submit"
+              disabled={busy || !isSupabaseConfigured}
+              className="w-full h-14 rounded-full bg-white text-ink font-medium text-[15px] disabled:opacity-50"
+            >
+              {busy ? 'Sending…' : 'Continue with email'}
+            </button>
+          </form>
+        ) : (
+          <>
+            <button
+              onClick={handleGoogle}
+              disabled={!isSupabaseConfigured}
+              className="w-full h-14 rounded-full bg-white text-ink font-medium text-[15px] flex items-center justify-center gap-2.5 disabled:opacity-50"
+            >
+              <IconBrandGoogle size={19} stroke={2.4} />
+              Sign in with Google
+            </button>
+            {error && <p className="text-[12px] text-white font-medium text-center mt-3">{error}</p>}
+            <p className="text-center text-[13px] text-white/90 mt-5">
+              Don't have an account?{' '}
+              <button onClick={() => { setMode('email'); setError(null) }} className="font-semibold underline">
+                Sign up
               </button>
-
-              <div className="flex items-center gap-3 my-4">
-                <div className="h-px flex-1 bg-line" />
-                <span className="text-[11px] text-ink-3">หรือ</span>
-                <div className="h-px flex-1 bg-line" />
-              </div>
-
-              <form onSubmit={handleEmail} className="space-y-2.5">
-                <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface">
-                  <IconMail size={16} className="text-ink-3" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="อีเมลของคุณ"
-                    className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-ink-3"
-                  />
-                </div>
-                {error && <p className="text-[12px] text-[#D85A30]">{error}</p>}
-                <button
-                  type="submit"
-                  disabled={busy || !isSupabaseConfigured}
-                  className="btn-primary w-full h-10 disabled:opacity-50"
-                >
-                  {busy ? 'กำลังส่ง...' : 'ส่งลิงก์เข้าทางอีเมล'}
-                </button>
-              </form>
-            </>
-          )}
-        </div>
-
-        <p className="text-center text-[11px] text-ink-3 mt-5">
-          การเข้าใช้งานถือว่ายอมรับว่าทริปนี้เป็นแบบส่วนตัว
-        </p>
+            </p>
+          </>
+        )}
       </div>
     </div>
   )
