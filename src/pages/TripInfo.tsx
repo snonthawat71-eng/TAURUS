@@ -40,14 +40,25 @@ function SectionHead({ title, action }: { title: string; action?: React.ReactNod
   )
 }
 
-// A tidy labelled value for the flight/train detail row — items grow to fill the
-// width evenly and are centre-aligned (skips empty values).
-function Field({ label, value, booking }: { label: string; value: React.ReactNode; booking?: boolean }) {
-  if (value == null || value === '') return null
+interface DetailItem { label: string; value: React.ReactNode; booking?: boolean }
+
+// One full-width row of labelled values — columns stretch edge to edge; the first
+// hugs the left, the last hugs the right (empty values are dropped).
+function DetailRow({ items }: { items: DetailItem[] }) {
+  const present = items.filter((it) => it.value != null && it.value !== '')
+  if (!present.length) return null
   return (
-    <div className="basis-[28%] grow min-w-0 text-center">
-      <div className="text-[10px] text-ink-3">{label}</div>
-      <div className={`text-[12px] mt-0.5 truncate ${booking ? 'booking-id' : 'font-medium'}`}>{value}</div>
+    <div className="grid gap-x-2" style={{ gridTemplateColumns: `repeat(${present.length}, minmax(0,1fr))` }}>
+      {present.map((it, i) => {
+        const align = present.length === 1 ? 'text-left'
+          : i === 0 ? 'text-left' : i === present.length - 1 ? 'text-right' : 'text-center'
+        return (
+          <div key={i} className={`min-w-0 ${align}`}>
+            <div className="text-[10px] text-ink-3">{it.label}</div>
+            <div className={`text-[12px] mt-0.5 truncate ${it.booking ? 'booking-id' : 'font-medium'}`}>{it.value}</div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -104,16 +115,10 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   return (
     <div className="card p-4">
       <div className="flex items-start gap-2">
-        <Icon size={16} className="text-brand shrink-0 mt-0.5" />
-        <div className="min-w-0 flex-1">
-          {f ? (
-            <>
-              {f.flight_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</span>}
-              <div className="text-[13px] font-medium truncate mt-1.5">{f.flight_no} · {f.airline}</div>
-            </>
-          ) : (
-            <div className="text-[13px] font-medium truncate">{`เที่ยวบิน${dirLabel}`}</div>
-          )}
+        <Icon size={16} className="text-brand shrink-0 mt-1" />
+        <div className="min-w-0 flex-1 flex items-center gap-2">
+          {f?.flight_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</span>}
+          <div className="text-[13px] font-medium truncate">{f ? `${f.flight_no} · ${f.airline}` : `เที่ยวบิน${dirLabel}`}</div>
         </div>
         {canEdit && f && (
           <PopMenu items={[
@@ -159,10 +164,12 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       </div>
 
-      <div className="mt-4 pt-3 flex flex-wrap gap-y-3 gap-x-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-        <Field label="ชั้นโดยสาร" value={f.seat_class || 'Economy'} />
-        <Field label="ที่นั่ง" value={`${f.seats ?? travelers.length}`} />
-        <Field label="รหัสจอง" value={f.booking_ref} booking />
+      <div className="mt-4 pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+        <DetailRow items={[
+          { label: 'ชั้นโดยสาร', value: f.seat_class || 'Economy' },
+          { label: 'ที่นั่ง', value: `${f.seats ?? travelers.length}` },
+          { label: 'รหัสจอง', value: f.booking_ref, booking: true },
+        ]} />
       </div>
       </>
       )}
@@ -204,16 +211,10 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
   return (
     <div className="card p-4">
       <div className="flex items-start gap-2">
-        <IconTrain size={16} className="text-brand shrink-0 mt-0.5" />
-        <div className="min-w-0 flex-1">
-          {t ? (
-            <>
-              {t.travel_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</span>}
-              <div className="text-[13px] font-medium truncate mt-1.5">{t.train_no} · {t.operator}</div>
-            </>
-          ) : (
-            <div className="text-[13px] font-medium truncate">{`รถไฟ${dirLabel}`}</div>
-          )}
+        <IconTrain size={16} className="text-brand shrink-0 mt-1" />
+        <div className="min-w-0 flex-1 flex items-center gap-2">
+          {t?.travel_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</span>}
+          <div className="text-[13px] font-medium truncate">{t ? `${t.train_no} · ${t.operator}` : `รถไฟ${dirLabel}`}</div>
         </div>
         {canEdit && t && (
           <PopMenu items={[
@@ -256,12 +257,16 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       </div>
 
-      <div className="mt-4 pt-3 flex flex-wrap gap-y-3 gap-x-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-        <Field label="ชั้นโดยสาร" value={t.seat_class} />
-        <Field label="ประตู" value={t.gate} />
-        <Field label="ตู้" value={t.car} />
-        <Field label="ที่นั่ง" value={t.seat_no} />
-        <Field label="รหัสจอง" value={t.booking_ref} booking />
+      <div className="mt-4 pt-3 space-y-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+        <DetailRow items={[
+          { label: 'ชั้นโดยสาร', value: t.seat_class },
+          { label: 'ประตู', value: t.gate },
+          { label: 'ตู้', value: t.car },
+        ]} />
+        <DetailRow items={[
+          { label: 'ที่นั่ง', value: t.seat_no },
+          { label: 'รหัสจอง', value: t.booking_ref, booking: true },
+        ]} />
       </div>
       </>
       )}
