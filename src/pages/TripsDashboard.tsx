@@ -266,8 +266,9 @@ export default function TripsDashboard() {
         </div>
       </main>
 
-      {/* Minimal glass bottom nav — dashboard only */}
+      {/* Minimal glass bottom nav with soft centre wave — dashboard only */}
       <nav className="mobile-bottom-nav">
+        <div className="nav-bg" aria-hidden="true" />
         <button className="bottom-nav-item active" aria-current="page" aria-label="Home"
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <IconHome size={25} stroke={1.9} />
