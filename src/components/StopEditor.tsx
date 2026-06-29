@@ -144,9 +144,12 @@ export function StopEditor({
                 const sel = pickedId === p.id
                 return (
                   <button key={p.id} onClick={() => pickPlanned(p.id)}
-                    className="relative shrink-0 w-[104px] rounded-[10px] overflow-hidden text-left bg-surface transition"
+                    className="relative shrink-0 w-[104px] rounded-[10px] overflow-hidden text-left bg-surface transition flex flex-col"
                     style={{ border: `1.5px solid ${sel ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
-                    <div className="h-[68px] relative overflow-hidden" style={{ background: meta.bg }}>
+                    {/* flex-col + shrink-0 pins the photo to the TOP — a <button>
+                        otherwise centres its content, so when the flex row stretches a
+                        short-name card taller the photo dropped, baring a white strip. */}
+                    <div className="h-[68px] shrink-0 relative overflow-hidden" style={{ background: meta.bg }}>
                       {/* Render the photo EXACTLY like PlaceCard (w-full h-full object-cover
                           + focus) — that markup fills cleanly on iOS, whereas an
                           absolutely-positioned object-cover img leaves a white strip there. */}
