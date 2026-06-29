@@ -183,45 +183,34 @@
   scrollbar-width: none;
 }
 
-/* Edge-to-edge glass bottom navigation — TripsDashboard (home) only.
-   A wave-shaped glass surface (.nav-bg, carved with an SVG mask) rises in the
-   centre to cradle the Explore button; the buttons sit on top. */
+/* Minimal edge-to-edge glass bottom navigation — TripsDashboard (home) only.
+   Three items on one baseline; the centre Explore icon sits in a flat brand
+   circle (no border, no shadow). */
 .mobile-bottom-nav {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   width: 100%;
-  height: 120px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: end;
-  padding: 0 36px calc(16px + env(safe-area-inset-bottom));
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+  padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
   z-index: 40;
-}
-.mobile-bottom-nav .nav-bg {
-  position: absolute;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(26px) saturate(160%);
   -webkit-backdrop-filter: blur(26px) saturate(160%);
-  filter: drop-shadow(0 -7px 16px rgba(2, 34, 73, 0.07));
-  -webkit-mask:
-    linear-gradient(#000 0 0) 0 100% / calc(50% - 120px) 86px no-repeat,
-    linear-gradient(#000 0 0) 100% 100% / calc(50% - 120px) 86px no-repeat,
-    url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='120'%3E%3Cpath%20d='M0,34%20H40%20C80,34%2090,2%20120,2%20C150,2%20160,34%20200,34%20H240%20V120%20H0%20Z'%20fill='black'/%3E%3C/svg%3E") 50% bottom / 240px 120px no-repeat;
-  mask:
-    linear-gradient(#000 0 0) 0 100% / calc(50% - 120px) 86px no-repeat,
-    linear-gradient(#000 0 0) 100% 100% / calc(50% - 120px) 86px no-repeat,
-    url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='120'%3E%3Cpath%20d='M0,34%20H40%20C80,34%2090,2%20120,2%20C150,2%20160,34%20200,34%20H240%20V120%20H0%20Z'%20fill='black'/%3E%3C/svg%3E") 50% bottom / 240px 120px no-repeat;
+  border-top: 1px solid rgba(255, 255, 255, 0.70);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -10px 36px rgba(2, 34, 73, 0.07);
 }
-.bottom-nav-item {
-  position: relative;
+.bottom-nav-item,
+.center-action {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   border: 0;
   background: transparent;
   color: #9CA3AF;
@@ -232,38 +221,16 @@
   cursor: pointer;
   transition: color 0.2s ease, transform 0.2s ease;
 }
-.bottom-nav-item:first-child { grid-column: 1; }
-.bottom-nav-item:last-child { grid-column: 3; }
 .bottom-nav-item.active { color: #0270FB; font-weight: 700; }
-.bottom-nav-item:active { transform: scale(0.94); }
+.bottom-nav-item:active,
+.center-action:active { transform: scale(0.94); }
 
-.center-action {
-  position: relative;
-  grid-column: 2;
-  justify-self: center;
-  margin-bottom: 30px;
-  width: 90px;
-  height: 90px;
+.center-action .dot {
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
-  border: 3px solid #FFFFFF;
-  background:
-    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.40), transparent 34%),
-    linear-gradient(140deg, #4BC5D9 0%, #2E8CFF 46%, #0270FB 100%);
+  display: grid;
+  place-items: center;
   color: #FFFFFF;
-  box-shadow:
-    0 16px 34px rgba(2, 112, 251, 0.30),
-    0 0 40px rgba(75, 197, 217, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.40);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: linear-gradient(140deg, #4BC5D9 0%, #2E8CFF 50%, #0270FB 100%);
 }
-.center-action:active { transform: scale(0.95); }

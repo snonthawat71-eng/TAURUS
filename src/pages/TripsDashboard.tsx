@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   IconPlus, IconPencil, IconTrash, IconCopy, IconDownload, IconCalendar, IconCrown, IconLoader2,
-  IconUserCircle, IconArrowRight, IconLogout, IconHome, IconSparkles, IconUser,
+  IconUserCircle, IconArrowRight, IconLogout, IconHome, IconCompass, IconUser,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -266,16 +266,15 @@ export default function TripsDashboard() {
         </div>
       </main>
 
-      {/* Edge-to-edge glass bottom nav — dashboard only */}
+      {/* Minimal glass bottom nav — dashboard only */}
       <nav className="mobile-bottom-nav">
-        <div className="nav-bg" aria-hidden="true" />
         <button className="bottom-nav-item active" aria-current="page" aria-label="Home"
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <IconHome size={25} stroke={1.9} />
           <span>Home</span>
         </button>
         <button className="center-action" aria-label="Explore" onClick={() => navigate('/explore')}>
-          <IconSparkles size={25} stroke={1.9} />
+          <span className="dot"><IconCompass size={24} stroke={1.9} /></span>
           <span>Explore</span>
         </button>
         <button className="bottom-nav-item" aria-label="Profile" onClick={() => setProfileOpen(true)}>
