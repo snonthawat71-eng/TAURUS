@@ -451,7 +451,11 @@ export default function TripInfo() {
         initial={trainEdit && trainEdit !== 'new' ? trainEdit : null}
         defaultDirection={newTrainDir}
         prefillFrom={trains.find((t) => (t.direction ?? 'outbound') === 'outbound') ?? null}
-        onSwitchDirection={(dir) => {
+        onSwitchDirection={async (dir, current) => {
+          // save the leg being edited first, so switching tabs never loses its edits
+          if (trainEdit && trainEdit !== 'new') await updateTrain(trainEdit.id, current)
+          else if (current.operator || current.train_no || current.dep_name || current.arr_name || current.travel_date) await addTrain(trip!.id, current)
+          await reload()
           const existing = trains.find((t) => (t.direction ?? 'outbound') === dir)
           if (existing) setTrainEdit(existing)
           else { setNewTrainDir(dir); setTrainEdit('new') }
