@@ -87,6 +87,19 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   const Icon = dir === 'return' ? IconPlaneArrival : IconPlaneDeparture
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
 
+  const toggle = (
+    <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
+      <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
+        style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
+      {(['outbound', 'return'] as const).map((d) => (
+        <button key={d} onClick={() => setDir(d)}
+          className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
+          {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <div className="card p-4">
       <div className="flex items-start gap-2">
@@ -94,17 +107,6 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium truncate">{f ? `${f.flight_no} · ${f.airline}` : `เที่ยวบิน${dirLabel}`}</div>
           {f?.flight_date && <div className="text-[12px] text-ink-2 mt-0.5">{formatFlightDate(f.flight_date)}</div>}
-        </div>
-        {/* outbound / return segmented toggle (moved here, replacing the status badge) */}
-        <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
-          <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
-            style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
-          {(['outbound', 'return'] as const).map((d) => (
-            <button key={d} onClick={() => setDir(d)}
-              className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
-              {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
-            </button>
-          ))}
         </div>
         {canEdit && f && (
           <PopMenu items={[
@@ -155,9 +157,14 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <Field label="ที่นั่ง" value={`${f.seats ?? travelers.length}`} />
         <Field label="รหัสจอง" value={f.booking_ref} booking />
       </div>
-      <div className="mt-3 flex justify-end"><AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} /></div>
       </>
       )}
+
+      {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
+      <div className="flex items-center justify-between gap-2 mt-3.5">
+        {f ? <AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} /> : <span />}
+        {toggle}
+      </div>
     </div>
   )
 }
@@ -174,6 +181,19 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
   const t = trains.find((x) => (x.direction ?? 'outbound') === dir)
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
 
+  const toggle = (
+    <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
+      <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
+        style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
+      {(['outbound', 'return'] as const).map((d) => (
+        <button key={d} onClick={() => setDir(d)}
+          className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
+          {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <div className="card p-4">
       <div className="flex items-start gap-2">
@@ -181,16 +201,6 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium truncate">{t ? `${t.train_no} · ${t.operator}` : `รถไฟ${dirLabel}`}</div>
           {t?.travel_date && <div className="text-[12px] text-ink-2 mt-0.5">{formatFlightDate(t.travel_date)}</div>}
-        </div>
-        <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
-          <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
-            style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
-          {(['outbound', 'return'] as const).map((d) => (
-            <button key={d} onClick={() => setDir(d)}
-              className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
-              {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
-            </button>
-          ))}
         </div>
         {canEdit && t && (
           <PopMenu items={[
@@ -240,9 +250,14 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <Field label="ที่นั่ง" value={t.seat_no} />
         <Field label="รหัสจอง" value={t.booking_ref} booking />
       </div>
-      <div className="mt-3 flex justify-end"><AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} /></div>
       </>
       )}
+
+      {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
+      <div className="flex items-center justify-between gap-2 mt-3.5">
+        {t ? <AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} /> : <span />}
+        {toggle}
+      </div>
     </div>
   )
 }
