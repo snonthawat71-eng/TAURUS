@@ -85,27 +85,29 @@ export function StopEditor({
       <div className="space-y-3">
         {inPlan.length > 0 && (
           <div>
-            <label className="text-[11px] text-ink-3">ดึงจากสถานที่ในแพลน — แตะเพื่อเติมข้อมูล</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[11px] text-ink-3">ดึงจากสถานที่ในแพลน</label>
+              <div className="inline-flex p-0.5 rounded-full bg-surface-2 shrink-0">
+                {([['all', 'ทั้งหมด'], ['place', 'สถานที่'], ['food', 'อาหาร']] as const).map(([v, label]) => (
+                  <button key={v} onClick={() => setGroupFilter(v)}
+                    className={['px-2.5 h-7 rounded-full text-[12px] font-medium transition-colors',
+                      groupFilter === v ? 'bg-surface shadow-sm text-ink' : 'text-ink-3'].join(' ')}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {cities.length > 0 && (
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-1.5 -mx-1 px-1">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-2 -mx-1 px-1">
                 {[{ key: 'all', label: 'ทั้งหมด' }, ...cities.map((c) => ({ key: c, label: c }))].map((c) => (
                   <button key={c.key} onClick={() => setCityFilter(c.key)}
-                    className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
-                      cityFilter === c.key ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>
+                    className={['px-2.5 h-7 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
+                      cityFilter === c.key ? 'bg-brand-soft text-brand-dark' : 'text-ink-3'].join(' ')}>
                     {c.label}
                   </button>
                 ))}
               </div>
             )}
-            <div className="flex gap-1.5 mt-1.5">
-              {([['all', 'ทั้งหมด'], ['place', 'สถานที่'], ['food', 'อาหาร']] as const).map(([v, label]) => (
-                <button key={v} onClick={() => setGroupFilter(v)}
-                  className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
-                    groupFilter === v ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>
-                  {label}
-                </button>
-              ))}
-            </div>
             {shown.length === 0 ? (
               <p className="text-[12px] text-ink-3 mt-2">ไม่มีสถานที่ในหมวดนี้</p>
             ) : (
