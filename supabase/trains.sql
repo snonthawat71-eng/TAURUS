@@ -43,5 +43,9 @@ drop policy if exists "rw_write" on trains;
 create policy "rw_read"  on trains for select using (can_view_full(trip_id));
 create policy "rw_write" on trains for all    using (can_edit_trip(trip_id)) with check (can_edit_trip(trip_id));
 
--- ---- realtime (ถ้าใช้ publication เดียวกับตารางอื่น) ----
-alter publication supabase_realtime add table trains;
+-- ---- realtime (ถ้าใช้ publication เดียวกับตารางอื่น) — รันซ้ำได้ ----
+do $$
+begin
+  alter publication supabase_realtime add table trains;
+exception when duplicate_object then null;  -- เพิ่มไปแล้ว ข้ามได้
+end $$;
