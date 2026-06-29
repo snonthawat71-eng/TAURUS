@@ -332,9 +332,8 @@ export default function Itinerary() {
     if (newIdx < 0) newIdx = list.length - 1 // dropped on day area → end
     const reordered = (oldIdx >= 0 && newIdx >= 0) ? arrayMove(list, oldIdx, newIdx) : list
     const crossed = origin != null && origin !== finalDay
-    // within the same day, times stay bound to the slot, not the activity
-    const slotTimes = list.map((s) => s.time ?? null)
-    const finalPos = reordered.map((s, i) => ({ ...s, position: i, ...(crossed ? {} : { time: slotTimes[i] ?? null }) }))
+    // the time belongs to the activity — it travels with the card when reordered
+    const finalPos = reordered.map((s, i) => ({ ...s, position: i }))
     let next = [...cur.filter((s) => s.day_id !== finalDay), ...finalPos]
     let toPersist = [...finalPos]
     if (crossed) {
@@ -350,10 +349,35 @@ export default function Itinerary() {
 
   async function saveStop(input: StopInput) {
     if (!trip || !editor) return
+    const dayId = editor.dayId
+    const dayStops = stopsByDay.get(dayId) ?? []
+    let target: ItineraryStop
     if (editor.stop) {
       const r = await updateStop(editor.stop.id, input, editor.stop.version)
-      if (r.conflict) toast.error('มีคนอื่นแก้ไขจุดแวะนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
-    } else await addStop(trip.id, editor.dayId, stopsByDay.get(editor.dayId)?.length ?? 0, input)
+      if (r.conflict) {
+        toast.error('มีคนอื่นแก้ไขจุดแวะนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
+        await reload()
+        return
+      }
+      target = { ...editor.stop, ...input, time: input.time ?? null }
+    } else {
+      const id = crypto.randomUUID()
+      await addStop(trip.id, dayId, dayStops.length, input, id)
+      target = {
+        id, day_id: dayId, trip_id: trip.id, position: dayStops.length,
+        time: input.time ?? null, place_name: input.place_name ?? null, map_url: input.map_url ?? null,
+        note: input.note ?? null, transit: input.transit ?? null, link_mode: input.link_mode ?? null,
+        created_at: new Date().toISOString(),
+      }
+    }
+    // a stop with a clear time slots into its chronological position in the day
+    if (input.time) {
+      const rest = dayStops.filter((s) => s.id !== target.id)
+      const at = rest.findIndex((s) => s.time != null && s.time > input.time!)
+      const insertAt = at < 0 ? rest.length : at
+      const ordered = [...rest.slice(0, insertAt), target, ...rest.slice(insertAt)]
+      await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
+    }
     await reload()
   }
   async function removeStop(id: string) {

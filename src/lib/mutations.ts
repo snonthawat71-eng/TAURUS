@@ -38,9 +38,9 @@ export interface StopInput {
 }
 
 // link_mode column is optional (added by extra_columns.sql); strip it if absent
-export async function addStop(trip_id: string, day_id: string, position: number, input: StopInput) {
+export async function addStop(trip_id: string, day_id: string, position: number, input: StopInput, id: string = crypto.randomUUID()) {
   const payload: Record<string, unknown> = {
-    id: crypto.randomUUID(), trip_id, day_id, position,
+    id, trip_id, day_id, position,
     time: input.time ?? null, place_name: input.place_name ?? null,
     note: input.note ?? null, map_url: input.map_url ?? null,
     transit: input.transit ?? null, link_mode: input.link_mode ?? null,
