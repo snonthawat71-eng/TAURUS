@@ -219,6 +219,9 @@ export interface Place {
   /** optional — present after photos.sql; extra photos (2nd–4th) shown only in
    *  the detail view. The 1st photo stays in photo_url/photo_path. */
   photos?: string[] | null
+  /** optional — present after extra_columns.sql; the Explore item this place was
+   *  copied from (links a saved place back to its community source) */
+  source_explore_id?: string | null
   created_at: string
   /** optional — present after the concurrency.sql migration (optimistic lock) */
   version?: number

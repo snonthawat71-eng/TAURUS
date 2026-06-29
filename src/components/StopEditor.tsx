@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconCheck } from '@tabler/icons-react'
+import { IconCheck, IconCompass } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ClearableField } from './ClearableField'
 import { SignedImage } from './SignedImage'
+import { QuickExplorePicker, type QuickPick } from './QuickExplorePicker'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import type { StopInput } from '@/lib/mutations'
@@ -27,6 +28,7 @@ export function StopEditor({
   const [pickedId, setPickedId] = useState<string | null>(null)
   const [cityFilter, setCityFilter] = useState('all')
   const [groupFilter, setGroupFilter] = useState<'all' | 'place' | 'food'>('all')
+  const [quickOpen, setQuickOpen] = useState(false)
 
   // places the group has already added to the plan (from Places/Food/All),
   // most recently saved first
@@ -64,6 +66,7 @@ export function StopEditor({
       setPickedId(null)
       setCityFilter('all')
       setGroupFilter('all')
+      setQuickOpen(false)
     }
   }, [open, initial])
 
@@ -98,6 +101,16 @@ export function StopEditor({
     setLinkMode('detail')
   }
 
+  // a place just quick-added from Explore — it's now in the plan (and Places/Food);
+  // pre-select it for this stop so the user can save right away
+  function onQuickPicked(pick: QuickPick) {
+    setPickedId(pick.id)
+    setPlace(pick.name ?? '')
+    setMapUrl(pick.map_url ?? '')
+    setNote(pick.note ?? '')
+    setLinkMode('detail')
+  }
+
   async function save() {
     setBusy(true)
     await onSave({ time: time || null, place_name: place.trim() || null, note: note || null, map_url: mapUrl || null, link_mode: linkMode })
@@ -106,12 +119,13 @@ export function StopEditor({
   }
 
   return (
+    <>
     <Drawer open={open} onClose={onClose} title={initial?.id ? 'แก้ไขจุดแวะ' : 'เพิ่มจุดแวะ'}>
       <div className="space-y-3">
-        {inPlan.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <label className="text-[11px] text-ink-3">ดึงจากสถานที่ในแพลน</label>
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-[11px] text-ink-3">ดึงจากสถานที่ในแพลน</label>
+            {inPlan.length > 0 && (
               <div className="inline-flex p-0.5 rounded-full bg-surface-2 shrink-0">
                 {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food']] as const).map(([v, label]) => (
                   <button key={v} onClick={() => setGroupFilter(v)}
@@ -121,23 +135,28 @@ export function StopEditor({
                   </button>
                 ))}
               </div>
-            </div>
-            {cities.length > 0 && (
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-2 -mx-1 px-1">
-                {[{ key: 'all', label: 'ทั้งหมด' }, ...cities.map((c) => ({ key: c, label: c }))].map((c) => (
-                  <button key={c.key} onClick={() => setCityFilter(c.key)}
-                    className={['px-2.5 h-7 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
-                      cityFilter === c.key ? 'bg-brand-soft text-brand-dark' : 'text-ink-3'].join(' ')}>
-                    {c.label}
-                  </button>
-                ))}
-              </div>
             )}
-            {shown.length === 0 ? (
-              <p className="text-[12px] text-ink-3 mt-2">ไม่มีสถานที่ในหมวดนี้</p>
-            ) : (
-            <div ref={rowRef} onMouseDown={onRowDown} onMouseMove={onRowMove} onMouseUp={onRowUp} onMouseLeave={onRowUp}
-              className="flex gap-2 overflow-x-auto no-scrollbar mt-1.5 -mx-1 px-1 pb-1 cursor-grab active:cursor-grabbing select-none">
+          </div>
+          {inPlan.length > 0 && cities.length > 0 && (
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-2 -mx-1 px-1">
+              {[{ key: 'all', label: 'ทั้งหมด' }, ...cities.map((c) => ({ key: c, label: c }))].map((c) => (
+                <button key={c.key} onClick={() => setCityFilter(c.key)}
+                  className={['px-2.5 h-7 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
+                    cityFilter === c.key ? 'bg-brand-soft text-brand-dark' : 'text-ink-3'].join(' ')}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div ref={rowRef} onMouseDown={onRowDown} onMouseMove={onRowMove} onMouseUp={onRowUp} onMouseLeave={onRowUp}
+            className="flex gap-2 overflow-x-auto no-scrollbar mt-1.5 -mx-1 px-1 pb-1 cursor-grab active:cursor-grabbing select-none">
+            {/* quick-select straight from Explore — always the first card */}
+            <button type="button" onClick={() => setQuickOpen(true)}
+              className="shrink-0 w-[104px] min-h-[104px] rounded-[10px] flex flex-col items-center justify-center gap-1.5 text-center"
+              style={{ border: '1.5px dashed var(--color-brand-border)', background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>
+              <IconCompass size={24} />
+              <span className="text-[11px] font-medium leading-tight px-1">เลือกด่วน<br />จาก Explore</span>
+            </button>
               {shown.map((p) => {
                 const meta = catMeta(p.category)
                 const Icon = meta.icon
@@ -168,9 +187,10 @@ export function StopEditor({
                 )
               })}
             </div>
+            {inPlan.length === 0 && (
+              <p className="text-[11px] text-ink-3 mt-1.5">ยังไม่มีสถานที่ในแพลน — แตะ "เลือกด่วนจาก Explore" เพื่อเพิ่มได้เลย</p>
             )}
           </div>
-        )}
         <div>
           <label className="text-[11px] text-ink-3">เวลา</label>
           <ClearableField type="time" ariaLabel="ล้างเวลา" value={time} onChange={setTime} onClear={() => setTime('')} />
@@ -210,5 +230,7 @@ export function StopEditor({
         </button>
       </div>
     </Drawer>
+    <QuickExplorePicker open={quickOpen} onClose={() => setQuickOpen(false)} onPicked={onQuickPicked} />
+    </>
   )
 }

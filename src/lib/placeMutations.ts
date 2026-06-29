@@ -32,13 +32,17 @@ export async function deletePlace(id: string) {
   return runOrQueue(() => supabase.from('places').delete().eq('id', id), { kind: 'delete', table: 'places', id })
 }
 
-/** Copy a place (from a shared trip / Explore) into one of the user's own trips. */
-export async function copyPlaceToTrip(place: Place, targetTripId: string, sourceExploreId?: string) {
+/** Copy a place (from a shared trip / Explore) into one of the user's own trips.
+ *  Pass `opts.id` to control the new row id (so the caller can select it right
+ *  away) and `opts.inPlan` to drop it straight into the plan. */
+export async function copyPlaceToTrip(
+  place: Place, targetTripId: string, sourceExploreId?: string, opts?: { inPlan?: boolean; id?: string },
+) {
   const payload: Record<string, unknown> = {
-    id: crypto.randomUUID(), trip_id: targetTripId, group_type: place.group_type, category: place.category,
+    id: opts?.id ?? crypto.randomUUID(), trip_id: targetTripId, group_type: place.group_type, category: place.category,
     name: place.name, station_line: place.station_line, station_color: place.station_color, station_name: place.station_name,
     routes: place.routes ?? null, branches: place.branches ?? null, multi_branch: place.multi_branch ?? null,
-    map_url: place.map_url, note: place.note, in_plan: false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, photo_focus: place.photo_focus ?? null, photos: place.photos ?? null, city: place.city,
+    map_url: place.map_url, note: place.note, in_plan: opts?.inPlan ?? false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, photo_focus: place.photo_focus ?? null, photos: place.photos ?? null, city: place.city,
     menu_paths: place.menu_paths ?? null,
     source_explore_id: sourceExploreId ?? null,
   }
