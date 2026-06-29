@@ -29,23 +29,25 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col px-6 py-10 text-white relative overflow-hidden" style={{ background: 'var(--color-brand)' }}>
-      {/* Faint oversized brand mark watermark */}
+    <div className="min-h-dvh flex flex-col px-6 pb-10 pt-[19vh] text-white relative overflow-hidden" style={{ background: 'var(--color-brand)' }}>
+      {/* Faint oversized brand mark watermark — large, bleeds off the top edge */}
       <svg
         aria-hidden="true"
         viewBox="290 290 460 520"
         fill="#ffffff"
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[135%] max-w-none opacity-[0.12] pointer-events-none"
+        className="absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 w-[165%] max-w-none opacity-[0.12] pointer-events-none"
       >
         <path d="M636.36,313.44c-70.41-56.85-172.35-53.81-238.94,6.28-66.49,60-86.1,157.85-35.58,234.45l34,51.55,213.79-143.79c12.77-8.59,19.38-19.43,12.41-34.29-4.63-9.87-21.13-17.2-33.07-9.33l-42.16,27.8-80.44-28.62c-15.26-5.43-30.38-.18-34.29,14.24-3.52,12.98,2.86,25.17,16.95,30.59l45.83,17.62-87.33,57.34c-43.71-64.99-27.31-140.93,26.35-185.84,53.21-44.54,133.67-39.39,182.71,8.88,49.8,49.01,54.29,122.28,13.81,181.73l-110.11,161.73-57.57-85.6-39.8,26.72,75.98,113.2c6.16,9.19,17.37,14.62,26.17,12.3,8.52-2.25,15.64-8.81,21.27-17.31l135.42-204.39c47.2-80.37,23.24-179.84-45.4-235.25Z" />
       </svg>
 
-      {/* Logo — centered in the available space */}
-      <div className="flex-1 grid place-items-center relative z-10">
+      {/* Logo — large, sitting in the upper third */}
+      <div className="relative z-10 flex justify-center">
         <div style={{ filter: 'brightness(0) invert(1)' }}>
-          <TaurusLogo height={54} />
+          <TaurusLogo height={72} />
         </div>
       </div>
+
+      <div className="flex-1" />
 
       {/* Bottom actions */}
       <div className="relative z-10 w-full max-w-[420px] mx-auto">
