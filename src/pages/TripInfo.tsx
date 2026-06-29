@@ -158,7 +158,6 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
   onDelete: (t: Train) => void
   onAdd: (dir: FlightDirection) => void
 }) {
-  const { travelers } = useTrip()
   const [dir, setDir] = useState<FlightDirection>('outbound')
   const t = trains.find((x) => (x.direction ?? 'outbound') === dir)
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
@@ -196,10 +195,9 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
       ) : (
       <>
       <div className="flex items-start mt-4">
-        <div className="w-[88px] shrink-0">
-          <div className="text-[22px] font-medium leading-none">{t.dep_code}</div>
-          <div className="text-[11px] text-ink-3 mt-1.5 truncate">{t.dep_name}</div>
-          <div className="text-[14px] mt-0.5 tabular-nums">{t.dep_time}</div>
+        <div className="w-[96px] shrink-0">
+          <div className="text-[14px] font-medium leading-tight truncate">{t.dep_name}</div>
+          <div className="text-[14px] mt-1 tabular-nums">{t.dep_time}</div>
         </div>
         <div className="flex-1 flex flex-col items-center pt-1">
           <div className="text-[11px] text-ink-3 tabular-nums">{flightDuration(t.dep_time, t.arr_time, t.dep_tz, t.arr_tz, t.travel_date)}</div>
@@ -214,16 +212,18 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
           </div>
           <div className="text-[11px] text-ink-3">direct</div>
         </div>
-        <div className="w-[88px] shrink-0 text-right">
-          <div className="text-[22px] font-medium leading-none">{t.arr_code}</div>
-          <div className="text-[11px] text-ink-3 mt-1.5 truncate">{t.arr_name}</div>
-          <div className="text-[14px] mt-0.5 tabular-nums">{t.arr_time}</div>
+        <div className="w-[96px] shrink-0 text-right">
+          <div className="text-[14px] font-medium leading-tight truncate">{t.arr_name}</div>
+          <div className="text-[14px] mt-1 tabular-nums">{t.arr_time}</div>
         </div>
       </div>
 
       <div className="flex items-center gap-2 mt-4 flex-wrap text-[11px]" style={{ borderTop: '0.5px solid var(--color-line)', paddingTop: 12 }}>
         <span className="chip"><IconCalendar size={12} /> {formatFlightDate(t.travel_date)}</span>
-        <span className="chip">{t.seat_class || 'Standard'} · {t.seats ?? travelers.length} seats</span>
+        {t.seat_class && <span className="chip">{t.seat_class}</span>}
+        {t.gate && <span className="chip">ประตู {t.gate}</span>}
+        {t.car && <span className="chip">ตู้ {t.car}</span>}
+        {t.seat_no && <span className="chip">ที่นั่ง {t.seat_no}</span>}
         {t.booking_ref && (
           <span className="inline-flex items-center gap-0.5 booking-id text-[12px]"><IconHash size={12} />{t.booking_ref}</span>
         )}

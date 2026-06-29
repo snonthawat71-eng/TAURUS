@@ -21,10 +21,18 @@ create table if not exists trains (
   storage_path text,                               -- ไฟล์ตั๋ว/ใบจอง (bucket trip-files)
   seat_class   text,
   seats        int,
-  dep_tz       text,                               -- IANA tz ต้นทาง (คิดเวลาเดินทางข้ามโซน)
+  gate         text,                               -- ประตู
+  car          text,                               -- ตู้ที่
+  seat_no      text,                               -- ที่นั่ง
+  dep_tz       text,
   arr_tz       text,
   created_at   timestamptz not null default now()
 );
+
+-- เผื่อเคยสร้างตารางรุ่นก่อน — เพิ่มคอลัมน์ใหม่ให้ครบ
+alter table trains add column if not exists gate    text;
+alter table trains add column if not exists car     text;
+alter table trains add column if not exists seat_no text;
 
 create index if not exists trains_trip_id_idx on trains(trip_id);
 

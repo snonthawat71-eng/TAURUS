@@ -103,6 +103,10 @@ export interface Train {
   storage_path: string | null
   seat_class?: string | null
   seats?: number | null
+  /** ประตู / ตู้ที่ / ที่นั่ง — optional, added by the trains migration */
+  gate?: string | null
+  car?: string | null
+  seat_no?: string | null
   dep_tz?: string | null
   arr_tz?: string | null
   created_at: string
