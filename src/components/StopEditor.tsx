@@ -28,8 +28,13 @@ export function StopEditor({
   const [cityFilter, setCityFilter] = useState('all')
   const [groupFilter, setGroupFilter] = useState<'all' | 'place' | 'food'>('all')
 
-  // places the group has already added to the plan (from Places/Food/All)
-  const inPlan = useMemo(() => places.filter((p) => p.in_plan && p.name), [places])
+  // places the group has already added to the plan (from Places/Food/All),
+  // most recently saved first
+  const inPlan = useMemo(
+    () => places.filter((p) => p.in_plan && p.name)
+      .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '')),
+    [places],
+  )
 
   // which group a planned place belongs to (stored group_type, else its category's group)
   const groupOf = (p: (typeof inPlan)[number]) =>
