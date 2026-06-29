@@ -3,6 +3,7 @@ import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
 import { SignedImage } from './SignedImage'
+import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
@@ -62,13 +63,12 @@ export function PlaceDetail({
   return (
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
       <div className="h-40 rounded-[14px] relative grid place-items-center overflow-hidden mt-1" style={{ background: meta.bg }}>
-        <SignedImage url={place.photo_url} path={place.photo_path} focus={place.photo_focus} alt={place.name ?? ''} className="absolute inset-0 w-full h-full object-cover" width={800}
-          fallback={<Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />} />
-        {hasPhoto && (
-          <>
-            <button onClick={() => setLightbox(0)} aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
-            <span className="absolute top-2 right-2 z-20 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
-          </>
+        {gallery.length > 0
+          ? <PhotoCarousel photos={gallery} alt={place.name ?? ''} width={800} focus={place.photo_focus} onExpand={(i) => setLightbox(i)}
+              fallback={<Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />} />
+          : <Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />}
+        {gallery.length > 0 && (
+          <span className="absolute top-2 right-2 z-20 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
         )}
         <span className="absolute bottom-2 right-2 z-20 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium pointer-events-none" style={{ background: '#fff', color: meta.fg }}>
           {meta.label}

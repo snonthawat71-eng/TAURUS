@@ -5,7 +5,7 @@ import {
   IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconPhoto,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
-import { SignedImage } from './SignedImage'
+import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { Avatar } from './Avatar'
 import { StarRating } from './StarRating'
@@ -170,13 +170,12 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
       {/* cover (contained card so the drag handle stays usable) */}
       <div className="relative h-52 rounded-[14px] overflow-hidden mt-1 bg-surface-2">
-        <SignedImage url={e.photo_url} focus={e.photo_focus} alt={e.name ?? ''} className="absolute inset-0 w-full h-full object-cover" width={800}
-          fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={52} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
-        {e.photo_url && (
-          <>
-            <button onClick={() => setLightbox(0)} aria-label="ดูรูปเต็ม" className="absolute inset-0 cursor-zoom-in" />
-            <span className="absolute top-2.5 left-2.5 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
-          </>
+        {gallery.length > 0
+          ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={800} focus={e.photo_focus} onExpand={(i) => setLightbox(i)}
+              fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={52} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
+          : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={52} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>}
+        {gallery.length > 0 && (
+          <span className="absolute top-2.5 left-2.5 z-20 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
         )}
         <button onClick={onFav} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'}
           className="absolute bottom-2.5 right-2.5 size-10 rounded-full grid place-items-center shadow-md z-10"

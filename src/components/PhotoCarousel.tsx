@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react'
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import type { PhotoRef } from './Lightbox'
 
@@ -37,9 +38,10 @@ export function PhotoCarousel({
     const el = scroller.current
     if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
   }
+  const step = (dir: number) => jump((active + dir + photos.length) % photos.length)
 
   return (
-    <div className="relative w-full h-full">
+    <div className="group relative w-full h-full">
       <div ref={scroller} onScroll={onScroll}
         className="flex w-full h-full overflow-x-auto snap-x snap-mandatory no-scrollbar">
         {photos.map((p, i) => (
@@ -54,6 +56,20 @@ export function PhotoCarousel({
       </div>
 
       {overlay}
+
+      {/* desktop arrows (no drag-to-swipe with a mouse — show on hover) */}
+      {photos.length > 1 && (
+        <>
+          <button aria-label="ก่อนหน้า" onClick={(e) => { e.stopPropagation(); step(-1) }}
+            className="hidden md:grid place-items-center absolute left-1.5 top-1/2 -translate-y-1/2 z-20 size-7 rounded-full bg-black/35 hover:bg-black/55 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+            <IconChevronLeft size={16} />
+          </button>
+          <button aria-label="ถัดไป" onClick={(e) => { e.stopPropagation(); step(1) }}
+            className="hidden md:grid place-items-center absolute right-1.5 top-1/2 -translate-y-1/2 z-20 size-7 rounded-full bg-black/35 hover:bg-black/55 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+            <IconChevronRight size={16} />
+          </button>
+        </>
+      )}
 
       {photos.length > 1 && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
