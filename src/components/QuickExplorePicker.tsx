@@ -50,23 +50,28 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
   const groupOf = (e: ExplorePlace) =>
     e.group_type === 'food' || catMeta(e.category).group === 'food' ? 'food' : 'place'
 
-  // cities to offer: the trip's cities + any city present in the pool
-  const cities = useMemo(() => {
-    const set = new Set<string>()
-    ;(trip?.cities ?? []).forEach((c) => set.add(c))
-    pool.forEach((e) => { if (e.city) set.add(e.city) })
-    return Array.from(set)
-  }, [trip, pool])
+  // only the cities this trip actually visits
+  const tripCities = useMemo(
+    () => new Set((trip?.cities ?? []).filter(Boolean) as string[]),
+    [trip],
+  )
+  // narrow the whole Explore pool to those cities (if the trip lists any) — so
+  // quick-select only ever offers places in the cities you're going to
+  const cityScoped = useMemo(
+    () => (tripCities.size ? pool.filter((e) => e.city != null && tripCities.has(e.city)) : pool),
+    [pool, tripCities],
+  )
+  const cities = useMemo(() => Array.from(tripCities), [tripCities])
 
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase()
-    return pool.filter((e) =>
+    return cityScoped.filter((e) =>
       (groupFilter === 'all' || groupOf(e) === groupFilter) &&
       (cityFilter === 'all' || (e.city || '') === cityFilter) &&
       (!term || (e.name || '').toLowerCase().includes(term) || (e.city || '').toLowerCase().includes(term)),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool, q, groupFilter, cityFilter])
+  }, [cityScoped, q, groupFilter, cityFilter])
 
   async function pick(e: ExplorePlace) {
     if (!trip) return
@@ -90,7 +95,11 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
   return (
     <Drawer open={open} onClose={onClose} title="เลือกด่วนจาก Explore">
       <div className="space-y-3">
-        <p className="text-[12px] text-ink-3 -mt-1">เลือกสถานที่จาก Explore — จะถูกเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที</p>
+        <p className="text-[12px] text-ink-3 -mt-1">
+          {tripCities.size
+            ? `แสดงเฉพาะเมืองที่ทริปนี้จะไป (${cities.join(', ')}) — แตะเพื่อเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที`
+            : 'เลือกสถานที่จาก Explore — จะถูกเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที'}
+        </p>
 
         <div className="relative">
           <IconSearch size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" />
@@ -109,7 +118,7 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
             ))}
           </div>
         </div>
-        {cities.length > 0 && (
+        {cities.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
             {[{ key: 'all', label: 'ทั้งหมด' }, ...cities.map((c) => ({ key: c, label: c }))].map((c) => (
               <button key={c.key} onClick={() => setCityFilter(c.key)}
@@ -124,7 +133,11 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-10 text-ink-3 text-[13px]"><IconLoader2 size={16} className="animate-spin" /> กำลังโหลด…</div>
         ) : shown.length === 0 ? (
-          <p className="text-[13px] text-ink-3 text-center py-10">ไม่พบสถานที่ใน Explore ที่ตรงกับที่ค้นหา</p>
+          <p className="text-[13px] text-ink-3 text-center py-10">
+            {tripCities.size
+              ? 'ยังไม่มีสถานที่ใน Explore สำหรับเมืองที่ทริปนี้จะไป'
+              : 'ไม่พบสถานที่ใน Explore ที่ตรงกับที่ค้นหา'}
+          </p>
         ) : (
           <div className="space-y-2 max-h-[55vh] overflow-y-auto -mx-1 px-1">
             {shown.map((e) => {
