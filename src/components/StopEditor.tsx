@@ -147,13 +147,12 @@ export function StopEditor({
                     className="relative shrink-0 w-[104px] rounded-[10px] overflow-hidden text-left bg-surface transition"
                     style={{ border: `1.5px solid ${sel ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
                     <div className="h-[68px] relative overflow-hidden" style={{ background: meta.bg }}>
-                      {/* Honour the place's saved crop (photo_focus) so the thumb shows
-                          the same framing as its card/detail — that crop is what hides
-                          plain sky / white edges the user cropped away. object-cover still
-                          fills the box; a coloured bg backs it so it never flashes white. */}
+                      {/* Render the photo EXACTLY like PlaceCard (w-full h-full object-cover
+                          + focus) — that markup fills cleanly on iOS, whereas an
+                          absolutely-positioned object-cover img leaves a white strip there. */}
                       <SignedImage url={p.photo_url} path={p.photo_path} focus={p.photo_focus} alt={p.name ?? ''}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        fallback={<div className="absolute inset-0 grid place-items-center" style={{ background: meta.bg }}><Icon size={22} style={{ color: meta.fg }} /></div>} />
+                        className="w-full h-full object-cover" width={300}
+                        fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={22} style={{ color: meta.fg }} /></div>} />
                       {sel && <div className="absolute inset-0 grid place-items-center" style={{ background: 'rgba(2,112,251,0.35)' }}><span className="size-6 rounded-full bg-brand grid place-items-center"><IconCheck size={15} className="text-white" /></span></div>}
                     </div>
                     <div className="p-1.5">
