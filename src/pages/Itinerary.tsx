@@ -26,7 +26,7 @@ import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
 import { setInPlan, toggleInterest } from '@/lib/placeMutations'
 import {
-  addDay, updateDay, deleteDay, addStop, updateStop, deleteStop, persistStopOrder, persistDayOrder,
+  addDay, updateDay, deleteDay, addStop, updateStop, deleteStop, setStopDone, persistStopOrder, persistDayOrder,
   type StopInput,
 } from '@/lib/mutations'
 import type { ItineraryDay, ItineraryStop, Place } from '@/lib/database.types'
@@ -324,9 +324,10 @@ export default function Itinerary() {
     const done_at = done ? new Date().toISOString() : null
     // optimistic only — no reload() here (a full refetch re-renders every card and
     // looks like a flicker). The realtime subscription reconciles in the background.
+    // setStopDone has no version guard, so rapid taps always persist the latest state.
     patch((d) => ({ stops: d.stops.map((x) => (x.id === s.id ? { ...x, done, done_at } : x)) }))
     setLocalStops((prev) => prev.map((x) => (x.id === s.id ? { ...x, done, done_at } : x)))
-    updateStop(s.id, { done, done_at }, s.version)
+    setStopDone(s.id, done, done_at)
   }
 
   // resolve any drop target (a day card, a day's drop area, or a stop) to its day

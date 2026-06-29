@@ -69,6 +69,13 @@ export async function updateStop(id: string, fields: StopInput, expectedVersion?
   })
 }
 
+/** Toggle a stop's shared check-in. Deliberately NO version guard: a fast
+ *  double-tap must always persist the latest state — a version conflict would
+ *  silently drop the write and the next realtime reload would flip it back. */
+export async function setStopDone(id: string, done: boolean, done_at: string | null) {
+  return supabase.from('itinerary_stops').update({ done, done_at }).eq('id', id)
+}
+
 export async function deleteStop(id: string) {
   return runOrQueue(() => supabase.from('itinerary_stops').delete().eq('id', id), { kind: 'delete', table: 'itinerary_stops', id })
 }
