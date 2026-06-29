@@ -24,9 +24,10 @@ export function FlightEditor({
    *  return-leg form); otherwise it closes after saving. */
   onSave: (fields: FlightInput) => Promise<void | boolean>
   onDelete?: () => Promise<void>
-  /** Tapping the ขาไป/ขากลับ toggle switches to editing that leg's real flight
-   *  (the parent loads it, or opens an add form for that direction). */
-  onSwitchDirection?: (dir: FlightDirection) => void
+  /** Tapping the ขาไป/ขากลับ toggle switches to editing that leg's real flight.
+   *  Receives the CURRENT form values so the parent can save this leg's edits
+   *  before loading the other (otherwise switching discards them). */
+  onSwitchDirection?: (dir: FlightDirection, current: FlightInput) => void
 }) {
   const [v, setV] = useState<FlightInput>({})
   const [busy, setBusy] = useState(false)
@@ -74,7 +75,7 @@ export function FlightEditor({
       <div className="space-y-3">
         <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2">
           {(['outbound', 'return'] as FlightDirection[]).map((d) => (
-            <button key={d} onClick={() => onSwitchDirection ? onSwitchDirection(d) : set({ direction: d })}
+            <button key={d} onClick={() => onSwitchDirection ? onSwitchDirection(d, v) : set({ direction: d })}
               className={['px-3 h-7 rounded-[6px] text-[12px] font-medium', v.direction === d ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>
               {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
             </button>

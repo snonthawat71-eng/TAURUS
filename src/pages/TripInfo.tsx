@@ -411,7 +411,11 @@ export default function TripInfo() {
         initial={flightEdit && flightEdit !== 'new' ? flightEdit : null}
         defaultDirection={newFlightDir}
         prefillFrom={flights.find((f) => (f.direction ?? 'outbound') === 'outbound') ?? null}
-        onSwitchDirection={(dir) => {
+        onSwitchDirection={async (dir, current) => {
+          // save the leg being edited first, so switching tabs never loses its edits
+          if (flightEdit && flightEdit !== 'new') await updateFlight(flightEdit.id, current)
+          else if (current.airline || current.flight_no || current.dep_code || current.arr_code || current.flight_date) await addFlight(trip!.id, current)
+          await reload()
           // toggle in the editor = jump to that leg's real flight, or an add form for it
           const existing = flights.find((f) => (f.direction ?? 'outbound') === dir)
           if (existing) setFlightEdit(existing)
