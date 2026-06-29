@@ -88,7 +88,7 @@ export function StopEditor({
             <div className="flex items-center justify-between gap-2">
               <label className="text-[11px] text-ink-3">ดึงจากสถานที่ในแพลน</label>
               <div className="inline-flex p-0.5 rounded-full bg-surface-2 shrink-0">
-                {([['all', 'ทั้งหมด'], ['place', 'สถานที่'], ['food', 'อาหาร']] as const).map(([v, label]) => (
+                {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food']] as const).map(([v, label]) => (
                   <button key={v} onClick={() => setGroupFilter(v)}
                     className={['px-2.5 h-7 rounded-full text-[12px] font-medium transition-colors',
                       groupFilter === v ? 'bg-surface shadow-sm text-ink' : 'text-ink-3'].join(' ')}>
