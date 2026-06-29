@@ -9,8 +9,7 @@ import Explore from '@/pages/Explore'
 import ExploreManage from '@/pages/ExploreManage'
 import TripInfo from '@/pages/TripInfo'
 import Itinerary from '@/pages/Itinerary'
-import Places from '@/pages/Places'
-import Food from '@/pages/Food'
+import PlacesFood from '@/pages/PlacesFood'
 import AllPlans from '@/pages/AllPlans'
 import Budget from '@/pages/Budget'
 
@@ -37,8 +36,8 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route path="/info" element={<TripInfo />} />
             <Route path="/itinerary" element={<Itinerary />} />
-            <Route path="/places" element={<Places />} />
-            <Route path="/food" element={<Food />} />
+            <Route path="/places" element={<PlacesFood />} />
+            <Route path="/food" element={<PlacesFood />} />
             <Route path="/plans" element={<AllPlans />} />
             <Route path="/budget" element={<Budget />} />
           </Route>

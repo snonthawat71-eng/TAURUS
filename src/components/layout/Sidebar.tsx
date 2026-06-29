@@ -11,8 +11,7 @@ export function Sidebar() {
 
   const counts = {
     itinerary: days.length,
-    places: places.filter((p) => p.group_type === 'place').length,
-    food: places.filter((p) => p.group_type === 'food').length,
+    placesfood: places.length,
   }
   const sections = ['PLAN', 'OVERVIEW'] as const
 

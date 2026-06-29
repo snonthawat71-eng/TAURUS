@@ -19,7 +19,7 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
         {items.map((p) => {
           const meta = catMeta(p.category)
           const Icon = meta.icon
-          const to = p.group_type === 'food' ? `/food?focus=${p.id}` : `/places?focus=${p.id}`
+          const to = p.group_type === 'food' ? `/places?tab=food&focus=${p.id}` : `/places?tab=place&focus=${p.id}`
           return (
             <div key={p.id} className="card p-3 flex items-center gap-3">
               <button onClick={() => navigate(to)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
