@@ -51,13 +51,15 @@ function SortableStop({
 
   return (
     <div ref={setNodeRef} style={style} className="flex gap-2.5">
-      {canEdit ? (
-        <button {...attributes} {...listeners} className="mt-0.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากจัดเรียง">
-          <IconGripVertical size={16} />
-        </button>
-      ) : <span className="w-1 shrink-0" />}
-      <div className="w-11 shrink-0 pt-0.5">
-        {stop.time && <div className="text-[13px] font-medium tabular-nums">{stop.time}</div>}
+      {/* grip + time as one aligned unit — the drag handle sits right in front of
+          the time, on the same line */}
+      <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+        {canEdit ? (
+          <button {...attributes} {...listeners} className="text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากจัดเรียง">
+            <IconGripVertical size={16} />
+          </button>
+        ) : <span className="w-1 shrink-0" />}
+        <div className="w-10 text-[13px] font-medium tabular-nums">{stop.time}</div>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
