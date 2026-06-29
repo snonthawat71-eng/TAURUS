@@ -6,6 +6,7 @@ import { PlaceCard, type Interested, type CardMode } from './PlaceCard'
 import { PlaceEditor } from './PlaceEditor'
 import { PlaceDetail } from './PlaceDetail'
 import { SaveToTripDialog } from './SaveToTripDialog'
+import { AddToDayDialog } from './AddToDayDialog'
 import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
 import { confirmDialog } from '@/lib/confirm'
 import { offerUndo } from '@/lib/undo'
@@ -35,6 +36,7 @@ export function PlaceGrid({
   const [editor, setEditor] = useState<'new' | Place | null>(null)
   const [detail, setDetail] = useState<Place | null>(null)
   const [pinPlace, setPinPlace] = useState<Place | null>(null)
+  const [dayPickFor, setDayPickFor] = useState<Place | null>(null)
 
   const cities = trip?.cities ?? []
   const profilesById = useMemo(() => new Map(memberProfiles.map((p) => [p.id, p])), [memberProfiles])
@@ -121,7 +123,7 @@ export function PlaceGrid({
     const { list, mine } = interestFor(p)
     return (
       <PlaceCard key={p.id} place={p} interested={list} mine={mine} mode={mode}
-        onOpen={() => setDetail(p)} onTogglePlan={() => togglePlan(p)} onToggleInterest={() => toggleWant(p)}
+        onOpen={() => setDetail(p)} onTogglePlan={() => (p.in_plan ? togglePlan(p) : setDayPickFor(p))} onToggleInterest={() => toggleWant(p)}
         onEdit={() => setEditor(p)} onDelete={() => remove(p)} onPin={() => setPinPlace(p)} />
     )
   }
@@ -234,13 +236,15 @@ export function PlaceGrid({
         const { list, mine } = interestFor(detail)
         return (
           <PlaceDetail place={detail} interested={list} mine={mine} open={!!detail} canEdit={canEdit}
-            onClose={() => setDetail(null)} onTogglePlan={() => togglePlan(detail)} onToggleInterest={() => toggleWant(detail)}
+            onClose={() => setDetail(null)} onToggleInterest={() => toggleWant(detail)}
+            onTogglePlan={() => { if (detail.in_plan) togglePlan(detail); else { setDayPickFor(detail); setDetail(null) } }}
             onEdit={canEdit ? () => { setEditor(detail); setDetail(null) } : undefined}
             onPin={mode === 'pin' ? () => { setPinPlace(detail); setDetail(null) } : undefined} />
         )
       })()}
 
       <SaveToTripDialog place={pinPlace} open={!!pinPlace} onClose={() => setPinPlace(null)} />
+      <AddToDayDialog place={dayPickFor} open={!!dayPickFor} onClose={() => setDayPickFor(null)} />
     </div>
   )
 }
