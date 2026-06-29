@@ -40,7 +40,7 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
     setInvites((inv.data ?? []) as Invite[])
     setMembers((mem.data ?? []) as Member[])
   }
-  useEffect(() => { if (open) { setMsg(null); setEmail(''); setPerm('edit'); loadData() } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) { setMsg(null); setEmail(''); setPerm('edit'); loadData() } }, [open, trip?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const permOf = (id: string) => members.find((m) => m.user_id === id)?.permission ?? 'edit'
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   IconPlus, IconPencil, IconTrash, IconCopy, IconDownload, IconCalendar, IconCrown, IconLoader2,
-  IconUserCircle, IconArrowRight, IconLogout, IconHome, IconCompass, IconUser,
+  IconUserCircle, IconArrowRight, IconLogout, IconHome, IconCompass, IconUser, IconShare2,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -14,6 +14,7 @@ import { AvatarStack } from '@/components/Avatar'
 import { PopMenu } from '@/components/PopMenu'
 import { TripEditor } from '@/components/TripEditor'
 import { ProfileEditor } from '@/components/ProfileEditor'
+import { ShareDialog } from '@/components/ShareDialog'
 import { formatDateRange, dayCount } from '@/lib/format'
 import { countryFlag } from '@/lib/countries'
 import { cityImage, CITY_IMAGES } from '@/lib/cityImages'
@@ -88,6 +89,7 @@ export default function TripsDashboard() {
   const [travelers, setTravelers] = useState<TravelerLite[]>([])
   const [editor, setEditor] = useState<'new' | Trip | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
 
@@ -244,6 +246,8 @@ export default function TripsDashboard() {
                         className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/30 transition-colors"><IconDownload size={16} /></button>
                       <button onClick={() => duplicate(t)} disabled={busyId === t.id} title="ทำสำเนา"
                         className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/30 transition-colors disabled:opacity-50">{busyId === t.id ? <IconLoader2 size={16} className="animate-spin" /> : <IconCopy size={16} />}</button>
+                      <button onClick={() => { switchTrip(t.id); setShareOpen(true) }} title="แชร์ทริป"
+                        className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/30 transition-colors"><IconShare2 size={16} /></button>
                     </div>
                   </div>
                 </div>
@@ -306,6 +310,7 @@ export default function TripsDashboard() {
       />
 
       <ProfileEditor open={profileOpen} onClose={() => setProfileOpen(false)} scope="global" />
+      <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   )
 }
