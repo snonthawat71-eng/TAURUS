@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   IconPlus, IconPencil, IconTrash, IconCopy, IconDownload, IconCalendar, IconCrown, IconLoader2,
-  IconUserCircle, IconArrowRight, IconLogout, IconHome, IconCompass, IconUser, IconShare2,
+  IconUserCircle, IconArrowRight, IconLogout, IconHome, IconCompass, IconUser, IconShare2, IconClock,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -15,7 +15,7 @@ import { PopMenu } from '@/components/PopMenu'
 import { TripEditor } from '@/components/TripEditor'
 import { ProfileEditor } from '@/components/ProfileEditor'
 import { ShareDialog } from '@/components/ShareDialog'
-import { formatDateRange, dayCount } from '@/lib/format'
+import { formatDateRange, dayCount, tripCountdown } from '@/lib/format'
 import { countryFlag } from '@/lib/countries'
 import { cityImage, CITY_IMAGES } from '@/lib/cityImages'
 import { createTrip, updateTrip, deleteTrip, duplicateTrip } from '@/lib/tripMutations'
@@ -202,6 +202,7 @@ export default function TripsDashboard() {
             {visibleTrips.map((t) => {
               const isOwner = t.owner_id === user?.id
               const tvs = byTrip.get(t.id) ?? []
+              const countdown = tripCountdown(t.start_date, t.end_date)
               return (
                 <div key={t.id} className="card p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white" style={{ background: heroGradient(t) }}>
                   {/* full photo (shifted right) */}
@@ -212,13 +213,20 @@ export default function TripsDashboard() {
 
                   {/* everything sits on the photo */}
                   <div className="relative flex-1 flex flex-col p-3.5">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-2">
                       <span className="text-[24px] leading-none">{flagOf(t)}</span>
-                      <PopMenu items={[
-                        { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
-                        { label: 'ทำสำเนา', icon: busyId === t.id ? <IconLoader2 size={15} className="animate-spin" /> : <IconCopy size={15} />, onClick: () => duplicate(t) },
-                        ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
-                      ]} buttonClassName="!bg-transparent !text-white hover:!bg-white/25" />
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {countdown && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/25 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap">
+                            <IconClock size={11} /> {countdown}
+                          </span>
+                        )}
+                        <PopMenu items={[
+                          { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
+                          { label: 'ทำสำเนา', icon: busyId === t.id ? <IconLoader2 size={15} className="animate-spin" /> : <IconCopy size={15} />, onClick: () => duplicate(t) },
+                          ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
+                        ]} buttonClassName="!bg-transparent !text-white hover:!bg-white/25" />
+                      </div>
                     </div>
 
                     <div className="flex-1 min-h-3" />
