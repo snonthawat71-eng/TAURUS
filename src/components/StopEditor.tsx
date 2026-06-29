@@ -125,7 +125,7 @@ export function StopEditor({
                   <button key={p.id} onClick={() => pickPlanned(p.id)}
                     className="relative shrink-0 w-[104px] rounded-[10px] overflow-hidden text-left bg-surface transition"
                     style={{ border: `1.5px solid ${sel ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
-                    <div className="h-[68px] relative">
+                    <div className="h-[68px] relative overflow-hidden">
                       <SignedImage url={p.photo_url} path={p.photo_path} focus={p.photo_focus} alt={p.name ?? ''} className="w-full h-full object-cover"
                         fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={22} style={{ color: meta.fg }} /></div>} />
                       {sel && <div className="absolute inset-0 grid place-items-center" style={{ background: 'rgba(2,112,251,0.35)' }}><span className="size-6 rounded-full bg-brand grid place-items-center"><IconCheck size={15} className="text-white" /></span></div>}
