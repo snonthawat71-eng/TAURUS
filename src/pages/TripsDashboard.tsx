@@ -236,14 +236,13 @@ export default function TripsDashboard() {
                       <div className="text-[20px] font-semibold leading-tight truncate">{t.name}</div>
                       <div className="flex items-center gap-1.5 text-[11px] text-white/95 mt-0.5">
                         <IconCalendar size={12} />
-                        {formatDateRange(t.start_date, t.end_date) || 'ยังไม่กำหนดวัน'}
-                        {t.start_date && t.end_date && <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-medium">{dayCount(t.start_date, t.end_date)} วัน</span>}
+                        <span>{formatDateRange(t.start_date, t.end_date) || 'ยังไม่กำหนดวัน'}{t.start_date && t.end_date ? ` · ${dayCount(t.start_date, t.end_date)} วัน` : ''}</span>
                       </div>
                     </button>
 
-                    <div className="flex items-center justify-between mt-2.5">
+                    <div className="flex items-center gap-1.5 mt-2.5">
                       <AvatarStack people={tvs.map((tv, i) => ({ name: tv.nickname, color: AV[i % 4] }))} size={22} />
-                      <span className="rounded-full bg-white/25 px-2.5 py-1 text-[10px] font-medium flex items-center gap-1">{isOwner ? <><IconCrown size={11} /> เจ้าของ</> : 'ผู้ร่วมเดินทาง'}</span>
+                      {isOwner && <IconCrown size={14} className="text-white/85" />}
                     </div>
 
                     <div className="flex items-center gap-2 mt-2.5">
