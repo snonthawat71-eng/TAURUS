@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconReceipt, IconArrowRight, IconPhoto, IconPencil } from '@tabler/icons-react'
+import { useNavigate } from 'react-router-dom'
+import { IconPlus, IconReceipt, IconArrowRight, IconPhoto, IconPencil, IconArrowLeft } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { Avatar } from '@/components/Avatar'
 import { ExpenseEditor } from '@/components/ExpenseEditor'
@@ -28,6 +29,7 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 
 export default function Budget() {
   const { trip, expenses, travelers, memberProfiles, reload, canEdit } = useTrip()
+  const navigate = useNavigate()
   const [editor, setEditor] = useState<'new' | Expense | null>(null)
   const [equiv, setEquiv] = useState<string | null>(null)
 
@@ -69,6 +71,12 @@ export default function Budget() {
 
   return (
     <div>
+      {/* Header — back to Personal Information (budget lives there now) */}
+      <div className="flex items-center gap-2 mb-4">
+        <button onClick={() => navigate('/info')} className="btn-icon" aria-label="กลับ" title="กลับ"><IconArrowLeft size={16} /></button>
+        <h1 className="text-[16px] font-medium">Budget • ค่าใช้จ่าย</h1>
+      </div>
+
       {/* Metrics */}
       <div className="grid grid-cols-3 gap-2.5">
         <Metric label="รวมทั้งทริป" value={baht(total)} sub={equiv ?? undefined} />

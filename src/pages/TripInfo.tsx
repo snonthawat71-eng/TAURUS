@@ -12,6 +12,7 @@ import { FlightEditor } from '@/components/FlightEditor'
 import { TrainEditor } from '@/components/TrainEditor'
 import { HotelEditor } from '@/components/HotelEditor'
 import { HotelPhoto } from '@/components/HotelPhoto'
+import { BudgetSection } from '@/components/BudgetSection'
 import { AttachLink } from '@/components/AttachLink'
 import { PopMenu } from '@/components/PopMenu'
 import { openMap } from '@/lib/maps'
@@ -415,6 +416,10 @@ export default function TripInfo() {
         ))}
         {hotels.length === 0 && <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลที่พัก</div>}
       </div>
+
+      {/* Budget */}
+      <SectionHead title="Budget • ค่าใช้จ่าย" />
+      <BudgetSection />
 
       {/* Overview drawer */}
       <TravelerDrawer
