@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconCheck, IconLoader2, IconSearch } from '@tabler/icons-react'
+import { IconCheck, IconLoader2, IconSearch, IconInfoCircle } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
+import { ExploreDetail } from './ExploreDetail'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { listExplore, exploreAsPlace, logExploreEvent } from '@/lib/exploreMutations'
@@ -30,6 +31,7 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
   const [groupFilter, setGroupFilter] = useState<'all' | 'place' | 'food'>('all')
   const [cityFilter, setCityFilter] = useState('all')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [detail, setDetail] = useState<ExplorePlace | null>(null)
 
   // Explore items already saved into this trip → mark them "เพิ่มแล้ว"
   const savedHere = useMemo(
@@ -39,12 +41,16 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
 
   useEffect(() => {
     if (!open) return
-    setQ(''); setGroupFilter('all'); setCityFilter('all'); setBusyId(null)
+    setQ(''); setGroupFilter('all'); setCityFilter('all'); setBusyId(null); setDetail(null)
+    // refresh the trip so the "เพิ่มแล้ว" badge reflects the latest places
+    // (e.g. after a place was deleted from Places/Food)
+    reload()
     setLoading(true)
     listExplore().then(({ data }) => {
       setPool((data ?? []) as ExplorePlace[])
       setLoading(false)
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const groupOf = (e: ExplorePlace) =>
@@ -73,6 +79,11 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityScoped, q, groupFilter, cityFilter])
 
+  function finishPick(pick: QuickPick) {
+    onPicked(pick)
+    setBusyId(null); setDetail(null); onClose()
+  }
+
   async function pick(e: ExplorePlace) {
     if (!trip) return
     setBusyId(e.id)
@@ -80,16 +91,14 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
     const existing = places.find((p) => p.source_explore_id === e.id)
     if (existing) {
       if (!existing.in_plan) { await setInPlan(existing.id, true); await reload() }
-      onPicked({ id: existing.id, name: existing.name, map_url: existing.map_url, note: existing.note })
-      setBusyId(null); onClose()
+      finishPick({ id: existing.id, name: existing.name, map_url: existing.map_url, note: existing.note })
       return
     }
     const id = crypto.randomUUID()
     await copyPlaceToTrip(exploreAsPlace(e), trip.id, e.id, { inPlan: true, id })
     if (user) logExploreEvent(e.id, user.id, 'save')
     await reload()
-    onPicked({ id, name: e.name, map_url: e.map_url, note: e.note })
-    setBusyId(null); onClose()
+    finishPick({ id, name: e.name, map_url: e.map_url, note: e.note })
   }
 
   return (
@@ -145,27 +154,37 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
               const Icon = meta.icon
               const saved = savedHere.has(e.id)
               return (
-                <button key={e.id} onClick={() => pick(e)} disabled={busyId === e.id}
-                  className="w-full flex items-center gap-3 card p-2 text-left enabled:hover:bg-surface-2/40 disabled:opacity-60">
-                  <div className="size-14 shrink-0 rounded-[10px] overflow-hidden relative" style={{ background: meta.bg }}>
-                    <SignedImage url={e.photo_url} focus={e.photo_focus} alt={e.name ?? ''} className="w-full h-full object-cover" width={160}
-                      fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={20} style={{ color: meta.fg }} /></div>} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[14px] font-medium leading-snug line-clamp-1">{e.name}</div>
-                    <div className="flex items-center gap-1.5 text-[11px] mt-0.5" style={{ color: meta.fg }}>
-                      <Icon size={12} /> <span className="truncate">{meta.label}{e.city ? ` · ${e.city}` : ''}</span>
+                <div key={e.id} className="flex items-center gap-2.5 card p-2">
+                  {/* tap the place → open its full Explore detail before deciding */}
+                  <button onClick={() => setDetail(e)} className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                    <div className="size-14 shrink-0 rounded-[10px] overflow-hidden relative" style={{ background: meta.bg }}>
+                      <SignedImage url={e.photo_url} focus={e.photo_focus} alt={e.name ?? ''} className="w-full h-full object-cover" width={160}
+                        fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={20} style={{ color: meta.fg }} /></div>} />
                     </div>
-                  </div>
-                  {busyId === e.id ? <IconLoader2 size={16} className="animate-spin text-ink-3 shrink-0" />
-                    : saved ? <span className="chip !bg-brand-soft !text-brand-dark shrink-0"><IconCheck size={12} /> เพิ่มแล้ว</span>
-                      : <span className="btn-link text-[12px] shrink-0">เพิ่ม</span>}
-                </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[14px] font-medium leading-snug line-clamp-1">{e.name}</div>
+                      <div className="flex items-center gap-1.5 text-[11px] mt-0.5" style={{ color: meta.fg }}>
+                        <Icon size={12} /> <span className="truncate">{meta.label}{e.city ? ` · ${e.city}` : ''}</span>
+                      </div>
+                      <span className="inline-flex items-center gap-0.5 text-[11px] text-brand-mid mt-1"><IconInfoCircle size={11} /> ดูรายละเอียด</span>
+                    </div>
+                  </button>
+                  {/* explicit add/select, separate from viewing the detail */}
+                  <button onClick={() => pick(e)} disabled={busyId === e.id} className="shrink-0 disabled:opacity-60">
+                    {busyId === e.id ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
+                      : saved ? <span className="chip !bg-brand-soft !text-brand-dark"><IconCheck size={12} /> เพิ่มแล้ว</span>
+                        : <span className="btn-primary inline-flex items-center h-8 px-3 text-[12px] rounded-full">เพิ่ม</span>}
+                  </button>
+                </div>
               )
             })}
           </div>
         )}
       </div>
+
+      {/* full Explore detail on top — the heart adds it to the plan & selects it */}
+      <ExploreDetail e={detail} open={!!detail} saved={detail ? savedHere.has(detail.id) : false}
+        onClose={() => setDetail(null)} onFav={() => detail && pick(detail)} />
     </Drawer>
   )
 }
