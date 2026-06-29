@@ -378,7 +378,6 @@ export default function TripInfo() {
                     <div className="text-[11px] text-ink-3 mt-0.5">{h.city} · {h.nights} คืน</div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <AMapPill url={h.map_url} />
                     {canEdit && (
                       <PopMenu items={[
                         { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setHotelEdit(h) },
@@ -401,17 +400,26 @@ export default function TripInfo() {
                     <div className="text-[12px] booking-id mt-0.5">{h.booking_id}</div>
                   </div>
                 </div>
+
+                {/* ใบจอง (left, aligned with Check-in) + MAP (right) */}
+                {(canEdit || h.storage_path || h.map_url) && (
+                  <div className="flex items-center justify-between gap-2 mt-3">
+                    <div className="min-w-0">
+                      {trip && <AttachLink table="hotels" id={h.id} tripId={trip.id} storagePath={h.storage_path} attachLabel="ใบจอง" viewLabel="ดูใบจอง" canEdit={canEdit} />}
+                    </div>
+                    <AMapPill url={h.map_url} />
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2 mt-3.5 flex-wrap">
-              <div className="flex flex-wrap gap-1.5">
-                {h.rooms?.map((r, i) => (
+            {h.rooms && h.rooms.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3.5">
+                {h.rooms.map((r, i) => (
                   <span key={i} className="chip"><IconBed size={12} /> {r.name} · {r.members.join(', ')}</span>
                 ))}
               </div>
-              {trip && <AttachLink table="hotels" id={h.id} tripId={trip.id} storagePath={h.storage_path} attachLabel="ใบจอง" viewLabel="ดูใบจอง" canEdit={canEdit} />}
-            </div>
+            )}
           </div>
         ))}
         {hotels.length === 0 && <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลที่พัก</div>}
