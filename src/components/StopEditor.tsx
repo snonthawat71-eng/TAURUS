@@ -126,10 +126,13 @@ export function StopEditor({
                     className="relative shrink-0 w-[104px] rounded-[10px] overflow-hidden text-left bg-surface transition"
                     style={{ border: `1.5px solid ${sel ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
                     <div className="h-[68px] relative overflow-hidden" style={{ background: meta.bg }}>
-                      {/* no focus crop here — a centred object-cover always fills the
-                          thumb, so a downward crop can't expose the white card edge */}
-                      <SignedImage url={p.photo_url} path={p.photo_path} alt={p.name ?? ''} className="w-full h-full object-cover"
-                        fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={22} style={{ color: meta.fg }} /></div>} />
+                      {/* Fill the whole thumb. No focus crop, and we pin the photo to
+                          all edges with a forced centred object-cover so it can never
+                          sit low and leave a white strip at the top of the card. */}
+                      <SignedImage url={p.photo_url} path={p.photo_path} alt={p.name ?? ''}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        style={{ objectFit: 'cover', objectPosition: 'center' }}
+                        fallback={<div className="absolute inset-0 grid place-items-center" style={{ background: meta.bg }}><Icon size={22} style={{ color: meta.fg }} /></div>} />
                       {sel && <div className="absolute inset-0 grid place-items-center" style={{ background: 'rgba(2,112,251,0.35)' }}><span className="size-6 rounded-full bg-brand grid place-items-center"><IconCheck size={15} className="text-white" /></span></div>}
                     </div>
                     <div className="p-1.5">
