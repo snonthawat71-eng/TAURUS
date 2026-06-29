@@ -43,7 +43,7 @@ export default function Login() {
       {/* Logo — large, sitting in the upper third */}
       <div className="relative z-10 flex justify-center">
         <div style={{ filter: 'brightness(0) invert(1)' }}>
-          <TaurusLogo height={72} />
+          <TaurusLogo height={79} />
         </div>
       </div>
 
