@@ -9,7 +9,7 @@ import { PopMenu } from './PopMenu'
 export function AttachLink({
   table, id, tripId, storagePath, attachLabel = 'แนบไฟล์จอง', viewLabel = 'ไฟล์จอง', canEdit = true,
 }: {
-  table: 'flights' | 'hotels'
+  table: 'flights' | 'hotels' | 'trains'
   id: string
   tripId: string
   storagePath: string | null

@@ -1,9 +1,9 @@
 import { supabase } from './supabase'
-import type { Flight, HotelRoom, Trip } from './database.types'
+import type { Flight, Train, HotelRoom, Trip } from './database.types'
 
 // Columns added by supabase/extra_columns.sql — the app still works before the
 // migration is run by stripping any column the API reports as unknown.
-const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone', 'direction', 'dep_tz', 'arr_tz']
+const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone', 'direction', 'dep_tz', 'arr_tz', 'gate', 'car', 'seat_no']
 
 function stripMentioned(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
@@ -172,6 +172,20 @@ export async function updateFlight(id: string, fields: FlightInput) {
 }
 export async function deleteFlight(id: string) {
   return supabase.from('flights').delete().eq('id', id)
+}
+
+// ---------- Trains (mirrors flights; requires supabase/trains.sql) ----------
+
+export type TrainInput = Partial<Omit<Train, 'id' | 'trip_id' | 'created_at'>>
+
+export async function addTrain(trip_id: string, input: TrainInput) {
+  return insertGraceful('trains', { id: crypto.randomUUID(), trip_id, ...input })
+}
+export async function updateTrain(id: string, fields: TrainInput) {
+  return updateGraceful('trains', id, { ...fields })
+}
+export async function deleteTrain(id: string) {
+  return supabase.from('trains').delete().eq('id', id)
 }
 
 // ---------- Hotels ----------

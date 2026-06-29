@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   IconPlus, IconPencil, IconTrash, IconCopy, IconDownload, IconCalendar, IconCrown, IconLoader2,
-  IconUserCircle, IconArrowRight, IconWorldSearch, IconLogout,
+  IconUserCircle, IconArrowRight, IconLogout, IconHome, IconCompass, IconUser,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -152,29 +152,12 @@ export default function TripsDashboard() {
       <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center justify-between px-5 sm:px-8 h-16"
         style={{ borderBottom: '0.5px solid var(--color-line)' }}>
         <TaurusLogo height={50} />
-        <div className="flex items-center gap-2">
-          <button onClick={() => setProfileOpen(true)} className="btn-icon" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
-            <IconUserCircle size={16} />
-          </button>
-          <button onClick={signOut} className="btn-icon" aria-label="ออกจากระบบ" title="ออกจากระบบ" style={{ color: '#D85A30' }}>
-            <IconLogout size={16} />
-          </button>
-        </div>
+        <button onClick={signOut} className="btn-icon" aria-label="ออกจากระบบ" title="ออกจากระบบ" style={{ color: '#D85A30' }}>
+          <IconLogout size={16} />
+        </button>
       </header>
 
-      <main className="max-w-[960px] mx-auto px-5 sm:px-8 py-7">
-        {/* Prominent Explore banner */}
-        <button onClick={() => navigate('/explore')}
-          className="w-full rounded-[16px] p-5 sm:p-6 mb-6 flex items-center gap-4 text-left text-white shadow-sm"
-          style={{ background: 'linear-gradient(120deg, #0270FB, #4BC5D9)' }}>
-          <span className="size-14 rounded-[14px] bg-white/20 grid place-items-center shrink-0"><IconWorldSearch size={30} /></span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[19px] font-semibold">Explore สถานที่ & ร้านเด็ด</div>
-            <div className="text-[13px] text-white/85 mt-1">รวมที่เที่ยว/ร้านที่ทุกคนแชร์ — กด ♥ เซฟเข้าทริปของคุณ</div>
-          </div>
-          <IconArrowRight size={22} className="shrink-0" />
-        </button>
-
+      <main className="max-w-[960px] mx-auto px-5 sm:px-8 pt-7 pb-36">
         <div className="mb-4 flex items-baseline gap-2 flex-wrap">
           <h1 className="text-[20px] font-medium">ทริปของฉัน</h1>
           <p className="text-[13px] text-ink-3">{trips.length} ทริป · วางแผนการเดินทางของคุณ</p>
@@ -254,8 +237,8 @@ export default function TripsDashboard() {
 
                     <div className="flex items-center gap-2 mt-2.5">
                       <button onClick={() => open(t)}
-                        className="h-9 flex-1 flex items-center justify-center gap-1.5 text-[13px] font-semibold rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/35 transition-colors">
-                        เปิดทริป <IconArrowRight size={15} />
+                        className="h-9 flex-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-left">
+                        View details <IconArrowRight size={13} />
                       </button>
                       <button onClick={() => downloadItineraryPdf(t)} title="ดาวน์โหลด Itinerary (PDF)"
                         className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/30 transition-colors"><IconDownload size={16} /></button>
@@ -282,6 +265,24 @@ export default function TripsDashboard() {
           <IconUserCircle size={13} /> เข้าระบบด้วย {user?.email}
         </div>
       </main>
+
+      {/* Minimal glass bottom nav with soft centre wave — dashboard only */}
+      <nav className="mobile-bottom-nav">
+        <div className="nav-bg" aria-hidden="true" />
+        <button className="bottom-nav-item active" aria-current="page" aria-label="Home"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <IconHome size={25} stroke={1.9} />
+          <span>Home</span>
+        </button>
+        <button className="center-action" aria-label="Explore" onClick={() => navigate('/explore')}>
+          <span className="dot"><IconCompass size={24} stroke={1.9} /></span>
+          <span>Explore</span>
+        </button>
+        <button className="bottom-nav-item" aria-label="Profile" onClick={() => setProfileOpen(true)}>
+          <IconUser size={25} stroke={1.9} />
+          <span>Profile</span>
+        </button>
+      </nav>
 
       <TripEditor
         open={editor !== null}

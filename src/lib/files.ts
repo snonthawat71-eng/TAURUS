@@ -102,7 +102,7 @@ export async function uploadPublicImage(file: File): Promise<{ url: string | nul
 
 /** Attach a booking file to a flight or hotel (single storage_path column). */
 export async function uploadEntityFile(opts: {
-  table: 'flights' | 'hotels'
+  table: 'flights' | 'hotels' | 'trains'
   id: string
   tripId: string
   file: File
@@ -118,7 +118,7 @@ export async function uploadEntityFile(opts: {
 }
 
 /** Remove a booking file from a flight or hotel. */
-export async function removeEntityFile(table: 'flights' | 'hotels', id: string, path: string) {
+export async function removeEntityFile(table: 'flights' | 'hotels' | 'trains', id: string, path: string) {
   if (!isSampleFile(path)) await supabase.storage.from(BUCKET).remove([path])
   return supabase.from(table).update({ storage_path: null }).eq('id', id)
 }

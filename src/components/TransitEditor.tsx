@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconTrash, IconArrowDown, IconMap2 } from '@tabler/icons-react'
+import { IconPlus, IconTrash, IconDoorExit, IconMap2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ColorPicker } from './ColorPicker'
 import { Combobox } from './Combobox'
@@ -69,8 +69,6 @@ export function TransitEditor({
   const sh = isShanghai(tripHay)
   const sz = isShenzhen(tripHay)
   const [legs, setLegs] = useState<TransitLeg[]>([])
-  const [exitLabel, setExitLabel] = useState('')
-  const [exitNote, setExitNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
   const [hkOpen, setHkOpen] = useState(false)
@@ -81,9 +79,12 @@ export function TransitEditor({
 
   useEffect(() => {
     if (open) {
-      setLegs(initial?.legs?.length ? initial.legs.map((l) => ({ ...l })) : [emptyLeg()])
-      setExitLabel(initial?.exit?.label ?? '')
-      setExitNote(initial?.exit?.note ?? '')
+      const ls = initial?.legs?.length ? initial.legs.map((l) => ({ ...l })) : [emptyLeg()]
+      // migrate a legacy single destination exit onto the last leg
+      if (initial?.exit && ls.length && !ls[ls.length - 1].exit) {
+        ls[ls.length - 1] = { ...ls[ls.length - 1], exit: { ...initial.exit } }
+      }
+      setLegs(ls)
     }
   }, [open, initial])
 
@@ -127,13 +128,18 @@ export function TransitEditor({
   function patchTransfer(i: number, p: { walkMeters?: number; minutes?: number } | null) {
     setLegs((ls) => ls.map((l, idx) => (idx === i ? { ...l, transferAfter: p ?? undefined } : l)))
   }
+  function patchExit(i: number, p: { label?: string; note?: string }) {
+    setLegs((ls) => ls.map((l, idx) => {
+      if (idx !== i) return l
+      const ex = { label: l.exit?.label ?? '', note: l.exit?.note, ...p }
+      return { ...l, exit: (ex.label || ex.note) ? ex : undefined }
+    }))
+  }
 
   async function save() {
     setBusy(true)
     const clean = legs.filter((l) => l.line || l.from || l.to)
-    const transit: Transit | null = clean.length
-      ? { legs: clean, ...(exitLabel ? { exit: { label: exitLabel, note: exitNote || undefined } } : {}) }
-      : null
+    const transit: Transit | null = clean.length ? { legs: clean } : null
     await onSave(transit)
     setBusy(false)
     onClose()
@@ -286,6 +292,15 @@ export function TransitEditor({
               </div>
             </div>
 
+            {/* exit for this leg */}
+            <div>
+              <div className="flex items-center gap-1.5 text-[12px] font-medium text-ink-2"><IconDoorExit size={14} /> ทางออก</div>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <input className={field} value={leg.exit?.label ?? ''} onChange={(e) => patchExit(i, { label: e.target.value })} placeholder="เช่น Exit E3" />
+                <input className={field} value={leg.exit?.note ?? ''} onChange={(e) => patchExit(i, { note: e.target.value })} placeholder="เช่น เดิน ~3 นาที" />
+              </div>
+            </div>
+
             {/* transfer to next */}
             {i < legs.length - 1 && (
               <label className="flex items-center gap-2 text-[12px] text-ink-2">
@@ -313,20 +328,6 @@ export function TransitEditor({
         <button onClick={() => setLegs((ls) => [...ls, emptyLeg()])} className="btn-link flex items-center gap-1.5">
           <IconPlus size={15} /> เพิ่มช่วงเดินทาง
         </button>
-
-        <div className="card p-3 space-y-2">
-          <div className="flex items-center gap-1.5 text-[12px] font-medium text-ink-2"><IconArrowDown size={14} /> ทางออกปลายทาง</div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <div className={lbl}>ป้ายทางออก</div>
-              <input className={field} value={exitLabel} onChange={(e) => setExitLabel(e.target.value)} placeholder="เช่น Exit E3" />
-            </div>
-            <div>
-              <div className={lbl}>โน้ต</div>
-              <input className={field} value={exitNote} onChange={(e) => setExitNote(e.target.value)} placeholder="เช่น เดิน ~3 นาที" />
-            </div>
-          </div>
-        </div>
 
         <button onClick={save} disabled={busy} className="btn-primary w-full h-10 disabled:opacity-50">
           {busy ? 'กำลังบันทึก...' : 'บันทึกเส้นทาง'}

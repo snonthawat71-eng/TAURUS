@@ -69,12 +69,15 @@ export async function deleteStop(id: string) {
   return runOrQueue(() => supabase.from('itinerary_stops').delete().eq('id', id), { kind: 'delete', table: 'itinerary_stops', id })
 }
 
-/** Persist a new order by writing each stop's position. The `time` travels with
- *  the slot (position), not the activity — so reordering keeps times in order. */
+/** Persist a new order by writing each stop's position (and day_id, so a stop can
+ *  move to another day). Each stop carries its own `position`/`day_id`; falls back
+ *  to the array index when position is absent. */
 export async function persistStopOrder(stops: ItineraryStop[]) {
   await Promise.all(
     stops.map((s, i) =>
-      supabase.from('itinerary_stops').update({ position: i, time: s.time ?? null }).eq('id', s.id),
+      supabase.from('itinerary_stops')
+        .update({ position: s.position ?? i, time: s.time ?? null, day_id: s.day_id })
+        .eq('id', s.id),
     ),
   )
 }
