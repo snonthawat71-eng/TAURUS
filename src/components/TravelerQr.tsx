@@ -47,16 +47,22 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   const [adding, setAdding] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
 
-  // on open → jump to the main QR (order stays put, so nothing swaps mid-use)
+  // on open → jump to the main QR. Retry until the drawer has laid out (clientWidth
+  // is 0 while it animates in, which would otherwise leave us on the first card).
   useEffect(() => {
     if (!open || rows.length === 0) return
     const i = Math.max(0, rows.findIndex((r) => r.is_main))
-    requestAnimationFrame(() => {
+    let tries = 0
+    let raf = 0
+    const tick = () => {
       const el = scroller.current
       if (!el) return
+      if (el.clientWidth === 0 && tries < 30) { tries++; raf = requestAnimationFrame(tick); return }
       el.scrollLeft = i * el.clientWidth
       setSelId(rows[i]?.id ?? null)
-    })
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
@@ -189,8 +195,8 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
         )}
       </div>
 
-      {/* details box — bright, near-white brand blue (10%) */}
-      <div className="rounded-lg p-3.5 mt-4 text-[13px]" style={{ background: 'rgba(2,112,251,0.10)' }}>
+      {/* details box — bright, near-white brand blue (5%) */}
+      <div className="rounded-lg p-3.5 mt-4 text-[13px]" style={{ background: 'rgba(2,112,251,0.05)' }}>
         {isTrain ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2 font-semibold">
