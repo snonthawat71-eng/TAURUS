@@ -98,6 +98,7 @@ export interface TrainTicket {
   to_station: string | null
   seat_no: string | null
   car: string | null
+  gate: string | null
   qr_path: string | null
   position: number
   created_at: string

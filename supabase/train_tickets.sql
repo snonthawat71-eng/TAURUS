@@ -14,7 +14,8 @@ create table if not exists train_tickets (
   from_station   text,                                              -- สถานีต้นทาง
   to_station     text,                                              -- สถานีปลายทาง
   seat_no        text,                                              -- ที่นั่ง
-  car            text,                                              -- ตู้ที่
+  car            text,                                              -- ตู้ที่ (Car)
+  gate           text,                                              -- ประตู (Gate)
   qr_path        text,                                              -- รูป QR (bucket trip-files / Cloudinary)
   position       int  not null default 0,
   created_at     timestamptz not null default now()
@@ -25,6 +26,7 @@ alter table train_tickets alter column train_id drop not null;
 alter table train_tickets add column if not exists label        text;
 alter table train_tickets add column if not exists from_station text;
 alter table train_tickets add column if not exists to_station   text;
+alter table train_tickets add column if not exists gate         text;
 
 create index if not exists train_tickets_trip_id_idx on train_tickets(trip_id);
 

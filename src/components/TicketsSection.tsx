@@ -111,8 +111,9 @@ function TicketDetail({
   const [to, setTo] = useState(ticket.to_station ?? '')
   const [seat, setSeat] = useState(ticket.seat_no ?? '')
   const [car, setCar] = useState(ticket.car ?? '')
+  const [gate, setGate] = useState(ticket.gate ?? '')
   // a freshly-added (blank) ticket opens straight into the edit form
-  const [editing, setEditing] = useState(() => !ticket.qr_path && !ticket.from_station && !ticket.seat_no && !ticket.car && !ticket.label)
+  const [editing, setEditing] = useState(() => !ticket.qr_path && !ticket.from_station && !ticket.seat_no && !ticket.car && !ticket.gate && !ticket.label)
   const [uploading, setUploading] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -161,9 +162,10 @@ function TicketDetail({
               <input className={field} value={to} placeholder="สถานีปลายทาง" onChange={(e) => setTo(e.target.value)} onBlur={() => persist({ to_station: to.trim() || null })} />
             </div>
             <input className={field} value={label} placeholder="ป้ายกำกับ (เช่น ขาไป)" onChange={(e) => setLabel(e.target.value)} onBlur={() => persist({ label: label.trim() || null })} />
-            <div className="grid grid-cols-2 gap-2">
-              <input className={field} value={car} placeholder="ตู้ที่ (Car)" onChange={(e) => setCar(e.target.value)} onBlur={() => persist({ car: car.trim() || null })} />
-              <input className={field} value={seat} placeholder="ที่นั่ง (Seat)" onChange={(e) => setSeat(e.target.value)} onBlur={() => persist({ seat_no: seat.trim() || null })} />
+            <div className="grid grid-cols-3 gap-2">
+              <input className={field} value={car} placeholder="Car" onChange={(e) => setCar(e.target.value)} onBlur={() => persist({ car: car.trim() || null })} />
+              <input className={field} value={gate} placeholder="Gate" onChange={(e) => setGate(e.target.value)} onBlur={() => persist({ gate: gate.trim() || null })} />
+              <input className={field} value={seat} placeholder="Seat" onChange={(e) => setSeat(e.target.value)} onBlur={() => persist({ seat_no: seat.trim() || null })} />
             </div>
             <div className="flex items-center gap-3 pt-1">
               <button onClick={() => fileInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
@@ -179,10 +181,11 @@ function TicketDetail({
               <div className="text-[13px] text-ink-3 font-medium pr-14 truncate">{name}</div>
 
               {/* top row — English, bold label + light value */}
-              {(ticket.car || ticket.seat_no || ticket.label) && (
+              {(ticket.car || ticket.gate || ticket.seat_no || ticket.label) && (
                 <div className="flex items-center justify-between gap-3 text-[15px] mt-1.5">
                   <div className="flex items-center gap-4 min-w-0">
                     {ticket.car && <span className="whitespace-nowrap"><span className="font-semibold">Car</span> <span className="text-ink-3 font-medium ml-1">{ticket.car}</span></span>}
+                    {ticket.gate && <span className="whitespace-nowrap"><span className="font-semibold">Gate</span> <span className="text-ink-3 font-medium ml-1">{ticket.gate}</span></span>}
                     {ticket.label && <span className="text-ink-3 font-medium truncate">{ticket.label}</span>}
                   </div>
                   {ticket.seat_no && <span className="whitespace-nowrap shrink-0"><span className="font-semibold">Seat</span> <span className="text-ink-3 font-medium ml-1">{ticket.seat_no}</span></span>}
