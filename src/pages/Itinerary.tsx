@@ -146,7 +146,7 @@ function SortableStop({
 }
 
 function DayCard({
-  day, index, stops, getMatchedPlace, canEdit, collapsed, nextStopId, wx, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
+  day, index, stops, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
 }: {
   day: ItineraryDay
   index: number
@@ -156,6 +156,7 @@ function DayCard({
   collapsed: boolean
   nextStopId: string | null
   wx: DayWeather | null | undefined
+  isPast: boolean
   onToggleCollapse: () => void
   onToggleDone: (s: ItineraryStop) => void
   onOpenDetail: (p: Place) => void
@@ -176,7 +177,7 @@ function DayCard({
       {/* Blue strip — sits BEHIND the content card (z-0) and peeks out at the TOP with
           its own rounded top corners (layered look; mirrors the trip card's bottom
           strip, flipped to the top). Day N · weather · collapse live here. */}
-      <div className="relative z-0 -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: 'var(--color-brand)' }}>
+      <div className="relative z-0 -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: isPast ? '#5B6573' : 'var(--color-brand)' }}>
         <div className="flex items-center gap-1.5 min-w-0">
           {canEdit && (
             <button {...attributes} {...listeners} className="text-white/70 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากย้ายวัน">
@@ -341,12 +342,21 @@ export default function Itinerary() {
   function toggleDone(s: ItineraryStop) {
     const done = !s.done
     const done_at = done ? new Date().toISOString() : null
+    // Checked stops sink to the bottom of their day (active items rise up). We keep
+    // each group's relative order, then re-number positions and persist the new order.
+    const updated = stopsRef.current.map((x) => (x.id === s.id ? { ...x, done, done_at } : x))
+    const dayList = updated.filter((x) => x.day_id === s.day_id).sort((a, b) => a.position - b.position)
+    const ordered = [...dayList.filter((x) => !x.done), ...dayList.filter((x) => x.done)].map((x, i) => ({ ...x, position: i }))
+    const byId = new Map(ordered.map((x) => [x.id, x]))
+    const next = updated.map((x) => byId.get(x.id) ?? x)
     // optimistic only — no reload() here (a full refetch re-renders every card and
     // looks like a flicker). The realtime subscription reconciles in the background.
     // setStopDone has no version guard, so rapid taps always persist the latest state.
-    patch((d) => ({ stops: d.stops.map((x) => (x.id === s.id ? { ...x, done, done_at } : x)) }))
-    setLocalStops((prev) => prev.map((x) => (x.id === s.id ? { ...x, done, done_at } : x)))
+    patch((d) => ({ stops: d.stops.map((x) => (byId.get(x.id) ?? x)) }))
+    setLocalStops(next)
+    stopsRef.current = next
     setStopDone(s.id, done, done_at)
+    persistStopOrder(ordered)
   }
 
   // resolve any drop target (a day card, a day's drop area, or a stop) to its day
@@ -523,17 +533,24 @@ export default function Itinerary() {
   })()
   const atDayCapacity = plannedDays != null && localDays.length >= plannedDays
 
+  // A day is "past" once its date is before today (trip timezone). Past days keep
+  // their chronological Day number but sink to the bottom of the list (stable sort).
+  const displayDays = localDays
+    .map((day, idx) => ({ day, idx, isPast: !!day.day_date && day.day_date < todayStr }))
+    .sort((a, b) => Number(a.isPast) - Number(b.isPast))
+
   return (
     <div className="space-y-4">
       <NotificationSettings />
       <DndContext sensors={daySensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
-        <SortableContext items={localDays.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={displayDays.map((d) => d.day.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-4">
-            {localDays.map((day, idx) => (
+            {displayDays.map(({ day, idx, isPast }) => (
               <DayCard
                 key={day.id}
                 day={day}
                 index={idx}
+                isPast={isPast}
                 stops={stopsByDay.get(day.id) ?? []}
                 getMatchedPlace={getMatchedPlace}
                 canEdit={canEdit}
