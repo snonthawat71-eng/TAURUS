@@ -3,7 +3,7 @@ import type { Flight, Train, HotelRoom, Trip } from './database.types'
 
 // Columns added by supabase/extra_columns.sql — the app still works before the
 // migration is run by stripping any column the API reports as unknown.
-const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone', 'direction', 'dep_tz', 'arr_tz', 'gate', 'car', 'seat_no']
+const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone', 'direction', 'dep_tz', 'arr_tz', 'gate', 'car', 'seat_no', 'label', 'from_station', 'to_station']
 
 function stripMentioned(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
@@ -195,17 +195,19 @@ export interface TrainTicketInput {
   traveler_id?: string | null
   passenger_name?: string | null
   label?: string | null
+  from_station?: string | null
+  to_station?: string | null
   seat_no?: string | null
   car?: string | null
   qr_path?: string | null
   position?: number | null
 }
 export async function addTrainTicket(trip_id: string, input: TrainTicketInput, id: string = crypto.randomUUID()) {
-  await supabase.from('train_tickets').insert({ id, trip_id, ...input })
+  await insertGraceful('train_tickets', { id, trip_id, ...input })
   return id
 }
 export async function updateTrainTicket(id: string, input: TrainTicketInput) {
-  return supabase.from('train_tickets').update({ ...input }).eq('id', id)
+  return updateGraceful('train_tickets', id, { ...input })
 }
 export async function deleteTrainTicket(id: string) {
   return supabase.from('train_tickets').delete().eq('id', id)
