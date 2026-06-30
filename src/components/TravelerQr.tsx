@@ -35,7 +35,8 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   canEdit: boolean
   patchTickets: (fn: (all: TrainTicket[]) => TrainTicket[]) => void
 }) {
-  const rows = useMemo(() => [...tickets].sort((a, b) => a.position - b.position), [tickets])
+  // used QRs sink to the back; otherwise by position
+  const rows = useMemo(() => [...tickets].sort((a, b) => (a.used ? 1 : 0) - (b.used ? 1 : 0) || a.position - b.position), [tickets])
   const [selId, setSelId] = useState<string | null>(null)
   const curId = (selId && rows.some((r) => r.id === selId)) ? selId : (rows[0]?.id ?? null)
   const sel = rows.find((t) => t.id === curId) ?? null
@@ -59,6 +60,17 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  // after a reorder (e.g. a QR sinks to the back when marked used), keep the
+  // header label in sync with whichever card is now centred
+  useEffect(() => {
+    const el = scroller.current
+    if (!el || rows.length === 0) return
+    const i = Math.min(rows.length - 1, Math.round(el.scrollLeft / el.clientWidth))
+    const id = rows[i]?.id
+    if (id && id !== curId) setSelId(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows])
 
   function close() { setEditMode(false); onClose() }
   function onScroll() {
@@ -99,7 +111,10 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
     else updateTrainTicket(t.id, { is_main: false })
   }
   function toggleUsed(t: TrainTicket) {
-    persist(t.id, { used: !t.used })
+    const used = !t.used
+    // marking used also clears the main flag (and it sinks to the back via sort)
+    patchTickets((all) => all.map((x) => (x.id === t.id ? { ...x, used, is_main: used ? false : x.is_main } : x)))
+    updateTrainTicket(t.id, used ? { used: true, is_main: false } : { used: false })
   }
 
   return (
@@ -120,12 +135,19 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
         </div>
       ) : (
         <div>
-          {canEdit && (
-            <div className="flex justify-end gap-1 mb-1">
-              <button onClick={add} className="btn-icon" aria-label="เพิ่ม QR" title="เพิ่ม QR"><IconPlus size={16} /></button>
-              {sel && <button onClick={() => setEditMode(true)} className="btn-icon" aria-label="แก้ไข" title="แก้ไข"><IconPencil size={16} /></button>}
+          {/* name — top-left; actions — top-right */}
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="text-[14px] font-semibold truncate flex items-center gap-1.5 min-w-0">
+              {(() => { const M = kindMeta(sel?.kind ?? null).icon; return <M size={15} className="text-brand shrink-0" /> })()}
+              <span className="truncate">{sel?.label || kindMeta(sel?.kind ?? null).label}</span>
             </div>
-          )}
+            {canEdit && (
+              <div className="flex gap-1 shrink-0">
+                <button onClick={add} className="btn-icon" aria-label="เพิ่ม QR" title="เพิ่ม QR"><IconPlus size={16} /></button>
+                {sel && <button onClick={() => setEditMode(true)} className="btn-icon" aria-label="แก้ไข" title="แก้ไข"><IconPencil size={16} /></button>}
+              </div>
+            )}
+          </div>
 
           {/* swipeable cards — each fully self-contained */}
           <div ref={scroller} onScroll={onScroll} className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar">
@@ -162,16 +184,9 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
   onToggleUsed: () => void
   onEnlarge: () => void
 }) {
-  const meta = kindMeta(ticket.kind)
   const isTrain = (ticket.kind ?? 'train') === 'train'
   return (
     <div className={ticket.used ? 'opacity-60' : undefined}>
-      {/* title — type + label (always matches this card's QR) */}
-      <div className="flex items-center justify-center gap-1.5 text-[13px] font-semibold mb-3">
-        <meta.icon size={15} className="text-brand shrink-0" />
-        <span className="truncate">{ticket.label || meta.label}</span>
-      </div>
-
       {/* main toggle — centred, above the QR */}
       {canEdit && (
         <div className="flex justify-center mb-3">
