@@ -229,11 +229,6 @@ export default function TripsDashboard() {
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-[24px] leading-none">{flagOf(t)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {countdown && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-white/25 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap">
-                            <IconClock size={11} /> {countdown}
-                          </span>
-                        )}
                         <PopMenu items={[
                           { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
                           { label: 'ทำสำเนา', icon: busyId === t.id ? <IconLoader2 size={15} className="animate-spin" /> : <IconCopy size={15} />, onClick: () => duplicate(t) },
@@ -256,7 +251,6 @@ export default function TripsDashboard() {
                     <div className="flex items-center gap-1.5 mt-2.5">
                       <AvatarStack people={tvs.map((tv, i) => ({ name: tv.nickname, color: AV[i % 4] }))} size={22} />
                       {isOwner && <IconCrown size={14} className="text-white/85" />}
-                      <TripWeather trip={t} className="ml-auto text-[12px] text-white/95" />
                     </div>
 
                     <div className="flex items-center gap-2 mt-2.5">
@@ -269,6 +263,17 @@ export default function TripsDashboard() {
                       <button onClick={() => { switchTrip(t.id); setShareOpen(true) }} title="แชร์ทริป"
                         className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/30 transition-colors"><IconShare2 size={16} /></button>
                     </div>
+
+                    {/* status bar — countdown + weather, grouped at the very bottom */}
+                    {t.start_date && (
+                      <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 text-[11px] text-white/90"
+                        style={{ borderTop: '0.5px solid rgba(255,255,255,0.18)' }}>
+                        {countdown
+                          ? <span className="inline-flex items-center gap-1 font-medium"><IconClock size={12} /> {countdown}</span>
+                          : <span />}
+                        <TripWeather trip={t} className="font-medium" />
+                      </div>
+                    )}
                   </div>
                 </div>
               )
