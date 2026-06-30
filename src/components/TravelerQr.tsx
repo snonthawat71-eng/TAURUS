@@ -34,29 +34,31 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   canEdit: boolean
   onChanged: () => void | Promise<void>
 }) {
-  // main QR first, then by position
-  const rows = useMemo(
-    () => [...tickets].sort((a, b) => (b.is_main ? 1 : 0) - (a.is_main ? 1 : 0) || a.position - b.position),
-    [tickets],
-  )
+  // local copy so toggles feel instant (optimistic); kept in a STABLE order so the
+  // strip never reshuffles mid-use
+  const [localTickets, setLocalTickets] = useState(tickets)
+  useEffect(() => { setLocalTickets(tickets) }, [tickets])
+  const rows = useMemo(() => [...localTickets].sort((a, b) => a.position - b.position), [localTickets])
   const [selId, setSelId] = useState<string | null>(null)
   const curId = (selId && rows.some((r) => r.id === selId)) ? selId : (rows[0]?.id ?? null)
   const sel = rows.find((t) => t.id === curId) ?? null
   const [editMode, setEditMode] = useState(false)
   const [lbPath, setLbPath] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
-  const [busy, setBusy] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
-  const scrollToId = useRef<string | null>(null)
 
-  // after a reorder (e.g. setting the main QR), slide to the flagged ticket
+  // on open → jump to the main QR (order stays put, so nothing swaps mid-use)
   useEffect(() => {
-    const id = scrollToId.current
-    if (!id || !scroller.current) return
-    const i = rows.findIndex((r) => r.id === id)
-    scrollToId.current = null
-    if (i >= 0) requestAnimationFrame(() => scroller.current?.scrollTo({ left: i * (scroller.current?.clientWidth ?? 0), behavior: 'smooth' }))
-  }, [rows])
+    if (!open || rows.length === 0) return
+    const i = Math.max(0, rows.findIndex((r) => r.is_main))
+    requestAnimationFrame(() => {
+      const el = scroller.current
+      if (!el) return
+      el.scrollLeft = i * el.clientWidth
+      setSelId(rows[i]?.id ?? null)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   function close() { setEditMode(false); onClose() }
 
@@ -77,20 +79,16 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
     setSelId(id)
     setEditMode(true)
   }
-  async function toggleMain(t: TrainTicket) {
-    setBusy(true)
-    scrollToId.current = t.id // keep this QR in view after it jumps to the front
-    setSelId(t.id)
-    if (t.is_main) await updateTrainTicket(t.id, { is_main: false })
-    else await Promise.all(rows.map((r) => updateTrainTicket(r.id, { is_main: r.id === t.id })))
-    await onChanged()
-    setBusy(false)
+  function toggleMain(t: TrainTicket) {
+    const on = !t.is_main
+    // optimistic: only one main at a time
+    setLocalTickets((prev) => prev.map((x) => ({ ...x, is_main: on ? x.id === t.id : (x.id === t.id ? false : !!x.is_main) })))
+    const writes = on ? rows.map((r) => updateTrainTicket(r.id, { is_main: r.id === t.id })) : [updateTrainTicket(t.id, { is_main: false })]
+    Promise.all(writes).then(() => onChanged())
   }
-  async function toggleUsed(t: TrainTicket) {
-    setBusy(true)
-    await updateTrainTicket(t.id, { used: !t.used })
-    await onChanged()
-    setBusy(false)
+  function toggleUsed(t: TrainTicket) {
+    setLocalTickets((prev) => prev.map((x) => (x.id === t.id ? { ...x, used: !x.used } : x)))
+    updateTrainTicket(t.id, { used: !t.used }).then(() => onChanged())
   }
 
   return (
@@ -130,7 +128,7 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
           <div ref={scroller} onScroll={onScroll} className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar">
             {rows.map((t) => (
               <div key={t.id} className="w-full shrink-0 snap-center px-0.5">
-                <QrSlide ticket={t} canEdit={canEdit} busy={busy}
+                <QrSlide ticket={t} canEdit={canEdit}
                   onToggleMain={() => toggleMain(t)} onToggleUsed={() => toggleUsed(t)}
                   onEnlarge={() => t.qr_path && setLbPath(t.qr_path)} />
               </div>
@@ -155,10 +153,9 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
 }
 
 /** One swipeable QR card. */
-function QrSlide({ ticket, canEdit, busy, onToggleMain, onToggleUsed, onEnlarge }: {
+function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
   ticket: TrainTicket
   canEdit: boolean
-  busy: boolean
   onToggleMain: () => void
   onToggleUsed: () => void
   onEnlarge: () => void
@@ -170,7 +167,7 @@ function QrSlide({ ticket, canEdit, busy, onToggleMain, onToggleUsed, onEnlarge 
       {/* main toggle — top centre, above the QR */}
       {canEdit && (
         <div className="flex justify-center mb-3">
-          <button onClick={onToggleMain} disabled={busy}
+          <button onClick={onToggleMain}
             className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-[12px] font-medium"
             style={ticket.is_main
               ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }
@@ -217,7 +214,7 @@ function QrSlide({ ticket, canEdit, busy, onToggleMain, onToggleUsed, onEnlarge 
 
       {/* used — below */}
       {canEdit && (
-        <button onClick={onToggleUsed} disabled={busy}
+        <button onClick={onToggleUsed}
           className="w-full h-10 rounded-md mt-4 text-[13px] font-medium flex items-center justify-center gap-1.5"
           style={ticket.used
             ? { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }
