@@ -342,6 +342,9 @@ export default function TripInfo() {
         })}
       </div>
 
+      {/* Per-passenger QR tickets — live with the travelers (cards 2-up) */}
+      <TicketsSection tickets={trainTickets} travelers={travelers} tripId={trip?.id ?? ''} canEdit={canEdit} onChanged={reload} />
+
       {/* Flights */}
       <SectionHead title="Flights • ข้อมูลเที่ยวบิน"
         action={canEdit ? <button onClick={() => { setNewFlightDir(flights.some((f) => (f.direction ?? 'outbound') === 'outbound') ? 'return' : 'outbound'); setFlightEdit('new') }} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มเที่ยวบิน</button> : undefined} />
@@ -363,9 +366,6 @@ export default function TripInfo() {
           onAdd={(d) => { setNewTrainDir(d); setTrainEdit('new') }}
           onDelete={async (t) => { if (await confirmDialog({ message: 'ลบรถไฟนี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteTrain(t.id); await reload(); offerUndo('ลบรถไฟแล้ว', [{ table: 'trains', rows: [t] }], reload) } }} />
       )}
-
-      {/* Tickets / QR — its own section, separate from train info */}
-      <TicketsSection tickets={trainTickets} travelers={travelers} tripId={trip?.id ?? ''} canEdit={canEdit} onChanged={reload} />
 
       {/* Hotels */}
       <SectionHead title="Hotels • ที่พัก"

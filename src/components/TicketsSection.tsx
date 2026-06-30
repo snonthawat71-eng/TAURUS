@@ -50,7 +50,7 @@ export function TicketsSection({ tickets, travelers, tripId, canEdit, onChanged 
   if (rows.length === 0 && !canEdit) return null
 
   return (
-    <div className="mt-5">
+    <div className="mt-2.5">
       <div className="grid grid-cols-2 gap-2.5">
         {rows.map((t) => (
           <TicketCard key={t.id} ticket={t} name={nameOf(t)} onOpen={() => setOpenId(t.id)} />
