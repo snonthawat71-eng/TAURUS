@@ -16,6 +16,8 @@ import { TripEditor } from '@/components/TripEditor'
 import { ProfileEditor } from '@/components/ProfileEditor'
 import { ShareDialog } from '@/components/ShareDialog'
 import { formatDateRange, dayCount, tripCountdown } from '@/lib/format'
+import { useWeather } from '@/lib/weather'
+import { WeatherBadge } from '@/components/WeatherBadge'
 import { countryFlag } from '@/lib/countries'
 import { cityImage, CITY_IMAGES } from '@/lib/cityImages'
 import { createTrip, updateTrip, deleteTrip, duplicateTrip } from '@/lib/tripMutations'
@@ -65,6 +67,18 @@ function cld(url: string, transform: string): string {
 // Full-bleed cover photo (shifted right) with a blur-up placeholder: a tiny
 // (~1KB) blurred copy shows instantly so the card never looks empty, then the
 // sharp image fades in. A navy overlay over this dims the left side.
+/** Weather chip for a trip card — today's if the trip is on, else the start day. */
+function TripWeather({ trip, className }: { trip: Trip; className?: string }) {
+  const city = trip.cities?.[0] || trip.country || ''
+  const today = new Date().toISOString().slice(0, 10)
+  const date = trip.start_date
+    ? (trip.end_date && today >= trip.start_date && today <= trip.end_date ? today : trip.start_date)
+    : null
+  const wx = useWeather(city || null, date ? [date] : [])
+  if (!date) return null
+  return <WeatherBadge wx={wx[date]} showMin={false} className={className} />
+}
+
 function CoverImage({ url }: { url?: string }) {
   const [loaded, setLoaded] = useState(false)
   const [broken, setBroken] = useState(false)
@@ -243,6 +257,7 @@ export default function TripsDashboard() {
                     <div className="flex items-center gap-1.5 mt-2.5">
                       <AvatarStack people={tvs.map((tv, i) => ({ name: tv.nickname, color: AV[i % 4] }))} size={22} />
                       {isOwner && <IconCrown size={14} className="text-white/85" />}
+                      <TripWeather trip={t} className="ml-auto text-[12px] text-white/95" />
                     </div>
 
                     <div className="flex items-center gap-2 mt-2.5">

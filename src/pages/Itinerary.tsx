@@ -25,6 +25,8 @@ import { offerUndo } from '@/lib/undo'
 import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
 import { setInPlan, toggleInterest } from '@/lib/placeMutations'
+import { useWeather, type DayWeather } from '@/lib/weather'
+import { WeatherBadge } from '@/components/WeatherBadge'
 import {
   addDay, updateDay, deleteDay, addStop, updateStop, deleteStop, setStopDone, persistStopOrder, persistDayOrder,
   type StopInput,
@@ -139,7 +141,7 @@ function SortableStop({
 }
 
 function DayCard({
-  day, index, stops, getMatchedPlace, canEdit, collapsed, nextStopId, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
+  day, index, stops, getMatchedPlace, canEdit, collapsed, nextStopId, wx, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
 }: {
   day: ItineraryDay
   index: number
@@ -148,6 +150,7 @@ function DayCard({
   canEdit: boolean
   collapsed: boolean
   nextStopId: string | null
+  wx: DayWeather | null | undefined
   onToggleCollapse: () => void
   onToggleDone: (s: ItineraryStop) => void
   onOpenDetail: (p: Place) => void
@@ -180,7 +183,8 @@ function DayCard({
               : day.label && <div className="text-[11px] text-ink-3 truncate">{day.label}</div>}
           </button>
         </div>
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
+          {wx && <WeatherBadge wx={wx} className="text-[12px] text-ink-2" />}
           {canEdit && (
             <PopMenu items={[
               { label: 'แก้ไขวัน', icon: <IconPencil size={15} />, onClick: onEditDay },
@@ -214,6 +218,7 @@ export default function Itinerary() {
   const { trip, days, stops, places, interests, memberProfiles, reload, patch, canEdit } = useTrip()
   const { user } = useAuth()
   const [detailPlace, setDetailPlace] = useState<Place | null>(null)
+  const dayWx = useWeather(trip?.cities?.[0] || trip?.country, days.map((d) => d.day_date).filter(Boolean) as string[])
 
   const placeByName = useMemo(() => {
     const m = new Map<string, Place>()
@@ -518,6 +523,7 @@ export default function Itinerary() {
                 stops={stopsByDay.get(day.id) ?? []}
                 getMatchedPlace={getMatchedPlace}
                 canEdit={canEdit}
+                wx={day.day_date ? dayWx[day.day_date] : undefined}
                 collapsed={collapsed.has(day.id)}
                 nextStopId={nextStopId}
                 onToggleCollapse={() => toggleCollapse(day.id)}
