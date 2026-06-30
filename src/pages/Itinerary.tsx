@@ -342,11 +342,27 @@ export default function Itinerary() {
   function toggleDone(s: ItineraryStop) {
     const done = !s.done
     const done_at = done ? new Date().toISOString() : null
-    // Checked stops sink to the bottom of their day (active items rise up). We keep
-    // each group's relative order, then re-number positions and persist the new order.
-    const updated = stopsRef.current.map((x) => (x.id === s.id ? { ...x, done, done_at } : x))
+    const toggled = { ...s, done, done_at }
+    const updated = stopsRef.current.map((x) => (x.id === s.id ? toggled : x))
     const dayList = updated.filter((x) => x.day_id === s.day_id).sort((a, b) => a.position - b.position)
-    const ordered = [...dayList.filter((x) => !x.done), ...dayList.filter((x) => x.done)].map((x, i) => ({ ...x, position: i }))
+    // Build the day order: active items first, done items last.
+    const active = dayList.filter((x) => !x.done && x.id !== s.id)
+    const doneItems = dayList.filter((x) => x.done && x.id !== s.id)
+    let orderedDay: ItineraryStop[]
+    if (done) {
+      // checked → sinks to the very bottom of the done group
+      orderedDay = [...active, ...doneItems, toggled]
+    } else {
+      // un-checked → returns to its planned (time-sorted) slot among the active items
+      const t = toggled.time
+      let at = active.length
+      if (t != null) {
+        const after = active.findIndex((o) => o.time != null && o.time > t)
+        at = after >= 0 ? after : active.map((o) => o.time != null).lastIndexOf(true) + 1
+      }
+      orderedDay = [...active.slice(0, at), toggled, ...active.slice(at), ...doneItems]
+    }
+    const ordered = orderedDay.map((x, i) => ({ ...x, position: i }))
     const byId = new Map(ordered.map((x) => [x.id, x]))
     const next = updated.map((x) => byId.get(x.id) ?? x)
     // optimistic only — no reload() here (a full refetch re-renders every card and
@@ -423,16 +439,9 @@ export default function Itinerary() {
     if (newIdx < 0) newIdx = list.length - 1 // dropped on day area → end
     const reordered = (oldIdx >= 0 && newIdx >= 0) ? arrayMove(list, oldIdx, newIdx) : list
     const crossed = origin != null && origin !== finalDay
-    // Within a day the time is pinned to its SLOT: the activities reorder but the
-    // time column keeps its order, so dragging swaps the times along with the
-    // positions (a stop that had a time hands it to whatever now sits in its slot).
-    // Across days the time still travels with the moved card.
-    const slotTimes = list.map((s) => s.time ?? null)
-    const finalPos = reordered.map((s, i) => ({
-      ...s,
-      position: i,
-      ...(crossed ? {} : { time: slotTimes[i] ?? null }),
-    }))
+    // The time travels WITH the moved card — reordering only changes positions, each
+    // stop keeps its own time (so dragging a place up brings its time up with it).
+    const finalPos = reordered.map((s, i) => ({ ...s, position: i }))
     let next = [...cur.filter((s) => s.day_id !== finalDay), ...finalPos]
     let toPersist = [...finalPos]
     if (crossed) {
