@@ -13,6 +13,7 @@ import { TrainEditor } from '@/components/TrainEditor'
 import { HotelEditor } from '@/components/HotelEditor'
 import { HotelPhoto } from '@/components/HotelPhoto'
 import { TravelerTickets } from '@/components/TravelerTickets'
+import { QrDropdown } from '@/components/QrDropdown'
 import { BudgetSection } from '@/components/BudgetSection'
 import { AttachLink } from '@/components/AttachLink'
 import { PopMenu } from '@/components/PopMenu'
@@ -325,14 +326,34 @@ export default function TripInfo() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-3">
-                  {files.map((f) => {
-                    const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
+                  {/* QR files (eSIM / Airport Express / boarding pass) collapse into
+                      one quick-pick dropdown when there's more than one */}
+                  {(() => {
+                    const qr = files.filter((f) => (f.kind ?? '') === 'ticket')
+                    const rest = files.filter((f) => (f.kind ?? '') !== 'ticket')
                     return (
-                      <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
-                        <meta.icon size={12} /> {f.label || meta.label}
-                      </span>
+                      <>
+                        {qr.length >= 2
+                          ? <QrDropdown files={qr} onView={viewFile} />
+                          : qr.map((f) => {
+                              const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
+                              return (
+                                <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
+                                  <meta.icon size={12} /> {f.label || meta.label}
+                                </span>
+                              )
+                            })}
+                        {rest.map((f) => {
+                          const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
+                          return (
+                            <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
+                              <meta.icon size={12} /> {f.label || meta.label}
+                            </span>
+                          )
+                        })}
+                      </>
                     )
-                  })}
+                  })()}
                   {canEdit && (
                     <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
                       <IconPlus size={12} /> เพิ่มไฟล์
