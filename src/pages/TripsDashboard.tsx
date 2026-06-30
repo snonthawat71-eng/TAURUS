@@ -16,7 +16,7 @@ import { TripEditor } from '@/components/TripEditor'
 import { ProfileEditor } from '@/components/ProfileEditor'
 import { ShareDialog } from '@/components/ShareDialog'
 import { formatDateRange, dayCount, tripCountdown } from '@/lib/format'
-import { useWeather, cityFromTrip } from '@/lib/weather'
+import { useWeather, tripCityCandidates } from '@/lib/weather'
 import { WeatherBadge } from '@/components/WeatherBadge'
 import { countryFlag } from '@/lib/countries'
 import { cityImage, CITY_IMAGES } from '@/lib/cityImages'
@@ -69,12 +69,11 @@ function cld(url: string, transform: string): string {
 // sharp image fades in. A navy overlay over this dims the left side.
 /** Weather chip for a trip card — today's if the trip is on, else the start day. */
 function TripWeather({ trip, className }: { trip: Trip; className?: string }) {
-  const city = cityFromTrip(trip)
   const today = new Date().toISOString().slice(0, 10)
   const date = trip.start_date
     ? (trip.end_date && today >= trip.start_date && today <= trip.end_date ? today : trip.start_date)
     : null
-  const wx = useWeather(city || null, date ? [date] : [])
+  const wx = useWeather(tripCityCandidates(trip), date ? [date] : [])
   if (!date) return null
   return <WeatherBadge wx={wx[date]} showMin={false} className={className} />
 }
