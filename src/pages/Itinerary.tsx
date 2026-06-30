@@ -191,12 +191,13 @@ function DayCard({
           </button>
         </div>
       </div>
-      {/* Date row (enlarged) below the bar */}
+      {/* Date row below the bar — date + activity count inline, separated by • */}
       <button onClick={onToggleCollapse} className="w-full text-left px-4 py-3" style={collapsed ? undefined : { borderBottom: '0.5px solid var(--color-line)' }} aria-expanded={!collapsed}>
-        <div className="text-[18px] font-semibold truncate leading-tight">{formatLongDate(day.day_date)}</div>
-        {collapsed
-          ? <div className="text-[12px] text-ink-3 truncate mt-0.5">{stops.length} กิจกรรม{doneCount > 0 ? ` · เสร็จ ${doneCount}/${stops.length}` : ''}{day.label ? ` · ${day.label}` : ''}</div>
-          : day.label && <div className="text-[12px] text-ink-3 truncate mt-0.5">{day.label}</div>}
+        <div className="truncate leading-tight">
+          <span className="text-[15px] font-semibold">{formatLongDate(day.day_date)}</span>
+          <span className="text-[12px] text-ink-3 font-normal"> • {stops.length} กิจกรรม{doneCount > 0 ? ` · เสร็จ ${doneCount}/${stops.length}` : ''}</span>
+        </div>
+        {day.label && <div className="text-[12px] text-ink-3 truncate mt-0.5">{day.label}</div>}
       </button>
 
       {!collapsed && (
