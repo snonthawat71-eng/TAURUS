@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle, IconPencil, IconChevronLeft, IconBuildingCarousel, IconDeviceMobile } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
@@ -47,6 +47,16 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
+  const scrollToId = useRef<string | null>(null)
+
+  // after a reorder (e.g. setting the main QR), slide to the flagged ticket
+  useEffect(() => {
+    const id = scrollToId.current
+    if (!id || !scroller.current) return
+    const i = rows.findIndex((r) => r.id === id)
+    scrollToId.current = null
+    if (i >= 0) requestAnimationFrame(() => scroller.current?.scrollTo({ left: i * (scroller.current?.clientWidth ?? 0), behavior: 'smooth' }))
+  }, [rows])
 
   function close() { setEditMode(false); onClose() }
 
@@ -69,6 +79,8 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   }
   async function toggleMain(t: TrainTicket) {
     setBusy(true)
+    scrollToId.current = t.id // keep this QR in view after it jumps to the front
+    setSelId(t.id)
     if (t.is_main) await updateTrainTicket(t.id, { is_main: false })
     else await Promise.all(rows.map((r) => updateTrainTicket(r.id, { is_main: r.id === t.id })))
     await onChanged()
@@ -180,8 +192,8 @@ function QrSlide({ ticket, canEdit, busy, onToggleMain, onToggleUsed, onEnlarge 
         )}
       </div>
 
-      {/* grey details box */}
-      <div className="bg-surface-2 rounded-lg p-3.5 mt-4 text-[13px]">
+      {/* details box — light brand blue */}
+      <div className="bg-brand-soft rounded-lg p-3.5 mt-4 text-[13px]">
         {isTrain ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2 font-semibold">
