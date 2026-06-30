@@ -167,10 +167,11 @@ function DayCard({
   const doneCount = stops.filter((s) => s.done).length
 
   return (
-    <div ref={setNodeRef} style={style} className="card overflow-hidden">
-      {/* Blue header bar (mirrors the trip card's pill header) — Day N · weather · collapse.
-          Short, with a rounded bottom so the white content nests concentrically below it. */}
-      <div className="flex items-center justify-between px-4 py-1 text-white rounded-b-[18px]" style={{ background: 'var(--color-brand)' }}>
+    <div ref={setNodeRef} style={style} className="relative flex flex-col">
+      {/* Blue strip — sits BEHIND the content card (z-0) and peeks out at the TOP with
+          its own rounded top corners (layered look; mirrors the trip card's bottom
+          strip, flipped to the top). Day N · weather · collapse live here. */}
+      <div className="relative z-0 -mb-3 pt-2 pb-4 px-4 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: 'var(--color-brand)' }}>
         <div className="flex items-center gap-2 min-w-0">
           {canEdit && (
             <button {...attributes} {...listeners} className="text-white/70 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากย้ายวัน">
@@ -192,30 +193,31 @@ function DayCard({
           </button>
         </div>
       </div>
-      {/* White content nests up under the blue bar's rounded bottom (concentric corners) */}
-      <div className="relative -mt-[11px] rounded-t-[16px] bg-surface">
-      {/* Date row below the bar — date + activity count inline, separated by • */}
-      <button onClick={onToggleCollapse} className="w-full text-left px-4 pt-3 pb-3" style={collapsed ? undefined : { borderBottom: '0.5px solid var(--color-line)' }} aria-expanded={!collapsed}>
-        <div className="truncate leading-tight">
-          <span className="text-[15px] font-semibold">{formatLongDate(day.day_date)}</span>
-          <span className="text-[12px] text-ink-3 font-normal"> • {stops.length} กิจกรรม{doneCount > 0 ? ` · เสร็จ ${doneCount}/${stops.length}` : ''}</span>
-        </div>
-        {day.label && <div className="text-[12px] text-ink-3 truncate mt-0.5">{day.label}</div>}
-      </button>
 
-      {!collapsed && (
-        <div className="p-4 space-y-3 min-h-[60px]">
-          {stops.length === 0 && <div className="text-[12px] text-ink-3 text-center py-2">ยังไม่มีจุดแวะในวันนี้ — ลากกิจกรรมมาวางที่นี่ได้</div>}
-          <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-3">
-              {stops.map((s) => (
-                <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />
-              ))}
-            </div>
-          </SortableContext>
-          {canEdit && <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>}
-        </div>
-      )}
+      {/* Content card sits ON TOP of the strip (z-10), its rounded top nesting inside it */}
+      <div className="card relative z-10 overflow-hidden">
+        {/* Date row — date + activity count inline, separated by • */}
+        <button onClick={onToggleCollapse} className="w-full text-left px-4 py-3" style={collapsed ? undefined : { borderBottom: '0.5px solid var(--color-line)' }} aria-expanded={!collapsed}>
+          <div className="truncate leading-tight">
+            <span className="text-[15px] font-semibold">{formatLongDate(day.day_date)}</span>
+            <span className="text-[12px] text-ink-3 font-normal"> • {stops.length} กิจกรรม{doneCount > 0 ? ` · เสร็จ ${doneCount}/${stops.length}` : ''}</span>
+          </div>
+          {day.label && <div className="text-[12px] text-ink-3 truncate mt-0.5">{day.label}</div>}
+        </button>
+
+        {!collapsed && (
+          <div className="p-4 space-y-3 min-h-[60px]">
+            {stops.length === 0 && <div className="text-[12px] text-ink-3 text-center py-2">ยังไม่มีจุดแวะในวันนี้ — ลากกิจกรรมมาวางที่นี่ได้</div>}
+            <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {stops.map((s) => (
+                  <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />
+                ))}
+              </div>
+            </SortableContext>
+            {canEdit && <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>}
+          </div>
+        )}
       </div>
     </div>
   )
