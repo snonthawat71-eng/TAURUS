@@ -20,11 +20,12 @@ const KINDS = [
 const kindMeta = (k: string | null) => KINDS.find((x) => x.key === k) ?? KINDS[0]
 
 /**
- * Quick-QR hub for one traveler. Swipe left/right to flip between their QRs
- * (the main QR shows first). Each card: a main-QR toggle on top, the QR centered,
- * a grey details box, and a "used" button below. The pencil opens a separate edit page.
+ * Quick-QR hub for one traveler. Everything updates the shared trip state
+ * OPTIMISTICALLY (no full reload), so taps are instant and never bounce; each
+ * swipe card is fully self-contained (its own label + QR + details) so nothing
+ * desyncs. Swipe left/right to flip; the main QR is shown first on open.
  */
-export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, canEdit, onChanged }: {
+export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, canEdit, patchTickets }: {
   open: boolean
   onClose: () => void
   name: string
@@ -32,28 +33,21 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   tripId: string
   traveler: { id: string } | null
   canEdit: boolean
-  onChanged: () => void | Promise<void>
+  patchTickets: (fn: (all: TrainTicket[]) => TrainTicket[]) => void
 }) {
-  // local copy so toggles feel instant (optimistic); kept in a STABLE order so the
-  // strip never reshuffles mid-use
-  const [localTickets, setLocalTickets] = useState(tickets)
-  useEffect(() => { setLocalTickets(tickets) }, [tickets])
-  const rows = useMemo(() => [...localTickets].sort((a, b) => a.position - b.position), [localTickets])
+  const rows = useMemo(() => [...tickets].sort((a, b) => a.position - b.position), [tickets])
   const [selId, setSelId] = useState<string | null>(null)
   const curId = (selId && rows.some((r) => r.id === selId)) ? selId : (rows[0]?.id ?? null)
   const sel = rows.find((t) => t.id === curId) ?? null
   const [editMode, setEditMode] = useState(false)
   const [lbPath, setLbPath] = useState<string | null>(null)
-  const [adding, setAdding] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
 
-  // on open → jump to the main QR. Retry until the drawer has laid out (clientWidth
-  // is 0 while it animates in, which would otherwise leave us on the first card).
+  // on open → jump to the main QR (retry until the drawer has laid out)
   useEffect(() => {
     if (!open || rows.length === 0) return
     const i = Math.max(0, rows.findIndex((r) => r.is_main))
-    let tries = 0
-    let raf = 0
+    let tries = 0, raf = 0
     const tick = () => {
       const el = scroller.current
       if (!el) return
@@ -67,70 +61,73 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   }, [open])
 
   function close() { setEditMode(false); onClose() }
-
   function onScroll() {
     const el = scroller.current
     if (!el) return
-    const i = Math.round(el.scrollLeft / el.clientWidth)
-    const id = rows[i]?.id
+    const id = rows[Math.round(el.scrollLeft / el.clientWidth)]?.id
     if (id && id !== curId) setSelId(id)
   }
 
-  async function add() {
-    if (!traveler || adding) return
-    setAdding(true)
-    const id = await addTrainTicket(tripId, { traveler_id: traveler.id, position: rows.length, is_main: rows.length === 0, kind: 'train' })
-    await onChanged()
-    setAdding(false)
+  // ---- optimistic mutations (patch context + background DB write) ----
+  function persist(id: string, fields: Parameters<typeof updateTrainTicket>[1]) {
+    patchTickets((all) => all.map((x) => (x.id === id ? ({ ...x, ...fields } as TrainTicket) : x)))
+    updateTrainTicket(id, fields)
+  }
+  function add() {
+    if (!traveler) return
+    const id = crypto.randomUUID()
+    const t: TrainTicket = {
+      id, trip_id: tripId, train_id: null, traveler_id: traveler.id, passenger_name: null,
+      kind: 'train', note: null, label: null, from_station: null, to_station: null,
+      seat_no: null, car: null, gate: null, qr_path: null,
+      is_main: rows.length === 0, used: false, position: rows.length, created_at: new Date().toISOString(),
+    }
+    patchTickets((all) => [...all, t])
     setSelId(id)
     setEditMode(true)
+    addTrainTicket(tripId, { traveler_id: traveler.id, position: rows.length, is_main: rows.length === 0, kind: 'train' }, id)
+  }
+  function removeTicket(id: string) {
+    patchTickets((all) => all.filter((x) => x.id !== id))
+    deleteTrainTicket(id)
   }
   function toggleMain(t: TrainTicket) {
     const on = !t.is_main
-    // optimistic: only one main at a time
-    setLocalTickets((prev) => prev.map((x) => ({ ...x, is_main: on ? x.id === t.id : (x.id === t.id ? false : !!x.is_main) })))
-    const writes = on ? rows.map((r) => updateTrainTicket(r.id, { is_main: r.id === t.id })) : [updateTrainTicket(t.id, { is_main: false })]
-    Promise.all(writes).then(() => onChanged())
+    const myIds = new Set(rows.map((r) => r.id))
+    patchTickets((all) => all.map((x) => (myIds.has(x.id) ? { ...x, is_main: on ? x.id === t.id : (x.id === t.id ? false : x.is_main) } : x)))
+    if (on) rows.forEach((r) => updateTrainTicket(r.id, { is_main: r.id === t.id }))
+    else updateTrainTicket(t.id, { is_main: false })
   }
   function toggleUsed(t: TrainTicket) {
-    setLocalTickets((prev) => prev.map((x) => (x.id === t.id ? { ...x, used: !x.used } : x)))
-    updateTrainTicket(t.id, { used: !t.used }).then(() => onChanged())
+    persist(t.id, { used: !t.used })
   }
 
   return (
     <Drawer open={open} onClose={close} title={editMode && sel ? 'แก้ไข QR' : `Quick QR · ${name}`}>
       {editMode && sel ? (
         <QrEditPage key={sel.id} ticket={sel} tripId={tripId}
-          onBack={() => setEditMode(false)} onChanged={onChanged}
-          onDeleted={() => { setSelId(null); setEditMode(false) }} />
+          onPersist={(f) => persist(sel.id, f)}
+          onRemove={() => { removeTicket(sel.id); setSelId(null); setEditMode(false) }}
+          onBack={() => setEditMode(false)} />
       ) : rows.length === 0 ? (
-        <div className="flex items-center justify-end gap-1 mb-3">
+        <div>
           {canEdit && (
-            <button onClick={add} disabled={adding} className="btn-icon" aria-label="เพิ่ม QR" title="เพิ่ม QR">
-              {adding ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlus size={16} />}
-            </button>
+            <div className="flex justify-end mb-3">
+              <button onClick={add} className="btn-icon" aria-label="เพิ่ม QR" title="เพิ่ม QR"><IconPlus size={16} /></button>
+            </div>
           )}
-          <div className="w-full card p-8 text-center text-[13px] text-ink-3">ยังไม่มี QR{canEdit ? ' — กด “+” เพื่อเพิ่ม' : ''}</div>
+          <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มี QR{canEdit ? ' — กด “+” เพื่อเพิ่ม' : ''}</div>
         </div>
       ) : (
         <div>
-          {/* header: current label + add / edit */}
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <div className="text-[13px] font-medium text-ink-2 truncate flex items-center gap-1.5 min-w-0">
-              {(() => { const M = kindMeta(sel?.kind ?? null).icon; return <M size={14} className="shrink-0" /> })()}
-              <span className="truncate">{sel?.label || kindMeta(sel?.kind ?? null).label}</span>
+          {canEdit && (
+            <div className="flex justify-end gap-1 mb-1">
+              <button onClick={add} className="btn-icon" aria-label="เพิ่ม QR" title="เพิ่ม QR"><IconPlus size={16} /></button>
+              {sel && <button onClick={() => setEditMode(true)} className="btn-icon" aria-label="แก้ไข" title="แก้ไข"><IconPencil size={16} /></button>}
             </div>
-            {canEdit && (
-              <div className="flex gap-1 shrink-0">
-                <button onClick={add} disabled={adding} className="btn-icon" aria-label="เพิ่ม QR" title="เพิ่ม QR">
-                  {adding ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlus size={16} />}
-                </button>
-                {sel && <button onClick={() => setEditMode(true)} className="btn-icon" aria-label="แก้ไข" title="แก้ไข"><IconPencil size={16} /></button>}
-              </div>
-            )}
-          </div>
+          )}
 
-          {/* swipeable cards */}
+          {/* swipeable cards — each fully self-contained */}
           <div ref={scroller} onScroll={onScroll} className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar">
             {rows.map((t) => (
               <div key={t.id} className="w-full shrink-0 snap-center px-0.5">
@@ -141,7 +138,6 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
             ))}
           </div>
 
-          {/* dots */}
           {rows.length > 1 && (
             <div className="flex justify-center gap-1.5 mt-4">
               {rows.map((t) => (
@@ -158,7 +154,7 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   )
 }
 
-/** One swipeable QR card. */
+/** One swipeable QR card — title + QR + details all belong to the same ticket. */
 function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
   ticket: TrainTicket
   canEdit: boolean
@@ -170,7 +166,13 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
   const isTrain = (ticket.kind ?? 'train') === 'train'
   return (
     <div className={ticket.used ? 'opacity-60' : undefined}>
-      {/* main toggle — top centre, above the QR */}
+      {/* title — type + label (always matches this card's QR) */}
+      <div className="flex items-center justify-center gap-1.5 text-[13px] font-semibold mb-3">
+        <meta.icon size={15} className="text-brand shrink-0" />
+        <span className="truncate">{ticket.label || meta.label}</span>
+      </div>
+
+      {/* main toggle — centred, above the QR */}
       {canEdit && (
         <div className="flex justify-center mb-3">
           <button onClick={onToggleMain}
@@ -183,7 +185,7 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
         </div>
       )}
 
-      {/* QR — centred, tap to enlarge */}
+      {/* QR centred, tap to enlarge */}
       <div className="grid place-items-center">
         {ticket.qr_path ? (
           <button onClick={onEnlarge} className="size-56 max-w-full rounded-xl overflow-hidden bg-white hairline grid place-items-center" aria-label="ขยาย QR">
@@ -211,10 +213,7 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
             </div>
           </div>
         ) : (
-          <>
-            <div className="font-semibold flex items-center gap-1.5"><meta.icon size={14} className="text-ink-3" /> {ticket.label || meta.label}</div>
-            <div className="text-ink-2 mt-1 whitespace-pre-wrap">{ticket.note || <span className="text-ink-3">ไม่มีรายละเอียด</span>}</div>
-          </>
+          <div className="text-ink-2 whitespace-pre-wrap">{ticket.note || <span className="text-ink-3">ไม่มีรายละเอียด</span>}</div>
         )}
       </div>
 
@@ -233,12 +232,12 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
 }
 
 /** Separate edit page — type selector drives which fields show. */
-function QrEditPage({ ticket, tripId, onBack, onChanged, onDeleted }: {
+function QrEditPage({ ticket, tripId, onPersist, onRemove, onBack }: {
   ticket: TrainTicket
   tripId: string
+  onPersist: (fields: Parameters<typeof updateTrainTicket>[1]) => void
+  onRemove: () => void
   onBack: () => void
-  onChanged: () => void | Promise<void>
-  onDeleted: () => void
 }) {
   const [kind, setKind] = useState(ticket.kind ?? 'train')
   const [label, setLabel] = useState(ticket.label ?? '')
@@ -252,24 +251,18 @@ function QrEditPage({ ticket, tripId, onBack, onChanged, onDeleted }: {
   const fileInput = useRef<HTMLInputElement>(null)
   const meta = kindMeta(kind)
 
-  async function persist(patch: Parameters<typeof updateTrainTicket>[1]) {
-    await updateTrainTicket(ticket.id, patch)
-    await onChanged()
-  }
   async function onPickQr(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
     const { path } = await uploadImage(tripId, 'ticket-qr', file)
-    if (path) await persist({ qr_path: path })
+    if (path) onPersist({ qr_path: path })
     setUploading(false)
     if (fileInput.current) fileInput.current.value = ''
   }
-  async function remove() {
+  async function del() {
     if (!(await confirmDialog({ message: `ลบ "${ticket.label || 'QR'}"?`, danger: true, confirmLabel: 'ลบ' }))) return
-    await deleteTrainTicket(ticket.id)
-    onDeleted()
-    await onChanged()
+    onRemove()
   }
 
   return (
@@ -290,33 +283,33 @@ function QrEditPage({ ticket, tripId, onBack, onChanged, onDeleted }: {
       </div>
 
       <div className="space-y-2.5 mt-5">
-        <select className={field} value={kind} onChange={(e) => { setKind(e.target.value); persist({ kind: e.target.value }) }}>
+        <select className={field} value={kind} onChange={(e) => { setKind(e.target.value); onPersist({ kind: e.target.value }) }}>
           {KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
         </select>
 
-        <input className={field} value={label} placeholder={meta.labelPh} onChange={(e) => setLabel(e.target.value)} onBlur={() => persist({ label: label.trim() || null })} />
+        <input className={field} value={label} placeholder={meta.labelPh} onChange={(e) => setLabel(e.target.value)} onBlur={() => onPersist({ label: label.trim() || null })} />
 
         {kind === 'train' ? (
           <>
             <div className="grid grid-cols-2 gap-2">
-              <input className={field} value={from} placeholder="สถานีต้นทาง" onChange={(e) => setFrom(e.target.value)} onBlur={() => persist({ from_station: from.trim() || null })} />
-              <input className={field} value={to} placeholder="สถานีปลายทาง" onChange={(e) => setTo(e.target.value)} onBlur={() => persist({ to_station: to.trim() || null })} />
+              <input className={field} value={from} placeholder="สถานีต้นทาง" onChange={(e) => setFrom(e.target.value)} onBlur={() => onPersist({ from_station: from.trim() || null })} />
+              <input className={field} value={to} placeholder="สถานีปลายทาง" onChange={(e) => setTo(e.target.value)} onBlur={() => onPersist({ to_station: to.trim() || null })} />
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <input className={field} value={car} placeholder="Car" onChange={(e) => setCar(e.target.value)} onBlur={() => persist({ car: car.trim() || null })} />
-              <input className={field} value={gate} placeholder="Gate" onChange={(e) => setGate(e.target.value)} onBlur={() => persist({ gate: gate.trim() || null })} />
-              <input className={field} value={seat} placeholder="Seat" onChange={(e) => setSeat(e.target.value)} onBlur={() => persist({ seat_no: seat.trim() || null })} />
+              <input className={field} value={car} placeholder="Car" onChange={(e) => setCar(e.target.value)} onBlur={() => onPersist({ car: car.trim() || null })} />
+              <input className={field} value={gate} placeholder="Gate" onChange={(e) => setGate(e.target.value)} onBlur={() => onPersist({ gate: gate.trim() || null })} />
+              <input className={field} value={seat} placeholder="Seat" onChange={(e) => setSeat(e.target.value)} onBlur={() => onPersist({ seat_no: seat.trim() || null })} />
             </div>
           </>
         ) : (
           <textarea className="hairline rounded-md text-[13px] px-2.5 py-2 bg-surface w-full outline-none focus:border-brand resize-none" rows={3}
             value={note} placeholder={'notePh' in meta ? meta.notePh : 'รายละเอียด'}
-            onChange={(e) => setNote(e.target.value)} onBlur={() => persist({ note: note.trim() || null })} />
+            onChange={(e) => setNote(e.target.value)} onBlur={() => onPersist({ note: note.trim() || null })} />
         )}
       </div>
 
       <div className="flex items-center justify-between gap-3 mt-5 pt-4" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-        <button onClick={remove} className="text-[12px] inline-flex items-center gap-1 text-[#D85A30]"><IconTrash size={14} /> ลบรายการนี้</button>
+        <button onClick={del} className="text-[12px] inline-flex items-center gap-1 text-[#D85A30]"><IconTrash size={14} /> ลบรายการนี้</button>
         <button onClick={onBack} className="btn-primary h-9 px-5 text-[13px]">เสร็จ</button>
       </div>
 

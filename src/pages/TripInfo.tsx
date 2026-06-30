@@ -283,7 +283,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
 }
 
 export default function TripInfo() {
-  const { trip, travelers, travelerFiles, flights, trains, trainTickets, hotels, profile, reload, canEdit } = useTrip()
+  const { trip, travelers, travelerFiles, flights, trains, trainTickets, hotels, profile, reload, patch, canEdit } = useTrip()
   const { user } = useAuth()
   const [selected, setSelected] = useState<Traveler | null>(null)
   const [qrFor, setQrFor] = useState<Traveler | null>(null)
@@ -451,7 +451,7 @@ export default function TripInfo() {
         tickets={trainTickets.filter((tk) => tk.traveler_id === qrFor?.id)}
         tripId={trip?.id ?? ''}
         canEdit={canEdit}
-        onChanged={reload}
+        patchTickets={(fn) => patch((d) => ({ trainTickets: fn(d.trainTickets) }))}
       />
 
       {/* Overview drawer */}
