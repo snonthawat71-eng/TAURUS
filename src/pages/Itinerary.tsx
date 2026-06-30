@@ -52,15 +52,18 @@ function SortableStop({
   const style = {
     transform: CSS.Transform.toString(transform), transition,
     opacity: isDragging ? 0.5 : done ? 0.5 : 1,
-    ...(isNext ? { background: 'var(--color-brand-soft)', boxShadow: 'inset 0 0 0 1px var(--color-brand-border)' } : {}),
   }
   const mode = stop.link_mode ?? 'map'
   const detailMode = mode === 'detail' && !!matchedPlace
   const tapAction = mode === 'none' ? null : detailMode ? () => onOpenDetail(matchedPlace!) : () => openMap(stop.map_url)
 
   return (
-    <div ref={setNodeRef} id={`stop-${stop.id}`} style={style}
-      className={['flex gap-2.5', isNext ? 'rounded-[10px] -mx-2 px-2 py-1.5' : ''].join(' ')}>
+    <div ref={setNodeRef} id={`stop-${stop.id}`} style={style}>
+      {/* PLACE CARD — one to-do-style card per stop */}
+      <div className="flex gap-2.5 rounded-[10px] p-3" style={{
+        background: isNext ? 'var(--color-brand-soft)' : 'var(--color-surface)',
+        border: `0.5px solid ${isNext ? 'var(--color-brand-border)' : 'var(--color-line)'}`,
+      }}>
       {/* grip + check-in + time, top-aligned so the time sits on the SAME line as
           the place name's first line */}
       <div className="flex items-start gap-1.5 shrink-0">
@@ -134,8 +137,10 @@ function SortableStop({
             </button>
           </div>
         )}
-        {!done && stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
       </div>
+      </div>
+      {/* TRANSIT CARD — the route to this stop gets its own card below the place */}
+      {!done && stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
     </div>
   )
 }
@@ -171,25 +176,25 @@ function DayCard({
       {/* Blue strip — sits BEHIND the content card (z-0) and peeks out at the TOP with
           its own rounded top corners (layered look; mirrors the trip card's bottom
           strip, flipped to the top). Day N · weather · collapse live here. */}
-      <div className="relative z-0 -mb-3 pt-2 pb-4 px-4 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: 'var(--color-brand)' }}>
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="relative z-0 -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: 'var(--color-brand)' }}>
+        <div className="flex items-center gap-1.5 min-w-0">
           {canEdit && (
             <button {...attributes} {...listeners} className="text-white/70 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากย้ายวัน">
-              <IconGripVertical size={16} />
+              <IconGripVertical size={14} />
             </button>
           )}
-          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-white/20">Day {index + 1}</span>
+          <span className="inline-flex items-center rounded-full px-2 py-px text-[10px] font-semibold shrink-0 bg-white/20">Day {index + 1}</span>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {wx && <WeatherBadge wx={wx} size={12} className="text-[10px] text-white/90" />}
+        <div className="flex items-center gap-0.5 shrink-0">
+          {wx && <WeatherBadge wx={wx} size={11} className="text-[10px] text-white/90" />}
           {canEdit && (
-            <PopMenu buttonClassName="!bg-transparent !text-white hover:!bg-white/15" items={[
+            <PopMenu size={22} buttonClassName="!bg-transparent !text-white hover:!bg-white/15" items={[
               { label: 'แก้ไขวัน', icon: <IconPencil size={15} />, onClick: onEditDay },
               { label: 'ลบวัน', icon: <IconTrash size={15} />, onClick: onDeleteDay, danger: true },
             ]} />
           )}
-          <button onClick={onToggleCollapse} className="!size-7 grid place-items-center rounded-md text-white/90 hover:bg-white/15" aria-label={collapsed ? 'เปิดวัน' : 'พับวัน'} aria-expanded={!collapsed}>
-            <IconChevronDown size={16} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+          <button onClick={onToggleCollapse} className="!size-[22px] grid place-items-center rounded-md text-white/90 hover:bg-white/15" aria-label={collapsed ? 'เปิดวัน' : 'พับวัน'} aria-expanded={!collapsed}>
+            <IconChevronDown size={15} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
           </button>
         </div>
       </div>
@@ -206,10 +211,10 @@ function DayCard({
         </button>
 
         {!collapsed && (
-          <div className="p-4 space-y-3 min-h-[60px]">
+          <div className="p-3 space-y-2.5 min-h-[60px] bg-surface-2">
             {stops.length === 0 && <div className="text-[12px] text-ink-3 text-center py-2">ยังไม่มีจุดแวะในวันนี้ — ลากกิจกรรมมาวางที่นี่ได้</div>}
             <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {stops.map((s) => (
                   <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />
                 ))}
