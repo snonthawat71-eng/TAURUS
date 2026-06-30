@@ -167,35 +167,37 @@ function DayCard({
   const doneCount = stops.filter((s) => s.done).length
 
   return (
-    <div ref={setNodeRef} style={style} className="card">
-      <div className="flex items-center justify-between px-4 py-3" style={collapsed ? undefined : { borderBottom: '0.5px solid var(--color-line)' }}>
+    <div ref={setNodeRef} style={style} className="card overflow-hidden">
+      {/* Blue header bar (mirrors the trip card's pill header) — Day N · weather · collapse */}
+      <div className="flex items-center justify-between px-4 py-2 text-white" style={{ background: 'var(--color-brand)' }}>
         <div className="flex items-center gap-2 min-w-0">
           {canEdit && (
-            <button {...attributes} {...listeners} className="text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากย้ายวัน">
+            <button {...attributes} {...listeners} className="text-white/70 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากย้ายวัน">
               <IconGripVertical size={16} />
             </button>
           )}
-          <span className="chip !bg-brand-soft !text-brand-dark !font-medium shrink-0">Day {index + 1}</span>
-          <button onClick={onToggleCollapse} className="min-w-0 text-left" aria-expanded={!collapsed}>
-            <div className="text-[13px] font-medium truncate">{formatLongDate(day.day_date)}</div>
-            {collapsed
-              ? <div className="text-[11px] text-ink-3 truncate">{stops.length} กิจกรรม{doneCount > 0 ? ` · เสร็จ ${doneCount}/${stops.length}` : ''}{day.label ? ` · ${day.label}` : ''}</div>
-              : day.label && <div className="text-[11px] text-ink-3 truncate">{day.label}</div>}
-          </button>
+          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-semibold shrink-0 bg-white/20">Day {index + 1}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {wx && <WeatherBadge wx={wx} className="text-[12px] text-ink-2" />}
+          {wx && <WeatherBadge wx={wx} className="text-[12px] text-white/90" />}
           {canEdit && (
-            <PopMenu items={[
+            <PopMenu buttonClassName="!bg-transparent !text-white hover:!bg-white/15" items={[
               { label: 'แก้ไขวัน', icon: <IconPencil size={15} />, onClick: onEditDay },
               { label: 'ลบวัน', icon: <IconTrash size={15} />, onClick: onDeleteDay, danger: true },
             ]} />
           )}
-          <button onClick={onToggleCollapse} className="btn-icon !border-0 !size-7 text-ink-3" aria-label={collapsed ? 'เปิดวัน' : 'พับวัน'} aria-expanded={!collapsed}>
+          <button onClick={onToggleCollapse} className="!size-7 grid place-items-center rounded-md text-white/90 hover:bg-white/15" aria-label={collapsed ? 'เปิดวัน' : 'พับวัน'} aria-expanded={!collapsed}>
             <IconChevronDown size={16} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
           </button>
         </div>
       </div>
+      {/* Date row (enlarged) below the bar */}
+      <button onClick={onToggleCollapse} className="w-full text-left px-4 py-3" style={collapsed ? undefined : { borderBottom: '0.5px solid var(--color-line)' }} aria-expanded={!collapsed}>
+        <div className="text-[18px] font-semibold truncate leading-tight">{formatLongDate(day.day_date)}</div>
+        {collapsed
+          ? <div className="text-[12px] text-ink-3 truncate mt-0.5">{stops.length} กิจกรรม{doneCount > 0 ? ` · เสร็จ ${doneCount}/${stops.length}` : ''}{day.label ? ` · ${day.label}` : ''}</div>
+          : day.label && <div className="text-[12px] text-ink-3 truncate mt-0.5">{day.label}</div>}
+      </button>
 
       {!collapsed && (
         <div className="p-4 space-y-3 min-h-[60px]">
