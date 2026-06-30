@@ -296,8 +296,13 @@ export default function Itinerary() {
     filterScrollRef.current.scrollLeft = d.startLeft - dx
   }
   function endFilterDrag() { filterDrag.current.down = false }
-  // a drag shouldn't also fire the chip's click
-  function pickDay(id: string | null) { if (!filterDrag.current.moved) setFilterDayId(id) }
+  // a drag shouldn't also fire the chip's click; the choice is remembered per trip
+  function pickDay(id: string | null) {
+    if (filterDrag.current.moved) return
+    setFilterDayId(id)
+    const key = trip?.id ? `taurus:itin:filter:${trip.id}` : null
+    if (key) { try { id ? localStorage.setItem(key, id) : localStorage.removeItem(key) } catch { /* ignore */ } }
+  }
   // a live mirror of localStops so the drag handlers read the latest order, and
   // the day a drag started in (to re-number it after a cross-day move)
   const stopsRef = useRef<ItineraryStop[]>(stops)
@@ -324,6 +329,13 @@ export default function Itinerary() {
       return n
     })
   }
+
+  // remember the selected date filter, per trip, across tab switches / reloads
+  const filterKey = trip?.id ? `taurus:itin:filter:${trip.id}` : null
+  useEffect(() => {
+    if (!filterKey) { setFilterDayId(null); return }
+    try { setFilterDayId(localStorage.getItem(filterKey) || null) } catch { setFilterDayId(null) }
+  }, [filterKey])
 
   const daySensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
