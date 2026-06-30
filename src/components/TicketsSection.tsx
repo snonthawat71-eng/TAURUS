@@ -1,28 +1,21 @@
 import { useMemo, useRef, useState } from 'react'
-import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconTrain } from '@tabler/icons-react'
-import { Drawer } from './Drawer'
+import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2 } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { uploadImage } from '@/lib/files'
 import { addTrainTicket, updateTrainTicket, deleteTrainTicket } from '@/lib/tripMutations'
 import { confirmDialog } from '@/lib/confirm'
-import { formatFlightDate } from '@/lib/format'
-import type { Train, TrainTicket, Traveler } from '@/lib/database.types'
+import type { TrainTicket, Traveler } from '@/lib/database.types'
 
 const qrRef = (path: string): PhotoRef => (/^https?:\/\//.test(path) ? { url: path } : { path })
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 
 /**
- * Per-passenger train tickets: a clean list of riders, each with seat/car and a
- * QR thumbnail. Tap a QR to blow it up full-screen for the gate scanner (swipe
- * between people in that enlarged view). Owners/editors can add riders + upload QRs.
+ * Standalone "Tickets / QR" section — per-passenger QR (+ optional label/seat),
+ * independent of the train info. The front list stays clean; tap a QR to blow it
+ * up full-screen for the gate scanner (swipe between people in that view).
  */
-export function TrainTickets({
-  open, onClose, train, tickets, travelers, tripId, canEdit, onChanged,
-}: {
-  open: boolean
-  onClose: () => void
-  train: Train | null
+export function TicketsSection({ tickets, travelers, tripId, canEdit, onChanged }: {
   tickets: TrainTicket[]
   travelers: Traveler[]
   tripId: string
@@ -30,7 +23,6 @@ export function TrainTickets({
   onChanged: () => void | Promise<void>
 }) {
   const rows = useMemo(() => [...tickets].sort((a, b) => a.position - b.position), [tickets])
-  // gallery of every QR present, so the enlarged view can swipe person→person
   const gallery = useMemo(() => rows.filter((t) => t.qr_path).map((t) => qrRef(t.qr_path!)), [rows])
   const [lightbox, setLightbox] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
@@ -38,52 +30,41 @@ export function TrainTickets({
   const nameOf = (t: TrainTicket) =>
     travelers.find((tv) => tv.id === t.traveler_id)?.nickname || t.passenger_name || 'ผู้โดยสาร'
 
-  async function addRider() {
-    if (!train || adding) return
+  async function addTicket() {
+    if (adding) return
     setAdding(true)
-    await addTrainTicket(tripId, train.id, { traveler_id: travelers[0]?.id ?? null, position: rows.length })
+    await addTrainTicket(tripId, { traveler_id: travelers[0]?.id ?? null, position: rows.length })
     await onChanged()
     setAdding(false)
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="ตั๋วรถไฟ · QR">
-      {train && (
-        <div className="card p-3 flex items-center gap-2.5 mb-3">
-          <span className="size-9 rounded-md bg-surface-2 grid place-items-center text-brand shrink-0"><IconTrain size={18} /></span>
-          <div className="min-w-0">
-            <div className="text-[13px] font-medium truncate">{train.dep_name} → {train.arr_name}</div>
-            <div className="text-[11px] text-ink-3 truncate">
-              {[train.train_no && `${train.train_no}`, train.operator, formatFlightDate(train.travel_date)].filter(Boolean).join(' · ')}
-            </div>
-          </div>
+    <div>
+      <div className="flex items-center justify-between mb-2.5 mt-7">
+        <h2 className="text-[13px] font-medium text-ink-2">Tickets • ตั๋ว / QR</h2>
+        {canEdit && (
+          <button onClick={addTicket} disabled={adding} className="btn-link flex items-center gap-1 disabled:opacity-50">
+            {adding ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlus size={14} />} เพิ่มตั๋ว
+          </button>
+        )}
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีตั๋ว / QR</div>
+      ) : (
+        <div className="space-y-2.5">
+          {rows.map((t) => (
+            <TicketRow key={t.id} ticket={t} name={nameOf(t)} travelers={travelers} tripId={tripId} canEdit={canEdit}
+              onEnlarge={() => { const i = gallery.findIndex((g) => g.url === t.qr_path || g.path === t.qr_path); if (i >= 0) setLightbox(i) }}
+              onChanged={onChanged} />
+          ))}
         </div>
       )}
 
-      <div className="space-y-2.5">
-        {rows.length === 0 && (
-          <div className="card p-6 flex flex-col items-center gap-2 text-center">
-            <IconQrcode size={26} className="text-ink-3" />
-            <p className="text-[13px] text-ink-2">ยังไม่มีตั๋วรายคน</p>
-          </div>
-        )}
-        {rows.map((t) => (
-          <TicketRow key={t.id} ticket={t} name={nameOf(t)} travelers={travelers} tripId={tripId} canEdit={canEdit}
-            onEnlarge={() => { const i = gallery.findIndex((g) => g.url === t.qr_path || g.path === t.qr_path); if (i >= 0) setLightbox(i) }}
-            onChanged={onChanged} />
-        ))}
-      </div>
-
-      {canEdit && train && (
-        <button onClick={addRider} disabled={adding} className="btn-link flex items-center gap-1.5 mt-3 disabled:opacity-50">
-          {adding ? <IconLoader2 size={15} className="animate-spin" /> : <IconPlus size={15} />} เพิ่มผู้โดยสาร
-        </button>
-      )}
-
       {lightbox !== null && (
-        <Lightbox photos={gallery} index={lightbox} alt="QR ตั๋วรถไฟ" onClose={() => setLightbox(null)} />
+        <Lightbox photos={gallery} index={lightbox} alt="QR ตั๋ว" onClose={() => setLightbox(null)} />
       )}
-    </Drawer>
+    </div>
   )
 }
 
@@ -99,6 +80,7 @@ function TicketRow({
   onChanged: () => void | Promise<void>
 }) {
   const [travelerId, setTravelerId] = useState(ticket.traveler_id ?? '')
+  const [label, setLabel] = useState(ticket.label ?? '')
   const [seat, setSeat] = useState(ticket.seat_no ?? '')
   const [car, setCar] = useState(ticket.car ?? '')
   const [uploading, setUploading] = useState(false)
@@ -112,7 +94,7 @@ function TicketRow({
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
-    const { path } = await uploadImage(tripId, 'train-qr', file)
+    const { path } = await uploadImage(tripId, 'ticket-qr', file)
     if (path) await persist({ qr_path: path })
     setUploading(false)
     if (fileInput.current) fileInput.current.value = ''
@@ -155,6 +137,7 @@ function TicketRow({
             ) : (
               <div className="text-[14px] font-medium">{name}</div>
             )}
+            <input className={field} value={label} placeholder="ป้ายกำกับ (เช่น ขาไป / Shinkansen)" onChange={(e) => setLabel(e.target.value)} onBlur={() => persist({ label: label.trim() || null })} />
             <div className="grid grid-cols-2 gap-2">
               <input className={field} value={car} placeholder="ตู้ที่" onChange={(e) => setCar(e.target.value)} onBlur={() => persist({ car: car.trim() || null })} />
               <input className={field} value={seat} placeholder="ที่นั่ง" onChange={(e) => setSeat(e.target.value)} onBlur={() => persist({ seat_no: seat.trim() || null })} />
@@ -171,6 +154,7 @@ function TicketRow({
         ) : (
           <div>
             <div className="text-[14px] font-medium">{name}</div>
+            {ticket.label && <div className="text-[11px] text-ink-3 mt-0.5">{ticket.label}</div>}
             <div className="text-[12px] text-ink-3 mt-1">
               {[car && `ตู้ ${car}`, seat && `ที่นั่ง ${seat}`].filter(Boolean).join(' · ') || 'ไม่ระบุที่นั่ง'}
             </div>

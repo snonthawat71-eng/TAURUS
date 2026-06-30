@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
-  IconBed, IconPlane, IconPencil, IconTrash, IconTrain, IconQrcode, IconChevronRight,
+  IconBed, IconPlane, IconPencil, IconTrash, IconTrain,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,7 +12,7 @@ import { FlightEditor } from '@/components/FlightEditor'
 import { TrainEditor } from '@/components/TrainEditor'
 import { HotelEditor } from '@/components/HotelEditor'
 import { HotelPhoto } from '@/components/HotelPhoto'
-import { TrainTickets } from '@/components/TrainTickets'
+import { TicketsSection } from '@/components/TicketsSection'
 import { BudgetSection } from '@/components/BudgetSection'
 import { AttachLink } from '@/components/AttachLink'
 import { PopMenu } from '@/components/PopMenu'
@@ -29,7 +29,7 @@ import {
   addTrain, updateTrain, deleteTrain,
   addHotel, updateHotel, deleteHotel, updateProfile,
 } from '@/lib/tripMutations'
-import type { Flight, Train, TrainTicket, FlightDirection, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
+import type { Flight, Train, FlightDirection, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
 
 type EditState<T> = 'new' | T | null
 
@@ -185,19 +185,16 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   )
 }
 
-function TrainCard({ trains, tickets, tripId, canEdit, onEdit, onDelete, onAdd, onOpenTickets }: {
+function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
   trains: Train[]
-  tickets: TrainTicket[]
   tripId: string
   canEdit: boolean
   onEdit: (t: Train) => void
   onDelete: (t: Train) => void
   onAdd: (dir: FlightDirection) => void
-  onOpenTickets: (t: Train) => void
 }) {
   const [dir, setDir] = useState<FlightDirection>('outbound')
   const t = trains.find((x) => (x.direction ?? 'outbound') === dir)
-  const ticketCount = t ? tickets.filter((x) => x.train_id === t.id).length : 0
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
 
   const toggle = (
@@ -276,16 +273,6 @@ function TrainCard({ trains, tickets, tripId, canEdit, onEdit, onDelete, onAdd, 
       </>
       )}
 
-      {/* per-passenger QR tickets — one clean row; the QRs live behind it */}
-      {t && (
-        <button onClick={() => onOpenTickets(t)}
-          className="mt-3 w-full flex items-center justify-between rounded-[10px] px-3 h-10 bg-surface hover:bg-surface-2 transition-colors"
-          style={{ border: '0.5px solid var(--color-line)' }}>
-          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2"><IconQrcode size={15} className="text-brand" /> ตั๋ว · QR{ticketCount > 0 ? ` (${ticketCount} คน)` : ''}</span>
-          <IconChevronRight size={15} className="text-ink-3" />
-        </button>
-      )}
-
       {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
       <div className="flex items-center justify-between gap-2 mt-3.5">
         {t ? <AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} /> : <span />}
@@ -300,7 +287,6 @@ export default function TripInfo() {
   const { user } = useAuth()
   const [selected, setSelected] = useState<Traveler | null>(null)
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
-  const [ticketsTrain, setTicketsTrain] = useState<Train | null>(null)
   const [flightEdit, setFlightEdit] = useState<EditState<Flight>>(null)
   const [newFlightDir, setNewFlightDir] = useState<FlightDirection>('outbound')
   const [trainEdit, setTrainEdit] = useState<EditState<Train>>(null)
@@ -373,11 +359,13 @@ export default function TripInfo() {
       {trains.length === 0 ? (
         <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลรถไฟ</div>
       ) : (
-        <TrainCard trains={trains} tickets={trainTickets} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(t) => setTrainEdit(t)}
-          onOpenTickets={setTicketsTrain}
+        <TrainCard trains={trains} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(t) => setTrainEdit(t)}
           onAdd={(d) => { setNewTrainDir(d); setTrainEdit('new') }}
           onDelete={async (t) => { if (await confirmDialog({ message: 'ลบรถไฟนี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteTrain(t.id); await reload(); offerUndo('ลบรถไฟแล้ว', [{ table: 'trains', rows: [t] }], reload) } }} />
       )}
+
+      {/* Tickets / QR — its own section, separate from train info */}
+      <TicketsSection tickets={trainTickets} travelers={travelers} tripId={trip?.id ?? ''} canEdit={canEdit} onChanged={reload} />
 
       {/* Hotels */}
       <SectionHead title="Hotels • ที่พัก"
@@ -444,17 +432,6 @@ export default function TripInfo() {
       {/* Budget */}
       <SectionHead title="Budget • ค่าใช้จ่าย" />
       <BudgetSection />
-
-      <TrainTickets
-        open={!!ticketsTrain}
-        onClose={() => setTicketsTrain(null)}
-        train={ticketsTrain}
-        tickets={trainTickets.filter((t) => t.train_id === ticketsTrain?.id)}
-        travelers={travelers}
-        tripId={trip?.id ?? ''}
-        canEdit={canEdit}
-        onChanged={reload}
-      />
 
       {/* Overview drawer */}
       <TravelerDrawer

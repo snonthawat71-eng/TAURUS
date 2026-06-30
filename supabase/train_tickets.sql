@@ -6,10 +6,11 @@
 
 create table if not exists train_tickets (
   id             uuid primary key default gen_random_uuid(),
-  trip_id        uuid not null references trips(id)  on delete cascade,
-  train_id       uuid not null references trains(id) on delete cascade,
+  trip_id        uuid not null references trips(id) on delete cascade,
+  train_id       uuid references trains(id) on delete set null,     -- (optional) ผูกกับขบวน
   traveler_id    uuid references travelers(id) on delete set null,  -- ผูกกับผู้เดินทาง (ถ้ามี)
   passenger_name text,                                              -- ชื่อ (กรณีไม่ผูก traveler)
+  label          text,                                              -- ป้ายกำกับ เช่น "ขาไป" / "Shinkansen"
   seat_no        text,                                              -- ที่นั่ง
   car            text,                                              -- ตู้ที่
   qr_path        text,                                              -- รูป QR (bucket trip-files / Cloudinary)
@@ -17,8 +18,11 @@ create table if not exists train_tickets (
   created_at     timestamptz not null default now()
 );
 
-create index if not exists train_tickets_train_id_idx on train_tickets(train_id);
-create index if not exists train_tickets_trip_id_idx  on train_tickets(trip_id);
+-- เผื่อเคยสร้างเวอร์ชันก่อน (train_id NOT NULL / ยังไม่มี label)
+alter table train_tickets alter column train_id drop not null;
+alter table train_tickets add column if not exists label text;
+
+create index if not exists train_tickets_trip_id_idx on train_tickets(trip_id);
 
 -- ---- RLS: อ่านได้ถ้าดูทริปได้, เขียนได้ถ้าแก้ทริปได้ (เหมือน trains) ----
 alter table train_tickets enable row level security;

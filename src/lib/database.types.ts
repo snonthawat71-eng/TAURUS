@@ -90,9 +90,10 @@ export interface Flight {
 export interface TrainTicket {
   id: string
   trip_id: string
-  train_id: string
+  train_id: string | null
   traveler_id: string | null
   passenger_name: string | null
+  label: string | null
   seat_no: string | null
   car: string | null
   qr_path: string | null
