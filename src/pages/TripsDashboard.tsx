@@ -218,7 +218,7 @@ export default function TripsDashboard() {
               const countdown = tripCountdown(t.start_date, t.end_date)
               return (
                 <div key={t.id} className="relative flex flex-col">
-                  <div className="card p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white z-10" style={{ background: heroGradient(t) }}>
+                  <div className="card !border-0 p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white z-10" style={{ background: heroGradient(t) }}>
                   {/* full photo (shifted right) */}
                   <CoverImage url={coverImage(t)} />
                   {/* navy gradient on the left so the title/buttons read; photo stays natural on the right */}
