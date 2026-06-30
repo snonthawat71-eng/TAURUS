@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   DndContext, PointerSensor, useSensor, useSensors, closestCenter,
   type DragEndEvent, type DragOverEvent, type DragStartEvent,
@@ -281,6 +281,23 @@ export default function Itinerary() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   // date filter above the day cards: null = show all days, otherwise a single day
   const [filterDayId, setFilterDayId] = useState<string | null>(null)
+  // desktop click-drag to scroll the filter strip (touch uses native scrolling)
+  const filterScrollRef = useRef<HTMLDivElement>(null)
+  const filterDrag = useRef({ down: false, startX: 0, startLeft: 0, moved: false })
+  function onFilterPointerDown(e: ReactPointerEvent) {
+    if (e.pointerType !== 'mouse' || !filterScrollRef.current) return
+    filterDrag.current = { down: true, startX: e.clientX, startLeft: filterScrollRef.current.scrollLeft, moved: false }
+  }
+  function onFilterPointerMove(e: ReactPointerEvent) {
+    const d = filterDrag.current
+    if (!d.down || !filterScrollRef.current) return
+    const dx = e.clientX - d.startX
+    if (Math.abs(dx) > 3) d.moved = true
+    filterScrollRef.current.scrollLeft = d.startLeft - dx
+  }
+  function endFilterDrag() { filterDrag.current.down = false }
+  // a drag shouldn't also fire the chip's click
+  function pickDay(id: string | null) { if (!filterDrag.current.moved) setFilterDayId(id) }
   // a live mirror of localStops so the drag handlers read the latest order, and
   // the day a drag started in (to re-number it after a cross-day move)
   const stopsRef = useRef<ItineraryStop[]>(stops)
@@ -559,34 +576,47 @@ export default function Itinerary() {
     <div className="space-y-4">
       <NotificationSettings />
 
-      {/* Date filter — "ดูทั้งหมด" + one chip per planned day (past days go gray) */}
+      {/* Date filter — "ดูทั้งหมด" + one chip per planned day (past days go gray).
+          Sized so 6 chips fill the row; extra days scroll (faint fade hints at more).
+          Desktop: click-drag to scroll; touch uses native scrolling. */}
       {localDays.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-          <button onClick={() => setFilterDayId(null)}
-            className="shrink-0 w-[52px] py-2 rounded-[12px] flex flex-col items-center justify-center gap-1 transition-colors"
-            style={activeFilter == null
-              ? { background: 'var(--color-brand)', color: '#fff' }
-              : { background: 'var(--color-surface)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
-            <IconLayoutGrid size={16} />
-            <span className="text-[10px] font-medium leading-none">ทั้งหมด</span>
-          </button>
-          {localDays.map((day) => {
-            const dt = day.day_date ? new Date(day.day_date) : null
-            const isPast = !!day.day_date && day.day_date < todayStr
-            const selected = activeFilter === day.id
-            return (
-              <button key={day.id} onClick={() => setFilterDayId(day.id)}
-                className="shrink-0 w-[52px] py-2 rounded-[12px] flex flex-col items-center justify-center gap-0.5 transition-colors"
-                style={selected
-                  ? { background: 'var(--color-brand)', color: '#fff' }
-                  : isPast
-                    ? { background: 'var(--color-surface-2)', color: 'var(--color-ink-3)', border: '0.5px solid var(--color-line)' }
-                    : { background: 'var(--color-surface)', color: 'var(--color-ink)', border: '0.5px solid var(--color-line)' }}>
-                <span className="text-[16px] font-bold leading-none tabular-nums">{dt ? dt.getDate() : '–'}</span>
-                <span className="text-[10px] font-medium uppercase leading-none opacity-80">{dt ? WD[dt.getDay()] : ''}</span>
-              </button>
-            )
-          })}
+        <div className="relative">
+          <div ref={filterScrollRef}
+            onPointerDown={onFilterPointerDown} onPointerMove={onFilterPointerMove}
+            onPointerUp={endFilterDrag} onPointerLeave={endFilterDrag}
+            className="flex gap-2 overflow-x-auto pb-1 select-none cursor-grab active:cursor-grabbing [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: 'none' }}>
+            <button onClick={() => pickDay(null)}
+              className="shrink-0 grow-0 basis-[calc((100%-2.5rem)/6)] py-3 rounded-[12px] flex flex-col items-center justify-center gap-1 transition-colors"
+              style={activeFilter == null
+                ? { background: 'var(--color-brand)', color: '#fff' }
+                : { background: 'var(--color-surface)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
+              <IconLayoutGrid size={18} />
+              <span className="text-[10px] font-medium leading-none">ทั้งหมด</span>
+            </button>
+            {localDays.map((day) => {
+              const dt = day.day_date ? new Date(day.day_date) : null
+              const isPast = !!day.day_date && day.day_date < todayStr
+              const selected = activeFilter === day.id
+              return (
+                <button key={day.id} onClick={() => pickDay(day.id)}
+                  className="shrink-0 grow-0 basis-[calc((100%-2.5rem)/6)] py-3 rounded-[12px] flex flex-col items-center justify-center gap-1 transition-colors"
+                  style={selected
+                    ? { background: 'var(--color-brand)', color: '#fff' }
+                    : isPast
+                      ? { background: 'var(--color-surface-2)', color: 'var(--color-ink-3)', border: '0.5px solid var(--color-line)' }
+                      : { background: 'var(--color-surface)', color: 'var(--color-ink)', border: '0.5px solid var(--color-line)' }}>
+                  <span className="text-[19px] font-bold leading-none tabular-nums">{dt ? dt.getDate() : '–'}</span>
+                  <span className="text-[10px] font-medium uppercase leading-none opacity-80">{dt ? WD[dt.getDay()] : ''}</span>
+                </button>
+              )
+            })}
+          </div>
+          {/* faint fade on the right edge when there are more than 6 chips to slide to */}
+          {localDays.length + 1 > 6 && (
+            <div className="pointer-events-none absolute top-0 right-0 bottom-1 w-12 rounded-r-[12px]"
+              style={{ background: 'linear-gradient(to left, var(--color-canvas), transparent)' }} />
+          )}
         </div>
       )}
 
