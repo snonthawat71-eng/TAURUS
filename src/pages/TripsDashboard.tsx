@@ -75,7 +75,7 @@ function TripWeather({ trip, className }: { trip: Trip; className?: string }) {
     : null
   const wx = useWeather(tripCityCandidates(trip), date ? [date] : [])
   if (!date) return null
-  return <WeatherBadge wx={wx[date]} showMin={false} className={className} />
+  return <WeatherBadge wx={wx[date]} showMin={false} size={13} className={className} />
 }
 
 function CoverImage({ url }: { url?: string }) {
@@ -263,18 +263,18 @@ export default function TripsDashboard() {
                       <button onClick={() => { switchTrip(t.id); setShareOpen(true) }} title="แชร์ทริป"
                         className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/30 transition-colors"><IconShare2 size={16} /></button>
                     </div>
-
-                    {/* status bar — countdown + weather, grouped at the very bottom */}
-                    {t.start_date && (
-                      <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 text-[11px] text-white/90"
-                        style={{ borderTop: '0.5px solid rgba(255,255,255,0.18)' }}>
-                        {countdown
-                          ? <span className="inline-flex items-center gap-1 font-medium"><IconClock size={12} /> {countdown}</span>
-                          : <span />}
-                        <TripWeather trip={t} className="font-medium" />
-                      </div>
-                    )}
                   </div>
+
+                  {/* full-bleed status strip — colour by tab (upcoming = brand, past = grey) */}
+                  {t.start_date && (
+                    <div className="relative z-10 flex items-center justify-between gap-2 px-3.5 py-2 text-[11px] font-medium text-white"
+                      style={{ background: tab === 'past' ? '#5B6573' : 'var(--color-brand)' }}>
+                      <span className="inline-flex items-center gap-1">
+                        <IconClock size={13} /> {countdown ?? (tab === 'past' ? 'จบแล้ว' : '')}
+                      </span>
+                      <TripWeather trip={t} className="text-white" />
+                    </div>
+                  )}
                 </div>
               )
             })}
