@@ -25,7 +25,7 @@ import { offerUndo } from '@/lib/undo'
 import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
 import { setInPlan, toggleInterest } from '@/lib/placeMutations'
-import { useWeather, type DayWeather } from '@/lib/weather'
+import { useWeather, cityFromTrip, type DayWeather } from '@/lib/weather'
 import { WeatherBadge } from '@/components/WeatherBadge'
 import {
   addDay, updateDay, deleteDay, addStop, updateStop, deleteStop, setStopDone, persistStopOrder, persistDayOrder,
@@ -218,7 +218,7 @@ export default function Itinerary() {
   const { trip, days, stops, places, interests, memberProfiles, reload, patch, canEdit } = useTrip()
   const { user } = useAuth()
   const [detailPlace, setDetailPlace] = useState<Place | null>(null)
-  const dayWx = useWeather(trip?.cities?.[0] || trip?.country, days.map((d) => d.day_date).filter(Boolean) as string[])
+  const dayWx = useWeather(trip ? cityFromTrip(trip) : null, days.map((d) => d.day_date).filter(Boolean) as string[])
 
   const placeByName = useMemo(() => {
     const m = new Map<string, Place>()

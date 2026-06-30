@@ -46,6 +46,16 @@ export function weatherLabel(code: number): string {
   return 'พายุฝนฟ้าคะนอง'
 }
 
+/** Best city string to geocode for a trip: explicit city → country → trip name
+ *  with any year/number stripped (e.g. "Hongkong 2026" → "Hongkong"). */
+export function cityFromTrip(t: { cities?: string[] | null; country?: string | null; name?: string | null }): string {
+  const c = t.cities?.[0]?.trim()
+  if (c) return c
+  if (t.country?.trim()) return t.country.trim()
+  if (t.name) return t.name.replace(/[#\d]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return ''
+}
+
 async function geocode(city: string): Promise<{ lat: number; lon: number } | null> {
   const key = `${PREFIX}geo:${city.toLowerCase()}`
   const hit = localStorage.getItem(key)
