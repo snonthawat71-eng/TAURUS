@@ -555,7 +555,9 @@ export default function Itinerary() {
                 getMatchedPlace={getMatchedPlace}
                 canEdit={canEdit}
                 wx={day.day_date ? dayWx[day.day_date] : undefined}
-                collapsed={collapsed.has(day.id)}
+                // Past days auto-collapse: for them the stored toggle means "deviate
+                // from the default" (default = collapsed), so an entry = expanded.
+                collapsed={isPast ? !collapsed.has(day.id) : collapsed.has(day.id)}
                 nextStopId={nextStopId}
                 onToggleCollapse={() => toggleCollapse(day.id)}
                 onToggleDone={toggleDone}
