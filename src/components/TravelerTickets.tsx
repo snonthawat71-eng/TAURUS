@@ -25,48 +25,43 @@ export function TravelerTickets({ traveler, name, tickets, travelers, tripId, ca
   canEdit: boolean
   onChanged: () => void | Promise<void>
 }) {
-  const rows = useMemo(() => [...tickets].sort((a, b) => a.position - b.position), [tickets])
-  const gallery = useMemo(() => rows.filter((t) => t.qr_path).map((t) => qrRef(t.qr_path!)), [rows])
+  // one ticket per traveler — the tile beside their name is either the QR card or
+  // an ADD TICKET tile
+  const ticket = useMemo(() => [...tickets].sort((a, b) => a.position - b.position)[0] ?? null, [tickets])
   const [openId, setOpenId] = useState<string | null>(null)
-  const [lightbox, setLightbox] = useState<number | null>(null)
+  const [lightbox, setLightbox] = useState(false)
   const [adding, setAdding] = useState(false)
-  const open = rows.find((t) => t.id === openId) ?? null
+  const open = ticket && openId === ticket.id ? ticket : null
 
   async function add() {
     if (adding) return
     setAdding(true)
-    const id = await addTrainTicket(tripId, { traveler_id: traveler.id, position: rows.length })
+    const id = await addTrainTicket(tripId, { traveler_id: traveler.id, position: 0 })
     await onChanged()
     setAdding(false)
     setOpenId(id)
   }
-  function enlarge(t: TrainTicket) {
-    const i = gallery.findIndex((g) => g.url === t.qr_path || g.path === t.qr_path)
-    if (i >= 0) setLightbox(i)
-  }
 
-  if (rows.length === 0 && !canEdit) return null
+  if (!ticket && !canEdit) return null
 
   return (
-    <div className="flex gap-2.5 shrink-0">
-      {rows.map((t) => (
-        <button key={t.id} onClick={() => setOpenId(t.id)}
-          className="card w-[92px] shrink-0 p-2 flex flex-col items-center justify-center gap-1.5 hover:bg-surface-2/30 transition-colors">
-          {t.qr_path ? (
-            <div className="size-11 rounded-md overflow-hidden bg-white hairline grid place-items-center">
-              <SignedImage url={qrRef(t.qr_path).url} path={qrRef(t.qr_path).path} alt="QR" className="w-full h-full object-contain" width={160}
-                fallback={<IconQrcode size={20} className="text-ink-3" />} />
+    <>
+      {ticket ? (
+        <button onClick={() => setOpenId(ticket.id)}
+          className="card w-[116px] shrink-0 p-2.5 flex flex-col items-center justify-center gap-2 hover:bg-surface-2/30 transition-colors">
+          {ticket.qr_path ? (
+            <div className="size-14 rounded-md overflow-hidden bg-white hairline grid place-items-center">
+              <SignedImage url={qrRef(ticket.qr_path).url} path={qrRef(ticket.qr_path).path} alt="QR" className="w-full h-full object-contain" width={200}
+                fallback={<IconQrcode size={24} className="text-ink-3" />} />
             </div>
           ) : (
-            <div className="size-11 rounded-md bg-surface-2 grid place-items-center text-ink-3"><IconQrcode size={20} /></div>
+            <div className="size-14 rounded-md bg-surface-2 grid place-items-center text-ink-3"><IconQrcode size={24} /></div>
           )}
-          <span className="text-[10px] text-ink-2 truncate w-full text-center leading-tight">{t.label || 'ตั๋ว'}</span>
+          <span className="text-[10px] text-ink-2 truncate w-full text-center leading-tight">{ticket.label || 'ตั๋ว'}</span>
         </button>
-      ))}
-
-      {canEdit && (
+      ) : (
         <button onClick={add} disabled={adding}
-          className="card border-dashed w-[92px] shrink-0 flex flex-col items-center justify-center gap-1.5 text-ink-3 hover:bg-surface-2/40 disabled:opacity-50">
+          className="card border-dashed w-[116px] shrink-0 flex flex-col items-center justify-center gap-1.5 text-ink-3 hover:bg-surface-2/40 disabled:opacity-50">
           <div className="size-8 rounded-full bg-brand-soft grid place-items-center text-brand">
             {adding ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlus size={18} />}
           </div>
@@ -76,12 +71,12 @@ export function TravelerTickets({ traveler, name, tickets, travelers, tripId, ca
 
       {open && (
         <TicketDetail ticket={open} name={name} travelers={travelers} tripId={tripId} canEdit={canEdit}
-          onClose={() => setOpenId(null)} onEnlarge={() => enlarge(open)} onChanged={onChanged} />
+          onClose={() => setOpenId(null)} onEnlarge={() => open.qr_path && setLightbox(true)} onChanged={onChanged} />
       )}
-      {lightbox !== null && (
-        <Lightbox photos={gallery} index={lightbox} alt="QR ตั๋ว" onClose={() => setLightbox(null)} />
+      {lightbox && ticket?.qr_path && (
+        <Lightbox src={null} photos={[qrRef(ticket.qr_path)]} alt="QR ตั๋ว" onClose={() => setLightbox(false)} />
       )}
-    </div>
+    </>
   )
 }
 
