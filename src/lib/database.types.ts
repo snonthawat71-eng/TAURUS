@@ -100,6 +100,8 @@ export interface TrainTicket {
   car: string | null
   gate: string | null
   qr_path: string | null
+  is_main: boolean | null
+  used: boolean | null
   position: number
   created_at: string
 }

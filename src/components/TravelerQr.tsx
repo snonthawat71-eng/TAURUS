@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconArrowUpRight, IconTrain } from '@tabler/icons-react'
+import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconArrowUpRight, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { Lightbox } from './Lightbox'
@@ -12,9 +12,9 @@ const qrRef = (path: string) => (/^https?:\/\//.test(path) ? { url: path } : { p
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 
 /**
- * Quick-QR menu for one traveler — opened from the QR icon on their card.
- * Shows the selected QR big (tap to blow up full-screen for scanning), a
- * thumbnail strip to switch between this person's QRs, and inline fields + add.
+ * Quick-QR hub for one traveler. A dropdown picks the QR; you can flag one as the
+ * main QR or mark it used. The picked QR shows its boarding-pass detail (big QR +
+ * Car/Gate/Seat + stations), tap to enlarge full-screen for scanning.
  */
 export function TravelerQr({ open, onClose, traveler, name, tickets, travelers, tripId, canEdit, onChanged }: {
   open: boolean
@@ -28,55 +28,83 @@ export function TravelerQr({ open, onClose, traveler, name, tickets, travelers, 
   onChanged: () => void | Promise<void>
 }) {
   const rows = useMemo(() => [...tickets].sort((a, b) => a.position - b.position), [tickets])
+  const mainId = rows.find((r) => r.is_main)?.id ?? rows[0]?.id ?? null
   const [selId, setSelId] = useState<string | null>(null)
-  const sel = rows.find((t) => t.id === selId) ?? rows[0] ?? null
+  const curId = (selId && rows.some((r) => r.id === selId)) ? selId : mainId
+  const sel = rows.find((t) => t.id === curId) ?? null
   const [lightbox, setLightbox] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   async function add() {
     if (!traveler || adding) return
     setAdding(true)
-    const id = await addTrainTicket(tripId, { traveler_id: traveler.id, position: rows.length })
+    const id = await addTrainTicket(tripId, { traveler_id: traveler.id, position: rows.length, is_main: rows.length === 0 })
     await onChanged()
     setAdding(false)
     setSelId(id)
   }
+  async function setMain(id: string) {
+    setBusy(true)
+    await Promise.all(rows.map((r) => updateTrainTicket(r.id, { is_main: r.id === id })))
+    await onChanged()
+    setBusy(false)
+  }
+  async function toggleUsed(t: TrainTicket) {
+    setBusy(true)
+    await updateTrainTicket(t.id, { used: !t.used })
+    await onChanged()
+    setBusy(false)
+  }
 
   return (
-    <Drawer open={open} onClose={onClose} title={`ตั๋ว / QR · ${name}`}>
-      {/* switcher strip — thumbnails of this person's QRs + add */}
-      {(rows.length > 1 || canEdit) && (
-        <div className="flex gap-2 overflow-x-auto no-scrollbar mb-3 pb-0.5">
-          {rows.map((t) => {
-            const active = t.id === sel?.id
-            return (
-              <button key={t.id} onClick={() => setSelId(t.id)}
-                className={`shrink-0 w-16 rounded-lg p-1.5 flex flex-col items-center gap-1 hairline ${active ? 'bg-brand-soft' : 'bg-surface'}`}
-                style={active ? { borderColor: 'var(--color-brand-border)' } : undefined}>
-                <div className="size-9 rounded bg-white grid place-items-center overflow-hidden">
-                  {t.qr_path
-                    ? <SignedImage url={qrRef(t.qr_path).url} path={qrRef(t.qr_path).path} alt="QR" className="w-full h-full object-contain" width={120} fallback={<IconQrcode size={16} className="text-ink-3" />} />
-                    : <IconQrcode size={16} className="text-ink-3" />}
-                </div>
-                <span className="text-[9px] text-ink-2 truncate w-full text-center leading-tight">{t.label || 'ตั๋ว'}</span>
-              </button>
-            )
-          })}
-          {canEdit && (
-            <button onClick={add} disabled={adding}
-              className="shrink-0 w-16 rounded-lg border-dashed flex flex-col items-center justify-center gap-1 text-ink-3 hover:bg-surface-2/40 disabled:opacity-50 self-stretch min-h-[68px]">
-              {adding ? <IconLoader2 size={18} className="animate-spin" /> : <IconPlus size={18} />}
-              <span className="text-[9px] font-medium">เพิ่ม QR</span>
-            </button>
-          )}
-        </div>
-      )}
+    <Drawer open={open} onClose={onClose} title={`Quick QR · ${name}`}>
+      {/* dropdown picker + add */}
+      <div className="flex items-center gap-2">
+        <select className={`${field} flex-1`} value={curId ?? ''} onChange={(e) => setSelId(e.target.value)} disabled={rows.length === 0}>
+          {rows.length === 0 && <option value="">— ยังไม่มี QR —</option>}
+          {rows.map((t) => (
+            <option key={t.id} value={t.id}>
+              {(t.is_main ? '★ ' : '') + (t.label || 'QR') + (t.used ? ' · ใช้แล้ว' : '')}
+            </option>
+          ))}
+        </select>
+        {canEdit && (
+          <button onClick={add} disabled={adding} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
+            {adding ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlus size={14} />} เพิ่ม QR
+          </button>
+        )}
+      </div>
 
       {sel ? (
-        <TicketPanel key={sel.id} ticket={sel} travelers={travelers} tripId={tripId} canEdit={canEdit}
-          onEnlarge={() => sel.qr_path && setLightbox(true)} onChanged={onChanged} onDeleted={() => setSelId(null)} />
+        <>
+          {/* main / used controls */}
+          {canEdit && (
+            <div className="flex items-center gap-2 mt-2.5">
+              <button onClick={() => setMain(sel.id)} disabled={busy || !!sel.is_main}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium disabled:opacity-100"
+                style={sel.is_main
+                  ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }
+                  : { border: '0.5px solid var(--color-line)' }}>
+                {sel.is_main ? <IconStarFilled size={13} /> : <IconStar size={13} />} {sel.is_main ? 'QR หลัก' : 'ตั้งเป็น QR หลัก'}
+              </button>
+              <button onClick={() => toggleUsed(sel)} disabled={busy}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium"
+                style={sel.used
+                  ? { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }
+                  : { border: '0.5px solid var(--color-line)' }}>
+                {sel.used ? <IconCheck size={13} /> : <IconCircle size={13} />} {sel.used ? 'ใช้แล้ว' : 'ทำเครื่องหมายว่าใช้แล้ว'}
+              </button>
+            </div>
+          )}
+
+          <div className="mt-4">
+            <TicketPanel key={sel.id} ticket={sel} travelers={travelers} tripId={tripId} canEdit={canEdit}
+              onEnlarge={() => sel.qr_path && setLightbox(true)} onChanged={onChanged} onDeleted={() => setSelId(null)} />
+          </div>
+        </>
       ) : (
-        <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มี QR{canEdit ? ' — กด “เพิ่ม QR” ด้านบน' : ''}</div>
+        <div className="card p-8 mt-3 text-center text-[13px] text-ink-3">ยังไม่มี QR{canEdit ? ' — กด “เพิ่ม QR”' : ''}</div>
       )}
 
       {lightbox && sel?.qr_path && (
@@ -120,14 +148,14 @@ function TicketPanel({ ticket, travelers, tripId, canEdit, onEnlarge, onChanged,
     if (fileInput.current) fileInput.current.value = ''
   }
   async function remove() {
-    if (!(await confirmDialog({ message: `ลบ "${ticket.label || 'ตั๋ว'}"?`, danger: true, confirmLabel: 'ลบ' }))) return
+    if (!(await confirmDialog({ message: `ลบ "${ticket.label || 'QR'}"?`, danger: true, confirmLabel: 'ลบ' }))) return
     await deleteTrainTicket(ticket.id)
     onDeleted()
     await onChanged()
   }
 
   return (
-    <div>
+    <div className={ticket.used ? 'opacity-60' : undefined}>
       {/* big QR — tap to blow up full-screen for the scanner */}
       <div className="grid place-items-center">
         {ticket.qr_path ? (
