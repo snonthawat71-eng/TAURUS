@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck,
+  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -279,6 +279,8 @@ export default function Itinerary() {
   const [routeEdit, setRouteEdit] = useState<ItineraryStop | null>(null)
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  // date filter above the day cards: null = show all days, otherwise a single day
+  const [filterDayId, setFilterDayId] = useState<string | null>(null)
   // a live mirror of localStops so the drag handlers read the latest order, and
   // the day a drag started in (to re-number it after a cross-day move)
   const stopsRef = useRef<ItineraryStop[]>(stops)
@@ -548,13 +550,50 @@ export default function Itinerary() {
     .map((day, idx) => ({ day, idx, isPast: !!day.day_date && day.day_date < todayStr }))
     .sort((a, b) => Number(a.isPast) - Number(b.isPast))
 
+  // the selected day must still exist; otherwise fall back to "all"
+  const activeFilter = filterDayId && localDays.some((d) => d.id === filterDayId) ? filterDayId : null
+  const shownDays = activeFilter ? displayDays.filter((d) => d.day.id === activeFilter) : displayDays
+  const WD = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+
   return (
     <div className="space-y-4">
       <NotificationSettings />
+
+      {/* Date filter — "ดูทั้งหมด" + one chip per planned day (past days go gray) */}
+      {localDays.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          <button onClick={() => setFilterDayId(null)}
+            className="shrink-0 w-[52px] py-2 rounded-[12px] flex flex-col items-center justify-center gap-1 transition-colors"
+            style={activeFilter == null
+              ? { background: 'var(--color-brand)', color: '#fff' }
+              : { background: 'var(--color-surface)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
+            <IconLayoutGrid size={16} />
+            <span className="text-[10px] font-medium leading-none">ทั้งหมด</span>
+          </button>
+          {localDays.map((day) => {
+            const dt = day.day_date ? new Date(day.day_date) : null
+            const isPast = !!day.day_date && day.day_date < todayStr
+            const selected = activeFilter === day.id
+            return (
+              <button key={day.id} onClick={() => setFilterDayId(day.id)}
+                className="shrink-0 w-[52px] py-2 rounded-[12px] flex flex-col items-center justify-center gap-0.5 transition-colors"
+                style={selected
+                  ? { background: 'var(--color-brand)', color: '#fff' }
+                  : isPast
+                    ? { background: 'var(--color-surface-2)', color: 'var(--color-ink-3)', border: '0.5px solid var(--color-line)' }
+                    : { background: 'var(--color-surface)', color: 'var(--color-ink)', border: '0.5px solid var(--color-line)' }}>
+                <span className="text-[16px] font-bold leading-none tabular-nums">{dt ? dt.getDate() : '–'}</span>
+                <span className="text-[10px] font-medium uppercase leading-none opacity-80">{dt ? WD[dt.getDay()] : ''}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       <DndContext sensors={daySensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
-        <SortableContext items={displayDays.map((d) => d.day.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={shownDays.map((d) => d.day.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-4">
-            {displayDays.map(({ day, idx, isPast }) => (
+            {shownDays.map(({ day, idx, isPast }) => (
               <DayCard
                 key={day.id}
                 day={day}
@@ -564,9 +603,10 @@ export default function Itinerary() {
                 getMatchedPlace={getMatchedPlace}
                 canEdit={canEdit}
                 wx={day.day_date ? dayWx[day.day_date] : undefined}
-                // Past days auto-collapse: for them the stored toggle means "deviate
-                // from the default" (default = collapsed), so an entry = expanded.
-                collapsed={isPast ? !collapsed.has(day.id) : collapsed.has(day.id)}
+                // When a single day is picked via the filter, show it expanded.
+                // Otherwise past days auto-collapse: for them the stored toggle means
+                // "deviate from the default" (default = collapsed), so entry = expanded.
+                collapsed={activeFilter ? false : isPast ? !collapsed.has(day.id) : collapsed.has(day.id)}
                 nextStopId={nextStopId}
                 onToggleCollapse={() => toggleCollapse(day.id)}
                 onToggleDone={toggleDone}
