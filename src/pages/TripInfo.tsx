@@ -366,14 +366,27 @@ export default function TripInfo() {
       <div className="space-y-2.5">
         {meTraveler && travelerRow(meTraveler, true)}
         {otherTravelers.length > 0 && (meTraveler ? (
-          <div>
-            <button onClick={() => setOthersOpen((v) => !v)}
-              className="w-full flex items-center justify-between px-1 py-1.5 text-[12px] font-medium text-ink-2">
-              <span>ผู้เดินทางคนอื่น · {otherTravelers.length} คน</span>
-              <IconChevronDown size={16} className={`text-ink-3 transition-transform ${othersOpen ? '' : '-rotate-90'}`} />
-            </button>
-            {othersOpen && <div className="space-y-2.5 mt-1">{otherTravelers.map((t) => travelerRow(t, false))}</div>}
-          </div>
+          othersOpen ? (
+            <>
+              {otherTravelers.map((t) => travelerRow(t, false))}
+              <button onClick={() => setOthersOpen(false)}
+                className="w-full flex items-center justify-center gap-1 py-1.5 text-[12px] font-medium text-ink-3 hover:text-ink-2">
+                พับเก็บ <IconChevronDown size={15} className="rotate-180" />
+              </button>
+            </>
+          ) : (
+            // peek: a faint preview of the next traveler hints there are more
+            <div role="button" tabIndex={0} onClick={() => setOthersOpen(true)}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setOthersOpen(true)}
+              className="relative block w-full overflow-hidden rounded-[12px] cursor-pointer"
+              style={{ height: 66 }} aria-label={`แสดงผู้เดินทางอีก ${otherTravelers.length} คน`}>
+              <div className="opacity-55 pointer-events-none">{travelerRow(otherTravelers[0], false)}</div>
+              <div className="absolute inset-x-0 bottom-0 h-11 flex items-end justify-center pb-1"
+                style={{ background: 'linear-gradient(to bottom, transparent, var(--color-canvas))' }}>
+                <span className="text-[12px] font-semibold text-brand inline-flex items-center gap-1">อีก {otherTravelers.length} คน <IconChevronDown size={14} /></span>
+              </div>
+            </div>
+          )
         ) : otherTravelers.map((t) => travelerRow(t, false)))}
       </div>
 
