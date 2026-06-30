@@ -185,9 +185,9 @@ function DayCard({
             </button>
           )}
           <span className="inline-flex items-center rounded-full px-2 py-px text-[10px] font-semibold shrink-0 bg-white/20">Day {index + 1}</span>
+          {wx && <WeatherBadge wx={wx} size={11} className="text-[10px] text-white/90 shrink-0" />}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          {wx && <WeatherBadge wx={wx} size={11} className="text-[10px] text-white/90" />}
           {canEdit && (
             <PopMenu size={22} buttonClassName="!bg-transparent !text-white hover:!bg-white/15" items={[
               { label: 'แก้ไขวัน', icon: <IconPencil size={15} />, onClick: onEditDay },
