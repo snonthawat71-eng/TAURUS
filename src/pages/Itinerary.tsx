@@ -168,8 +168,9 @@ function DayCard({
 
   return (
     <div ref={setNodeRef} style={style} className="card overflow-hidden">
-      {/* Blue header bar (mirrors the trip card's pill header) — Day N · weather · collapse */}
-      <div className="flex items-center justify-between px-4 py-2 text-white" style={{ background: 'var(--color-brand)' }}>
+      {/* Blue header bar (mirrors the trip card's pill header) — Day N · weather · collapse.
+          Short, with a rounded bottom so the white content nests concentrically below it. */}
+      <div className="flex items-center justify-between px-4 py-1 text-white rounded-b-[18px]" style={{ background: 'var(--color-brand)' }}>
         <div className="flex items-center gap-2 min-w-0">
           {canEdit && (
             <button {...attributes} {...listeners} className="text-white/70 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากย้ายวัน">
@@ -191,8 +192,10 @@ function DayCard({
           </button>
         </div>
       </div>
+      {/* White content nests up under the blue bar's rounded bottom (concentric corners) */}
+      <div className="relative -mt-[11px] rounded-t-[16px] bg-surface">
       {/* Date row below the bar — date + activity count inline, separated by • */}
-      <button onClick={onToggleCollapse} className="w-full text-left px-4 py-3" style={collapsed ? undefined : { borderBottom: '0.5px solid var(--color-line)' }} aria-expanded={!collapsed}>
+      <button onClick={onToggleCollapse} className="w-full text-left px-4 pt-3 pb-3" style={collapsed ? undefined : { borderBottom: '0.5px solid var(--color-line)' }} aria-expanded={!collapsed}>
         <div className="truncate leading-tight">
           <span className="text-[15px] font-semibold">{formatLongDate(day.day_date)}</span>
           <span className="text-[12px] text-ink-3 font-normal"> • {stops.length} กิจกรรม{doneCount > 0 ? ` · เสร็จ ${doneCount}/${stops.length}` : ''}</span>
@@ -213,6 +216,7 @@ function DayCard({
           {canEdit && <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>}
         </div>
       )}
+      </div>
     </div>
   )
 }
