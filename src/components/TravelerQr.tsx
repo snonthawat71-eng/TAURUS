@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle, IconPencil, IconZoomScan, IconChevronLeft, IconBuildingCarousel, IconDeviceMobile } from '@tabler/icons-react'
+import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle, IconPencil, IconChevronLeft, IconBuildingCarousel, IconDeviceMobile } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { Lightbox } from './Lightbox'
@@ -11,7 +11,6 @@ import type { TrainTicket } from '@/lib/database.types'
 const qrRef = (path: string) => (/^https?:\/\//.test(path) ? { url: path } : { path })
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 
-// QR types — fields + display adapt to the chosen kind
 const KINDS = [
   { key: 'train', label: 'ตั๋วรถไฟ', icon: IconTrain, labelPh: 'ชื่อรายการ (เช่น Airport Express)' },
   { key: 'park', label: 'สวนสนุก', icon: IconBuildingCarousel, labelPh: 'ชื่อสวนสนุก (เช่น Disneyland)', notePh: 'รายละเอียด (วันที่ / รอบ / โซน)' },
@@ -21,9 +20,9 @@ const KINDS = [
 const kindMeta = (k: string | null) => KINDS.find((x) => x.key === k) ?? KINDS[0]
 
 /**
- * Quick-QR hub for one traveler (the card already separates QRs per person).
- * Dropdown picks the QR; the pencil/+ open a separate edit page where the QR type
- * (train / park / eSIM / …) drives which detail fields show.
+ * Quick-QR hub for one traveler. Swipe left/right to flip between their QRs
+ * (the main QR shows first). Each card: a main-QR toggle on top, the QR centered,
+ * a grey details box, and a "used" button below. The pencil opens a separate edit page.
  */
 export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, canEdit, onChanged }: {
   open: boolean
@@ -35,17 +34,29 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   canEdit: boolean
   onChanged: () => void | Promise<void>
 }) {
-  const rows = useMemo(() => [...tickets].sort((a, b) => a.position - b.position), [tickets])
-  const mainId = rows.find((r) => r.is_main)?.id ?? rows[0]?.id ?? null
+  // main QR first, then by position
+  const rows = useMemo(
+    () => [...tickets].sort((a, b) => (b.is_main ? 1 : 0) - (a.is_main ? 1 : 0) || a.position - b.position),
+    [tickets],
+  )
   const [selId, setSelId] = useState<string | null>(null)
-  const curId = (selId && rows.some((r) => r.id === selId)) ? selId : mainId
+  const curId = (selId && rows.some((r) => r.id === selId)) ? selId : (rows[0]?.id ?? null)
   const sel = rows.find((t) => t.id === curId) ?? null
   const [editMode, setEditMode] = useState(false)
-  const [lightbox, setLightbox] = useState(false)
+  const [lbPath, setLbPath] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
+  const scroller = useRef<HTMLDivElement>(null)
 
   function close() { setEditMode(false); onClose() }
+
+  function onScroll() {
+    const el = scroller.current
+    if (!el) return
+    const i = Math.round(el.scrollLeft / el.clientWidth)
+    const id = rows[i]?.id
+    if (id && id !== curId) setSelId(id)
+  }
 
   async function add() {
     if (!traveler || adding) return
@@ -76,59 +87,89 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
         <QrEditPage key={sel.id} ticket={sel} tripId={tripId}
           onBack={() => setEditMode(false)} onChanged={onChanged}
           onDeleted={() => { setSelId(null); setEditMode(false) }} />
+      ) : rows.length === 0 ? (
+        <div className="flex items-center justify-end gap-1 mb-3">
+          {canEdit && (
+            <button onClick={add} disabled={adding} className="btn-icon" aria-label="เพิ่ม QR" title="เพิ่ม QR">
+              {adding ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlus size={16} />}
+            </button>
+          )}
+          <div className="w-full card p-8 text-center text-[13px] text-ink-3">ยังไม่มี QR{canEdit ? ' — กด “+” เพื่อเพิ่ม' : ''}</div>
+        </div>
       ) : (
-        <div className="space-y-5">
-          <div className="flex items-center gap-2">
-            <select className={`${field} flex-1`} value={curId ?? ''} onChange={(e) => setSelId(e.target.value)} disabled={rows.length === 0}>
-              {rows.length === 0 && <option value="">— ยังไม่มี QR —</option>}
-              {rows.map((t) => (
-                <option key={t.id} value={t.id}>{(t.is_main ? '★ ' : '') + (t.label || kindMeta(t.kind).label) + (t.used ? ' · ใช้แล้ว' : '')}</option>
-              ))}
-            </select>
+        <div>
+          {/* header: current label + add / edit */}
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="text-[13px] font-medium text-ink-2 truncate flex items-center gap-1.5 min-w-0">
+              {(() => { const M = kindMeta(sel?.kind ?? null).icon; return <M size={14} className="shrink-0" /> })()}
+              <span className="truncate">{sel?.label || kindMeta(sel?.kind ?? null).label}</span>
+            </div>
             {canEdit && (
-              <>
-                <button onClick={add} disabled={adding} className="btn-icon shrink-0" aria-label="เพิ่ม QR" title="เพิ่ม QR">
+              <div className="flex gap-1 shrink-0">
+                <button onClick={add} disabled={adding} className="btn-icon" aria-label="เพิ่ม QR" title="เพิ่ม QR">
                   {adding ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlus size={16} />}
                 </button>
-                {sel && <button onClick={() => setEditMode(true)} className="btn-icon shrink-0" aria-label="แก้ไข" title="แก้ไข"><IconPencil size={16} /></button>}
-              </>
+                {sel && <button onClick={() => setEditMode(true)} className="btn-icon" aria-label="แก้ไข" title="แก้ไข"><IconPencil size={16} /></button>}
+              </div>
             )}
           </div>
 
-          {sel ? (
-            <>
-              <QrView ticket={sel} onEnlarge={() => sel.qr_path && setLightbox(true)} />
-              {canEdit && (
-                <div className="flex items-center justify-between gap-3 pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-                  <button onClick={() => toggleMain(sel)} disabled={busy} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2">
-                    {sel.is_main ? <IconStarFilled size={14} className="text-brand" /> : <IconStar size={14} />} {sel.is_main ? 'QR หลัก' : 'ตั้งเป็น QR หลัก'}
-                  </button>
-                  <button onClick={() => toggleUsed(sel)} disabled={busy} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2">
-                    {sel.used ? <IconCheck size={14} className="text-brand" /> : <IconCircle size={14} />} {sel.used ? 'ใช้แล้ว' : 'ทำเครื่องหมายว่าใช้แล้ว'}
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มี QR{canEdit ? ' — กด “+” เพื่อเพิ่ม' : ''}</div>
+          {/* swipeable cards */}
+          <div ref={scroller} onScroll={onScroll} className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar">
+            {rows.map((t) => (
+              <div key={t.id} className="w-full shrink-0 snap-center px-0.5">
+                <QrSlide ticket={t} canEdit={canEdit} busy={busy}
+                  onToggleMain={() => toggleMain(t)} onToggleUsed={() => toggleUsed(t)}
+                  onEnlarge={() => t.qr_path && setLbPath(t.qr_path)} />
+              </div>
+            ))}
+          </div>
+
+          {/* dots */}
+          {rows.length > 1 && (
+            <div className="flex justify-center gap-1.5 mt-4">
+              {rows.map((t) => (
+                <span key={t.id} className="size-1.5 rounded-full transition-colors"
+                  style={{ background: t.id === curId ? 'var(--color-brand)' : 'var(--color-line-2)' }} />
+              ))}
+            </div>
           )}
         </div>
       )}
 
-      {lightbox && sel?.qr_path && (
-        <Lightbox photos={[qrRef(sel.qr_path)]} alt="QR" onClose={() => setLightbox(false)} />
-      )}
+      {lbPath && <Lightbox photos={[qrRef(lbPath)]} alt="QR" onClose={() => setLbPath(null)} />}
     </Drawer>
   )
 }
 
-/** Boarding-pass display — detail layout depends on the QR type. */
-function QrView({ ticket, onEnlarge }: { ticket: TrainTicket; onEnlarge: () => void }) {
+/** One swipeable QR card. */
+function QrSlide({ ticket, canEdit, busy, onToggleMain, onToggleUsed, onEnlarge }: {
+  ticket: TrainTicket
+  canEdit: boolean
+  busy: boolean
+  onToggleMain: () => void
+  onToggleUsed: () => void
+  onEnlarge: () => void
+}) {
   const meta = kindMeta(ticket.kind)
   const isTrain = (ticket.kind ?? 'train') === 'train'
   return (
     <div className={ticket.used ? 'opacity-60' : undefined}>
-      <div className="flex items-start justify-center gap-3">
+      {/* main toggle — top centre, above the QR */}
+      {canEdit && (
+        <div className="flex justify-center mb-3">
+          <button onClick={onToggleMain} disabled={busy}
+            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-[12px] font-medium"
+            style={ticket.is_main
+              ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }
+              : { border: '0.5px solid var(--color-line)', color: 'var(--color-ink-2)' }}>
+            {ticket.is_main ? <IconStarFilled size={13} /> : <IconStar size={13} />} {ticket.is_main ? 'QR หลัก' : 'ตั้งเป็น QR หลัก'}
+          </button>
+        </div>
+      )}
+
+      {/* QR — centred, tap to enlarge */}
+      <div className="grid place-items-center">
         {ticket.qr_path ? (
           <button onClick={onEnlarge} className="size-56 max-w-full rounded-xl overflow-hidden bg-white hairline grid place-items-center" aria-label="ขยาย QR">
             <SignedImage url={qrRef(ticket.qr_path).url} path={qrRef(ticket.qr_path).path} alt="QR" className="w-full h-full object-contain" width={700}
@@ -137,40 +178,40 @@ function QrView({ ticket, onEnlarge }: { ticket: TrainTicket; onEnlarge: () => v
         ) : (
           <div className="size-56 max-w-full rounded-xl bg-surface-2 grid place-items-center text-ink-3"><IconQrcode size={48} /></div>
         )}
-        {ticket.qr_path && (
-          <button onClick={onEnlarge} className="text-ink-3 hover:text-ink-2 pt-1" aria-label="ขยายเต็มจอ" title="ขยายเต็มจอ"><IconZoomScan size={20} /></button>
+      </div>
+
+      {/* grey details box */}
+      <div className="bg-surface-2 rounded-lg p-3.5 mt-4 text-[13px]">
+        {isTrain ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 font-semibold">
+              <span className="flex-1 truncate">{ticket.from_station || '—'}</span>
+              <IconTrain size={16} className="text-brand shrink-0" />
+              <span className="flex-1 truncate text-right">{ticket.to_station || '—'}</span>
+            </div>
+            <div className="flex items-center justify-between text-ink-2">
+              <span><span className="text-ink-3">Car</span> {ticket.car || '-'}</span>
+              <span><span className="text-ink-3">Gate</span> {ticket.gate || '-'}</span>
+              <span><span className="text-ink-3">Seat</span> {ticket.seat_no || '-'}</span>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="font-semibold flex items-center gap-1.5"><meta.icon size={14} className="text-ink-3" /> {ticket.label || meta.label}</div>
+            <div className="text-ink-2 mt-1 whitespace-pre-wrap">{ticket.note || <span className="text-ink-3">ไม่มีรายละเอียด</span>}</div>
+          </>
         )}
       </div>
 
-      {/* type chip */}
-      <div className="flex items-center justify-center gap-1.5 mt-4 text-[12px] font-medium text-ink-3">
-        <meta.icon size={14} /> {meta.label}
-      </div>
-
-      {isTrain ? (
-        <>
-          {(ticket.car || ticket.gate || ticket.seat_no) && (
-            <div className="flex items-center justify-between gap-3 text-[14px] mt-3">
-              <div className="flex items-center gap-4">
-                {ticket.car && <span><span className="font-semibold">Car</span> <span className="text-ink-3 font-medium ml-1">{ticket.car}</span></span>}
-                {ticket.gate && <span><span className="font-semibold">Gate</span> <span className="text-ink-3 font-medium ml-1">{ticket.gate}</span></span>}
-              </div>
-              {ticket.seat_no && <span><span className="font-semibold">Seat</span> <span className="text-ink-3 font-medium ml-1">{ticket.seat_no}</span></span>}
-            </div>
-          )}
-          {(ticket.from_station || ticket.to_station) && (
-            <div className="bg-surface-2 rounded-lg px-4 py-3 mt-3 flex items-center gap-2 text-[14px] font-semibold">
-              <span className="flex-1 truncate">{ticket.from_station || '—'}</span>
-              <IconTrain size={17} className="text-brand shrink-0" />
-              <span className="flex-1 truncate text-right">{ticket.to_station || '—'}</span>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="text-center mt-3">
-          {ticket.label && <div className="text-[15px] font-semibold">{ticket.label}</div>}
-          {ticket.note && <div className="text-[13px] text-ink-2 mt-1 whitespace-pre-wrap">{ticket.note}</div>}
-        </div>
+      {/* used — below */}
+      {canEdit && (
+        <button onClick={onToggleUsed} disabled={busy}
+          className="w-full h-10 rounded-md mt-4 text-[13px] font-medium flex items-center justify-center gap-1.5"
+          style={ticket.used
+            ? { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }
+            : { border: '0.5px solid var(--color-line)', color: 'var(--color-ink-2)' }}>
+          {ticket.used ? <><IconCheck size={15} /> ใช้แล้ว · กดเพื่อยกเลิก</> : <><IconCircle size={15} /> ทำเครื่องหมายว่าใช้แล้ว</>}
+        </button>
       )}
     </div>
   )
@@ -234,7 +275,6 @@ function QrEditPage({ ticket, tripId, onBack, onChanged, onDeleted }: {
       </div>
 
       <div className="space-y-2.5 mt-5">
-        {/* QR type */}
         <select className={field} value={kind} onChange={(e) => { setKind(e.target.value); persist({ kind: e.target.value }) }}>
           {KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
         </select>
