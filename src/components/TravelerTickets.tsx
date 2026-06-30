@@ -12,11 +12,13 @@ const qrRef = (path: string): PhotoRef => (/^https?:\/\//.test(path) ? { url: pa
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 
 /**
- * Boarding-pass style tickets — a 2-up grid of small cards (no section heading).
- * Tap a card to open the big detail with its QR; tap the QR to blow it up
- * full-screen for the gate scanner.
+ * The QR ticket tiles that sit to the RIGHT of a single traveler's name card —
+ * small square cards + an "ADD TICKET" tile. Tap a tile to open the boarding-pass
+ * detail (big QR, tap to enlarge for the gate scanner).
  */
-export function TicketsSection({ tickets, travelers, tripId, canEdit, onChanged }: {
+export function TravelerTickets({ traveler, name, tickets, travelers, tripId, canEdit, onChanged }: {
+  traveler: Traveler
+  name: string
   tickets: TrainTicket[]
   travelers: Traveler[]
   tripId: string
@@ -28,19 +30,15 @@ export function TicketsSection({ tickets, travelers, tripId, canEdit, onChanged 
   const [openId, setOpenId] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<number | null>(null)
   const [adding, setAdding] = useState(false)
-
-  const nameOf = (t: TrainTicket) =>
-    travelers.find((tv) => tv.id === t.traveler_id)?.nickname || t.passenger_name || 'ผู้โดยสาร'
-
   const open = rows.find((t) => t.id === openId) ?? null
 
   async function add() {
     if (adding) return
     setAdding(true)
-    const id = await addTrainTicket(tripId, { traveler_id: travelers[0]?.id ?? null, position: rows.length })
+    const id = await addTrainTicket(tripId, { traveler_id: traveler.id, position: rows.length })
     await onChanged()
     setAdding(false)
-    setOpenId(id) // jump straight into the new card to fill it in
+    setOpenId(id)
   }
   function enlarge(t: TrainTicket) {
     const i = gallery.findIndex((g) => g.url === t.qr_path || g.path === t.qr_path)
@@ -50,25 +48,36 @@ export function TicketsSection({ tickets, travelers, tripId, canEdit, onChanged 
   if (rows.length === 0 && !canEdit) return null
 
   return (
-    <div className="mt-2.5">
-      <div className="grid grid-cols-2 gap-2.5">
-        {rows.map((t) => (
-          <TicketCard key={t.id} ticket={t} name={nameOf(t)} onOpen={() => setOpenId(t.id)} />
-        ))}
-        {canEdit && (
-          <button onClick={add} disabled={adding}
-            className="card border-dashed min-h-[112px] flex flex-col items-center justify-center gap-1.5 text-ink-3 hover:bg-surface-2/40 disabled:opacity-50">
-            {adding ? <IconLoader2 size={20} className="animate-spin" /> : <IconPlus size={20} />}
-            <span className="text-[12px] font-medium">เพิ่มตั๋ว</span>
-          </button>
-        )}
-      </div>
+    <div className="flex gap-2.5 shrink-0">
+      {rows.map((t) => (
+        <button key={t.id} onClick={() => setOpenId(t.id)}
+          className="card w-[92px] shrink-0 p-2 flex flex-col items-center justify-center gap-1.5 hover:bg-surface-2/30 transition-colors">
+          {t.qr_path ? (
+            <div className="size-11 rounded-md overflow-hidden bg-white hairline grid place-items-center">
+              <SignedImage url={qrRef(t.qr_path).url} path={qrRef(t.qr_path).path} alt="QR" className="w-full h-full object-contain" width={160}
+                fallback={<IconQrcode size={20} className="text-ink-3" />} />
+            </div>
+          ) : (
+            <div className="size-11 rounded-md bg-surface-2 grid place-items-center text-ink-3"><IconQrcode size={20} /></div>
+          )}
+          <span className="text-[10px] text-ink-2 truncate w-full text-center leading-tight">{t.label || 'ตั๋ว'}</span>
+        </button>
+      ))}
 
-      {open && (
-        <TicketDetail ticket={open} name={nameOf(open)} travelers={travelers} tripId={tripId} canEdit={canEdit}
-          onClose={() => setOpenId(null)} onEnlarge={() => enlarge(open)} onChanged={onChanged} />
+      {canEdit && (
+        <button onClick={add} disabled={adding}
+          className="card border-dashed w-[92px] shrink-0 flex flex-col items-center justify-center gap-1.5 text-ink-3 hover:bg-surface-2/40 disabled:opacity-50">
+          <div className="size-8 rounded-full bg-brand-soft grid place-items-center text-brand">
+            {adding ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlus size={18} />}
+          </div>
+          <span className="text-[9px] font-semibold tracking-wide">ADD TICKET</span>
+        </button>
       )}
 
+      {open && (
+        <TicketDetail ticket={open} name={name} travelers={travelers} tripId={tripId} canEdit={canEdit}
+          onClose={() => setOpenId(null)} onEnlarge={() => enlarge(open)} onChanged={onChanged} />
+      )}
       {lightbox !== null && (
         <Lightbox photos={gallery} index={lightbox} alt="QR ตั๋ว" onClose={() => setLightbox(null)} />
       )}
@@ -76,23 +85,7 @@ export function TicketsSection({ tickets, travelers, tripId, canEdit, onChanged 
   )
 }
 
-/** Compact boarding-pass card (image 1). */
-function TicketCard({ ticket, name, onOpen }: { ticket: TrainTicket; name: string; onOpen: () => void }) {
-  const route = ticket.from_station && ticket.to_station ? `${ticket.from_station} → ${ticket.to_station}` : ''
-  const seat = [ticket.car && `ตู้ ${ticket.car}`, ticket.seat_no && `ที่นั่ง ${ticket.seat_no}`].filter(Boolean).join(' · ')
-  return (
-    <button onClick={onOpen} className="card p-3.5 text-left flex flex-col min-h-[112px] hover:bg-surface-2/30 transition-colors">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold text-ink-3 truncate">{ticket.label || 'ตั๋ว'}</span>
-        <IconQrcode size={15} className={ticket.qr_path ? 'text-brand shrink-0' : 'text-ink-3/40 shrink-0'} />
-      </div>
-      <div className="text-[15px] font-semibold leading-snug mt-1.5 truncate">{name}</div>
-      <div className="text-[11px] text-ink-3 mt-auto pt-2 truncate">{route || seat || 'แตะดูตั๋ว'}</div>
-    </button>
-  )
-}
-
-/** Expanded detail with the big QR (image 2). */
+/** Expanded boarding-pass detail with the big QR. */
 function TicketDetail({
   ticket, name, travelers, tripId, canEdit, onClose, onEnlarge, onChanged,
 }: {
@@ -112,7 +105,6 @@ function TicketDetail({
   const [seat, setSeat] = useState(ticket.seat_no ?? '')
   const [car, setCar] = useState(ticket.car ?? '')
   const [gate, setGate] = useState(ticket.gate ?? '')
-  // a freshly-added (blank) ticket opens straight into the edit form
   const [editing, setEditing] = useState(() => !ticket.qr_path && !ticket.from_station && !ticket.seat_no && !ticket.car && !ticket.gate && !ticket.label)
   const [uploading, setUploading] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -180,7 +172,6 @@ function TicketDetail({
             <div className="px-5 pt-5">
               <div className="text-[13px] text-ink-3 font-medium pr-14 truncate">{name}</div>
 
-              {/* top row — English, bold label + light value */}
               {(ticket.car || ticket.gate || ticket.seat_no || ticket.label) && (
                 <div className="flex items-center justify-between gap-3 text-[15px] mt-1.5">
                   <div className="flex items-center gap-4 min-w-0">
@@ -192,7 +183,6 @@ function TicketDetail({
                 </div>
               )}
 
-              {/* QR */}
               <div className="mt-5 grid place-items-center">
                 {ticket.qr_path ? (
                   <button onClick={onEnlarge} className="size-52 rounded-xl overflow-hidden bg-white hairline grid place-items-center" aria-label="ขยาย QR">
@@ -208,7 +198,6 @@ function TicketDetail({
                 : <div className="h-5" />}
             </div>
 
-            {/* station strip — origin · train icon · destination, on light gray */}
             <div className="bg-surface-2 px-5 py-3.5 flex items-center gap-2 text-[14px] font-semibold">
               <span className="flex-1 truncate">{ticket.from_station || '—'}</span>
               <IconTrain size={17} className="text-brand shrink-0" />

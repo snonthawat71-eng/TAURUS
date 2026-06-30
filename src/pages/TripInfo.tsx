@@ -12,7 +12,7 @@ import { FlightEditor } from '@/components/FlightEditor'
 import { TrainEditor } from '@/components/TrainEditor'
 import { HotelEditor } from '@/components/HotelEditor'
 import { HotelPhoto } from '@/components/HotelPhoto'
-import { TicketsSection } from '@/components/TicketsSection'
+import { TravelerTickets } from '@/components/TravelerTickets'
 import { BudgetSection } from '@/components/BudgetSection'
 import { AttachLink } from '@/components/AttachLink'
 import { PopMenu } from '@/components/PopMenu'
@@ -310,40 +310,44 @@ export default function TripInfo() {
       {/* Travelers */}
       <SectionHead title="Travelers • ผู้เดินทาง"
         action={canEdit ? <button onClick={() => setTravelerEdit('new')} className="btn-link flex items-center gap-1"><IconUserPlus size={14} /> เพิ่มคน</button> : undefined} />
-      <div className="grid sm:grid-cols-2 gap-2.5">
+      <div className="space-y-2.5">
         {travelers.map((t, i) => {
           const files = filesByTraveler.get(t.id) ?? []
+          const myTickets = trainTickets.filter((tk) => tk.traveler_id === t.id)
           return (
-            <button key={t.id} onClick={() => setSelected(t)} className="card p-3.5 text-left hover:bg-surface-2/30">
-              <div className="flex items-center gap-2.5">
-                <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
-                <div className="min-w-0">
-                  <div className="text-[14px] font-medium leading-tight">{t.nickname}</div>
-                  {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
+            <div key={t.id} className="flex gap-2.5 items-stretch">
+              <button onClick={() => setSelected(t)} className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
+                  <div className="min-w-0">
+                    <div className="text-[14px] font-medium leading-tight">{t.nickname}</div>
+                    {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {files.map((f) => {
-                  const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
-                  return (
-                    <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
-                      <meta.icon size={12} /> {f.label || meta.label}
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {files.map((f) => {
+                    const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
+                    return (
+                      <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
+                        <meta.icon size={12} /> {f.label || meta.label}
+                      </span>
+                    )
+                  })}
+                  {canEdit && (
+                    <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
+                      <IconPlus size={12} /> เพิ่มไฟล์
                     </span>
-                  )
-                })}
-                {canEdit && (
-                  <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
-                    <IconPlus size={12} /> เพิ่มไฟล์
-                  </span>
-                )}
-              </div>
-            </button>
+                  )}
+                </div>
+              </button>
+
+              {/* QR ticket tiles for this person, beside their name card */}
+              <TravelerTickets traveler={t} name={t.nickname ?? 'ผู้โดยสาร'} tickets={myTickets}
+                travelers={travelers} tripId={trip?.id ?? ''} canEdit={canEdit} onChanged={reload} />
+            </div>
           )
         })}
       </div>
-
-      {/* Per-passenger QR tickets — live with the travelers (cards 2-up) */}
-      <TicketsSection tickets={trainTickets} travelers={travelers} tripId={trip?.id ?? ''} canEdit={canEdit} onChanged={reload} />
 
       {/* Flights */}
       <SectionHead title="Flights • ข้อมูลเที่ยวบิน"
