@@ -134,7 +134,7 @@ function TicketDetail({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] grid place-items-center p-5 bg-black/45" onClick={onClose}>
+    <div className="fixed inset-0 z-[105] grid place-items-center p-5 bg-black/45" onClick={onClose}>
       <div className="w-full max-w-[360px] card p-5 relative" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} aria-label="ปิด" className="absolute top-3 right-3 text-ink-3 hover:text-ink-2"><IconX size={20} /></button>
 
