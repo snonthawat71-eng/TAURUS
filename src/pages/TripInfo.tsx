@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
-  IconBed, IconPlane, IconPencil, IconTrash, IconTrain, IconQrcode,
+  IconBed, IconPlane, IconPencil, IconTrash, IconTrain, IconQrcode, IconChevronDown,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -287,6 +287,7 @@ export default function TripInfo() {
   const { user } = useAuth()
   const [selected, setSelected] = useState<Traveler | null>(null)
   const [qrFor, setQrFor] = useState<Traveler | null>(null)
+  const [othersOpen, setOthersOpen] = useState(false)
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
   const [flightEdit, setFlightEdit] = useState<EditState<Flight>>(null)
   const [newFlightDir, setNewFlightDir] = useState<FlightDirection>('outbound')
@@ -306,53 +307,74 @@ export default function TripInfo() {
   const colorOf = (t: Traveler) => travelerColor(t, travelers.findIndex((x) => x.id === t.id))
   const nextColor = ORDER[travelers.length % ORDER.length]
 
+  // "Me" = the traveler matching my profile name (shown first, with a tag)
+  const myName = profile?.nickname?.trim().toLowerCase()
+  const meTraveler = myName ? travelers.find((t) => t.nickname?.trim().toLowerCase() === myName) : undefined
+  const otherTravelers = travelers.filter((t) => t !== meTraveler)
+
+  const travelerRow = (t: Traveler, isMe: boolean) => {
+    const i = travelers.indexOf(t)
+    const files = filesByTraveler.get(t.id) ?? []
+    const myTickets = trainTickets.filter((tk) => tk.traveler_id === t.id)
+    return (
+      <div key={t.id} className="flex gap-2.5 items-stretch">
+        <button onClick={() => setSelected(t)} className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0">
+          <div className="flex items-center gap-2.5">
+            <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
+            <div className="min-w-0">
+              <div className="text-[14px] font-medium leading-tight flex items-center gap-1.5">
+                <span className="truncate">{t.nickname}</span>
+                {isMe && <span className="inline-flex items-center rounded-full bg-brand-soft text-brand-dark text-[10px] font-semibold px-1.5 py-0.5 shrink-0">Me</span>}
+              </div>
+              {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {files.map((f) => {
+              const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
+              return (
+                <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
+                  <meta.icon size={12} /> {f.label || meta.label}
+                </span>
+              )
+            })}
+            {canEdit && (
+              <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
+                <IconPlus size={12} /> เพิ่มไฟล์
+              </span>
+            )}
+          </div>
+        </button>
+
+        {/* Quick QR — icon tile; the actual QR lives behind the tap */}
+        {(myTickets.length > 0 || canEdit) && (
+          <button onClick={() => setQrFor(t)}
+            className="card w-[116px] shrink-0 flex flex-col items-center justify-center gap-1.5 hover:bg-surface-2/30 transition-colors">
+            <div className="size-9 rounded-full bg-brand-soft grid place-items-center text-brand"><IconQrcode size={20} /></div>
+            <span className="text-[10px] font-semibold tracking-wide">Quick QR</span>
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div>
       {/* Travelers */}
       <SectionHead title="Travelers • ผู้เดินทาง"
         action={canEdit ? <button onClick={() => setTravelerEdit('new')} className="btn-link flex items-center gap-1"><IconUserPlus size={14} /> เพิ่มคน</button> : undefined} />
       <div className="space-y-2.5">
-        {travelers.map((t, i) => {
-          const files = filesByTraveler.get(t.id) ?? []
-          const myTickets = trainTickets.filter((tk) => tk.traveler_id === t.id)
-          return (
-            <div key={t.id} className="flex gap-2.5 items-stretch">
-              <button onClick={() => setSelected(t)} className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0">
-                <div className="flex items-center gap-2.5">
-                  <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
-                  <div className="min-w-0">
-                    <div className="text-[14px] font-medium leading-tight">{t.nickname}</div>
-                    {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {files.map((f) => {
-                    const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
-                    return (
-                      <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
-                        <meta.icon size={12} /> {f.label || meta.label}
-                      </span>
-                    )
-                  })}
-                  {canEdit && (
-                    <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
-                      <IconPlus size={12} /> เพิ่มไฟล์
-                    </span>
-                  )}
-                </div>
-              </button>
-
-              {/* Quick QR — icon tile; the actual QR lives behind the tap */}
-              {(myTickets.length > 0 || canEdit) && (
-                <button onClick={() => setQrFor(t)}
-                  className="card w-[116px] shrink-0 flex flex-col items-center justify-center gap-1.5 hover:bg-surface-2/30 transition-colors">
-                  <div className="size-9 rounded-full bg-brand-soft grid place-items-center text-brand"><IconQrcode size={20} /></div>
-                  <span className="text-[10px] font-semibold tracking-wide">Quick QR</span>
-                </button>
-              )}
-            </div>
-          )
-        })}
+        {meTraveler && travelerRow(meTraveler, true)}
+        {otherTravelers.length > 0 && (meTraveler ? (
+          <div>
+            <button onClick={() => setOthersOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-1 py-1.5 text-[12px] font-medium text-ink-2">
+              <span>ผู้เดินทางคนอื่น · {otherTravelers.length} คน</span>
+              <IconChevronDown size={16} className={`text-ink-3 transition-transform ${othersOpen ? '' : '-rotate-90'}`} />
+            </button>
+            {othersOpen && <div className="space-y-2.5 mt-1">{otherTravelers.map((t) => travelerRow(t, false))}</div>}
+          </div>
+        ) : otherTravelers.map((t) => travelerRow(t, false)))}
       </div>
 
       {/* Flights */}
