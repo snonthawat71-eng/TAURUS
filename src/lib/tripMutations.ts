@@ -200,8 +200,9 @@ export interface TrainTicketInput {
   qr_path?: string | null
   position?: number | null
 }
-export async function addTrainTicket(trip_id: string, input: TrainTicketInput) {
-  return supabase.from('train_tickets').insert({ id: crypto.randomUUID(), trip_id, ...input })
+export async function addTrainTicket(trip_id: string, input: TrainTicketInput, id: string = crypto.randomUUID()) {
+  await supabase.from('train_tickets').insert({ id, trip_id, ...input })
+  return id
 }
 export async function updateTrainTicket(id: string, input: TrainTicketInput) {
   return supabase.from('train_tickets').update({ ...input }).eq('id', id)
