@@ -449,7 +449,6 @@ export default function TripInfo() {
         traveler={qrFor}
         name={qrFor?.nickname ?? 'ผู้โดยสาร'}
         tickets={trainTickets.filter((tk) => tk.traveler_id === qrFor?.id)}
-        travelers={travelers}
         tripId={trip?.id ?? ''}
         canEdit={canEdit}
         onChanged={reload}

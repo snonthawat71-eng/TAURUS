@@ -10,6 +10,8 @@ create table if not exists train_tickets (
   train_id       uuid references trains(id) on delete set null,     -- (optional) ผูกกับขบวน
   traveler_id    uuid references travelers(id) on delete set null,  -- ผูกกับผู้เดินทาง (ถ้ามี)
   passenger_name text,                                              -- ชื่อ (กรณีไม่ผูก traveler)
+  kind           text default 'train',                              -- ประเภท: train / park / esim / other
+  note           text,                                              -- รายละเอียดทั่วไป (ประเภทที่ไม่ใช่รถไฟ)
   label          text,                                              -- ป้ายกำกับ เช่น "ขาไป" / "Shinkansen"
   from_station   text,                                              -- สถานีต้นทาง
   to_station     text,                                              -- สถานีปลายทาง
@@ -31,6 +33,8 @@ alter table train_tickets add column if not exists to_station   text;
 alter table train_tickets add column if not exists gate         text;
 alter table train_tickets add column if not exists is_main      boolean not null default false;
 alter table train_tickets add column if not exists used         boolean not null default false;
+alter table train_tickets add column if not exists kind         text default 'train';
+alter table train_tickets add column if not exists note         text;
 
 create index if not exists train_tickets_trip_id_idx on train_tickets(trip_id);
 

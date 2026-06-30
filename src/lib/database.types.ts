@@ -93,6 +93,8 @@ export interface TrainTicket {
   train_id: string | null
   traveler_id: string | null
   passenger_name: string | null
+  kind: string | null
+  note: string | null
   label: string | null
   from_station: string | null
   to_station: string | null
