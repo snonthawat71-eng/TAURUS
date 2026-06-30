@@ -178,10 +178,10 @@ function DayCard({
               <IconGripVertical size={16} />
             </button>
           )}
-          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-semibold shrink-0 bg-white/20">Day {index + 1}</span>
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 bg-white/20">Day {index + 1}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {wx && <WeatherBadge wx={wx} className="text-[12px] text-white/90" />}
+          {wx && <WeatherBadge wx={wx} size={12} className="text-[10px] text-white/90" />}
           {canEdit && (
             <PopMenu buttonClassName="!bg-transparent !text-white hover:!bg-white/15" items={[
               { label: 'แก้ไขวัน', icon: <IconPencil size={15} />, onClick: onEditDay },
@@ -199,7 +199,7 @@ function DayCard({
         {/* Date row — date + activity count inline, separated by • */}
         <button onClick={onToggleCollapse} className="w-full text-left px-4 py-3" style={collapsed ? undefined : { borderBottom: '0.5px solid var(--color-line)' }} aria-expanded={!collapsed}>
           <div className="truncate leading-tight">
-            <span className="text-[15px] font-semibold">{formatLongDate(day.day_date)}</span>
+            <span className="text-[14px] font-semibold">{formatLongDate(day.day_date)}</span>
             <span className="text-[12px] text-ink-3 font-normal"> • {stops.length} กิจกรรม{doneCount > 0 ? ` · เสร็จ ${doneCount}/${stops.length}` : ''}</span>
           </div>
           {day.label && <div className="text-[12px] text-ink-3 truncate mt-0.5">{day.label}</div>}
