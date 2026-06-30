@@ -67,7 +67,7 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
   const last = legs.length - 1
 
   return (
-    <div className="mt-2.5 rounded-[10px] bg-surface p-3.5 relative" style={{ border: '0.5px solid var(--color-line)' }}>
+    <div className="mt-2.5 rounded-[10px] bg-surface-2/40 p-3.5 relative" style={{ border: '0.5px solid var(--color-line)' }}>
       {onEdit && (
         <button onClick={onEdit} className="absolute top-2.5 right-2.5 btn-icon !size-7 !border-0 text-ink-3" aria-label="แก้ไขเส้นทาง">
           <IconPencil size={14} />

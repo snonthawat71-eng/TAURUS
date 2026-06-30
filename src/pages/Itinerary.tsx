@@ -137,10 +137,10 @@ function SortableStop({
             </button>
           </div>
         )}
+        {/* TRANSIT SUB-CARD — the route to this stop nests inside its place card */}
+        {!done && stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
       </div>
       </div>
-      {/* TRANSIT CARD — the route to this stop gets its own card below the place */}
-      {!done && stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
     </div>
   )
 }
