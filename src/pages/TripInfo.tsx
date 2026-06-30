@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
-  IconBed, IconPlane, IconPencil, IconTrash, IconTrain,
+  IconBed, IconPlane, IconPencil, IconTrash, IconTrain, IconQrcode,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,7 +12,7 @@ import { FlightEditor } from '@/components/FlightEditor'
 import { TrainEditor } from '@/components/TrainEditor'
 import { HotelEditor } from '@/components/HotelEditor'
 import { HotelPhoto } from '@/components/HotelPhoto'
-import { TravelerTickets } from '@/components/TravelerTickets'
+import { TravelerQr } from '@/components/TravelerQr'
 import { BudgetSection } from '@/components/BudgetSection'
 import { AttachLink } from '@/components/AttachLink'
 import { PopMenu } from '@/components/PopMenu'
@@ -286,6 +286,7 @@ export default function TripInfo() {
   const { trip, travelers, travelerFiles, flights, trains, trainTickets, hotels, profile, reload, canEdit } = useTrip()
   const { user } = useAuth()
   const [selected, setSelected] = useState<Traveler | null>(null)
+  const [qrFor, setQrFor] = useState<Traveler | null>(null)
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
   const [flightEdit, setFlightEdit] = useState<EditState<Flight>>(null)
   const [newFlightDir, setNewFlightDir] = useState<FlightDirection>('outbound')
@@ -310,41 +311,43 @@ export default function TripInfo() {
       {/* Travelers */}
       <SectionHead title="Travelers • ผู้เดินทาง"
         action={canEdit ? <button onClick={() => setTravelerEdit('new')} className="btn-link flex items-center gap-1"><IconUserPlus size={14} /> เพิ่มคน</button> : undefined} />
-      <div className="space-y-2.5">
+      <div className="grid sm:grid-cols-2 gap-2.5">
         {travelers.map((t, i) => {
           const files = filesByTraveler.get(t.id) ?? []
           const myTickets = trainTickets.filter((tk) => tk.traveler_id === t.id)
           return (
-            <div key={t.id} className="flex gap-2.5 items-stretch">
-              <button onClick={() => setSelected(t)} className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0">
-                <div className="flex items-center gap-2.5">
-                  <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
-                  <div className="min-w-0">
-                    <div className="text-[14px] font-medium leading-tight">{t.nickname}</div>
-                    {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
-                  </div>
+            <button key={t.id} onClick={() => setSelected(t)} className="card p-3.5 text-left hover:bg-surface-2/30">
+              <div className="flex items-center gap-2.5">
+                <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
+                <div className="min-w-0">
+                  <div className="text-[14px] font-medium leading-tight">{t.nickname}</div>
+                  {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
                 </div>
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {files.map((f) => {
-                    const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
-                    return (
-                      <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
-                        <meta.icon size={12} /> {f.label || meta.label}
-                      </span>
-                    )
-                  })}
-                  {canEdit && (
-                    <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
-                      <IconPlus size={12} /> เพิ่มไฟล์
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {files.map((f) => {
+                  const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
+                  return (
+                    <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
+                      <meta.icon size={12} /> {f.label || meta.label}
                     </span>
-                  )}
-                </div>
-              </button>
-
-              {/* QR ticket tiles for this person, beside their name card */}
-              <TravelerTickets traveler={t} name={t.nickname ?? 'ผู้โดยสาร'} tickets={myTickets}
-                travelers={travelers} tripId={trip?.id ?? ''} canEdit={canEdit} onChanged={reload} />
-            </div>
+                  )
+                })}
+                {/* QR ticket quick-menu — opens this person's QR codes to scan */}
+                {(myTickets.length > 0 || canEdit) && (
+                  <span onClick={(e) => { e.stopPropagation(); setQrFor(t) }}
+                    className="chip !bg-brand-soft !text-brand-dark hover:brightness-95 cursor-pointer"
+                    style={{ border: '0.5px solid var(--color-brand-border)' }}>
+                    <IconQrcode size={12} /> QR{myTickets.length > 0 ? ` · ${myTickets.length}` : ''}
+                  </span>
+                )}
+                {canEdit && (
+                  <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
+                    <IconPlus size={12} /> เพิ่มไฟล์
+                  </span>
+                )}
+              </div>
+            </button>
           )
         })}
       </div>
@@ -436,6 +439,18 @@ export default function TripInfo() {
       {/* Budget */}
       <SectionHead title="Budget • ค่าใช้จ่าย" />
       <BudgetSection />
+
+      <TravelerQr
+        open={!!qrFor}
+        onClose={() => setQrFor(null)}
+        traveler={qrFor}
+        name={qrFor?.nickname ?? 'ผู้โดยสาร'}
+        tickets={trainTickets.filter((tk) => tk.traveler_id === qrFor?.id)}
+        travelers={travelers}
+        tripId={trip?.id ?? ''}
+        canEdit={canEdit}
+        onChanged={reload}
+      />
 
       {/* Overview drawer */}
       <TravelerDrawer
