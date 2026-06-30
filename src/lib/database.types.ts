@@ -86,6 +86,20 @@ export interface Flight {
 }
 
 /** Train trips — mirrors Flight (ขาไป/ขากลับ). Requires supabase/trains.sql. */
+// Per-passenger train ticket (QR + seat), present after supabase/train_tickets.sql
+export interface TrainTicket {
+  id: string
+  trip_id: string
+  train_id: string
+  traveler_id: string | null
+  passenger_name: string | null
+  seat_no: string | null
+  car: string | null
+  qr_path: string | null
+  position: number
+  created_at: string
+}
+
 export interface Train {
   id: string
   trip_id: string

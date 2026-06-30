@@ -188,6 +188,26 @@ export async function deleteTrain(id: string) {
   return supabase.from('trains').delete().eq('id', id)
 }
 
+// ---------- Train tickets (per-passenger QR + seat) ----------
+
+export interface TrainTicketInput {
+  traveler_id?: string | null
+  passenger_name?: string | null
+  seat_no?: string | null
+  car?: string | null
+  qr_path?: string | null
+  position?: number | null
+}
+export async function addTrainTicket(trip_id: string, train_id: string, input: TrainTicketInput) {
+  return supabase.from('train_tickets').insert({ id: crypto.randomUUID(), trip_id, train_id, ...input })
+}
+export async function updateTrainTicket(id: string, input: TrainTicketInput) {
+  return supabase.from('train_tickets').update({ ...input }).eq('id', id)
+}
+export async function deleteTrainTicket(id: string) {
+  return supabase.from('train_tickets').delete().eq('id', id)
+}
+
 // ---------- Hotels ----------
 
 export interface HotelInput {

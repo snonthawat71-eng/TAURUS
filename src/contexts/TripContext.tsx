@@ -4,7 +4,7 @@ import { toast } from '@/lib/toast'
 import { initOfflineSync } from '@/lib/offlineQueue'
 import { useAuth } from './AuthContext'
 import type {
-  Expense, Flight, Train, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
+  Expense, Flight, Train, TrainTicket, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
   Profile, Traveler, TravelerFile, Trip,
 } from '@/lib/database.types'
 
@@ -20,6 +20,7 @@ interface TripData {
   travelerFiles: TravelerFile[]
   flights: Flight[]
   trains: Train[]
+  trainTickets: TrainTicket[]
   hotels: Hotel[]
   days: ItineraryDay[]
   stops: ItineraryStop[]
@@ -40,7 +41,7 @@ type TripState = Omit<TripData, 'loading' | 'error' | 'reload' | 'trips' | 'curr
 const TripContext = createContext<TripData | undefined>(undefined)
 
 const empty = {
-  trip: null, profile: null, travelers: [], travelerFiles: [], flights: [], trains: [], hotels: [], days: [],
+  trip: null, profile: null, travelers: [], travelerFiles: [], flights: [], trains: [], trainTickets: [], hotels: [], days: [],
   stops: [], places: [], interests: [], expenses: [], memberProfiles: [], myPermission: 'owner' as const,
 }
 
@@ -101,6 +102,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
         supabase.from('trip_members').select('user_id,permission').eq('trip_id', trip_id),
         // optional — table only exists after supabase/trains.sql; errors are tolerated
         supabase.from('trains').select('*').eq('trip_id', trip_id).order('travel_date'),
+        // optional — table only exists after supabase/train_tickets.sql; tolerated
+        supabase.from('train_tickets').select('*').eq('trip_id', trip_id).order('position'),
       ])
 
       // Fetch the trips list and (when we already know the current trip — i.e. on
@@ -127,7 +130,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       // (first load, or the saved id was stale) fetch for the real current trip.
       const [
         profileRes, travelersRes, travelerFilesRes, flightsRes, hotelsRes, daysRes, stopsRes,
-        placesRes, expensesRes, membersRes, trainsRes,
+        placesRes, expensesRes, membersRes, trainsRes, trainTicketsRes,
       ] = (batchP && current.id === knownId) ? await batchP : await fetchTripData(current.id)
 
       // Supabase returns failures as an `error` value (not a thrown exception),
@@ -176,6 +179,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
         flights: flightsRes.data ?? [],
         // trains table is optional (migration may not be run yet) — tolerate its error
         trains: (trainsRes.error ? [] : trainsRes.data ?? []) as Train[],
+        // train_tickets table is optional too — tolerate its error
+        trainTickets: (trainTicketsRes.error ? [] : trainTicketsRes.data ?? []) as TrainTicket[],
         hotels: (hotelsRes.data ?? []) as Hotel[],
         days: daysRes.data ?? [],
         stops: (stopsRes.data ?? []) as ItineraryStop[],
