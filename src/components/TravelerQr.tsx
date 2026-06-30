@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconArrowUpRight, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle } from '@tabler/icons-react'
+import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconArrowUpRight, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle, IconPencil } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { Lightbox } from './Lightbox'
@@ -13,8 +13,8 @@ const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outl
 
 /**
  * Quick-QR hub for one traveler. A dropdown picks the QR; you can flag one as the
- * main QR or mark it used. The picked QR shows its boarding-pass detail (big QR +
- * Car/Gate/Seat + stations), tap to enlarge full-screen for scanning.
+ * main QR (tap again to clear) or mark it used (bottom). The picked QR shows its
+ * boarding-pass detail; edit fields hide behind the pencil.
  */
 export function TravelerQr({ open, onClose, traveler, name, tickets, travelers, tripId, canEdit, onChanged }: {
   open: boolean
@@ -44,9 +44,10 @@ export function TravelerQr({ open, onClose, traveler, name, tickets, travelers, 
     setAdding(false)
     setSelId(id)
   }
-  async function setMain(id: string) {
+  async function toggleMain(t: TrainTicket) {
     setBusy(true)
-    await Promise.all(rows.map((r) => updateTrainTicket(r.id, { is_main: r.id === id })))
+    if (t.is_main) await updateTrainTicket(t.id, { is_main: false })
+    else await Promise.all(rows.map((r) => updateTrainTicket(r.id, { is_main: r.id === t.id })))
     await onChanged()
     setBusy(false)
   }
@@ -78,22 +79,15 @@ export function TravelerQr({ open, onClose, traveler, name, tickets, travelers, 
 
       {sel ? (
         <>
-          {/* main / used controls */}
+          {/* main flag — tap again to clear */}
           {canEdit && (
-            <div className="flex items-center gap-2 mt-2.5">
-              <button onClick={() => setMain(sel.id)} disabled={busy || !!sel.is_main}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium disabled:opacity-100"
+            <div className="mt-2.5">
+              <button onClick={() => toggleMain(sel)} disabled={busy}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium"
                 style={sel.is_main
                   ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }
                   : { border: '0.5px solid var(--color-line)' }}>
                 {sel.is_main ? <IconStarFilled size={13} /> : <IconStar size={13} />} {sel.is_main ? 'QR หลัก' : 'ตั้งเป็น QR หลัก'}
-              </button>
-              <button onClick={() => toggleUsed(sel)} disabled={busy}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium"
-                style={sel.used
-                  ? { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }
-                  : { border: '0.5px solid var(--color-line)' }}>
-                {sel.used ? <IconCheck size={13} /> : <IconCircle size={13} />} {sel.used ? 'ใช้แล้ว' : 'ทำเครื่องหมายว่าใช้แล้ว'}
               </button>
             </div>
           )}
@@ -102,6 +96,17 @@ export function TravelerQr({ open, onClose, traveler, name, tickets, travelers, 
             <TicketPanel key={sel.id} ticket={sel} travelers={travelers} tripId={tripId} canEdit={canEdit}
               onEnlarge={() => sel.qr_path && setLightbox(true)} onChanged={onChanged} onDeleted={() => setSelId(null)} />
           </div>
+
+          {/* used — at the very bottom */}
+          {canEdit && (
+            <button onClick={() => toggleUsed(sel)} disabled={busy}
+              className="w-full h-10 rounded-md mt-6 text-[13px] font-medium flex items-center justify-center gap-1.5"
+              style={sel.used
+                ? { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }
+                : { border: '0.5px solid var(--color-line)', color: 'var(--color-ink-2)' }}>
+              {sel.used ? <><IconCheck size={15} /> ใช้แล้ว · กดเพื่อยกเลิก</> : <><IconCircle size={15} /> ทำเครื่องหมายว่าใช้แล้ว</>}
+            </button>
+          )}
         </>
       ) : (
         <div className="card p-8 mt-3 text-center text-[13px] text-ink-3">ยังไม่มี QR{canEdit ? ' — กด “เพิ่ม QR”' : ''}</div>
@@ -114,7 +119,8 @@ export function TravelerQr({ open, onClose, traveler, name, tickets, travelers, 
   )
 }
 
-/** The selected QR shown big for scanning + its details (editable). */
+/** The selected QR shown big for scanning. Boarding-pass display by default; the
+ *  edit fields hide behind the pencil. */
 function TicketPanel({ ticket, travelers, tripId, canEdit, onEnlarge, onChanged, onDeleted }: {
   ticket: TrainTicket
   travelers: Traveler[]
@@ -124,6 +130,8 @@ function TicketPanel({ ticket, travelers, tripId, canEdit, onEnlarge, onChanged,
   onChanged: () => void | Promise<void>
   onDeleted: () => void
 }) {
+  const blank = !ticket.qr_path && !ticket.label && !ticket.from_station && !ticket.to_station && !ticket.car && !ticket.gate && !ticket.seat_no
+  const [editing, setEditing] = useState(blank)
   const [travelerId, setTravelerId] = useState(ticket.traveler_id ?? '')
   const [label, setLabel] = useState(ticket.label ?? '')
   const [from, setFrom] = useState(ticket.from_station ?? '')
@@ -177,7 +185,8 @@ function TicketPanel({ ticket, travelers, tripId, canEdit, onEnlarge, onChanged,
         {canEdit && ticket.qr_path && <button onClick={() => fileInput.current?.click()} disabled={uploading} className="btn-link text-[12px] disabled:opacity-50">{uploading ? 'กำลังอัป…' : 'เปลี่ยน QR'}</button>}
       </div>
 
-      {canEdit ? (
+      {editing && canEdit ? (
+        /* edit form (behind the pencil) */
         <div className="mt-4 pt-4 space-y-2.5" style={{ borderTop: '0.5px solid var(--color-line)' }}>
           {travelers.length > 0 && (
             <select className={field} value={travelerId}
@@ -196,9 +205,13 @@ function TicketPanel({ ticket, travelers, tripId, canEdit, onEnlarge, onChanged,
             <input className={field} value={gate} placeholder="Gate" onChange={(e) => setGate(e.target.value)} onBlur={() => persist({ gate: gate.trim() || null })} />
             <input className={field} value={seat} placeholder="Seat" onChange={(e) => setSeat(e.target.value)} onBlur={() => persist({ seat_no: seat.trim() || null })} />
           </div>
-          <button onClick={remove} className="text-[12px] inline-flex items-center gap-1 text-[#D85A30] pt-1"><IconTrash size={14} /> ลบรายการนี้</button>
+          <div className="flex items-center gap-3 pt-1">
+            <button onClick={remove} className="text-[12px] inline-flex items-center gap-1 text-[#D85A30]"><IconTrash size={14} /> ลบรายการนี้</button>
+            <button onClick={() => setEditing(false)} className="btn-primary h-9 px-4 ml-auto text-[13px]">เสร็จ</button>
+          </div>
         </div>
       ) : (
+        /* pretty boarding-pass display */
         <>
           {(ticket.car || ticket.gate || ticket.seat_no) && (
             <div className="mt-4 flex items-center justify-between gap-3 text-[14px]">
@@ -215,6 +228,9 @@ function TicketPanel({ ticket, travelers, tripId, canEdit, onEnlarge, onChanged,
               <IconTrain size={17} className="text-brand shrink-0" />
               <span className="flex-1 truncate text-right">{ticket.to_station || '—'}</span>
             </div>
+          )}
+          {canEdit && (
+            <button onClick={() => setEditing(true)} className="btn-link text-[12px] mt-3 flex items-center gap-1"><IconPencil size={13} /> แก้ไขรายละเอียด</button>
           )}
         </>
       )}
