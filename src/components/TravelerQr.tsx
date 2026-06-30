@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle, IconPencil, IconChevronLeft, IconBuildingCarousel, IconDeviceMobile } from '@tabler/icons-react'
+import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle, IconPencil, IconChevronLeft, IconBuildingCarousel, IconDeviceMobile, IconTicket } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { Lightbox } from './Lightbox'
@@ -12,12 +12,16 @@ const qrRef = (path: string) => (/^https?:\/\//.test(path) ? { url: path } : { p
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 
 const KINDS = [
-  { key: 'train', label: 'ตั๋วรถไฟ', icon: IconTrain, labelPh: 'ชื่อรายการ (เช่น Airport Express)' },
-  { key: 'park', label: 'สวนสนุก', icon: IconBuildingCarousel, labelPh: 'ชื่อสวนสนุก (เช่น Disneyland)', notePh: 'รายละเอียด (วันที่ / รอบ / โซน)' },
+  { key: 'admission', label: 'Admission Ticket', icon: IconTicket, labelPh: 'ชื่อรายการ', notePh: 'รายละเอียด (วันที่ / รอบ / โซน)' },
+  { key: 'airport_express', label: 'Airport Express Ticket', icon: IconTrain, labelPh: 'ชื่อรายการ (เช่น Airport Express)', boarding: true },
+  { key: 'train', label: 'Train Ticket', icon: IconTrain, labelPh: 'ชื่อรายการ (เช่น Shinkansen)', boarding: true },
+  { key: 'theme_park', label: 'Theme Park', icon: IconBuildingCarousel, labelPh: 'ชื่อสวนสนุก (เช่น Disneyland)', notePh: 'รายละเอียด (วันที่ / รอบ / โซน)' },
   { key: 'esim', label: 'eSIM', icon: IconDeviceMobile, labelPh: 'ผู้ให้บริการ / แพ็กเกจ', notePh: 'รายละเอียด (ดาต้า / วันหมดอายุ)' },
   { key: 'other', label: 'อื่นๆ', icon: IconQrcode, labelPh: 'ชื่อรายการ', notePh: 'รายละเอียด' },
 ] as const
-const kindMeta = (k: string | null) => KINDS.find((x) => x.key === k) ?? KINDS[0]
+const kindMeta = (k: string | null) => KINDS.find((x) => x.key === k) ?? KINDS[KINDS.length - 1]
+// which kinds use the boarding-pass detail (stations + Car/Gate/Seat)
+const isBoarding = (k: string | null) => { const m = kindMeta(k); return 'boarding' in m && !!m.boarding }
 
 /**
  * Quick-QR hub for one traveler. Everything updates the shared trip state
@@ -184,7 +188,7 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
   onToggleUsed: () => void
   onEnlarge: () => void
 }) {
-  const isTrain = (ticket.kind ?? 'train') === 'train'
+  const isTrain = isBoarding(ticket.kind)
   return (
     <div className={ticket.used ? 'opacity-60' : undefined}>
       {/* main toggle — centred, above the QR */}
@@ -304,7 +308,7 @@ function QrEditPage({ ticket, tripId, onPersist, onRemove, onBack }: {
 
         <input className={field} value={label} placeholder={meta.labelPh} onChange={(e) => setLabel(e.target.value)} onBlur={() => onPersist({ label: label.trim() || null })} />
 
-        {kind === 'train' ? (
+        {isBoarding(kind) ? (
           <>
             <div className="grid grid-cols-2 gap-2">
               <input className={field} value={from} placeholder="สถานีต้นทาง" onChange={(e) => setFrom(e.target.value)} onBlur={() => onPersist({ from_station: from.trim() || null })} />
