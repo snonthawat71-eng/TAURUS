@@ -189,8 +189,8 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
         )}
       </div>
 
-      {/* details box — light brand blue */}
-      <div className="bg-brand-soft rounded-lg p-3.5 mt-4 text-[13px]">
+      {/* details box — bright, near-white brand blue (10%) */}
+      <div className="rounded-lg p-3.5 mt-4 text-[13px]" style={{ background: 'rgba(2,112,251,0.10)' }}>
         {isTrain ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2 font-semibold">
