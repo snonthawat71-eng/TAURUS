@@ -217,7 +217,8 @@ export default function TripsDashboard() {
               const tvs = byTrip.get(t.id) ?? []
               const countdown = tripCountdown(t.start_date, t.end_date)
               return (
-                <div key={t.id} className="card p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white" style={{ background: heroGradient(t) }}>
+                <div key={t.id} className="relative flex flex-col">
+                  <div className="card p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white z-10" style={{ background: heroGradient(t) }}>
                   {/* full photo (shifted right) */}
                   <CoverImage url={coverImage(t)} />
                   {/* navy gradient on the left so the title/buttons read; photo stays natural on the right */}
@@ -264,10 +265,12 @@ export default function TripsDashboard() {
                         className="size-9 grid place-items-center rounded-[10px] bg-white/20 hover:bg-white/35 backdrop-blur-sm border border-white/30 transition-colors"><IconShare2 size={16} /></button>
                     </div>
                   </div>
+                  </div>
 
-                  {/* full-bleed status strip — colour by tab (upcoming = brand, past = grey) */}
+                  {/* stacked colour strip — sits behind the card and peeks out below
+                      with its own rounded bottom (layered look) */}
                   {t.start_date && (
-                    <div className="relative z-10 flex items-center justify-between gap-2 px-3.5 py-2 text-[11px] font-medium text-white"
+                    <div className="relative z-0 -mt-3 pt-4 pb-2 px-4 rounded-b-[14px] flex items-center justify-between gap-2 text-[11px] font-medium text-white"
                       style={{ background: tab === 'past' ? '#5B6573' : 'var(--color-brand)' }}>
                       <span className="inline-flex items-center gap-1">
                         <IconClock size={13} /> {countdown ?? (tab === 'past' ? 'จบแล้ว' : '')}
