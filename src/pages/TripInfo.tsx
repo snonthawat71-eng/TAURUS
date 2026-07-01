@@ -170,7 +170,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   if (!open) {
     return (
       <div className="card p-4">
-        <div className="flex items-center justify-end gap-0.5 -mt-1.5 -mr-1.5">{chevron}{menu}</div>
+        <div className="flex items-center justify-end gap-0.5 -mt-1.5 -mr-1.5">{menu}{chevron}</div>
         <div className="flex items-start gap-2 -mt-1">
           <div className="flex-1 min-w-0">
             <div className="text-[26px] font-medium leading-none">{f.dep_code}</div>
@@ -213,7 +213,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
           {f.flight_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</span>}
           <div className="text-[13px] font-medium truncate">{f.flight_no} · {f.airline}</div>
         </div>
-        {chevron}{menu}
+        {menu}{chevron}
       </div>
 
       <div className="flex items-start mt-4">
@@ -308,7 +308,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
   if (!open) {
     return (
       <div className="card p-4">
-        <div className="flex items-center justify-end gap-0.5 -mt-1.5 -mr-1.5">{chevron}{menu}</div>
+        <div className="flex items-center justify-end gap-0.5 -mt-1.5 -mr-1.5">{menu}{chevron}</div>
         <div className="flex items-start gap-2 -mt-1">
           <div className="flex-1 min-w-0">
             <div className="text-[16px] font-medium leading-tight truncate">{t.dep_name}</div>
@@ -349,7 +349,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
           {t.travel_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</span>}
           <div className="text-[13px] font-medium truncate">{t.train_no} · {t.operator}</div>
         </div>
-        {chevron}{menu}
+        {menu}{chevron}
       </div>
 
       <div className="flex items-start mt-4">
