@@ -184,14 +184,16 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <div className="relative flex flex-col">
         {strip}
         <div className="card relative p-4">
+          {/* fixed-width side columns (not flex-1) so a long name is FORCED to wrap
+              onto its 2 reserved lines instead of stretching out on one long line */}
           <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0">
+            <div className="w-[104px] shrink-0">
               <div className="text-[26px] font-medium leading-none">{f.dep_code}</div>
               <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.dep_name}</div>
               <div className="text-[15px] mt-1 tabular-nums">{f.dep_time}</div>
             </div>
-            <div className="shrink-0 pt-2"><Icon size={22} className="text-brand" /></div>
-            <div className="flex-1 min-w-0 text-right">
+            <div className="flex-1 flex justify-center pt-2"><Icon size={22} className="text-brand" /></div>
+            <div className="w-[104px] shrink-0 text-right">
               <div className="text-[26px] font-medium leading-none">{f.arr_code}</div>
               <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.arr_name}</div>
               <div className="text-[15px] mt-1 tabular-nums">{f.arr_time}</div>
@@ -326,13 +328,15 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <div className="relative flex flex-col">
         {strip}
         <div className="card relative p-4">
+          {/* fixed-width side columns (not flex-1) so a long station name is FORCED
+              to wrap onto its 2 reserved lines instead of stretching on one line */}
           <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0">
+            <div className="w-[124px] shrink-0">
               <div className="text-[16px] font-medium leading-tight line-clamp-2 break-words min-h-[40px]">{t.dep_name}</div>
               <div className="text-[15px] mt-1.5 tabular-nums">{t.dep_time}</div>
             </div>
-            <div className="shrink-0 pt-1.5"><IconTrain size={20} className="text-brand" /></div>
-            <div className="flex-1 min-w-0 text-right">
+            <div className="flex-1 flex justify-center pt-1.5"><IconTrain size={20} className="text-brand" /></div>
+            <div className="w-[124px] shrink-0 text-right">
               <div className="text-[16px] font-medium leading-tight line-clamp-2 break-words min-h-[40px]">{t.arr_name}</div>
               <div className="text-[15px] mt-1.5 tabular-nums">{t.arr_time}</div>
             </div>
