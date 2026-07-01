@@ -315,7 +315,10 @@ export default function TripInfo() {
   const travelerRow = (t: Traveler, isMe: boolean) => {
     const i = travelers.indexOf(t)
     const files = filesByTraveler.get(t.id) ?? []
-    const myTickets = trainTickets.filter((tk) => tk.traveler_id === t.id)
+    // Count only QRs with real content — a freshly-added blank ticket (created but
+    // nothing filled/uploaded yet) shouldn't bump the tile's count.
+    const myTickets = trainTickets.filter((tk) => tk.traveler_id === t.id
+      && (tk.qr_path || tk.label || tk.note || tk.from_station || tk.to_station || tk.seat_no || tk.car || tk.gate))
     const usedTickets = myTickets.filter((tk) => tk.used).length
     return (
       <div key={t.id} className="flex gap-2.5 items-stretch">
