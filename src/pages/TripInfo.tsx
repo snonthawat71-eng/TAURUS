@@ -187,13 +187,13 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
               <div className="text-[26px] font-medium leading-none">{f.dep_code}</div>
-              <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2">{f.dep_name}</div>
+              <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.dep_name}</div>
               <div className="text-[15px] mt-1 tabular-nums">{f.dep_time}</div>
             </div>
             <div className="shrink-0 pt-2"><Icon size={22} className="text-brand" /></div>
             <div className="flex-1 min-w-0 text-right">
               <div className="text-[26px] font-medium leading-none">{f.arr_code}</div>
-              <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2">{f.arr_name}</div>
+              <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.arr_name}</div>
               <div className="text-[15px] mt-1 tabular-nums">{f.arr_time}</div>
             </div>
           </div>
@@ -222,7 +222,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <div className="flex items-start mt-1">
         <div className="w-[88px] shrink-0">
           <div className="text-[22px] font-medium leading-none">{f.dep_code}</div>
-          <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2">{f.dep_name}</div>
+          <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.dep_name}</div>
           <div className="text-[14px] mt-0.5 tabular-nums">{f.dep_time}</div>
         </div>
         <div className="flex-1 flex flex-col items-center pt-1">
@@ -240,7 +240,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
         <div className="w-[88px] shrink-0 text-right">
           <div className="text-[22px] font-medium leading-none">{f.arr_code}</div>
-          <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2">{f.arr_name}</div>
+          <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.arr_name}</div>
           <div className="text-[14px] mt-0.5 tabular-nums">{f.arr_time}</div>
         </div>
       </div>
@@ -328,12 +328,12 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <div className="card relative p-4">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
-              <div className="text-[16px] font-medium leading-tight line-clamp-2">{t.dep_name}</div>
+              <div className="text-[16px] font-medium leading-tight line-clamp-2 break-words min-h-[40px]">{t.dep_name}</div>
               <div className="text-[15px] mt-1.5 tabular-nums">{t.dep_time}</div>
             </div>
             <div className="shrink-0 pt-1.5"><IconTrain size={20} className="text-brand" /></div>
             <div className="flex-1 min-w-0 text-right">
-              <div className="text-[16px] font-medium leading-tight line-clamp-2">{t.arr_name}</div>
+              <div className="text-[16px] font-medium leading-tight line-clamp-2 break-words min-h-[40px]">{t.arr_name}</div>
               <div className="text-[15px] mt-1.5 tabular-nums">{t.arr_time}</div>
             </div>
           </div>
@@ -361,7 +361,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <div className="card relative p-4">
       <div className="flex items-start mt-1">
         <div className="w-[96px] shrink-0">
-          <div className="text-[14px] font-medium leading-tight line-clamp-2">{t.dep_name}</div>
+          <div className="text-[14px] font-medium leading-tight line-clamp-2 break-words min-h-[35px]">{t.dep_name}</div>
           <div className="text-[14px] mt-1 tabular-nums">{t.dep_time}</div>
         </div>
         <div className="flex-1 flex flex-col items-center pt-1">
@@ -378,7 +378,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
           <div className="text-[11px] text-ink-3">direct</div>
         </div>
         <div className="w-[96px] shrink-0 text-right">
-          <div className="text-[14px] font-medium leading-tight line-clamp-2">{t.arr_name}</div>
+          <div className="text-[14px] font-medium leading-tight line-clamp-2 break-words min-h-[35px]">{t.arr_name}</div>
           <div className="text-[14px] mt-1 tabular-nums">{t.arr_time}</div>
         </div>
       </div>
