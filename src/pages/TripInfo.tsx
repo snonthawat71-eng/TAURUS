@@ -316,6 +316,7 @@ export default function TripInfo() {
     const i = travelers.indexOf(t)
     const files = filesByTraveler.get(t.id) ?? []
     const myTickets = trainTickets.filter((tk) => tk.traveler_id === t.id)
+    const usedTickets = myTickets.filter((tk) => tk.used).length
     return (
       <div key={t.id} className="flex gap-2.5 items-stretch">
         <button onClick={() => setSelected(t)} className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0">
@@ -350,8 +351,17 @@ export default function TripInfo() {
         {(myTickets.length > 0 || canEdit) && (
           <button onClick={() => setQrFor(t)}
             className="card w-[116px] shrink-0 flex flex-col items-center justify-center gap-1.5 hover:bg-surface-2/30 transition-colors">
-            <div className="size-9 rounded-full bg-brand-soft grid place-items-center text-brand"><IconQrcode size={20} /></div>
+            <div className="relative">
+              <div className="size-9 rounded-full bg-brand-soft grid place-items-center text-brand"><IconQrcode size={20} /></div>
+              {myTickets.length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full grid place-items-center text-[10px] font-bold text-white tabular-nums"
+                  style={{ background: 'var(--color-brand)' }}>{myTickets.length}</span>
+              )}
+            </div>
             <span className="text-[10px] font-semibold tracking-wide">Quick QR</span>
+            {myTickets.length > 0 && (
+              <span className="text-[10px] text-ink-3 tabular-nums">ใช้แล้ว {usedTickets}</span>
+            )}
           </button>
         )}
       </div>
