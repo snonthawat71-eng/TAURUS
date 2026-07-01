@@ -17,12 +17,12 @@ export const CITY_IMAGES: Record<string, string> = {
 // city tabs above. Add a city here to give the trip card a different photo; any
 // city not listed falls back to CITY_IMAGES so no card is ever left blank.
 export const TRIP_COVER_IMAGES: Record<string, string> = {
-  'Hongkong': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/5_lofopb.jpg',
+  'Hongkong': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782898798/citiefront1_nxpocx.jpg',
   'Tokyo': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/1_oxbjmr.jpg',
   'Osaka': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/3_gikmjx.jpg',
   'Taipei': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/2_gem1nz.jpg',
   'Shanghai': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/4_mwys9h.jpg',
-  'Shenzhen': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/6_nwhsn8.jpg',
+  'Shenzhen': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782899453/citiefront2_lbs5sq.jpg',
   'Beijing': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782895047/7_oyjkz1.jpg',
   'Seoul': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782895047/8_aycxim.jpg',
   'Singapore': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782895736/9_w9x6yy.jpg',
