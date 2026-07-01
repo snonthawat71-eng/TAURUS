@@ -178,7 +178,7 @@ function DayCard({
       {/* Blue strip — sits BEHIND the content card (z-0) and peeks out at the TOP with
           its own rounded top corners (layered look; mirrors the trip card's bottom
           strip, flipped to the top). Day N · weather · collapse live here. */}
-      <div className="relative z-0 -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: isPast ? '#5B6573' : 'var(--color-brand)' }}>
+      <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: isPast ? '#5B6573' : 'var(--color-brand)' }}>
         <div className="flex items-center gap-1.5 min-w-0">
           {canEdit && (
             <button {...attributes} {...listeners} className="text-white/70 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากย้ายวัน">
@@ -201,8 +201,9 @@ function DayCard({
         </div>
       </div>
 
-      {/* Content card sits ON TOP of the strip (z-10), its rounded top nesting inside it */}
-      <div className="card relative z-10 overflow-hidden">
+      {/* Content card paints over the strip's bottom via DOM order (no z-index, so the
+          strip's PopMenu dropdown isn't trapped in a stacking context behind it). */}
+      <div className="card relative overflow-hidden">
         {/* Date row — date + activity count inline, separated by • */}
         <button onClick={onToggleCollapse} className="w-full text-left px-4 py-3" style={collapsed ? undefined : { borderBottom: '0.5px solid var(--color-line)' }} aria-expanded={!collapsed}>
           <div className="truncate leading-tight">
