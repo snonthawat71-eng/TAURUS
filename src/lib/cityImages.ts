@@ -23,6 +23,8 @@ export const TRIP_COVER_IMAGES: Record<string, string> = {
   'Taipei': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/2_gem1nz.jpg',
   'Shanghai': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/4_mwys9h.jpg',
   'Shenzhen': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/6_nwhsn8.jpg',
+  'Beijing': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782895047/7_oyjkz1.jpg',
+  'Seoul': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782895047/8_aycxim.jpg',
 }
 
 const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
