@@ -25,6 +25,7 @@ export const TRIP_COVER_IMAGES: Record<string, string> = {
   'Shenzhen': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/6_nwhsn8.jpg',
   'Beijing': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782895047/7_oyjkz1.jpg',
   'Seoul': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782895047/8_aycxim.jpg',
+  'Singapore': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782895736/9_w9x6yy.jpg',
 }
 
 const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
