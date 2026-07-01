@@ -76,7 +76,21 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows])
 
-  function close() { setEditMode(false); onClose() }
+  // a QR that was added but never filled/uploaded is "unsaved" — discard it so it
+  // doesn't persist or show up next time (pressing "+" then leaving = no-op)
+  const isBlank = (t: TrainTicket) => !t.qr_path && !t.label && !t.note && !t.from_station && !t.to_station && !t.seat_no && !t.car && !t.gate
+  function discardBlanks() {
+    const blanks = tickets.filter(isBlank)
+    if (blanks.length === 0) return
+    const ids = new Set(blanks.map((b) => b.id))
+    patchTickets((all) => all.filter((x) => !ids.has(x.id)))
+    blanks.forEach((b) => deleteTrainTicket(b.id))
+  }
+  function backFromEdit() {
+    if (sel && isBlank(sel)) { removeTicket(sel.id); setSelId(null) }
+    setEditMode(false)
+  }
+  function close() { discardBlanks(); setEditMode(false); onClose() }
   function onScroll() {
     const el = scroller.current
     if (!el) return
@@ -127,7 +141,7 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
         <QrEditPage key={sel.id} ticket={sel} tripId={tripId}
           onPersist={(f) => persist(sel.id, f)}
           onRemove={() => { removeTicket(sel.id); setSelId(null); setEditMode(false) }}
-          onBack={() => setEditMode(false)} />
+          onBack={backFromEdit} />
       ) : rows.length === 0 ? (
         <div>
           {canEdit && (
