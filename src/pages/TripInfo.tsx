@@ -85,6 +85,27 @@ async function viewFile(f: TravelerFile) {
   if (url) window.open(url, '_blank', 'noopener,noreferrer')
 }
 
+// Auto-pick the leg to show by the clock: outbound until it ends, then return
+// until it ends, then reset to outbound. A single leg / no return → outbound.
+function autoLegDir<T>(legs: T[], get: (l: T) => { dir: string; date: string | null; dep: string | null; arr: string | null }): FlightDirection {
+  const rows = legs.map(get)
+  const out = rows.find((x) => (x.dir || 'outbound') === 'outbound')
+  const ret = rows.find((x) => (x.dir || 'outbound') === 'return')
+  if (!ret) return 'outbound'
+  if (!out) return 'return'
+  const end = (x: { date: string | null; dep: string | null; arr: string | null }) => {
+    if (!x.date) return null
+    const dt = new Date(`${x.date}T${x.arr || x.dep || '23:59'}`)
+    return isNaN(dt.getTime()) ? null : dt.getTime()
+  }
+  const now = Date.now()
+  const outEnd = end(out)
+  const retEnd = end(ret)
+  if (outEnd != null && now < outEnd) return 'outbound' // haven't finished the outbound yet
+  if (retEnd != null && now >= retEnd) return 'outbound' // return is over → reset
+  return 'return'
+}
+
 function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   flights: Flight[]
   tripId: string
@@ -94,9 +115,11 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   onAdd: (dir: FlightDirection) => void
 }) {
   const { travelers } = useTrip()
-  const [dir, setDir] = useState<FlightDirection>('outbound')
-  // show the flight for the selected direction only — never fall back to the
-  // other direction (that let editing the "return" tab overwrite the outbound)
+  // default leg follows the clock (ข้อ 1); a manual toggle overrides until collapse
+  const autoDir = useMemo(() => autoLegDir(flights, (f) => ({ dir: f.direction ?? 'outbound', date: f.flight_date, dep: f.dep_time, arr: f.arr_time })), [flights])
+  const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
+  const [open, setOpen] = useState(false)
+  const dir = manualDir ?? autoDir
   const f = flights.find((x) => (x.direction ?? 'outbound') === dir)
   const Icon = dir === 'return' ? IconPlaneArrival : IconPlaneDeparture
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
@@ -106,7 +129,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
         style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
       {(['outbound', 'return'] as const).map((d) => (
-        <button key={d} onClick={() => setDir(d)}
+        <button key={d} onClick={() => setManualDir(d)}
           className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
           {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
         </button>
@@ -122,6 +145,13 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
           {f?.flight_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</span>}
           <div className="text-[13px] font-medium truncate">{f ? `${f.flight_no} · ${f.airline}` : `เที่ยวบิน${dirLabel}`}</div>
         </div>
+        {/* collapse toggle — collapsing resets to the auto (clock-based) leg */}
+        {f && (
+          <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
+            className="btn-icon !border-0 !size-7 text-ink-3 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
+            <IconChevronDown size={16} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+          </button>
+        )}
         {canEdit && f && (
           <PopMenu items={[
             { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
@@ -139,7 +169,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       ) : (
       <>
-      {/* route graphic — fixed columns so ขาไป/ขากลับ don't shift */}
+      {/* route graphic — the condensed summary (date · time · from→to); shown even when collapsed */}
       <div className="flex items-start mt-4">
         <div className="w-[88px] shrink-0">
           <div className="text-[22px] font-medium leading-none">{f.dep_code}</div>
@@ -166,21 +196,24 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       </div>
 
-      <div className="mt-4 pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-        <DetailRow items={[
-          { label: 'ชั้นโดยสาร', value: f.seat_class || 'Economy' },
-          { label: 'ที่นั่ง', value: `${f.seats ?? travelers.length}` },
-          { label: 'รหัสจอง', value: f.booking_ref, booking: true },
-        ]} />
-      </div>
+      {open && (
+        <>
+          <div className="mt-4 pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+            <DetailRow items={[
+              { label: 'ชั้นโดยสาร', value: f.seat_class || 'Economy' },
+              { label: 'ที่นั่ง', value: `${f.seats ?? travelers.length}` },
+              { label: 'รหัสจอง', value: f.booking_ref, booking: true },
+            ]} />
+          </div>
+          {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
+          <div className="flex items-center justify-between gap-2 mt-3.5">
+            <AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} />
+            {toggle}
+          </div>
+        </>
+      )}
       </>
       )}
-
-      {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
-      <div className="flex items-center justify-between gap-2 mt-3.5">
-        {f ? <AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} /> : <span />}
-        {toggle}
-      </div>
     </div>
   )
 }
@@ -193,7 +226,10 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
   onDelete: (t: Train) => void
   onAdd: (dir: FlightDirection) => void
 }) {
-  const [dir, setDir] = useState<FlightDirection>('outbound')
+  const autoDir = useMemo(() => autoLegDir(trains, (t) => ({ dir: t.direction ?? 'outbound', date: t.travel_date, dep: t.dep_time, arr: t.arr_time })), [trains])
+  const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
+  const [open, setOpen] = useState(false)
+  const dir = manualDir ?? autoDir
   const t = trains.find((x) => (x.direction ?? 'outbound') === dir)
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
 
@@ -202,7 +238,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
         style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
       {(['outbound', 'return'] as const).map((d) => (
-        <button key={d} onClick={() => setDir(d)}
+        <button key={d} onClick={() => setManualDir(d)}
           className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
           {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
         </button>
@@ -218,6 +254,13 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
           {t?.travel_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</span>}
           <div className="text-[13px] font-medium truncate">{t ? `${t.train_no} · ${t.operator}` : `รถไฟ${dirLabel}`}</div>
         </div>
+        {/* collapse toggle — collapsing resets to the auto (clock-based) leg */}
+        {t && (
+          <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
+            className="btn-icon !border-0 !size-7 text-ink-3 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
+            <IconChevronDown size={16} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+          </button>
+        )}
         {canEdit && t && (
           <PopMenu items={[
             { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(t) },
@@ -235,6 +278,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       ) : (
       <>
+      {/* route graphic — the condensed summary (date · time · from→to); shown even when collapsed */}
       <div className="flex items-start mt-4">
         <div className="w-[96px] shrink-0">
           <div className="text-[14px] font-medium leading-tight truncate">{t.dep_name}</div>
@@ -259,25 +303,28 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       </div>
 
-      <div className="mt-4 pt-3 space-y-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-        <DetailRow items={[
-          { label: 'ชั้นโดยสาร', value: t.seat_class },
-          { label: 'ประตู', value: t.gate },
-          { label: 'ตู้', value: t.car },
-        ]} />
-        <DetailRow items={[
-          { label: 'ที่นั่ง', value: t.seat_no },
-          { label: 'รหัสจอง', value: t.booking_ref, booking: true },
-        ]} />
-      </div>
+      {open && (
+        <>
+          <div className="mt-4 pt-3 space-y-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+            <DetailRow items={[
+              { label: 'ชั้นโดยสาร', value: t.seat_class },
+              { label: 'ประตู', value: t.gate },
+              { label: 'ตู้', value: t.car },
+            ]} />
+            <DetailRow items={[
+              { label: 'ที่นั่ง', value: t.seat_no },
+              { label: 'รหัสจอง', value: t.booking_ref, booking: true },
+            ]} />
+          </div>
+          {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
+          <div className="flex items-center justify-between gap-2 mt-3.5">
+            <AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} />
+            {toggle}
+          </div>
+        </>
+      )}
       </>
       )}
-
-      {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
-      <div className="flex items-center justify-between gap-2 mt-3.5">
-        {t ? <AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} /> : <span />}
-        {toggle}
-      </div>
     </div>
   )
 }
