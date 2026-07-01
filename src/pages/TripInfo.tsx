@@ -85,24 +85,35 @@ async function viewFile(f: TravelerFile) {
   if (url) window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-// Auto-pick the leg to show by the clock: outbound until it ends, then return
-// until it ends, then reset to outbound. A single leg / no return → outbound.
-function autoLegDir<T>(legs: T[], get: (l: T) => { dir: string; date: string | null; dep: string | null; arr: string | null }): FlightDirection {
+// "now" in a timezone as a sortable 'YYYY-MM-DDTHH:mm' string (the trip's tz, set
+// at creation) so leg date+time compare in the same frame regardless of device tz.
+function nowInTz(tz: string | null | undefined): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz || undefined, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date())
+    const g = (t: string) => parts.find((x) => x.type === t)?.value ?? ''
+    return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`
+  } catch {
+    return new Date().toISOString().slice(0, 16)
+  }
+}
+
+// Auto-pick the leg to show by the trip's clock (nowStr = now in trip tz): outbound
+// until it ends, then return until it ends, then reset to outbound. A single leg /
+// no return always shows outbound.
+function autoLegDir<T>(legs: T[], nowStr: string, get: (l: T) => { dir: string; date: string | null; dep: string | null; arr: string | null }): FlightDirection {
   const rows = legs.map(get)
   const out = rows.find((x) => (x.dir || 'outbound') === 'outbound')
   const ret = rows.find((x) => (x.dir || 'outbound') === 'return')
   if (!ret) return 'outbound'
   if (!out) return 'return'
-  const end = (x: { date: string | null; dep: string | null; arr: string | null }) => {
-    if (!x.date) return null
-    const dt = new Date(`${x.date}T${x.arr || x.dep || '23:59'}`)
-    return isNaN(dt.getTime()) ? null : dt.getTime()
-  }
-  const now = Date.now()
+  const end = (x: { date: string | null; dep: string | null; arr: string | null }) => (x.date ? `${x.date}T${x.arr || x.dep || '23:59'}` : null)
   const outEnd = end(out)
   const retEnd = end(ret)
-  if (outEnd != null && now < outEnd) return 'outbound' // haven't finished the outbound yet
-  if (retEnd != null && now >= retEnd) return 'outbound' // return is over → reset
+  if (outEnd != null && nowStr < outEnd) return 'outbound' // haven't finished the outbound yet
+  if (retEnd != null && nowStr >= retEnd) return 'outbound' // return is over → reset
   return 'return'
 }
 
@@ -114,9 +125,9 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   onDelete: (f: Flight) => void
   onAdd: (dir: FlightDirection) => void
 }) {
-  const { travelers } = useTrip()
-  // default leg follows the clock (ข้อ 1); a manual toggle overrides until collapse
-  const autoDir = useMemo(() => autoLegDir(flights, (f) => ({ dir: f.direction ?? 'outbound', date: f.flight_date, dep: f.dep_time, arr: f.arr_time })), [flights])
+  const { travelers, trip } = useTrip()
+  // default leg follows the trip's clock (ข้อ 1); a manual toggle overrides until collapse
+  const autoDir = useMemo(() => autoLegDir(flights, nowInTz(trip?.timezone), (f) => ({ dir: f.direction ?? 'outbound', date: f.flight_date, dep: f.dep_time, arr: f.arr_time })), [flights, trip?.timezone])
   const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
   const [open, setOpen] = useState(false)
   const dir = manualDir ?? autoDir
@@ -124,6 +135,64 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   const Icon = dir === 'return' ? IconPlaneArrival : IconPlaneDeparture
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
 
+  const chevron = f && (
+    <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
+      className="btn-icon !border-0 !size-7 text-ink-3 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
+      <IconChevronDown size={16} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+    </button>
+  )
+  const menu = canEdit && f && (
+    <PopMenu items={[
+      { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
+      { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
+    ]} />
+  )
+
+  // ---- no flight for this leg ----
+  if (!f) {
+    return (
+      <div className="card p-4">
+        <div className="flex items-center gap-2">
+          <Icon size={16} className="text-brand shrink-0" />
+          <div className="text-[13px] font-medium flex-1 truncate">เที่ยวบิน{dirLabel}</div>
+        </div>
+        <div className="text-center py-7">
+          <p className="text-[12px] text-ink-3">ยังไม่มีเที่ยวบิน{dirLabel}</p>
+          {canEdit && (
+            <button onClick={() => onAdd(dir)} className="btn-link inline-flex items-center gap-1 mt-2"><IconPlus size={14} /> เพิ่มเที่ยวบิน{dirLabel}</button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ---- collapsed: condensed image-style summary + long black date bar ----
+  if (!open) {
+    return (
+      <div className="card p-4">
+        <div className="flex items-center justify-end gap-0.5 -mt-1.5 -mr-1.5">{chevron}{menu}</div>
+        <div className="flex items-start gap-2 -mt-1">
+          <div className="flex-1 min-w-0">
+            <div className="text-[26px] font-medium leading-none">{f.dep_code}</div>
+            <div className="text-[11px] text-ink-3 mt-1.5 truncate">{f.dep_name}</div>
+            <div className="text-[15px] mt-1 tabular-nums">{f.dep_time}</div>
+          </div>
+          <div className="shrink-0 pt-2"><Icon size={22} className="text-ink-2" /></div>
+          <div className="flex-1 min-w-0 text-right">
+            <div className="text-[26px] font-medium leading-none">{f.arr_code}</div>
+            <div className="text-[11px] text-ink-3 mt-1.5 truncate">{f.arr_name}</div>
+            <div className="text-[15px] mt-1 tabular-nums">{f.arr_time}</div>
+          </div>
+        </div>
+        {f.flight_date && (
+          <div className="-mx-4 -mb-4 mt-4 py-2 rounded-b-[11px] text-center text-white text-[12px] font-medium tracking-[0.1em]"
+            style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</div>
+        )}
+      </div>
+    )
+  }
+
+  // ---- expanded: full details ----
   const toggle = (
     <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
       <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
@@ -136,40 +205,17 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
       ))}
     </div>
   )
-
   return (
     <div className="card p-4">
       <div className="flex items-start gap-2">
         <Icon size={16} className="text-brand shrink-0 mt-1" />
         <div className="min-w-0 flex-1 flex items-center gap-2">
-          {f?.flight_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</span>}
-          <div className="text-[13px] font-medium truncate">{f ? `${f.flight_no} · ${f.airline}` : `เที่ยวบิน${dirLabel}`}</div>
+          {f.flight_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</span>}
+          <div className="text-[13px] font-medium truncate">{f.flight_no} · {f.airline}</div>
         </div>
-        {/* collapse toggle — collapsing resets to the auto (clock-based) leg */}
-        {f && (
-          <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
-            className="btn-icon !border-0 !size-7 text-ink-3 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
-            <IconChevronDown size={16} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
-          </button>
-        )}
-        {canEdit && f && (
-          <PopMenu items={[
-            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
-            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
-          ]} />
-        )}
+        {chevron}{menu}
       </div>
 
-      {!f ? (
-        <div className="text-center py-7">
-          <p className="text-[12px] text-ink-3">ยังไม่มีเที่ยวบิน{dirLabel}</p>
-          {canEdit && (
-            <button onClick={() => onAdd(dir)} className="btn-link inline-flex items-center gap-1 mt-2"><IconPlus size={14} /> เพิ่มเที่ยวบิน{dirLabel}</button>
-          )}
-        </div>
-      ) : (
-      <>
-      {/* route graphic — the condensed summary (date · time · from→to); shown even when collapsed */}
       <div className="flex items-start mt-4">
         <div className="w-[88px] shrink-0">
           <div className="text-[22px] font-medium leading-none">{f.dep_code}</div>
@@ -196,24 +242,17 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       </div>
 
-      {open && (
-        <>
-          <div className="mt-4 pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-            <DetailRow items={[
-              { label: 'ชั้นโดยสาร', value: f.seat_class || 'Economy' },
-              { label: 'ที่นั่ง', value: `${f.seats ?? travelers.length}` },
-              { label: 'รหัสจอง', value: f.booking_ref, booking: true },
-            ]} />
-          </div>
-          {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
-          <div className="flex items-center justify-between gap-2 mt-3.5">
-            <AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} />
-            {toggle}
-          </div>
-        </>
-      )}
-      </>
-      )}
+      <div className="mt-4 pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+        <DetailRow items={[
+          { label: 'ชั้นโดยสาร', value: f.seat_class || 'Economy' },
+          { label: 'ที่นั่ง', value: `${f.seats ?? travelers.length}` },
+          { label: 'รหัสจอง', value: f.booking_ref, booking: true },
+        ]} />
+      </div>
+      <div className="flex items-center justify-between gap-2 mt-3.5">
+        <AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} />
+        {toggle}
+      </div>
     </div>
   )
 }
@@ -226,13 +265,70 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
   onDelete: (t: Train) => void
   onAdd: (dir: FlightDirection) => void
 }) {
-  const autoDir = useMemo(() => autoLegDir(trains, (t) => ({ dir: t.direction ?? 'outbound', date: t.travel_date, dep: t.dep_time, arr: t.arr_time })), [trains])
+  const { trip } = useTrip()
+  const autoDir = useMemo(() => autoLegDir(trains, nowInTz(trip?.timezone), (t) => ({ dir: t.direction ?? 'outbound', date: t.travel_date, dep: t.dep_time, arr: t.arr_time })), [trains, trip?.timezone])
   const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
   const [open, setOpen] = useState(false)
   const dir = manualDir ?? autoDir
   const t = trains.find((x) => (x.direction ?? 'outbound') === dir)
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
 
+  const chevron = t && (
+    <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
+      className="btn-icon !border-0 !size-7 text-ink-3 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
+      <IconChevronDown size={16} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+    </button>
+  )
+  const menu = canEdit && t && (
+    <PopMenu items={[
+      { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(t) },
+      { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(t), danger: true },
+    ]} />
+  )
+
+  // ---- no train for this leg ----
+  if (!t) {
+    return (
+      <div className="card p-4">
+        <div className="flex items-center gap-2">
+          <IconTrain size={16} className="text-brand shrink-0" />
+          <div className="text-[13px] font-medium flex-1 truncate">รถไฟ{dirLabel}</div>
+        </div>
+        <div className="text-center py-7">
+          <p className="text-[12px] text-ink-3">ยังไม่มีรถไฟ{dirLabel}</p>
+          {canEdit && (
+            <button onClick={() => onAdd(dir)} className="btn-link inline-flex items-center gap-1 mt-2"><IconPlus size={14} /> เพิ่มรถไฟ{dirLabel}</button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ---- collapsed: condensed image-style summary + long black date bar ----
+  if (!open) {
+    return (
+      <div className="card p-4">
+        <div className="flex items-center justify-end gap-0.5 -mt-1.5 -mr-1.5">{chevron}{menu}</div>
+        <div className="flex items-start gap-2 -mt-1">
+          <div className="flex-1 min-w-0">
+            <div className="text-[16px] font-medium leading-tight truncate">{t.dep_name}</div>
+            <div className="text-[15px] mt-1.5 tabular-nums">{t.dep_time}</div>
+          </div>
+          <div className="shrink-0 pt-1.5"><IconTrain size={20} className="text-ink-2" /></div>
+          <div className="flex-1 min-w-0 text-right">
+            <div className="text-[16px] font-medium leading-tight truncate">{t.arr_name}</div>
+            <div className="text-[15px] mt-1.5 tabular-nums">{t.arr_time}</div>
+          </div>
+        </div>
+        {t.travel_date && (
+          <div className="-mx-4 -mb-4 mt-4 py-2 rounded-b-[11px] text-center text-white text-[12px] font-medium tracking-[0.1em]"
+            style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</div>
+        )}
+      </div>
+    )
+  }
+
+  // ---- expanded: full details ----
   const toggle = (
     <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
       <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
@@ -245,40 +341,17 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
       ))}
     </div>
   )
-
   return (
     <div className="card p-4">
       <div className="flex items-start gap-2">
         <IconTrain size={16} className="text-brand shrink-0 mt-1" />
         <div className="min-w-0 flex-1 flex items-center gap-2">
-          {t?.travel_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</span>}
-          <div className="text-[13px] font-medium truncate">{t ? `${t.train_no} · ${t.operator}` : `รถไฟ${dirLabel}`}</div>
+          {t.travel_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</span>}
+          <div className="text-[13px] font-medium truncate">{t.train_no} · {t.operator}</div>
         </div>
-        {/* collapse toggle — collapsing resets to the auto (clock-based) leg */}
-        {t && (
-          <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
-            className="btn-icon !border-0 !size-7 text-ink-3 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
-            <IconChevronDown size={16} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
-          </button>
-        )}
-        {canEdit && t && (
-          <PopMenu items={[
-            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(t) },
-            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(t), danger: true },
-          ]} />
-        )}
+        {chevron}{menu}
       </div>
 
-      {!t ? (
-        <div className="text-center py-7">
-          <p className="text-[12px] text-ink-3">ยังไม่มีรถไฟ{dirLabel}</p>
-          {canEdit && (
-            <button onClick={() => onAdd(dir)} className="btn-link inline-flex items-center gap-1 mt-2"><IconPlus size={14} /> เพิ่มรถไฟ{dirLabel}</button>
-          )}
-        </div>
-      ) : (
-      <>
-      {/* route graphic — the condensed summary (date · time · from→to); shown even when collapsed */}
       <div className="flex items-start mt-4">
         <div className="w-[96px] shrink-0">
           <div className="text-[14px] font-medium leading-tight truncate">{t.dep_name}</div>
@@ -303,28 +376,21 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
         </div>
       </div>
 
-      {open && (
-        <>
-          <div className="mt-4 pt-3 space-y-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-            <DetailRow items={[
-              { label: 'ชั้นโดยสาร', value: t.seat_class },
-              { label: 'ประตู', value: t.gate },
-              { label: 'ตู้', value: t.car },
-            ]} />
-            <DetailRow items={[
-              { label: 'ที่นั่ง', value: t.seat_no },
-              { label: 'รหัสจอง', value: t.booking_ref, booking: true },
-            ]} />
-          </div>
-          {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
-          <div className="flex items-center justify-between gap-2 mt-3.5">
-            <AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} />
-            {toggle}
-          </div>
-        </>
-      )}
-      </>
-      )}
+      <div className="mt-4 pt-3 space-y-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+        <DetailRow items={[
+          { label: 'ชั้นโดยสาร', value: t.seat_class },
+          { label: 'ประตู', value: t.gate },
+          { label: 'ตู้', value: t.car },
+        ]} />
+        <DetailRow items={[
+          { label: 'ที่นั่ง', value: t.seat_no },
+          { label: 'รหัสจอง', value: t.booking_ref, booking: true },
+        ]} />
+      </div>
+      <div className="flex items-center justify-between gap-2 mt-3.5">
+        <AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} />
+        {toggle}
+      </div>
     </div>
   )
 }
