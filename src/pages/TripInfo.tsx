@@ -172,7 +172,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <div className="flex items-center gap-1.5 min-w-0">
         <Icon size={14} className="shrink-0 text-white/90" />
         <span className="text-[12px] font-medium tracking-wide truncate">{f.flight_date ? formatFlightDate(f.flight_date) : `เที่ยวบิน${dirLabel}`}</span>
-        {open && f.flight_no && <span className="text-[11px] text-white/70 truncate">· {f.flight_no}</span>}
+        {open && (f.flight_no || f.airline) && <span className="text-[11px] text-white/70 truncate">· {[f.flight_no, f.airline].filter(Boolean).join(' · ')}</span>}
       </div>
       <div className="flex items-center gap-0.5 shrink-0">{menu}{chevron}</div>
     </div>
@@ -314,7 +314,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <div className="flex items-center gap-1.5 min-w-0">
         <IconTrain size={14} className="shrink-0 text-white/90" />
         <span className="text-[12px] font-medium tracking-wide truncate">{t.travel_date ? formatFlightDate(t.travel_date) : `รถไฟ${dirLabel}`}</span>
-        {open && t.train_no && <span className="text-[11px] text-white/70 truncate">· {t.train_no}</span>}
+        {open && (t.train_no || t.operator) && <span className="text-[11px] text-white/70 truncate">· {[t.train_no, t.operator].filter(Boolean).join(' · ')}</span>}
       </div>
       <div className="flex items-center gap-0.5 shrink-0">{menu}{chevron}</div>
     </div>
