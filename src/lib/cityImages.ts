@@ -13,6 +13,12 @@ export const CITY_IMAGES: Record<string, string> = {
   'Seoul': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781691226/3233_bmaf00.jpg',
 }
 
+// Cover images for the Trips dashboard cards — kept SEPARATE from the Explore
+// city tabs above. Add a city here to give the trip card a different photo; any
+// city not listed falls back to CITY_IMAGES so no card is ever left blank.
+export const TRIP_COVER_IMAGES: Record<string, string> = {
+}
+
 const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
 
 export function cityImage(name: string): string | undefined {
@@ -20,4 +26,12 @@ export function cityImage(name: string): string | undefined {
   const target = norm(name)
   const hit = Object.keys(CITY_IMAGES).find((k) => norm(k) === target)
   return hit ? CITY_IMAGES[hit] : undefined
+}
+
+/** Trip-card cover: prefers TRIP_COVER_IMAGES, falls back to the Explore photo. */
+export function tripCoverImage(name: string): string | undefined {
+  if (!name) return undefined
+  const target = norm(name)
+  const hit = Object.keys(TRIP_COVER_IMAGES).find((k) => norm(k) === target)
+  return hit ? TRIP_COVER_IMAGES[hit] : cityImage(name)
 }

@@ -19,7 +19,7 @@ import { formatDateRange, dayCount, tripCountdown } from '@/lib/format'
 import { useWeather, tripCityCandidates } from '@/lib/weather'
 import { WeatherBadge } from '@/components/WeatherBadge'
 import { countryFlag } from '@/lib/countries'
-import { cityImage, CITY_IMAGES } from '@/lib/cityImages'
+import { CITY_IMAGES, TRIP_COVER_IMAGES, tripCoverImage } from '@/lib/cityImages'
 import { createTrip, updateTrip, deleteTrip, duplicateTrip } from '@/lib/tripMutations'
 import { downloadItineraryPdf } from '@/lib/itineraryPdf'
 import type { Trip } from '@/lib/database.types'
@@ -48,12 +48,14 @@ function heroGradient(t: Trip) {
 // inside the trip name (e.g. "Hongkong 2026" → Hongkong).
 const normCity = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
 function coverImage(t: Trip): string | undefined {
-  for (const c of t.cities ?? []) { const img = cityImage(c); if (img) return img }
-  const direct = cityImage(t.country ?? '') ?? cityImage(t.name ?? '')
+  for (const c of t.cities ?? []) { const img = tripCoverImage(c); if (img) return img }
+  const direct = tripCoverImage(t.country ?? '') ?? tripCoverImage(t.name ?? '')
   if (direct) return direct
   const n = normCity(t.name ?? '')
-  const hit = n ? Object.keys(CITY_IMAGES).find((k) => n.includes(normCity(k))) : undefined
-  return hit ? CITY_IMAGES[hit] : undefined
+  // fuzzy match on the trip name → known city (trip covers take priority)
+  const keys = [...Object.keys(TRIP_COVER_IMAGES), ...Object.keys(CITY_IMAGES)]
+  const hit = n ? keys.find((k) => n.includes(normCity(k))) : undefined
+  return hit ? tripCoverImage(hit) : undefined
 }
 
 // Insert a Cloudinary transform right after `/image/upload/` (originals are
