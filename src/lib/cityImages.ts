@@ -17,6 +17,12 @@ export const CITY_IMAGES: Record<string, string> = {
 // city tabs above. Add a city here to give the trip card a different photo; any
 // city not listed falls back to CITY_IMAGES so no card is ever left blank.
 export const TRIP_COVER_IMAGES: Record<string, string> = {
+  'Hongkong': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/5_lofopb.jpg',
+  'Tokyo': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/1_oxbjmr.jpg',
+  'Osaka': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/3_gikmjx.jpg',
+  'Taipei': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/2_gem1nz.jpg',
+  'Shanghai': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/4_mwys9h.jpg',
+  'Shenzhen': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782891541/6_nwhsn8.jpg',
 }
 
 const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
