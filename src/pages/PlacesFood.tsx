@@ -47,9 +47,12 @@ export default function PlacesFood() {
           const active = tab === t.key
           return (
             <button key={t.key} role="tab" aria-selected={active} onClick={() => select(t.key)}
-              className={`relative -mb-px flex-1 flex items-center justify-center gap-1.5 pb-2.5 text-[14px] font-semibold transition-colors ${active ? 'text-brand' : 'text-ink-3 hover:text-ink-2'}`}>
-              <t.icon size={16} /> {t.label}
-              <span className={`text-[12px] font-medium ${active ? 'text-brand' : 'text-ink-3'}`}>{t.count}</span>
+              className={`relative -mb-px flex-1 flex flex-col items-center justify-center gap-1 pt-1 pb-2.5 text-[14px] font-semibold transition-colors ${active ? 'text-brand' : 'text-ink-3 hover:text-ink-2'}`}>
+              <t.icon size={26} />
+              <span className="flex items-center gap-1.5">
+                {t.label}
+                <span className={`text-[12px] font-medium ${active ? 'text-brand' : 'text-ink-3'}`}>{t.count}</span>
+              </span>
               {active && <span className="absolute left-0 right-0 -bottom-px h-[2px] rounded-full bg-brand" />}
             </button>
           )
