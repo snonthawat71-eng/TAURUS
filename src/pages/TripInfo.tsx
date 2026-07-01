@@ -137,12 +137,12 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
 
   const chevron = f && (
     <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
-      className="btn-icon !border-0 !size-7 text-ink-3 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
-      <IconChevronDown size={16} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+      className="!size-[22px] grid place-items-center rounded-md text-white/90 hover:bg-white/15 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
+      <IconChevronDown size={15} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
     </button>
   )
   const menu = canEdit && f && (
-    <PopMenu items={[
+    <PopMenu size={22} buttonClassName="!bg-transparent !text-white hover:!bg-white/15" items={[
       { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
       { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
     ]} />
@@ -166,33 +166,43 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
     )
   }
 
-  // ---- collapsed: condensed image-style summary + long black date bar ----
+  // slim blue strip on top (itinerary-style, nested rounded corners): date + controls
+  const strip = (
+    <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: 'var(--color-brand)' }}>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <Icon size={14} className="shrink-0 text-white/90" />
+        <span className="text-[12px] font-medium tracking-wide truncate">{f.flight_date ? formatFlightDate(f.flight_date) : `เที่ยวบิน${dirLabel}`}</span>
+        {open && f.flight_no && <span className="text-[11px] text-white/70 truncate">· {f.flight_no}</span>}
+      </div>
+      <div className="flex items-center gap-0.5 shrink-0">{menu}{chevron}</div>
+    </div>
+  )
+
+  // ---- collapsed: condensed image-style summary under the strip ----
   if (!open) {
     return (
-      <div className="card p-4">
-        <div className="flex items-center justify-end gap-0.5 -mt-1.5 -mr-1.5">{menu}{chevron}</div>
-        <div className="flex items-start gap-2 -mt-1">
-          <div className="flex-1 min-w-0">
-            <div className="text-[26px] font-medium leading-none">{f.dep_code}</div>
-            <div className="text-[11px] text-ink-3 mt-1.5 truncate">{f.dep_name}</div>
-            <div className="text-[15px] mt-1 tabular-nums">{f.dep_time}</div>
-          </div>
-          <div className="shrink-0 pt-2"><Icon size={22} className="text-ink-2" /></div>
-          <div className="flex-1 min-w-0 text-right">
-            <div className="text-[26px] font-medium leading-none">{f.arr_code}</div>
-            <div className="text-[11px] text-ink-3 mt-1.5 truncate">{f.arr_name}</div>
-            <div className="text-[15px] mt-1 tabular-nums">{f.arr_time}</div>
+      <div className="relative flex flex-col">
+        {strip}
+        <div className="card relative p-4">
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-[26px] font-medium leading-none">{f.dep_code}</div>
+              <div className="text-[11px] text-ink-3 mt-1.5 truncate">{f.dep_name}</div>
+              <div className="text-[15px] mt-1 tabular-nums">{f.dep_time}</div>
+            </div>
+            <div className="shrink-0 pt-2"><Icon size={22} className="text-brand" /></div>
+            <div className="flex-1 min-w-0 text-right">
+              <div className="text-[26px] font-medium leading-none">{f.arr_code}</div>
+              <div className="text-[11px] text-ink-3 mt-1.5 truncate">{f.arr_name}</div>
+              <div className="text-[15px] mt-1 tabular-nums">{f.arr_time}</div>
+            </div>
           </div>
         </div>
-        {f.flight_date && (
-          <div className="-mx-4 -mb-4 mt-4 py-2 rounded-b-[11px] text-center text-white text-[12px] font-medium tracking-[0.1em]"
-            style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</div>
-        )}
       </div>
     )
   }
 
-  // ---- expanded: full details ----
+  // ---- expanded: full details under the strip ----
   const toggle = (
     <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
       <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
@@ -206,17 +216,10 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
     </div>
   )
   return (
-    <div className="card p-4">
-      <div className="flex items-start gap-2">
-        <Icon size={16} className="text-brand shrink-0 mt-1" />
-        <div className="min-w-0 flex-1 flex items-center gap-2">
-          {f.flight_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</span>}
-          <div className="text-[13px] font-medium truncate">{f.flight_no} · {f.airline}</div>
-        </div>
-        {menu}{chevron}
-      </div>
-
-      <div className="flex items-start mt-4">
+    <div className="relative flex flex-col">
+      {strip}
+      <div className="card relative p-4">
+      <div className="flex items-start mt-1">
         <div className="w-[88px] shrink-0">
           <div className="text-[22px] font-medium leading-none">{f.dep_code}</div>
           <div className="text-[11px] text-ink-3 mt-1.5 truncate">{f.dep_name}</div>
@@ -253,6 +256,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} />
         {toggle}
       </div>
+      </div>
     </div>
   )
 }
@@ -275,12 +279,12 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
 
   const chevron = t && (
     <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
-      className="btn-icon !border-0 !size-7 text-ink-3 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
-      <IconChevronDown size={16} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+      className="!size-[22px] grid place-items-center rounded-md text-white/90 hover:bg-white/15 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
+      <IconChevronDown size={15} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
     </button>
   )
   const menu = canEdit && t && (
-    <PopMenu items={[
+    <PopMenu size={22} buttonClassName="!bg-transparent !text-white hover:!bg-white/15" items={[
       { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(t) },
       { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(t), danger: true },
     ]} />
@@ -304,31 +308,41 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
     )
   }
 
-  // ---- collapsed: condensed image-style summary + long black date bar ----
+  // slim blue strip on top (itinerary-style, nested rounded corners): date + controls
+  const strip = (
+    <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: 'var(--color-brand)' }}>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <IconTrain size={14} className="shrink-0 text-white/90" />
+        <span className="text-[12px] font-medium tracking-wide truncate">{t.travel_date ? formatFlightDate(t.travel_date) : `รถไฟ${dirLabel}`}</span>
+        {open && t.train_no && <span className="text-[11px] text-white/70 truncate">· {t.train_no}</span>}
+      </div>
+      <div className="flex items-center gap-0.5 shrink-0">{menu}{chevron}</div>
+    </div>
+  )
+
+  // ---- collapsed: condensed image-style summary under the strip ----
   if (!open) {
     return (
-      <div className="card p-4">
-        <div className="flex items-center justify-end gap-0.5 -mt-1.5 -mr-1.5">{menu}{chevron}</div>
-        <div className="flex items-start gap-2 -mt-1">
-          <div className="flex-1 min-w-0">
-            <div className="text-[16px] font-medium leading-tight truncate">{t.dep_name}</div>
-            <div className="text-[15px] mt-1.5 tabular-nums">{t.dep_time}</div>
-          </div>
-          <div className="shrink-0 pt-1.5"><IconTrain size={20} className="text-ink-2" /></div>
-          <div className="flex-1 min-w-0 text-right">
-            <div className="text-[16px] font-medium leading-tight truncate">{t.arr_name}</div>
-            <div className="text-[15px] mt-1.5 tabular-nums">{t.arr_time}</div>
+      <div className="relative flex flex-col">
+        {strip}
+        <div className="card relative p-4">
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-[16px] font-medium leading-tight truncate">{t.dep_name}</div>
+              <div className="text-[15px] mt-1.5 tabular-nums">{t.dep_time}</div>
+            </div>
+            <div className="shrink-0 pt-1.5"><IconTrain size={20} className="text-brand" /></div>
+            <div className="flex-1 min-w-0 text-right">
+              <div className="text-[16px] font-medium leading-tight truncate">{t.arr_name}</div>
+              <div className="text-[15px] mt-1.5 tabular-nums">{t.arr_time}</div>
+            </div>
           </div>
         </div>
-        {t.travel_date && (
-          <div className="-mx-4 -mb-4 mt-4 py-2 rounded-b-[11px] text-center text-white text-[12px] font-medium tracking-[0.1em]"
-            style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</div>
-        )}
       </div>
     )
   }
 
-  // ---- expanded: full details ----
+  // ---- expanded: full details under the strip ----
   const toggle = (
     <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
       <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
@@ -342,17 +356,10 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
     </div>
   )
   return (
-    <div className="card p-4">
-      <div className="flex items-start gap-2">
-        <IconTrain size={16} className="text-brand shrink-0 mt-1" />
-        <div className="min-w-0 flex-1 flex items-center gap-2">
-          {t.travel_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</span>}
-          <div className="text-[13px] font-medium truncate">{t.train_no} · {t.operator}</div>
-        </div>
-        {menu}{chevron}
-      </div>
-
-      <div className="flex items-start mt-4">
+    <div className="relative flex flex-col">
+      {strip}
+      <div className="card relative p-4">
+      <div className="flex items-start mt-1">
         <div className="w-[96px] shrink-0">
           <div className="text-[14px] font-medium leading-tight truncate">{t.dep_name}</div>
           <div className="text-[14px] mt-1 tabular-nums">{t.dep_time}</div>
@@ -390,6 +397,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <div className="flex items-center justify-between gap-2 mt-3.5">
         <AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} />
         {toggle}
+      </div>
       </div>
     </div>
   )
