@@ -146,7 +146,7 @@ function SortableStop({
 }
 
 function DayCard({
-  day, index, stops, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
+  day, index, stops, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
 }: {
   day: ItineraryDay
   index: number
@@ -163,6 +163,7 @@ function DayCard({
   onEditDay: () => void
   onDeleteDay: () => void
   onAddStop: () => void
+  onInsertStop: (at: number) => void
   onEditStop: (s: ItineraryStop) => void
   onDeleteStop: (id: string) => void
   onEditRoute: (s: ItineraryStop) => void
@@ -215,10 +216,25 @@ function DayCard({
           <div className="p-3 space-y-2.5 min-h-[60px] bg-surface-2">
             {stops.length === 0 && <div className="text-[12px] text-ink-3 text-center py-2">ยังไม่มีจุดแวะในวันนี้ — ลากกิจกรรมมาวางที่นี่ได้</div>}
             <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-2.5">
-                {stops.map((s) => (
-                  <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />
-                ))}
+              <div className={canEdit ? '' : 'space-y-2.5'}>
+                {stops.flatMap((s, i) => {
+                  const nodes = [
+                    <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />,
+                  ]
+                  // subtle "+" between two activities → insert a new stop right here
+                  if (canEdit && i < stops.length - 1) {
+                    nodes.push(
+                      <div key={`ins-${s.id}`} className="flex justify-center py-0.5">
+                        <button onClick={() => onInsertStop(i + 1)} aria-label="แทรกกิจกรรมตรงนี้" title="แทรกกิจกรรมตรงนี้"
+                          className="size-[18px] rounded-full grid place-items-center text-ink-3 hover:text-brand-mid transition-colors"
+                          style={{ background: 'var(--color-surface)', border: '0.5px solid var(--color-line)' }}>
+                          <IconPlus size={12} />
+                        </button>
+                      </div>,
+                    )
+                  }
+                  return nodes
+                })}
               </div>
             </SortableContext>
             {canEdit && <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>}
@@ -274,7 +290,7 @@ export default function Itinerary() {
   }
   const [localStops, setLocalStops] = useState<ItineraryStop[]>(stops)
   const [localDays, setLocalDays] = useState<ItineraryDay[]>(days)
-  const [editor, setEditor] = useState<{ dayId: string; stop?: ItineraryStop } | null>(null)
+  const [editor, setEditor] = useState<{ dayId: string; stop?: ItineraryStop; at?: number } | null>(null)
   const [dayEdit, setDayEdit] = useState<{ id: string; label: string | null; day_date: string | null; version?: number } | null>(null)
   const [routeEdit, setRouteEdit] = useState<ItineraryStop | null>(null)
 
@@ -501,9 +517,10 @@ export default function Itinerary() {
       target = { ...editor.stop, ...input, time: input.time ?? null }
     } else {
       const id = crypto.randomUUID()
-      await addStop(trip.id, dayId, dayStops.length, input, id)
+      const pos = editor.at ?? dayStops.length
+      await addStop(trip.id, dayId, pos, input, id)
       target = {
-        id, day_id: dayId, trip_id: trip.id, position: dayStops.length,
+        id, day_id: dayId, trip_id: trip.id, position: pos,
         time: input.time ?? null, place_name: input.place_name ?? null, map_url: input.map_url ?? null,
         note: input.note ?? null, transit: input.transit ?? null, link_mode: input.link_mode ?? null,
         created_at: new Date().toISOString(),
@@ -517,6 +534,13 @@ export default function Itinerary() {
       let insertAt = rest.findIndex((s) => s.time != null && s.time > input.time!)
       if (insertAt < 0) insertAt = rest.map((s) => s.time != null).lastIndexOf(true) + 1
       const ordered = [...rest.slice(0, insertAt), target, ...rest.slice(insertAt)]
+      await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
+    } else if (!editor.stop && editor.at != null) {
+      // inserted via the "+" between two activities (no time given) → drop it
+      // exactly at the chosen slot rather than at the end of the day.
+      const rest = dayStops.filter((s) => s.id !== target.id)
+      const at = Math.min(editor.at, rest.length)
+      const ordered = [...rest.slice(0, at), target, ...rest.slice(at)]
       await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
     }
     await reload()
@@ -656,6 +680,7 @@ export default function Itinerary() {
                 onEditDay={() => setDayEdit({ id: day.id, label: day.label, day_date: day.day_date, version: day.version })}
                 onDeleteDay={() => removeDay(day.id)}
                 onAddStop={() => setEditor({ dayId: day.id })}
+                onInsertStop={(at) => setEditor({ dayId: day.id, at })}
                 onEditStop={(s) => setEditor({ dayId: day.id, stop: s })}
                 onDeleteStop={removeStop}
                 onEditRoute={(s) => setRouteEdit(s)}
