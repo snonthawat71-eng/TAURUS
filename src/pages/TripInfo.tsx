@@ -358,10 +358,12 @@ export default function TripInfo() {
                   style={{ background: 'var(--color-brand)' }}>{myTickets.length}</span>
               )}
             </div>
-            <span className="text-[10px] font-semibold tracking-wide">Quick QR</span>
-            {myTickets.length > 0 && (
-              <span className="text-[10px] text-ink-3 tabular-nums">ใช้แล้ว {usedTickets}</span>
-            )}
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[10px] font-semibold tracking-wide leading-none">Quick QR</span>
+              {myTickets.length > 0 && (
+                <span className="text-[10px] text-ink-3 tabular-nums leading-none">ใช้แล้ว {usedTickets}</span>
+              )}
+            </div>
           </button>
         )}
       </div>
