@@ -16,8 +16,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY')!
-const VAPID_PUBLIC = Deno.env.get('VAPID_PUBLIC_KEY')!
-const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY')!
+const VAPID_PUBLIC = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
+const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@example.com'
 const DEFAULT_TZ = Deno.env.get('REMINDER_DEFAULT_TZ') ?? 'Asia/Bangkok'
 const CRON_SECRET = Deno.env.get('CRON_SECRET') ?? ''
@@ -26,7 +26,10 @@ const ADB_HOST = 'aerodatabox.p.rapidapi.com'
 const BEFORE_MS = 6 * 3600_000  // start watching 6h before departure
 const AFTER_MS = 18 * 3600_000  // stop 18h after (covers long delays + arrival)
 
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
+// Push is OPTIONAL: without VAPID keys (PUSH_SETUP not done) the function still
+// polls + updates the cards in realtime — it just skips the push alerts.
+const canPush = !!(VAPID_PUBLIC && VAPID_PRIVATE)
+if (canPush) webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
 
 // ---- timezone helpers (same approach as send-due-reminders) ----
@@ -152,7 +155,7 @@ Deno.serve(async (req) => {
       (statusChanged && status === 'ontime' && was != null && bad.includes(was)) ||
       (status === 'delayed' && Math.abs(delayMin - wasDelay) >= 10) ||
       (gate != null && wasGate != null && gate !== wasGate)
-    if (!notify) continue
+    if (!notify || !canPush) continue
 
     // recipients: trip owner + members, whoever has push enabled
     const { data: members } = await admin.from('trip_members').select('user_id').eq('trip_id', f.trip_id)
