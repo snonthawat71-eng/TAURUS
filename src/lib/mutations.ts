@@ -1,13 +1,22 @@
 import { supabase } from './supabase'
 import { updateWithVersion } from './concurrency'
 import { runOrQueue } from './offlineQueue'
+import { toastDbError } from './toast'
 import type { ItineraryStop, Transit } from './database.types'
+
+/** Surface a write failure (these paths are often fire-and-forget in the UI —
+ *  without this a failed write reverts silently on the next realtime reload). */
+async function surfaced<T extends { error: unknown }>(p: PromiseLike<T>): Promise<T> {
+  const res = await p
+  toastDbError(res.error)
+  return res
+}
 
 // ---- Days ----
 
 export async function addDay(trip_id: string, position: number, day_date: string | null, id: string = crypto.randomUUID()) {
   const payload = { id, trip_id, position, day_date, label: 'วันใหม่' }
-  return runOrQueue(() => supabase.from('itinerary_days').insert(payload), { kind: 'insert', table: 'itinerary_days', payload })
+  return surfaced(runOrQueue(() => supabase.from('itinerary_days').insert(payload), { kind: 'insert', table: 'itinerary_days', payload }))
 }
 
 export async function updateDay(id: string, fields: { label?: string; day_date?: string | null }, expectedVersion?: number) {
@@ -15,14 +24,15 @@ export async function updateDay(id: string, fields: { label?: string; day_date?:
 }
 
 export async function deleteDay(id: string) {
-  return runOrQueue(() => supabase.from('itinerary_days').delete().eq('id', id), { kind: 'delete', table: 'itinerary_days', id })
+  return surfaced(runOrQueue(() => supabase.from('itinerary_days').delete().eq('id', id), { kind: 'delete', table: 'itinerary_days', id }))
 }
 
 /** Persist a new day order by writing each day's position. */
 export async function persistDayOrder(days: { id: string }[]) {
-  await Promise.all(
+  const results = await Promise.all(
     days.map((d, i) => supabase.from('itinerary_days').update({ position: i }).eq('id', d.id)),
   )
+  toastDbError(results.find((r) => r.error)?.error)
 }
 
 // ---- Stops ----
@@ -47,7 +57,7 @@ export async function addStop(trip_id: string, day_id: string, position: number,
     note: input.note ?? null, map_url: input.map_url ?? null,
     transit: input.transit ?? null, link_mode: input.link_mode ?? null,
   }
-  return runOrQueue(async () => {
+  return surfaced(runOrQueue(async () => {
     let res = await supabase.from('itinerary_stops').insert(payload)
     if (res.error && res.error.message.includes('link_mode')) {
       const { link_mode: _omit, ...rest } = payload
@@ -55,7 +65,7 @@ export async function addStop(trip_id: string, day_id: string, position: number,
       res = await supabase.from('itinerary_stops').insert(rest)
     }
     return res
-  }, { kind: 'insert', table: 'itinerary_stops', payload })
+  }, { kind: 'insert', table: 'itinerary_stops', payload }))
 }
 
 export async function updateStop(id: string, fields: StopInput, expectedVersion?: number) {
@@ -73,22 +83,25 @@ export async function updateStop(id: string, fields: StopInput, expectedVersion?
  *  double-tap must always persist the latest state — a version conflict would
  *  silently drop the write and the next realtime reload would flip it back. */
 export async function setStopDone(id: string, done: boolean, done_at: string | null) {
-  return supabase.from('itinerary_stops').update({ done, done_at }).eq('id', id)
+  return surfaced(supabase.from('itinerary_stops').update({ done, done_at }).eq('id', id))
 }
 
 export async function deleteStop(id: string) {
-  return runOrQueue(() => supabase.from('itinerary_stops').delete().eq('id', id), { kind: 'delete', table: 'itinerary_stops', id })
+  return surfaced(runOrQueue(() => supabase.from('itinerary_stops').delete().eq('id', id), { kind: 'delete', table: 'itinerary_stops', id }))
 }
 
 /** Persist a new order by writing each stop's position (and day_id, so a stop can
  *  move to another day). Each stop carries its own `position`/`day_id`; falls back
- *  to the array index when position is absent. */
+ *  to the array index when position is absent. Deliberately does NOT touch `time`
+ *  — reordering never changes times, and writing them back here would clobber a
+ *  teammate's concurrent time edit (last-writer-wins). */
 export async function persistStopOrder(stops: ItineraryStop[]) {
-  await Promise.all(
+  const results = await Promise.all(
     stops.map((s, i) =>
       supabase.from('itinerary_stops')
-        .update({ position: s.position ?? i, time: s.time ?? null, day_id: s.day_id })
+        .update({ position: s.position ?? i, day_id: s.day_id })
         .eq('id', s.id),
     ),
   )
+  toastDbError(results.find((r) => r.error)?.error)
 }

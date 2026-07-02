@@ -52,8 +52,10 @@ function coverImage(t: Trip): string | undefined {
   const direct = tripCoverImage(t.country ?? '') ?? tripCoverImage(t.name ?? '')
   if (direct) return direct
   const n = normCity(t.name ?? '')
-  // fuzzy match on the trip name → known city (trip covers take priority)
-  const keys = [...Object.keys(TRIP_COVER_IMAGES), ...Object.keys(CITY_IMAGES)]
+  // fuzzy match on the trip name → known city. Longest key first so a short
+  // city name can't shadow a more specific one it happens to be a substring of.
+  const keys = [...new Set([...Object.keys(TRIP_COVER_IMAGES), ...Object.keys(CITY_IMAGES)])]
+    .sort((a, b) => b.length - a.length)
   const hit = n ? keys.find((k) => n.includes(normCity(k))) : undefined
   return hit ? tripCoverImage(hit) : undefined
 }

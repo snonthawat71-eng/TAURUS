@@ -469,6 +469,12 @@ export default function Itinerary() {
       const oldIdx = localDays.findIndex((d) => d.id === activeId)
       const newIdx = localDays.findIndex((d) => d.id === overDay)
       if (oldIdx < 0 || newIdx < 0 || oldIdx === newIdx) return
+      // Cards render with past days sunk to the bottom, so visual indices only
+      // match localDays indices within the same group (past vs upcoming — the
+      // stable sort preserves relative order inside each). A drag across the
+      // two groups would land somewhere the user didn't aim for → ignore it.
+      const isPast = (d: ItineraryDay) => !!d.day_date && d.day_date < todayStr
+      if (isPast(localDays[oldIdx]) !== isPast(localDays[newIdx])) return
       const reordered = arrayMove(localDays, oldIdx, newIdx)
       setLocalDays(reordered)
       await persistDayOrder(reordered)
@@ -631,9 +637,9 @@ export default function Itinerary() {
               <IconLayoutGrid size={18} />
               <span className="text-[10px] font-medium leading-none">ทั้งหมด</span>
             </button>
-            {localDays.map((day) => {
+            {/* chips follow displayDays so their order always matches the cards below */}
+            {displayDays.map(({ day, isPast }) => {
               const dt = day.day_date ? new Date(day.day_date) : null
-              const isPast = !!day.day_date && day.day_date < todayStr
               const selected = activeFilter === day.id
               return (
                 <button key={day.id} onClick={() => pickDay(day.id)}

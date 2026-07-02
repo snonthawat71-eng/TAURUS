@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { updateWithVersion } from './concurrency'
 import { runOrQueue } from './offlineQueue'
+import { toastDbError } from './toast'
 import type { Place } from './database.types'
 
 export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
@@ -86,13 +87,16 @@ export async function updateExploreCopies(exploreId: string, fields: PlaceInput,
 }
 
 export async function setInPlan(id: string, in_plan: boolean) {
-  return supabase.from('places').update({ in_plan }).eq('id', id)
+  const res = await supabase.from('places').update({ in_plan }).eq('id', id)
+  toastDbError(res.error)
+  return res
 }
 
 /** Toggle the current user's "want to go" interest for a place. */
 export async function toggleInterest(place_id: string, user_id: string, currentlyInterested: boolean) {
-  if (currentlyInterested) {
-    return supabase.from('place_interest').delete().eq('place_id', place_id).eq('user_id', user_id)
-  }
-  return supabase.from('place_interest').insert({ place_id, user_id })
+  const res = currentlyInterested
+    ? await supabase.from('place_interest').delete().eq('place_id', place_id).eq('user_id', user_id)
+    : await supabase.from('place_interest').insert({ place_id, user_id })
+  toastDbError(res.error)
+  return res
 }

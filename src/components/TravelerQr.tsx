@@ -77,17 +77,22 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   }, [rows])
 
   // a QR that was added but never filled/uploaded is "unsaved" — discard it so it
-  // doesn't persist or show up next time (pressing "+" then leaving = no-op)
+  // doesn't persist or show up next time (pressing "+" then leaving = no-op).
+  // ONLY tickets created by THIS drawer session are eligible: a blank from
+  // another device/member may be mid-edit and must never be deleted from here.
+  const createdHere = useRef<Set<string>>(new Set())
+  useEffect(() => { if (open) createdHere.current = new Set() }, [open])
   const isBlank = (t: TrainTicket) => !t.qr_path && !t.label && !t.note && !t.from_station && !t.to_station && !t.seat_no && !t.car && !t.gate
   function discardBlanks() {
-    const blanks = tickets.filter(isBlank)
+    if (!canEdit) return
+    const blanks = tickets.filter((t) => isBlank(t) && createdHere.current.has(t.id))
     if (blanks.length === 0) return
     const ids = new Set(blanks.map((b) => b.id))
     patchTickets((all) => all.filter((x) => !ids.has(x.id)))
     blanks.forEach((b) => deleteTrainTicket(b.id))
   }
   function backFromEdit() {
-    if (sel && isBlank(sel)) { removeTicket(sel.id); setSelId(null) }
+    if (sel && isBlank(sel) && createdHere.current.has(sel.id)) { removeTicket(sel.id); setSelId(null) }
     setEditMode(false)
   }
   function close() { discardBlanks(); setEditMode(false); onClose() }
@@ -112,6 +117,7 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
       seat_no: null, car: null, gate: null, qr_path: null,
       is_main: rows.length === 0, used: false, position: rows.length, created_at: new Date().toISOString(),
     }
+    createdHere.current.add(id)
     patchTickets((all) => [...all, t])
     setSelId(id)
     setEditMode(true)

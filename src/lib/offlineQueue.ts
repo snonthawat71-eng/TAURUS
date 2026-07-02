@@ -18,8 +18,21 @@ export interface QueuedOp {
   table: string
   payload?: Record<string, unknown> // insert
   id?: string                       // delete
+  /** auth user the op belongs to — ops only replay under the SAME account
+   *  (the IndexedDB store is device-wide, not per-login) */
+  uid?: string
 }
 type StoredOp = QueuedOp & { seq: number }
+
+async function currentUid(): Promise<string | undefined> {
+  try {
+    const { data } = await supabase.auth.getSession()
+    return data.session?.user?.id
+  } catch { return undefined }
+}
+
+/** ops the signed-in user may replay: their own + legacy untagged ones */
+const opBelongsToUser = (op: QueuedOp, uid: string | undefined) => op.uid == null || op.uid === uid
 
 let dbp: Promise<IDBDatabase> | null = null
 function db(): Promise<IDBDatabase> {
@@ -45,18 +58,21 @@ async function notify() { const n = await pendingCount(); for (const l of listen
 export async function pendingCount(): Promise<number> {
   try {
     const d = await db()
-    return await new Promise<number>((res, rej) => {
-      const req = d.transaction(STORE, 'readonly').objectStore(STORE).count()
-      req.onsuccess = () => res(req.result)
+    const uid = await currentUid()
+    const ops = await new Promise<StoredOp[]>((res, rej) => {
+      const req = d.transaction(STORE, 'readonly').objectStore(STORE).getAll()
+      req.onsuccess = () => res(req.result as StoredOp[])
       req.onerror = () => rej(req.error)
     })
+    return ops.filter((op) => opBelongsToUser(op, uid)).length
   } catch { return 0 }
 }
 
 async function enqueue(op: QueuedOp) {
   const d = await db()
+  const uid = await currentUid()
   await new Promise<void>((res, rej) => {
-    const req = d.transaction(STORE, 'readwrite').objectStore(STORE).add(op)
+    const req = d.transaction(STORE, 'readwrite').objectStore(STORE).add({ ...op, uid })
     req.onsuccess = () => res()
     req.onerror = () => rej(req.error)
   })
@@ -119,11 +135,15 @@ export async function drainQueue(onChanged?: () => void): Promise<void> {
   draining = true
   try {
     const d = await db()
-    const ops: StoredOp[] = await new Promise((res, rej) => {
+    const uid = await currentUid()
+    const all: StoredOp[] = await new Promise((res, rej) => {
       const req = d.transaction(STORE, 'readonly').objectStore(STORE).getAll()
       req.onsuccess = () => res(req.result as StoredOp[])
       req.onerror = () => rej(req.error)
     })
+    // replay ONLY the signed-in user's ops — anything queued under another
+    // account stays put until that account signs back in on this device
+    const ops = all.filter((op) => opBelongsToUser(op, uid))
     if (!ops.length) return
     let ok = 0, fail = 0
     for (const op of ops) {

@@ -109,10 +109,20 @@ function autoLegDir<T>(legs: T[], nowStr: string, get: (l: T) => { dir: string; 
   const ret = rows.find((x) => (x.dir || 'outbound') === 'return')
   if (!ret) return 'outbound'
   if (!out) return 'return'
-  const end = (x: { date: string | null; dep: string | null; arr: string | null }) => (x.date ? `${x.date}T${x.arr || x.dep || '23:59'}` : null)
+  const end = (x: { date: string | null; dep: string | null; arr: string | null }) => {
+    if (!x.date) return null
+    let date = x.date
+    // arrival clock earlier than departure = an overnight leg landing the NEXT day
+    if (x.arr && x.dep && x.arr < x.dep) {
+      const d = new Date(`${x.date}T00:00:00Z`)
+      if (!isNaN(d.getTime())) date = new Date(d.getTime() + 86400000).toISOString().slice(0, 10)
+    }
+    return `${date}T${x.arr || x.dep || '23:59'}`
+  }
   const outEnd = end(out)
+  // outbound has no date → can't tell it's over; keep showing the outbound
+  if (outEnd == null || nowStr < outEnd) return 'outbound'
   const retEnd = end(ret)
-  if (outEnd != null && nowStr < outEnd) return 'outbound' // haven't finished the outbound yet
   if (retEnd != null && nowStr >= retEnd) return 'outbound' // return is over → reset
   return 'return'
 }

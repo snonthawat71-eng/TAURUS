@@ -107,7 +107,11 @@ Deno.serve(async (req) => {
     for (const userId of recipients) {
       const userSubs = subsByUser.get(userId)
       if (!userSubs) continue
-      const lead = (userSubs[0].lead_minutes ?? 30) * 60_000
+      // devices may have different lead times but sent_reminders dedupes per
+      // (stop, user) — so fire once at the user's EARLIEST requested lead
+      // (max minutes) and deliver to every device, rather than trusting the
+      // arbitrary first row's setting
+      const lead = Math.max(...userSubs.map((s) => s.lead_minutes ?? 30)) * 60_000
       const fireAt = targetMs - lead
       if (now < fireAt || now >= fireAt + WINDOW_MS) continue
 

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { toastDbError } from './toast'
 import type { Flight, Train, HotelRoom, Trip } from './database.types'
 
 // Columns added by supabase/extra_columns.sql — the app still works before the
@@ -23,6 +24,7 @@ async function insertGraceful(table: string, payload: Record<string, unknown>) {
     const stripped = stripMentioned(payload, res.error.message)
     if (stripped) res = await supabase.from(table).insert(stripped)
   }
+  toastDbError(res.error) // many callers are optimistic fire-and-forget — never fail silently
   return res
 }
 
@@ -32,6 +34,7 @@ async function updateGraceful(table: string, id: string, payload: Record<string,
     const stripped = stripMentioned(payload, res.error.message)
     if (stripped) res = await supabase.from(table).update(stripped).eq('id', id)
   }
+  toastDbError(res.error, !navigator.onLine ? 'บันทึกไม่สำเร็จ — ออฟไลน์อยู่ การแก้ไขนี้ยังไม่ถูกบันทึก' : undefined)
   return res
 }
 

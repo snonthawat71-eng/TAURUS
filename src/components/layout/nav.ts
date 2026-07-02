@@ -6,6 +6,8 @@ import {
 export interface NavItem {
   to: string
   label: string
+  /** compact label for the mobile bottom nav (label's first word is ambiguous) */
+  short: string
   icon: Icon
   /** which count to show (resolved in the sidebar from trip data) */
   count?: 'itinerary' | 'placesfood'
@@ -19,8 +21,8 @@ export function visibleNav(perm: string): NavItem[] {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/info', label: 'Personal Information', icon: IconInfoCircle, section: 'PLAN' },
-  { to: '/itinerary', label: 'Itinerary', icon: IconCalendarEvent, count: 'itinerary', section: 'PLAN' },
-  { to: '/places', label: 'Places & Food', icon: IconMapPin, count: 'placesfood', section: 'PLAN' },
-  { to: '/plans', label: 'All plans', icon: IconLayoutList, section: 'OVERVIEW' },
+  { to: '/info', label: 'Personal Information', short: 'Info', icon: IconInfoCircle, section: 'PLAN' },
+  { to: '/itinerary', label: 'Itinerary', short: 'Itinerary', icon: IconCalendarEvent, count: 'itinerary', section: 'PLAN' },
+  { to: '/places', label: 'Places & Food', short: 'Places', icon: IconMapPin, count: 'placesfood', section: 'PLAN' },
+  { to: '/plans', label: 'All plans', short: 'All plans', icon: IconLayoutList, section: 'OVERVIEW' },
 ]

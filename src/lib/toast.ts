@@ -44,6 +44,18 @@ export const toast = {
     push(opts.kind ?? 'info', m, opts.ttl ?? 7000, action, opts.key),
 }
 
+/** Toast a failed Supabase write so it never dies silently. Maps an RLS denial
+ *  to a permission message; anything else gets the generic fail text. Safe to
+ *  call with null/undefined (no-op). Returns true when there was NO error. */
+export function toastDbError(err: unknown, fail = 'บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง'): boolean {
+  if (!err) return true
+  const msg = typeof err === 'string' ? err : ((err as { message?: string })?.message ?? '')
+  const code = (err as { code?: string })?.code
+  if (code === '42501' || /row-level security/i.test(msg)) toast.error('ไม่มีสิทธิ์ทำรายการนี้')
+  else toast.error(fail)
+  return false
+}
+
 /** Surface the outcome of a `{ error }`-returning helper as a toast.
  *  Returns true when there was no error. */
 export function toastResult(

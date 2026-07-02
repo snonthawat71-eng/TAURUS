@@ -46,7 +46,7 @@ export function PhotoCarousel({
         className="flex w-full h-full overflow-x-auto snap-x snap-mandatory no-scrollbar">
         {photos.map((p, i) => (
           <div key={i} className="w-full h-full shrink-0 snap-center"
-            onClick={onExpand ? (e) => { e.stopPropagation(); onExpand(active) } : undefined}
+            onClick={onExpand ? (e) => { e.stopPropagation(); onExpand(i) } : undefined}
             style={onExpand ? { cursor: 'zoom-in' } : undefined}>
             <SignedImage url={p.url} path={p.path} alt={alt} width={width}
               focus={i === 0 ? focus : null}
