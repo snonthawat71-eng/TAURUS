@@ -5,7 +5,7 @@ import { initOfflineSync } from '@/lib/offlineQueue'
 import { useAuth } from './AuthContext'
 import type {
   Expense, Flight, Train, TrainTicket, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
-  Profile, Traveler, TravelerFile, Trip,
+  Profile, Traveler, TravelerFile, Trip, TripMember,
 } from '@/lib/database.types'
 
 interface TripData {
@@ -149,7 +149,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       // batch above — fetch them together in a single second round-trip.
       const places = (placesRes.data ?? []) as Place[]
       const placeIds = places.map((p) => p.id)
-      const members = (membersRes.data ?? []) as { user_id: string; permission?: string | null }[]
+      const members = (membersRes.data ?? []) as Pick<TripMember, 'user_id' | 'permission'>[]
       const memberIds = members.map((m) => m.user_id)
       const [interestsRes, memberProfilesRes] = await Promise.all([
         placeIds.length

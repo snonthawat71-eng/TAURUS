@@ -32,6 +32,8 @@ export interface TripMember {
   user_id: string
   role: string
   joined_at: string
+  /** 'edit' | 'places' | 'view' — added by sharing.sql (optional pre-migration) */
+  permission?: string | null
 }
 
 export interface Traveler {

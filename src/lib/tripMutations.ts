@@ -78,15 +78,19 @@ export async function duplicateTrip(source: Trip, ownerId: string): Promise<{ id
 
   const { data: places } = await supabase.from('places').select('*').eq('trip_id', source.id)
   if (places?.length) {
+    // copy the full wishlist including optional columns (photos, branches, menu…)
+    // — same set copyPlaceToTrip preserves; a copy shouldn't silently lose data
+    const OPTIONAL = ['photo_path', 'photo_url', 'photo_focus', 'photos', 'city', 'routes', 'branches', 'multi_branch', 'menu_paths'] as const
     const rows = places.map((p) => ({
       id: crypto.randomUUID(), trip_id: id, group_type: p.group_type, category: p.category,
       name: p.name, station_line: p.station_line, station_color: p.station_color, station_name: p.station_name,
-      routes: p.routes ?? null,
-      map_url: p.map_url, note: p.note, in_plan: p.in_plan, photo_path: p.photo_path, photo_focus: p.photo_focus, city: p.city,
+      map_url: p.map_url, note: p.note, in_plan: p.in_plan,
+      ...Object.fromEntries(OPTIONAL.map((c) => [c, p[c] ?? null])),
     }))
     let res = await supabase.from('places').insert(rows)
-    if (res.error && ['photo_path', 'photo_focus', 'city', 'routes'].some((c) => res.error!.message.includes(c))) {
-      const stripped = rows.map(({ photo_path: _p, photo_focus: _f, city: _c, routes: _r, ...r }) => { void _p; void _f; void _c; void _r; return r })
+    if (res.error && OPTIONAL.some((c) => res.error!.message.includes(c))) {
+      // pre-migration DB → retry without the optional columns
+      const stripped = rows.map((r) => { const copy = { ...r } as Record<string, unknown>; for (const c of OPTIONAL) delete copy[c]; return copy })
       res = await supabase.from('places').insert(stripped)
     }
     if (res.error) return { id, error: res.error.message }

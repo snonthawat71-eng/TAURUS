@@ -62,6 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut()
+    // Don't leak this session's state into the next account on a shared device.
+    // (The offline queue is per-user-tagged and correctly stays for its owner.)
+    try { localStorage.removeItem('trip:currentId') } catch { /* ignore */ } // = TripContext STORAGE_KEY
   }
 
   return (
