@@ -472,13 +472,19 @@ export default function TripInfo() {
             {files.map((f) => {
               const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
               return (
-                <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
+                <span key={f.id} role="button" tabIndex={0}
+                  onClick={(e) => { e.stopPropagation(); viewFile(f) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); viewFile(f) } }}
+                  className="chip hover:bg-surface-2 cursor-pointer">
                   <meta.icon size={12} /> {f.label || meta.label}
                 </span>
               )
             })}
             {canEdit && (
-              <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
+              <span role="button" tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); setSelected(t) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setSelected(t) } }}
+                className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
                 <IconPlus size={12} /> เพิ่มไฟล์
               </span>
             )}

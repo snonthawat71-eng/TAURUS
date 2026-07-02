@@ -179,8 +179,30 @@ export async function getWeatherForDates(candidates: string[], dates: string[]):
 
   const out: Record<string, DayWeather> = {}
   for (const d of clean) if (merged[d]) out[d] = merged[d]
-  if (Object.keys(out).length) { try { localStorage.setItem(cacheKey, JSON.stringify(out)) } catch { /* quota */ } }
+  if (Object.keys(out).length) {
+    pruneStaleCache()
+    try { localStorage.setItem(cacheKey, JSON.stringify(out)) }
+    catch { /* quota — prune already ran; drop this day's cache */ }
+  }
   return out
+}
+
+/** Forecast cache keys embed the fetch date (`wx:YYYY-MM-DD:…`) and are only ever
+ *  read on that same day — anything older is dead weight that would otherwise
+ *  accumulate in localStorage forever. Geo lookups (`wx:geo:…`) are city-bounded
+ *  and date-independent, so they stay. */
+function pruneStaleCache() {
+  try {
+    const day = todayStr()
+    const stale: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k || !k.startsWith(PREFIX) || k.startsWith(`${PREFIX}geo:`)) continue
+      const date = k.slice(PREFIX.length, PREFIX.length + 10)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date) && date !== day) stale.push(k)
+    }
+    for (const k of stale) localStorage.removeItem(k)
+  } catch { /* ignore */ }
 }
 
 /** Hook: weather for a place (candidate names) across dates → date→DayWeather. */

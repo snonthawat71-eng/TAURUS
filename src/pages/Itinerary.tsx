@@ -629,7 +629,7 @@ export default function Itinerary() {
             onPointerUp={endFilterDrag} onPointerLeave={endFilterDrag}
             className="flex gap-2 overflow-x-auto pb-1 select-none cursor-grab active:cursor-grabbing [&::-webkit-scrollbar]:hidden"
             style={{ scrollbarWidth: 'none' }}>
-            <button onClick={() => pickDay(null)}
+            <button onClick={() => pickDay(null)} aria-pressed={activeFilter == null}
               className="shrink-0 grow-0 basis-[calc((100%-2.5rem)/6)] py-3 rounded-[12px] flex flex-col items-center justify-center gap-1 transition-colors"
               style={activeFilter == null
                 ? { background: 'var(--color-brand)', color: '#fff' }
@@ -642,7 +642,7 @@ export default function Itinerary() {
               const dt = day.day_date ? new Date(day.day_date) : null
               const selected = activeFilter === day.id
               return (
-                <button key={day.id} onClick={() => pickDay(day.id)}
+                <button key={day.id} onClick={() => pickDay(day.id)} aria-pressed={selected}
                   className="shrink-0 grow-0 basis-[calc((100%-2.5rem)/6)] py-3 rounded-[12px] flex flex-col items-center justify-center gap-1 transition-colors"
                   style={selected
                     ? { background: 'var(--color-brand)', color: '#fff' }
