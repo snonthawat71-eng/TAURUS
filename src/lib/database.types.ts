@@ -84,6 +84,15 @@ export interface Flight {
    *  duration across timezones (optional; added by extra_columns.sql) */
   dep_tz?: string | null
   arr_tz?: string | null
+  /** live travel-day status — written by the check-flight-status Edge Function
+   *  (optional; added by flight_status.sql). The app only reads these. */
+  live_status?: string | null      // ontime | delayed | cancelled | diverted | departed | arrived
+  live_delay_min?: number | null
+  live_dep_time?: string | null    // revised departure "HH:MM"
+  live_arr_time?: string | null
+  live_gate?: string | null
+  live_terminal?: string | null
+  live_checked_at?: string | null
   created_at: string
 }
 

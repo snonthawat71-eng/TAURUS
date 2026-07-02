@@ -176,12 +176,37 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
     )
   }
 
-  // slim blue strip on top (itinerary-style, nested rounded corners): date + controls
+  // Live status (filled in by the check-flight-status cron + AeroDataBox) is only
+  // meaningful on the travel day itself; realtime reloads keep it fresh on screen.
+  const todayInTrip = nowInTz(trip?.timezone).slice(0, 10)
+  const LIVE_TH: Record<string, string> = {
+    ontime: 'ตามเวลา', delayed: `ดีเลย์ +${f.live_delay_min ?? '?'} นาที`, cancelled: 'ยกเลิกเที่ยวบิน',
+    diverted: 'เปลี่ยนเส้นทาง', departed: 'ออกเดินทางแล้ว', arrived: 'ถึงแล้ว',
+  }
+  const live = f.flight_date === todayInTrip && f.live_status && LIVE_TH[f.live_status]
+    ? {
+        label: LIVE_TH[f.live_status],
+        color: f.live_status === 'cancelled' || f.live_status === 'diverted' ? '#C23B3B'
+          : f.live_status === 'delayed' ? '#D97706' : '#1D9E75',
+      }
+    : null
+  // revised (delayed) clocks replace the scheduled ones, old time struck through
+  const depClock = live && f.live_status === 'delayed' && f.live_dep_time && f.live_dep_time !== f.dep_time
+    ? <><span className="line-through opacity-45 mr-1.5">{f.dep_time}</span>{f.live_dep_time}</> : f.dep_time
+  const arrClock = live && f.live_status === 'delayed' && f.live_arr_time && f.live_arr_time !== f.arr_time
+    ? <><span className="line-through opacity-45 mr-1.5">{f.arr_time}</span>{f.live_arr_time}</> : f.arr_time
+
+  // slim strip on top (itinerary-style, nested rounded corners): date + live status + controls
   const strip = (
-    <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: 'var(--color-brand)' }}>
+    <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: live?.color ?? 'var(--color-brand)' }}>
       <div className="flex items-center gap-1.5 min-w-0">
         <Icon size={14} className="shrink-0 text-white/90" />
         <span className="text-[12px] font-medium tracking-wide truncate">{f.flight_date ? formatFlightDate(f.flight_date) : `เที่ยวบิน${dirLabel}`}</span>
+        {live && (
+          <span className="inline-flex items-center rounded-full px-2 py-px text-[10px] font-semibold shrink-0 bg-white/25">
+            {live.label}{f.live_gate ? ` · Gate ${f.live_gate}` : ''}
+          </span>
+        )}
         {open && (f.flight_no || f.airline) && <span className="text-[11px] text-white/70 truncate">· {[f.flight_no, f.airline].filter(Boolean).join(' · ')}</span>}
       </div>
       <div className="flex items-center gap-0.5 shrink-0">{menu}{chevron}</div>
@@ -200,13 +225,13 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
             <div className="w-[104px] shrink-0">
               <div className="text-[26px] font-medium leading-none">{f.dep_code}</div>
               <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.dep_name}</div>
-              <div className="text-[15px] mt-1 tabular-nums">{f.dep_time}</div>
+              <div className="text-[15px] mt-1 tabular-nums">{depClock}</div>
             </div>
             <div className="flex-1 flex justify-center pt-2"><Icon size={22} className="text-brand" /></div>
             <div className="w-[104px] shrink-0 text-right">
               <div className="text-[26px] font-medium leading-none">{f.arr_code}</div>
               <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.arr_name}</div>
-              <div className="text-[15px] mt-1 tabular-nums">{f.arr_time}</div>
+              <div className="text-[15px] mt-1 tabular-nums">{arrClock}</div>
             </div>
           </div>
         </div>
@@ -235,7 +260,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <div className="w-[88px] shrink-0">
           <div className="text-[22px] font-medium leading-none">{f.dep_code}</div>
           <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.dep_name}</div>
-          <div className="text-[14px] mt-0.5 tabular-nums">{f.dep_time}</div>
+          <div className="text-[14px] mt-0.5 tabular-nums">{depClock}</div>
         </div>
         <div className="flex-1 flex flex-col items-center pt-1">
           <div className="text-[11px] text-ink-3 tabular-nums">{flightDuration(f.dep_time, f.arr_time, f.dep_tz, f.arr_tz, f.flight_date)}</div>
@@ -253,7 +278,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <div className="w-[88px] shrink-0 text-right">
           <div className="text-[22px] font-medium leading-none">{f.arr_code}</div>
           <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.arr_name}</div>
-          <div className="text-[14px] mt-0.5 tabular-nums">{f.arr_time}</div>
+          <div className="text-[14px] mt-0.5 tabular-nums">{arrClock}</div>
         </div>
       </div>
 
