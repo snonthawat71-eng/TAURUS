@@ -16,7 +16,6 @@ import { MetroRoute } from '@/components/MetroRoute'
 import { StopEditor } from '@/components/StopEditor'
 import { DayEditor } from '@/components/DayEditor'
 import { TransitEditor } from '@/components/TransitEditor'
-import { NotificationSettings } from '@/components/NotificationSettings'
 import { PopMenu } from '@/components/PopMenu'
 import { PlaceDetail } from '@/components/PlaceDetail'
 import { openMap } from '@/lib/maps'
@@ -617,8 +616,6 @@ export default function Itinerary() {
 
   return (
     <div className="space-y-4">
-      <NotificationSettings />
-
       {/* Date filter — "ดูทั้งหมด" + one chip per planned day (past days go gray).
           Sized so 6 chips fill the row; extra days scroll (faint fade hints at more).
           Desktop: click-drag to scroll; touch uses native scrolling. */}
