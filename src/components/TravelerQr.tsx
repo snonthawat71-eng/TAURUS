@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle, IconPencil, IconChevronLeft, IconBuildingCarousel, IconDeviceMobile, IconTicket } from '@tabler/icons-react'
+import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle, IconPencil, IconChevronLeft, IconBuildingCarousel, IconDeviceMobile, IconTicket, IconCopy } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { Lightbox } from './Lightbox'
 import { uploadImage } from '@/lib/files'
 import { addTrainTicket, updateTrainTicket, deleteTrainTicket } from '@/lib/tripMutations'
 import { confirmDialog } from '@/lib/confirm'
+import { toast } from '@/lib/toast'
 import type { TrainTicket } from '@/lib/database.types'
 
 const qrRef = (path: string) => (/^https?:\/\//.test(path) ? { url: path } : { path })
@@ -22,6 +23,23 @@ const KINDS = [
 const kindMeta = (k: string | null) => KINDS.find((x) => x.key === k) ?? KINDS[KINDS.length - 1]
 // which kinds use the boarding-pass detail (stations + Car/Gate/Seat)
 const isBoarding = (k: string | null) => { const m = kindMeta(k); return 'boarding' in m && !!m.boarding }
+
+async function copyIccid(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    // http/older-webview fallback
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  toast.success('คัดลอก ICCID แล้ว')
+}
 
 /**
  * Quick-QR hub for one traveler. Everything updates the shared trip state
@@ -82,7 +100,7 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   // another device/member may be mid-edit and must never be deleted from here.
   const createdHere = useRef<Set<string>>(new Set())
   useEffect(() => { if (open) createdHere.current = new Set() }, [open])
-  const isBlank = (t: TrainTicket) => !t.qr_path && !t.label && !t.note && !t.from_station && !t.to_station && !t.seat_no && !t.car && !t.gate
+  const isBlank = (t: TrainTicket) => !t.qr_path && !t.label && !t.note && !t.from_station && !t.to_station && !t.seat_no && !t.car && !t.gate && !t.iccid
   function discardBlanks() {
     if (!canEdit) return
     const blanks = tickets.filter((t) => isBlank(t) && createdHere.current.has(t.id))
@@ -114,7 +132,7 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
     const t: TrainTicket = {
       id, trip_id: tripId, train_id: null, traveler_id: traveler.id, passenger_name: null,
       kind: 'train', note: null, label: null, from_station: null, to_station: null,
-      seat_no: null, car: null, gate: null, qr_path: null,
+      seat_no: null, car: null, gate: null, iccid: null, qr_path: null,
       is_main: rows.length === 0, used: false, position: rows.length, created_at: new Date().toISOString(),
     }
     createdHere.current.add(id)
@@ -252,7 +270,22 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
             </div>
           </div>
         ) : (
-          <div className="text-ink-2 whitespace-pre-wrap">{ticket.note || <span className="text-ink-3">ไม่มีรายละเอียด</span>}</div>
+          <div className="space-y-2">
+            {(ticket.note || !(ticket.kind === 'esim' && ticket.iccid)) && (
+              <div className="text-ink-2 whitespace-pre-wrap">{ticket.note || <span className="text-ink-3">ไม่มีรายละเอียด</span>}</div>
+            )}
+            {ticket.kind === 'esim' && ticket.iccid && (
+              <div className="flex items-center gap-2 rounded-md bg-white/70 hairline px-2.5 h-9">
+                <span className="text-[11px] text-ink-3 shrink-0">ICCID</span>
+                <span className="flex-1 truncate tabular-nums text-ink font-medium">{ticket.iccid}</span>
+                <button onClick={() => copyIccid(ticket.iccid!)}
+                  className="shrink-0 inline-flex items-center gap-1 text-[12px] font-medium text-brand"
+                  aria-label="คัดลอก ICCID">
+                  <IconCopy size={14} /> คัดลอก
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -286,6 +319,7 @@ function QrEditPage({ ticket, tripId, onPersist, onRemove, onBack }: {
   const [seat, setSeat] = useState(ticket.seat_no ?? '')
   const [car, setCar] = useState(ticket.car ?? '')
   const [gate, setGate] = useState(ticket.gate ?? '')
+  const [iccid, setIccid] = useState(ticket.iccid ?? '')
   const [uploading, setUploading] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const meta = kindMeta(kind)
@@ -341,9 +375,24 @@ function QrEditPage({ ticket, tripId, onPersist, onRemove, onBack }: {
             </div>
           </>
         ) : (
-          <textarea className="hairline rounded-md text-[13px] px-2.5 py-2 bg-surface w-full outline-none focus:border-brand resize-none" rows={3}
-            value={note} placeholder={'notePh' in meta ? meta.notePh : 'รายละเอียด'}
-            onChange={(e) => setNote(e.target.value)} onBlur={() => onPersist({ note: note.trim() || null })} />
+          <>
+            {kind === 'esim' && (
+              <div className="relative">
+                <input className={`${field} pr-11 tabular-nums`} value={iccid} placeholder="ICCID (เลขบนซอง/อีเมล eSIM)"
+                  inputMode="numeric" autoComplete="off"
+                  onChange={(e) => setIccid(e.target.value)} onBlur={() => onPersist({ iccid: iccid.trim() || null })} />
+                <button type="button" onClick={() => iccid.trim() && copyIccid(iccid.trim())}
+                  disabled={!iccid.trim()}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 size-7 grid place-items-center rounded-md text-brand disabled:opacity-30"
+                  aria-label="คัดลอก ICCID" title="คัดลอก ICCID">
+                  <IconCopy size={15} />
+                </button>
+              </div>
+            )}
+            <textarea className="hairline rounded-md text-[13px] px-2.5 py-2 bg-surface w-full outline-none focus:border-brand resize-none" rows={3}
+              value={note} placeholder={'notePh' in meta ? meta.notePh : 'รายละเอียด'}
+              onChange={(e) => setNote(e.target.value)} onBlur={() => onPersist({ note: note.trim() || null })} />
+          </>
         )}
       </div>
 

@@ -35,6 +35,7 @@ alter table train_tickets add column if not exists is_main      boolean not null
 alter table train_tickets add column if not exists used         boolean not null default false;
 alter table train_tickets add column if not exists kind         text default 'train';
 alter table train_tickets add column if not exists note         text;
+alter table train_tickets add column if not exists iccid        text; -- eSIM ICCID (ปุ่มคัดลอกใน Quick QR)
 
 create index if not exists train_tickets_trip_id_idx on train_tickets(trip_id);
 

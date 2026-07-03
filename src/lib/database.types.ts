@@ -112,6 +112,7 @@ export interface TrainTicket {
   seat_no: string | null
   car: string | null
   gate: string | null
+  iccid?: string | null // eSIM — optional column (train_tickets.sql)
   qr_path: string | null
   is_main: boolean | null
   used: boolean | null
