@@ -79,7 +79,7 @@ async function enqueue(op: QueuedOp) {
   await notify()
 }
 
-function looksOffline(err: unknown): boolean {
+export function looksOffline(err: unknown): boolean {
   if (!navigator.onLine) return true
   const msg = typeof err === 'string' ? err : ((err as { message?: string })?.message ?? '')
   return /failed to fetch|networkerror|network error|fetch/i.test(msg)

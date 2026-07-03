@@ -40,7 +40,19 @@ export default defineConfig({
           {
             urlPattern: ({ url }) => url.pathname.includes('/storage/v1/object'),
             handler: 'CacheFirst',
-            options: { cacheName: 'supabase-files', expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 7 } },
+            options: {
+              cacheName: 'supabase-files',
+              // signed URLs carry a fresh ?token= every time — match by path so
+              // previously-viewed files (QR codes!) still render offline
+              matchOptions: { ignoreSearch: true },
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          {
+            // Cloudinary photos (place/hotel/cover images)
+            urlPattern: ({ url }) => url.origin === 'https://res.cloudinary.com',
+            handler: 'CacheFirst',
+            options: { cacheName: 'cloudinary-images', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 } },
           },
           {
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',

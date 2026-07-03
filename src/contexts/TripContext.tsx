@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { toast } from '@/lib/toast'
-import { initOfflineSync } from '@/lib/offlineQueue'
+import { initOfflineSync, looksOffline } from '@/lib/offlineQueue'
 import { useAuth } from './AuthContext'
 import type {
   Expense, Flight, Train, TrainTicket, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
@@ -47,6 +47,17 @@ const empty = {
 
 const STORAGE_KEY = 'trip:currentId'
 
+// ---- offline snapshot: last successful load, kept per trip in localStorage so
+// the app still opens with data when there is no connection ----
+const SNAP_TRIPS = 'taurus:snap:trips'
+const snapKey = (tripId: string) => `taurus:snap:trip:${tripId}`
+function readJSON<T>(key: string): T | null {
+  try { const s = localStorage.getItem(key); return s ? (JSON.parse(s) as T) : null } catch { return null }
+}
+function writeJSON(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* quota/blocked — snapshot is best-effort */ }
+}
+
 export function TripProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -68,9 +79,33 @@ export function TripProvider({ children }: { children: ReactNode }) {
     setData((prev) => ({ ...prev, ...updater(prev) }))
   }, [])
 
+  // Restore the last saved snapshot (current trip, else the first cached one).
+  // Returns true when there was data to show.
+  const offlineToasted = useRef(false)
+  const hydrateOffline = useCallback((): boolean => {
+    const cachedTrips = readJSON<Trip[]>(SNAP_TRIPS)
+    if (cachedTrips?.length) setTrips(cachedTrips)
+    const id = currentTripId ?? cachedTrips?.[0]?.id ?? null
+    const snap = id ? readJSON<TripState>(snapKey(id)) : null
+    if (!snap) return false
+    setData(snap)
+    setError(null)
+    if (!offlineToasted.current) {
+      offlineToasted.current = true
+      toast.info('ออฟไลน์อยู่ — แสดงข้อมูลล่าสุดที่บันทึกไว้ในเครื่อง')
+    }
+    return true
+  }, [currentTripId])
+
   const load = useCallback(async () => {
     if (!user) return
     setError(null)
+    // No connection → straight to the snapshot (the network path would only
+    // fail slowly; writes are queued separately by the offline queue).
+    if (!navigator.onLine) {
+      if (!hydrateOffline()) setError('ออฟไลน์อยู่ และยังไม่มีข้อมูลทริปที่บันทึกไว้ในเครื่องนี้')
+      return
+    }
     try {
       // One-time-per-session bootstrap: ensure a profile row exists and accept any
       // pending invites. These don't change between reloads, so skipping them on
@@ -117,6 +152,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
       if (tripsRes.error) throw new Error(`[อ่านทริป] ${tripsRes.error.message}`)
       const allTrips = tripsRes.data ?? []
       setTrips(allTrips)
+
+      writeJSON(SNAP_TRIPS, allTrips)
 
       // Pick the current trip (saved, else first). No trip yet → empty state.
       const current = allTrips.find((t) => t.id === currentTripId) ?? allTrips[0]
@@ -170,7 +207,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
               return (p === 'places' || p === 'view') ? p : 'edit'
             })()
 
-      setData({
+      const next: TripState = {
         trip: current,
         myPermission,
         profile: (profileRes.data as Profile) ?? null,
@@ -188,14 +225,20 @@ export function TripProvider({ children }: { children: ReactNode }) {
         interests: (interestsRes.data ?? []) as PlaceInterest[],
         expenses: (expensesRes.data ?? []) as Expense[],
         memberProfiles: (memberProfilesRes.data ?? []) as Profile[],
-      })
+      }
+      setData(next)
+      writeJSON(snapKey(current.id), next) // offline snapshot
+      offlineToasted.current = false       // next offline period may toast again
     } catch (e) {
+      // Mid-request drop (or a flaky connection navigator.onLine missed) —
+      // fall back to the snapshot instead of an error screen.
+      if (looksOffline(e) && hydrateOffline()) return
       console.error('TripContext load failed:', e)
       const msg = e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ'
       setError(msg)
       toast.error(`โหลดข้อมูลไม่สำเร็จ: ${msg}`)
     }
-  }, [user?.id, currentTripId])
+  }, [user?.id, currentTripId, hydrateOffline])
 
   useEffect(() => {
     let active = true

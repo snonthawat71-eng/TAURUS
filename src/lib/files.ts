@@ -15,18 +15,28 @@ export function isSampleFile(storagePath: string | null | undefined): boolean {
 // every time (each call is a network round-trip). Cached until ~1 min before TTL.
 const signedCache = new Map<string, { url: string; exp: number }>()
 
+// Offline fallback: remember the LAST signed URL per path. The token in it may
+// be expired, but the service worker caches image bytes with ignoreSearch, so a
+// previously-viewed photo/QR still renders from cache with no network at all.
+const SIGNED_LS = 'taurus:signed:'
+const lastSigned = (path: string): string | null => {
+  try { return localStorage.getItem(SIGNED_LS + path) } catch { return null }
+}
+
 /** Create a short-lived signed URL to view a private file (cached per session). */
 export async function getSignedUrl(storagePath: string): Promise<string | null> {
   const hit = signedCache.get(storagePath)
   if (hit && hit.exp > Date.now()) return hit.url
+  if (!navigator.onLine) return lastSigned(storagePath)
   try {
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, SIGNED_TTL)
-    if (error || !data) return null
+    if (error || !data) return lastSigned(storagePath)
     signedCache.set(storagePath, { url: data.signedUrl, exp: Date.now() + (SIGNED_TTL - 60) * 1000 })
+    try { localStorage.setItem(SIGNED_LS + storagePath, data.signedUrl) } catch { /* quota — offline fallback only */ }
     return data.signedUrl
   } catch {
     // Network/throw — callers render a placeholder when this returns null.
-    return null
+    return lastSigned(storagePath)
   }
 }
 

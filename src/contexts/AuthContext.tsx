@@ -14,6 +14,24 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | undefined>(undefined)
 
+// Offline fallback: supabase-js returns a null session when the stored access
+// token is expired and can't be refreshed (no network). The session JSON is
+// still in localStorage though — reuse it so the app can open offline and show
+// cached data instead of bouncing to the login page. Once back online the
+// auto-refresh replaces it with a real session via onAuthStateChange.
+function readStoredSession(): Session | null {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k || !/^sb-.*-auth-token$/.test(k)) continue
+      const raw = JSON.parse(localStorage.getItem(k) ?? 'null')
+      const s = raw?.currentSession ?? raw // v1 wrapped, v2 plain
+      if (s?.user) return s as Session
+    }
+  } catch { /* corrupt/blocked storage — treat as signed out */ }
+  return null
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -24,11 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
+      setSession(data.session ?? (!navigator.onLine ? readStoredSession() : null))
       setLoading(false)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s)
+      // offline: a failed token refresh reports null — keep the stored session
+      // (after a real sign-out the stored copy is gone, so this stays null)
+      setSession(s ?? (!navigator.onLine ? readStoredSession() : null))
     })
     return () => sub.subscription.unsubscribe()
   }, [])
