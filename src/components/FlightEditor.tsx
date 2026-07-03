@@ -7,6 +7,7 @@ import type { FlightInput } from '@/lib/tripMutations'
 import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import { TIMEZONES } from '@/lib/timezones'
+import { airportByCode } from '@/lib/airports'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w-0 outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
@@ -32,6 +33,20 @@ export function FlightEditor({
   const [v, setV] = useState<FlightInput>({})
   const [busy, setBusy] = useState(false)
   const set = (p: FlightInput) => setV((s) => ({ ...s, ...p }))
+
+  // Type an IATA code (bkk → BKK) and the airport name + timezone fill in
+  // right away. Known code always refreshes both fields; unknown code just
+  // uppercases and leaves whatever the user typed.
+  const setDepCode = (raw: string) => {
+    const code = raw.toUpperCase()
+    const a = airportByCode(code)
+    set(a ? { dep_code: code, dep_name: a.name, dep_tz: a.tz } : { dep_code: code })
+  }
+  const setArrCode = (raw: string) => {
+    const code = raw.toUpperCase()
+    const a = airportByCode(code)
+    set(a ? { arr_code: code, arr_name: a.name, arr_tz: a.tz } : { arr_code: code })
+  }
 
   // Re-seed the form synchronously (before paint, no flash) whenever the drawer
   // opens, the edited flight changes, or the target direction changes. This lets
@@ -97,7 +112,7 @@ export function FlightEditor({
         <div className="rounded-lg p-3 space-y-2" style={{ border: '0.5px solid var(--color-line)' }}>
           <div className="text-[12px] font-medium text-ink-2 flex items-center gap-1.5"><IconPlaneDeparture size={14} className="text-brand" /> ต้นทาง</div>
           <div className="grid grid-cols-3 gap-2">
-            <div><div className={lbl}>รหัสสนามบิน</div><input className={field} value={v.dep_code ?? ''} onChange={(e) => set({ dep_code: e.target.value })} placeholder="BKK" /></div>
+            <div><div className={lbl}>รหัสสนามบิน</div><input className={field} value={v.dep_code ?? ''} onChange={(e) => setDepCode(e.target.value)} placeholder="BKK" autoCapitalize="characters" /></div>
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="Suvarnabhumi" /></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -121,7 +136,7 @@ export function FlightEditor({
         <div className="rounded-lg p-3 space-y-2" style={{ border: '0.5px solid var(--color-line)' }}>
           <div className="text-[12px] font-medium text-ink-2 flex items-center gap-1.5"><IconPlaneArrival size={14} className="text-brand" /> ปลายทาง</div>
           <div className="grid grid-cols-3 gap-2">
-            <div><div className={lbl}>รหัสสนามบิน</div><input className={field} value={v.arr_code ?? ''} onChange={(e) => set({ arr_code: e.target.value })} placeholder="PEK" /></div>
+            <div><div className={lbl}>รหัสสนามบิน</div><input className={field} value={v.arr_code ?? ''} onChange={(e) => setArrCode(e.target.value)} placeholder="PEK" autoCapitalize="characters" /></div>
             <div className="col-span-2"><div className={lbl}>ชื่อสนามบิน</div><input className={field} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="Capital Intl" /></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
