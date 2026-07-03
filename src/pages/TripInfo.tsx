@@ -213,7 +213,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <span className="text-[12px] font-medium tracking-wide truncate">{f.flight_date ? formatFlightDate(f.flight_date) : `เที่ยวบิน${dirLabel}`}</span>
         {live && open && (
           <span className="inline-flex items-center rounded-full px-2 py-px text-[10px] font-semibold shrink-0 bg-white/25">
-            {live.label}{f.live_gate ? ` · Gate ${f.live_gate}` : ''}
+            {live.label}
           </span>
         )}
         {open && (f.flight_no || f.airline) && <span className="text-[11px] text-white/70 truncate">· {[f.flight_no, f.airline].filter(Boolean).join(' · ')}</span>}
@@ -259,7 +259,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
               {live && (
                 <span className="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap"
                   style={{ background: live.color }}>
-                  {live.label}{f.live_gate ? ` · Gate ${f.live_gate}` : ''}
+                  {live.label}
                 </span>
               )}
             </div>
