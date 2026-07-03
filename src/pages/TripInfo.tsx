@@ -244,15 +244,20 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
               <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.dep_name}</div>
               {stackClock(f.dep_time, f.live_dep_time ?? null)}
             </div>
-            {/* centre: airline logo → flight no → live-status pill */}
-            <div className="flex-1 min-w-0 flex flex-col items-center pt-0.5">
-              {logoUrl && !logoFailed
-                ? <img src={logoUrl} alt={f.airline ?? 'airline'} onError={() => setLogoFailed(true)}
-                    className="size-9 rounded-full object-contain bg-white hairline shrink-0" />
-                : <span className="size-9 rounded-full bg-surface-2 grid place-items-center shrink-0"><Icon size={18} className="text-brand" /></span>}
-              {f.flight_no && <div className="text-[11px] font-medium text-ink-2 mt-1 truncate max-w-full">{f.flight_no}</div>}
+            {/* centre: airline logo → flight no → live-status pill.
+                The logo block reserves the same height as the side columns'
+                code+name block (26+6+33 = 65px), so the pill lands exactly on
+                the times' row below it. */}
+            <div className="flex-1 min-w-0 flex flex-col items-center">
+              <div className="min-h-[65px] flex flex-col items-center justify-center gap-1">
+                {logoUrl && !logoFailed
+                  ? <img src={logoUrl} alt={f.airline ?? 'airline'} onError={() => setLogoFailed(true)}
+                      className="size-9 rounded-full object-contain bg-white hairline shrink-0" />
+                  : <span className="size-9 rounded-full bg-surface-2 grid place-items-center shrink-0"><Icon size={18} className="text-brand" /></span>}
+                {f.flight_no && <div className="text-[11px] font-medium text-ink-2 truncate max-w-full">{f.flight_no}</div>}
+              </div>
               {live && (
-                <span className="mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap"
+                <span className="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap"
                   style={{ background: live.color }}>
                   {live.label}{f.live_gate ? ` · Gate ${f.live_gate}` : ''}
                 </span>
