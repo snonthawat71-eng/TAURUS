@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
   IconBed, IconPlane, IconPencil, IconTrash, IconTrain, IconQrcode, IconChevronDown,
@@ -140,10 +140,16 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   const autoDir = useMemo(() => autoLegDir(flights, nowInTz(trip?.timezone), (f) => ({ dir: f.direction ?? 'outbound', date: f.flight_date, dep: f.dep_time, arr: f.arr_time })), [flights, trip?.timezone])
   const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
   const [open, setOpen] = useState(false)
+  const [logoFailed, setLogoFailed] = useState(false)
   const dir = manualDir ?? autoDir
   const f = flights.find((x) => (x.direction ?? 'outbound') === dir)
   const Icon = dir === 'return' ? IconPlaneArrival : IconPlaneDeparture
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
+  // airline logo from the flight number's IATA prefix (e.g. FM848 → FM);
+  // falls back to the plane icon when unknown or the CDN has no image
+  const airlineCode = (f?.flight_no ?? '').trim().toUpperCase().match(/^([A-Z0-9]{2})\s*[A-Z0-9]*\d/)?.[1] ?? null
+  const logoUrl = airlineCode ? `https://images.kiwi.com/airlines/64/${airlineCode}.png` : null
+  useEffect(() => { setLogoFailed(false) }, [logoUrl])
 
   const chevron = f && (
     <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
@@ -205,7 +211,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
       <div className="flex items-center gap-1.5 min-w-0">
         <Icon size={14} className="shrink-0 text-white/90" />
         <span className="text-[12px] font-medium tracking-wide truncate">{f.flight_date ? formatFlightDate(f.flight_date) : `เที่ยวบิน${dirLabel}`}</span>
-        {live && (
+        {live && open && (
           <span className="inline-flex items-center rounded-full px-2 py-px text-[10px] font-semibold shrink-0 bg-white/25">
             {live.label}{f.live_gate ? ` · Gate ${f.live_gate}` : ''}
           </span>
@@ -218,6 +224,14 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
 
   // ---- collapsed: condensed image-style summary under the strip ----
   if (!open) {
+    // delayed → new time big, struck-through scheduled time small underneath
+    const stackClock = (sched: string | null, liveT: string | null) =>
+      live && f.live_status === 'delayed' && liveT && sched && liveT !== sched
+        ? <>
+            <div className="text-[15px] mt-1 tabular-nums">{liveT}</div>
+            <div className="text-[10.5px] tabular-nums line-through opacity-45 leading-tight">{sched}</div>
+          </>
+        : <div className="text-[15px] mt-1 tabular-nums">{sched}</div>
     return (
       <div className="relative flex flex-col">
         {strip}
@@ -228,13 +242,26 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
             <div className="w-[104px] shrink-0">
               <div className="text-[26px] font-medium leading-none">{f.dep_code}</div>
               <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.dep_name}</div>
-              <div className="text-[15px] mt-1 tabular-nums">{depClock}</div>
+              {stackClock(f.dep_time, f.live_dep_time ?? null)}
             </div>
-            <div className="flex-1 flex justify-center pt-2"><Icon size={22} className="text-brand" /></div>
+            {/* centre: airline logo → flight no → live-status pill */}
+            <div className="flex-1 min-w-0 flex flex-col items-center pt-0.5">
+              {logoUrl && !logoFailed
+                ? <img src={logoUrl} alt={f.airline ?? 'airline'} onError={() => setLogoFailed(true)}
+                    className="size-9 rounded-full object-contain bg-white hairline shrink-0" />
+                : <span className="size-9 rounded-full bg-surface-2 grid place-items-center shrink-0"><Icon size={18} className="text-brand" /></span>}
+              {f.flight_no && <div className="text-[11px] font-medium text-ink-2 mt-1 truncate max-w-full">{f.flight_no}</div>}
+              {live && (
+                <span className="mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap"
+                  style={{ background: live.color }}>
+                  {live.label}{f.live_gate ? ` · Gate ${f.live_gate}` : ''}
+                </span>
+              )}
+            </div>
             <div className="w-[104px] shrink-0 text-right">
               <div className="text-[26px] font-medium leading-none">{f.arr_code}</div>
               <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.arr_name}</div>
-              <div className="text-[15px] mt-1 tabular-nums">{arrClock}</div>
+              {stackClock(f.arr_time, f.live_arr_time ?? null)}
             </div>
           </div>
         </div>

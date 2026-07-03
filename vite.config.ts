@@ -55,6 +55,12 @@ export default defineConfig({
             options: { cacheName: 'cloudinary-images', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 } },
           },
           {
+            // airline logos on the flight card
+            urlPattern: ({ url }) => url.origin === 'https://images.kiwi.com',
+            handler: 'CacheFirst',
+            options: { cacheName: 'airline-logos', expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 90 } },
+          },
+          {
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'google-fonts-css' },
