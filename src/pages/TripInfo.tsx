@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
   IconBed, IconPlane, IconPencil, IconTrash, IconTrain, IconQrcode, IconChevronDown,
+  IconLock, IconUsers, IconUserCheck,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -24,7 +25,7 @@ import { getSignedUrl, isSampleFile } from '@/lib/files'
 import { flightDuration, formatFlightDate, formatCheckTime } from '@/lib/format'
 import { travelerColor, ORDER } from '@/lib/avatars'
 import {
-  addTraveler, updateTraveler, deleteTraveler,
+  addTraveler, updateTraveler, deleteTraveler, claimTraveler, setTravelerPrivacy,
   addFlight, updateFlight, deleteFlight,
   addTrain, updateTrain, deleteTrain,
   addHotel, updateHotel, deleteHotel, updateProfile,
@@ -500,14 +501,40 @@ export default function TripInfo() {
   const colorOf = (t: Traveler) => travelerColor(t, travelers.findIndex((x) => x.id === t.id))
   const nextColor = ORDER[travelers.length % ORDER.length]
 
-  // "Me" = the traveler matching my profile name (shown first, with a tag)
+  // "Me" = the card I claimed (user_id), falling back to a profile-name match
   const myName = profile?.nickname?.trim().toLowerCase()
-  const meTraveler = myName ? travelers.find((t) => t.nickname?.trim().toLowerCase() === myName) : undefined
+  const meTraveler = travelers.find((t) => t.user_id && t.user_id === user?.id)
+    ?? (myName ? travelers.find((t) => t.nickname?.trim().toLowerCase() === myName) : undefined)
   const otherTravelers = travelers.filter((t) => t !== meTraveler)
+
+  // ── privacy (supabase/privacy.sql): who may open this card's documents/QRs.
+  // Unclaimed cards behave like before; the TRIP OWNER always sees everything.
+  const isTripOwner = !!trip && !!user && trip.owner_id === user.id
+  const iClaimed = travelers.some((t) => t.user_id === user?.id)
+  const canSeePrivate = (t: Traveler) =>
+    (t.privacy ?? 'private') === 'trip' || !t.user_id || t.user_id === user?.id || isTripOwner
+
+  async function claimCard(t: Traveler) {
+    if (!user) return
+    if (!(await confirmDialog({ message: `ตั้งการ์ด "${t.nickname ?? 'ผู้เดินทาง'}" เป็นของฉัน? เอกสาร/QR ของการ์ดนี้จะถูกตั้งเป็นส่วนตัว (คุณ + เจ้าของทริป) และคุณเปลี่ยนระดับได้ทีหลัง`, confirmLabel: 'ใช่ นี่การ์ดฉัน' }))) return
+    patch((d) => ({ travelers: d.travelers.map((x) => (x.id === t.id ? { ...x, user_id: user.id } : x)) }))
+    await claimTraveler(t.id, user.id)
+    reload()
+  }
+  async function togglePrivacy(t: Traveler) {
+    const next = (t.privacy ?? 'private') === 'trip' ? 'private' : 'trip'
+    patch((d) => ({ travelers: d.travelers.map((x) => (x.id === t.id ? { ...x, privacy: next } : x)) }))
+    await setTravelerPrivacy(t.id, next)
+    toast.success(next === 'trip'
+      ? 'เปิดให้ทุกคนในทริปเห็นเอกสาร/QR ของการ์ดนี้'
+      : 'ตั้งเป็นส่วนตัวแล้ว — เห็นเฉพาะเจ้าของการ์ดกับเจ้าของทริป')
+  }
 
   const travelerRow = (t: Traveler, isMe: boolean) => {
     const i = travelers.indexOf(t)
     const files = filesByTraveler.get(t.id) ?? []
+    const visible = canSeePrivate(t)
+    const isMineCard = !!user && t.user_id === user.id
     // Count only QRs with real content — a freshly-added blank ticket (created but
     // nothing filled/uploaded yet) shouldn't bump the tile's count.
     const myTickets = trainTickets.filter((tk) => tk.traveler_id === t.id
@@ -515,7 +542,8 @@ export default function TripInfo() {
     const usedTickets = myTickets.filter((tk) => tk.used).length
     return (
       <div key={t.id} className="flex gap-2.5 items-stretch">
-        <button onClick={() => setSelected(t)} className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0">
+        <button onClick={() => visible ? setSelected(t) : toast.info(`เอกสารของ "${t.nickname ?? 'การ์ดนี้'}" เป็นส่วนตัว`)}
+          className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0">
           <div className="flex items-center gap-2.5">
             <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
             <div className="min-w-0">
@@ -527,30 +555,54 @@ export default function TripInfo() {
             </div>
           </div>
           <div className="flex flex-wrap gap-1.5 mt-3">
-            {files.map((f) => {
-              const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
-              return (
-                <span key={f.id} role="button" tabIndex={0}
-                  onClick={(e) => { e.stopPropagation(); viewFile(f) }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); viewFile(f) } }}
-                  className="chip hover:bg-surface-2 cursor-pointer">
-                  <meta.icon size={12} /> {f.label || meta.label}
-                </span>
-              )
-            })}
-            {canEdit && (
+            {/* claim an ownerless card (one per person per trip) */}
+            {!t.user_id && !!user && !iClaimed && (
               <span role="button" tabIndex={0}
-                onClick={(e) => { e.stopPropagation(); setSelected(t) }}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setSelected(t) } }}
+                onClick={(e) => { e.stopPropagation(); claimCard(t) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); claimCard(t) } }}
                 className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
-                <IconPlus size={12} /> เพิ่มไฟล์
+                <IconUserCheck size={12} /> การ์ดนี้คือฉัน
               </span>
+            )}
+            {/* privacy toggle — card owner (or trip owner) flips who can open the docs */}
+            {(isMineCard || (isTripOwner && !!t.user_id)) && (
+              <span role="button" tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); togglePrivacy(t) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); togglePrivacy(t) } }}
+                className="chip hover:bg-surface-2 cursor-pointer">
+                {(t.privacy ?? 'private') === 'trip' ? <><IconUsers size={12} /> ทุกคนเห็น</> : <><IconLock size={12} /> ส่วนตัว</>}
+              </span>
+            )}
+            {!visible ? (
+              <span className="chip !text-ink-3"><IconLock size={12} /> เอกสารส่วนตัว — เฉพาะเจ้าของ</span>
+            ) : (
+              <>
+                {files.map((f) => {
+                  const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
+                  return (
+                    <span key={f.id} role="button" tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); viewFile(f) }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); viewFile(f) } }}
+                      className="chip hover:bg-surface-2 cursor-pointer">
+                      <meta.icon size={12} /> {f.label || meta.label}
+                    </span>
+                  )
+                })}
+                {canEdit && (
+                  <span role="button" tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setSelected(t) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setSelected(t) } }}
+                    className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
+                    <IconPlus size={12} /> เพิ่มไฟล์
+                  </span>
+                )}
+              </>
             )}
           </div>
         </button>
 
-        {/* Quick QR — icon tile; the actual QR lives behind the tap */}
-        {(myTickets.length > 0 || canEdit) && (
+        {/* Quick QR — icon tile; hidden entirely on cards you may not open */}
+        {visible && (myTickets.length > 0 || canEdit) && (
           <button onClick={() => setQrFor(t)}
             className="card w-[116px] shrink-0 flex flex-col items-center justify-center gap-1.5 hover:bg-surface-2/30 transition-colors">
             <div className="relative">

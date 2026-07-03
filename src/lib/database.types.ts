@@ -44,6 +44,10 @@ export interface Traveler {
   passport_last4: string | null
   /** optional — only present after the avatar_color migration is run */
   avatar_color?: string | null
+  /** optional — present after supabase/privacy.sql: the account this card belongs to */
+  user_id?: string | null
+  /** optional — 'trip' (everyone) | 'private' (card owner + trip owner); default private */
+  privacy?: string | null
   created_at: string
 }
 
