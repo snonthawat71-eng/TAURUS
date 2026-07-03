@@ -141,6 +141,7 @@ async function main(req, res) {
 
   let sent = 0
   const dead = []
+  const errors = []
   for (const d of due) {
     if (!won.has(`${d.stop.id}:${d.uid}:${d.kind}`)) continue
     const payload = JSON.stringify({ title: d.title, body: d.body, url: '/itinerary', tag: `plan-${d.stop.id}-${d.kind}` })
@@ -149,10 +150,15 @@ async function main(req, res) {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload)
         sent++
       } catch (e) {
-        if (e?.statusCode === 404 || e?.statusCode === 410) dead.push(s.endpoint) // endpoint rotated/expired
+        const code = e?.statusCode
+        errors.push(code ?? String(e?.message ?? e).slice(0, 120))
+        // 404/410 endpoint expired · 400/401/403 subscription bound to a
+        // different VAPID key — either way this row can never succeed, drop it
+        // (the app re-subscribes automatically with the current key on open)
+        if ([400, 401, 403, 404, 410].includes(code)) dead.push(s.endpoint)
       }
     }
   }
   if (dead.length) await admin.from('push_subscriptions').delete().in('endpoint', dead)
-  return res.json({ sent, due: due.length })
+  return res.json({ sent, due: due.length, ...(errors.length ? { errors: errors.slice(0, 5) } : {}) })
 }

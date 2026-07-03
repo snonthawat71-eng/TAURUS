@@ -22,6 +22,37 @@ function urlBase64ToUint8Array(base64String: string) {
   return arr
 }
 
+/** true when the browser subscription was created with the CURRENT VAPID key.
+ *  A subscription bound to an old/rotated key can never receive our pushes —
+ *  it must be dropped and recreated. */
+function matchesCurrentKey(sub: PushSubscription): boolean {
+  if (!VAPID_PUBLIC) return false
+  const cur = sub.options?.applicationServerKey
+  if (!cur) return false
+  const a = new Uint8Array(cur)
+  const b = urlBase64ToUint8Array(VAPID_PUBLIC)
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+/** Get the device's subscription for the current key — silently replacing one
+ *  made with an old key (permission already granted, so no prompt). */
+async function freshSubscription(reg: ServiceWorkerRegistration): Promise<PushSubscription> {
+  let sub = await reg.pushManager.getSubscription()
+  if (sub && !matchesCurrentKey(sub)) {
+    const oldEndpoint = sub.endpoint
+    try { await sub.unsubscribe() } catch { /* replaced below anyway */ }
+    // remove the dead row so the server stops pushing at a key-mismatched endpoint
+    supabase.from('push_subscriptions').delete().eq('endpoint', oldEndpoint).then(() => { /* fire-and-forget */ })
+    sub = null
+  }
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC!) })
+  }
+  return sub
+}
+
 export interface PushState {
   supported: boolean
   configured: boolean // VAPID public key present
@@ -56,10 +87,7 @@ export async function enablePush(leadMinutes: number): Promise<{ error: string |
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'ยังไม่ได้เข้าสู่ระบบ' }
   const reg = await navigator.serviceWorker.ready
-  let sub = await reg.pushManager.getSubscription()
-  if (!sub) {
-    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC) })
-  }
+  const sub = await freshSubscription(reg)
   const json = sub.toJSON()
   const { error } = await supabase.from('push_subscriptions').upsert({
     user_id: user.id,
@@ -81,12 +109,14 @@ export async function resyncSubscription(): Promise<void> {
   if (!pushSupported || !VAPID_PUBLIC || Notification.permission !== 'granted') return
   try {
     const reg = await navigator.serviceWorker.ready
-    const sub = await reg.pushManager.getSubscription()
+    let sub = await reg.pushManager.getSubscription()
     if (!sub) return
+    // keep the old lead preference across a key-rotation resubscribe
+    const { data } = await supabase.from('push_subscriptions').select('lead_minutes').eq('endpoint', sub.endpoint).maybeSingle()
+    sub = await freshSubscription(reg) // replaces an old-key subscription in place
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const json = sub.toJSON()
-    const { data } = await supabase.from('push_subscriptions').select('lead_minutes').eq('endpoint', sub.endpoint).maybeSingle()
     await supabase.from('push_subscriptions').upsert({
       user_id: user.id,
       endpoint: sub.endpoint,
