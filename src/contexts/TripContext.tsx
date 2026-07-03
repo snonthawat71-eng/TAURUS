@@ -255,7 +255,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
     let timer: ReturnType<typeof setTimeout> | undefined
     const bump = () => { clearTimeout(timer); timer = setTimeout(() => { load() }, 500) }
     const channel = supabase.channel(`trip-${currentTripId}`)
-    for (const table of ['itinerary_days', 'itinerary_stops', 'places', 'expenses', 'travelers']) {
+    for (const table of ['itinerary_days', 'itinerary_stops', 'places', 'expenses', 'travelers', 'flights']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `trip_id=eq.${currentTripId}` }, bump)
     }
     channel.subscribe()
