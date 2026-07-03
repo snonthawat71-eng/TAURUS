@@ -73,29 +73,36 @@ export function checkPlanReminders(uid: string | undefined, trip: Trip | null, d
     const hh = +s.time.slice(0, 2), mm = +s.time.slice(3, 5)
     if (Number.isNaN(hh) || Number.isNaN(mm)) continue
     const t = hh * 60 + mm
-    // fire once inside the lead window; opening the app after the time passed
-    // stays silent (no point reminding about a stop that already started)
-    if (now.minutes < t - lead || now.minutes > t) continue
-    const mark = `${uid}:${s.id}`
-    if (fired.ids.includes(mark)) continue
-    fired.ids.push(mark)
-    changed = true
-    announce(s, t - now.minutes)
+    // two independent alerts, each fired once: `lead` minutes before, and ON
+    // TIME (trip timezone). Opening the app long after the time passed stays
+    // silent — no point reminding about a stop that already started.
+    const events: { kind: 'lead' | 'ontime'; due: boolean; minutesLeft: number }[] = [
+      { kind: 'lead', due: lead > 0 && now.minutes >= t - lead && now.minutes < t, minutesLeft: t - now.minutes },
+      { kind: 'ontime', due: now.minutes >= t && now.minutes <= t + 3, minutesLeft: 0 },
+    ]
+    for (const ev of events) {
+      if (!ev.due) continue
+      const mark = `${uid}:${s.id}:${ev.kind}`
+      if (fired.ids.includes(mark)) continue
+      fired.ids.push(mark)
+      changed = true
+      announce(s, ev.kind, ev.minutesLeft)
+    }
   }
   if (changed) { try { localStorage.setItem(firedKey(trip.id), JSON.stringify(fired)) } catch { /* ignore */ } }
 }
 
-function announce(stop: ItineraryStop, minutesLeft: number) {
+function announce(stop: ItineraryStop, kind: 'lead' | 'ontime', minutesLeft: number) {
   const name = stop.place_name || 'แพลนถัดไป'
   const time = stop.time?.slice(0, 5) ?? ''
-  const when = minutesLeft <= 0 ? 'ถึงเวลาแล้ว' : `อีก ${minutesLeft} นาที`
-  toast.action(`⏰ ${when} · ${time} ${name}`, { label: 'รับทราบ', run: () => { /* dismiss */ } }, { ttl: 30_000, key: `remind-${stop.id}` })
+  const head = kind === 'ontime' ? '🕑 ถึงเวลาแล้ว' : `⏰ อีก ${minutesLeft} นาที`
+  toast.action(`${head} · ${time} ${name}`, { label: 'รับทราบ', run: () => { /* dismiss */ } }, { ttl: 30_000, key: `remind-${stop.id}-${kind}` })
   try { navigator.vibrate?.([200, 100, 200]) } catch { /* unsupported */ }
   if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     navigator.serviceWorker?.ready
-      .then((reg) => reg.showNotification(`⏰ ${when} — ${name}`, {
+      .then((reg) => reg.showNotification(`${head} — ${name}`, {
         body: `ตามแพลนเวลา ${time}`,
-        tag: `plan-${stop.id}`,
+        tag: `plan-${stop.id}-${kind}`,
         icon: '/taurus-01.svg',
         badge: '/taurus-01.svg',
       }))

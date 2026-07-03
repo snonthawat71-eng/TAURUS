@@ -1,9 +1,9 @@
 import { supabase } from './supabase'
 
-// Web Push subscription management (client side). The actual reminders are sent
-// by the `send-due-reminders` Supabase Edge Function on a schedule — see
-// supabase/PUSH_SETUP.md. This module only registers/stores the device's push
-// subscription + the user's preferred lead time.
+// Web Push subscription management (client side). The actual reminders are
+// sent by /api/send-reminders (a Vercel serverless function deployed with the
+// app), triggered every 5 min by Supabase pg_cron. This module only
+// registers/stores the device's push subscription + preferred lead time.
 
 const VAPID_PUBLIC = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
 
