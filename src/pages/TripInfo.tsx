@@ -176,14 +176,17 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
     )
   }
 
-  // Live status (filled in by the check-flight-status cron + AeroDataBox) is only
-  // meaningful on the travel day itself; realtime reloads keep it fresh on screen.
-  const todayInTrip = nowInTz(trip?.timezone).slice(0, 10)
+  // Live status (filled in by /api/check-flights + AeroDataBox). The checker
+  // only polls near departure (6h before … landing), so "recently checked"
+  // is exactly when the status is meaningful — an early-morning flight then
+  // shows live info the evening before too, not just on the travel date.
+  const liveFresh = !!f.live_checked_at &&
+    Date.now() - new Date(f.live_checked_at).getTime() < 24 * 3600_000
   const LIVE_TH: Record<string, string> = {
     ontime: 'ตามเวลา', delayed: `ดีเลย์ +${f.live_delay_min ?? '?'} นาที`, cancelled: 'ยกเลิกเที่ยวบิน',
     diverted: 'เปลี่ยนเส้นทาง', departed: 'ออกเดินทางแล้ว', arrived: 'ถึงแล้ว',
   }
-  const live = f.flight_date === todayInTrip && f.live_status && LIVE_TH[f.live_status]
+  const live = liveFresh && f.live_status && LIVE_TH[f.live_status]
     ? {
         label: LIVE_TH[f.live_status],
         color: f.live_status === 'cancelled' || f.live_status === 'diverted' ? '#C23B3B'
