@@ -617,6 +617,8 @@ export default function Itinerary() {
 
   return (
     <div className="space-y-4">
+      {localDays.length > 0 && <ReminderSettings />}
+
       {/* Date filter — "ดูทั้งหมด" + one chip per planned day (past days go gray).
           Sized so 6 chips fill the row; extra days scroll (faint fade hints at more).
           Desktop: click-drag to scroll; touch uses native scrolling. */}
@@ -660,8 +662,6 @@ export default function Itinerary() {
           )}
         </div>
       )}
-
-      {localDays.length > 0 && <ReminderSettings />}
 
       <DndContext sensors={daySensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
         <SortableContext items={shownDays.map((d) => d.day.id)} strategy={verticalListSortingStrategy}>
