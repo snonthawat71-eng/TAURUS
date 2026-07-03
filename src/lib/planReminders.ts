@@ -14,7 +14,9 @@ const leadKey = (uid: string) => `taurus:remind:lead:${uid}`
 const firedKey = (tripId: string) => `taurus:remind:fired:${tripId}`
 
 export const DEFAULT_LEAD = 15
-export const LEAD_CHOICES = [5, 10, 15, 30, 60]
+// 0 = แจ้งตรงเวลาอย่างเดียว (the on-time alert always fires either way)
+export const LEAD_CHOICES = [0, 5, 10, 15, 30, 45, 60]
+export const leadLabel = (m: number) => (m === 0 ? 'ตรงเวลา' : m === 60 ? '1 ชั่วโมง' : `${m} นาที`)
 
 export function remindersEnabled(uid: string): boolean {
   try { return (localStorage.getItem(onKey(uid)) ?? '1') === '1' } catch { return true }
@@ -24,8 +26,10 @@ export function setRemindersEnabled(uid: string, on: boolean) {
 }
 export function reminderLead(uid: string): number {
   try {
-    const n = Number(localStorage.getItem(leadKey(uid)))
-    return Number.isFinite(n) && n > 0 ? n : DEFAULT_LEAD
+    const raw = localStorage.getItem(leadKey(uid))
+    if (raw == null) return DEFAULT_LEAD
+    const n = Number(raw)
+    return Number.isFinite(n) && n >= 0 ? n : DEFAULT_LEAD // 0 = ตรงเวลาอย่างเดียว
   } catch { return DEFAULT_LEAD }
 }
 export function setReminderLead(uid: string, minutes: number) {
