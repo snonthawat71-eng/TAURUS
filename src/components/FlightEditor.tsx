@@ -11,6 +11,7 @@ import { airportByCode } from '@/lib/airports'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w-0 outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
+const SEAT_CLASSES = ['Economy', 'Premium Economy', 'Business', 'First']
 
 export function FlightEditor({
   open, onClose, initial, defaultDirection = 'outbound', prefillFrom, onSave, onDelete, onSwitchDirection,
@@ -157,7 +158,14 @@ export function FlightEditor({
         </div>
         <p className="text-[11px] text-ink-3">ใส่โซนเวลาสนามบินทั้งสองฝั่ง เพื่อให้คำนวณระยะเวลาบินข้ามโซนเวลาได้ถูกต้อง</p>
         <div className="grid grid-cols-2 gap-2">
-          <div><div className={lbl}>ชั้นโดยสาร</div><input className={field} value={v.seat_class ?? ''} onChange={(e) => set({ seat_class: e.target.value })} placeholder="Economy" /></div>
+          <div>
+            <div className={lbl}>ชั้นโดยสาร</div>
+            <select className={field} value={v.seat_class ?? 'Economy'} onChange={(e) => set({ seat_class: e.target.value })}>
+              {/* keep an unusual stored value selectable instead of silently swapping it */}
+              {!!v.seat_class && !SEAT_CLASSES.includes(v.seat_class) && <option value={v.seat_class}>{v.seat_class}</option>}
+              {SEAT_CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
           <div><div className={lbl}>จำนวนที่นั่ง</div><input type="number" className={field} value={v.seats ?? ''} onChange={(e) => set({ seats: e.target.value ? Number(e.target.value) : null })} placeholder="4" /></div>
         </div>
         <button onClick={save} disabled={busy} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
