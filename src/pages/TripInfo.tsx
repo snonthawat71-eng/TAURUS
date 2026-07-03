@@ -288,18 +288,25 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
           <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.dep_name}</div>
           {stackClock(f.dep_time, f.live_dep_time ?? null, 'text-[14px] mt-0.5')}
         </div>
-        <div className="flex-1 flex flex-col items-center pt-1">
-          <div className="text-[11px] text-ink-3 tabular-nums">{flightDuration(f.dep_time, f.arr_time, f.dep_tz, f.arr_tz, f.flight_date)}</div>
-          <div className="w-full flex items-center my-1.5">
-            <span className="size-2 rounded-full shrink-0" style={{ background: 'var(--color-brand)' }} />
-            <span className="flex-1 h-px bg-line-2" />
-            <span className="size-6 rounded-full bg-surface grid place-items-center shrink-0" style={{ border: '0.5px solid var(--color-line)' }}>
-              <IconPlane size={13} className="text-brand" />
-            </span>
-            <span className="flex-1 h-px bg-line-2" />
-            <span className="size-2 rounded-full shrink-0 ring-2 bg-surface" style={{ '--tw-ring-color': 'var(--color-brand)' } as React.CSSProperties} />
+        {/* centre: duration + path fill the same height as the side columns'
+            code+name block (22+6+33 = 61px); the status pill (or "direct")
+            then lands level with the times row, same rhythm as collapsed. */}
+        <div className="flex-1 min-w-0 flex flex-col items-center px-1">
+          <div className="w-full min-h-[61px] flex flex-col items-center justify-center">
+            <div className="text-[11px] text-ink-3 tabular-nums">{flightDuration(f.dep_time, f.arr_time, f.dep_tz, f.arr_tz, f.flight_date)}</div>
+            <div className="w-full flex items-center mt-1.5">
+              <span className="size-2 rounded-full shrink-0" style={{ background: 'var(--color-brand)' }} />
+              <span className="flex-1 h-px bg-line-2" />
+              <span className="size-6 rounded-full bg-surface grid place-items-center shrink-0" style={{ border: '0.5px solid var(--color-line)' }}>
+                <IconPlane size={13} className="text-brand" />
+              </span>
+              <span className="flex-1 h-px bg-line-2" />
+              <span className="size-2 rounded-full shrink-0 ring-2 bg-surface" style={{ '--tw-ring-color': 'var(--color-brand)' } as React.CSSProperties} />
+            </div>
           </div>
-          {live ? statusPill : <div className="text-[11px] text-ink-3">direct</div>}
+          <div className="mt-0.5">
+            {live ? statusPill : <div className="text-[11px] text-ink-3">direct</div>}
+          </div>
         </div>
         <div className="w-[88px] shrink-0 text-right">
           <div className="text-[22px] font-medium leading-none">{f.arr_code}</div>
