@@ -113,6 +113,7 @@ export interface TrainTicket {
   car: string | null
   gate: string | null
   iccid?: string | null // eSIM — optional column (train_tickets.sql)
+  link?: string | null // eSIM registration URL — optional column (train_tickets.sql)
   qr_path: string | null
   is_main: boolean | null
   used: boolean | null

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle, IconPencil, IconChevronLeft, IconBuildingCarousel, IconDeviceMobile, IconTicket, IconCopy } from '@tabler/icons-react'
+import { IconQrcode, IconTrash, IconPlus, IconUpload, IconLoader2, IconTrain, IconStar, IconStarFilled, IconCheck, IconCircle, IconPencil, IconChevronLeft, IconBuildingCarousel, IconDeviceMobile, IconTicket, IconCopy, IconExternalLink } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { Lightbox } from './Lightbox'
@@ -40,6 +40,9 @@ async function copyIccid(text: string) {
   }
   toast.success('คัดลอก ICCID แล้ว')
 }
+
+// ensure a tappable URL even when typed without the protocol
+const asUrl = (v: string) => (/^https?:\/\//i.test(v) ? v : `https://${v}`)
 
 /**
  * Quick-QR hub for one traveler. Everything updates the shared trip state
@@ -100,7 +103,7 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
   // another device/member may be mid-edit and must never be deleted from here.
   const createdHere = useRef<Set<string>>(new Set())
   useEffect(() => { if (open) createdHere.current = new Set() }, [open])
-  const isBlank = (t: TrainTicket) => !t.qr_path && !t.label && !t.note && !t.from_station && !t.to_station && !t.seat_no && !t.car && !t.gate && !t.iccid
+  const isBlank = (t: TrainTicket) => !t.qr_path && !t.label && !t.note && !t.from_station && !t.to_station && !t.seat_no && !t.car && !t.gate && !t.iccid && !t.link
   function discardBlanks() {
     if (!canEdit) return
     const blanks = tickets.filter((t) => isBlank(t) && createdHere.current.has(t.id))
@@ -132,7 +135,7 @@ export function TravelerQr({ open, onClose, name, tickets, tripId, traveler, can
     const t: TrainTicket = {
       id, trip_id: tripId, train_id: null, traveler_id: traveler.id, passenger_name: null,
       kind: 'train', note: null, label: null, from_station: null, to_station: null,
-      seat_no: null, car: null, gate: null, iccid: null, qr_path: null,
+      seat_no: null, car: null, gate: null, iccid: null, link: null, qr_path: null,
       is_main: rows.length === 0, used: false, position: rows.length, created_at: new Date().toISOString(),
     }
     createdHere.current.add(id)
@@ -271,7 +274,7 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
           </div>
         ) : (
           <div className="space-y-2">
-            {(ticket.note || !(ticket.kind === 'esim' && ticket.iccid)) && (
+            {(ticket.note || !(ticket.kind === 'esim' && (ticket.iccid || ticket.link))) && (
               <div className="text-ink-2 whitespace-pre-wrap">{ticket.note || <span className="text-ink-3">ไม่มีรายละเอียด</span>}</div>
             )}
             {ticket.kind === 'esim' && ticket.iccid && (
@@ -284,6 +287,13 @@ function QrSlide({ ticket, canEdit, onToggleMain, onToggleUsed, onEnlarge }: {
                   <IconCopy size={14} /> คัดลอก
                 </button>
               </div>
+            )}
+            {ticket.kind === 'esim' && ticket.link && (
+              <a href={asUrl(ticket.link)} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 rounded-md h-9 text-[13px] font-medium text-white"
+                style={{ background: 'var(--color-brand)' }}>
+                <IconExternalLink size={15} /> เปิดลิงก์ลงทะเบียน eSIM
+              </a>
             )}
           </div>
         )}
@@ -320,6 +330,7 @@ function QrEditPage({ ticket, tripId, onPersist, onRemove, onBack }: {
   const [car, setCar] = useState(ticket.car ?? '')
   const [gate, setGate] = useState(ticket.gate ?? '')
   const [iccid, setIccid] = useState(ticket.iccid ?? '')
+  const [link, setLink] = useState(ticket.link ?? '')
   const [uploading, setUploading] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const meta = kindMeta(kind)
@@ -360,7 +371,9 @@ function QrEditPage({ ticket, tripId, onPersist, onRemove, onBack }: {
           {KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
         </select>
 
-        <input className={field} value={label} placeholder={meta.labelPh} onChange={(e) => setLabel(e.target.value)} onBlur={() => onPersist({ label: label.trim() || null })} />
+        {kind !== 'esim' && (
+          <input className={field} value={label} placeholder={meta.labelPh} onChange={(e) => setLabel(e.target.value)} onBlur={() => onPersist({ label: label.trim() || null })} />
+        )}
 
         {isBoarding(kind) ? (
           <>
@@ -387,6 +400,19 @@ function QrEditPage({ ticket, tripId, onPersist, onRemove, onBack }: {
                   aria-label="คัดลอก ICCID" title="คัดลอก ICCID">
                   <IconCopy size={15} />
                 </button>
+              </div>
+            )}
+            {kind === 'esim' && (
+              <div className="relative">
+                <input className={`${field} pr-11`} value={link} placeholder="ลิงก์ลงทะเบียน eSIM (https://...)"
+                  type="url" inputMode="url" autoComplete="off"
+                  onChange={(e) => setLink(e.target.value)} onBlur={() => onPersist({ link: link.trim() || null })} />
+                <a href={link.trim() ? asUrl(link.trim()) : undefined} target="_blank" rel="noopener noreferrer"
+                  aria-disabled={!link.trim()}
+                  className={`absolute right-1 top-1/2 -translate-y-1/2 size-7 grid place-items-center rounded-md text-brand ${link.trim() ? '' : 'opacity-30 pointer-events-none'}`}
+                  aria-label="เปิดลิงก์" title="เปิดลิงก์">
+                  <IconExternalLink size={15} />
+                </a>
               </div>
             )}
             <textarea className="hairline rounded-md text-[13px] px-2.5 py-2 bg-surface w-full outline-none focus:border-brand resize-none" rows={3}
