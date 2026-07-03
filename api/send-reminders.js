@@ -118,11 +118,13 @@ async function main(req, res) {
     for (const uid of usersByTrip.get(trip.id) ?? []) {
       const mySubs = subsByUser.get(uid)
       if (!mySubs?.length) continue
+      // exactly ONE alert per stop per user, at their chosen moment:
+      // lead = 0 → on time · lead > 0 → lead minutes before, no repeat
       const lead = Math.max(...mySubs.map((x) => x.lead_minutes ?? 15))
       if (lead > 0 && now.minutes >= t - lead && now.minutes < t) {
         due.push({ stop: s, uid, kind: 'lead', title: `⏰ อีก ${t - now.minutes} นาที — ${name}`, body: `ตามแพลนเวลา ${hhmm}` })
       }
-      if (now.minutes >= t && now.minutes <= t + CATCHUP_MIN) {
+      if (lead === 0 && now.minutes >= t && now.minutes <= t + CATCHUP_MIN) {
         due.push({ stop: s, uid, kind: 'ontime', title: `🕑 ถึงเวลาแล้ว — ${name}`, body: `ตามแพลนเวลา ${hhmm} (เวลาท้องถิ่นทริป)` })
       }
     }

@@ -56,7 +56,7 @@ export function ReminderSettings() {
     setLeadState(m)
     setReminderLead(id, m)
     if (push?.subscribed) setPushLead(m).catch(() => { /* offline — resync later */ })
-    if (on) toast.info(m === 0 ? 'จะเตือนตอนถึงเวลาพอดี' : `จะเตือนล่วงหน้า ${leadLabel(m)} และตอนถึงเวลา`)
+    if (on) toast.info(m === 0 ? 'จะเตือนตอนถึงเวลาพอดี' : `จะเตือนล่วงหน้า ${leadLabel(m)} ครั้งเดียว`)
   }
 
   const sub = !on ? 'ปิดอยู่'

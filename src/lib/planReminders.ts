@@ -77,12 +77,12 @@ export function checkPlanReminders(uid: string | undefined, trip: Trip | null, d
     const hh = +s.time.slice(0, 2), mm = +s.time.slice(3, 5)
     if (Number.isNaN(hh) || Number.isNaN(mm)) continue
     const t = hh * 60 + mm
-    // two independent alerts, each fired once: `lead` minutes before, and ON
-    // TIME (trip timezone). Opening the app long after the time passed stays
-    // silent — no point reminding about a stop that already started.
+    // exactly ONE alert per stop, at the chosen moment (trip timezone):
+    // lead = 0 → on time · lead > 0 → `lead` minutes before, no repeat.
+    // Opening the app long after the time passed stays silent.
     const events: { kind: 'lead' | 'ontime'; due: boolean; minutesLeft: number }[] = [
       { kind: 'lead', due: lead > 0 && now.minutes >= t - lead && now.minutes < t, minutesLeft: t - now.minutes },
-      { kind: 'ontime', due: now.minutes >= t && now.minutes <= t + 3, minutesLeft: 0 },
+      { kind: 'ontime', due: lead === 0 && now.minutes >= t && now.minutes <= t + 3, minutesLeft: 0 },
     ]
     for (const ev of events) {
       if (!ev.due) continue
