@@ -26,6 +26,7 @@ import { formatLongDate } from '@/lib/format'
 import { setInPlan, toggleInterest } from '@/lib/placeMutations'
 import { useWeather, tripCityCandidates, type DayWeather } from '@/lib/weather'
 import { WeatherBadge } from '@/components/WeatherBadge'
+import { ReminderSettings } from '@/components/ReminderSettings'
 import {
   addDay, updateDay, deleteDay, addStop, updateStop, deleteStop, setStopDone, persistStopOrder, persistDayOrder,
   type StopInput,
@@ -659,6 +660,8 @@ export default function Itinerary() {
           )}
         </div>
       )}
+
+      {localDays.length > 0 && <ReminderSettings />}
 
       <DndContext sensors={daySensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
         <SortableContext items={shownDays.map((d) => d.day.id)} strategy={verticalListSortingStrategy}>

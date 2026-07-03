@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { toast } from '@/lib/toast'
 import { initOfflineSync, looksOffline } from '@/lib/offlineQueue'
+import { checkPlanReminders } from '@/lib/planReminders'
 import { useAuth } from './AuthContext'
 import type {
   Expense, Flight, Train, TrainTicket, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
@@ -260,6 +261,15 @@ export function TripProvider({ children }: { children: ReactNode }) {
     channel.subscribe()
     return () => { clearTimeout(timer); supabase.removeChannel(channel) }
   }, [currentTripId, load])
+
+  // Personal plan reminders — on-device, per user (see lib/planReminders.ts).
+  // Runs while the app is open; each due stop fires once per device per day.
+  useEffect(() => {
+    const run = () => checkPlanReminders(user?.id, data.trip, data.days, data.stops)
+    const first = setTimeout(run, 2500) // shortly after data settles
+    const timer = setInterval(run, 30_000)
+    return () => { clearTimeout(first); clearInterval(timer) }
+  }, [user?.id, data.trip, data.days, data.stops])
 
   // Replay any offline writes on reconnect (and once on mount), then refresh.
   const loadRef = useRef(load)
