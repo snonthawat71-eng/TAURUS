@@ -37,7 +37,8 @@ export function ReminderSettings() {
         return
       }
       await ensureNotifyPermission()
-      const state = push ?? await getPushState().then((s) => { setPush(s); return s })
+      let state = push
+      if (!state) { state = await getPushState(); setPush(state) }
       if (state.supported && state.configured) {
         const { error } = await enablePush(lead)
         if (!error) {
