@@ -20,6 +20,47 @@ function stripUnknown(payload: Record<string, unknown>, msg: string) {
   return changed ? copy : null
 }
 
+// ---------- duplicate detection (เตือนตอนพิมพ์ + ด่านยืนยันตอนบันทึก) ----------
+
+export interface ExploreDupe { id: string; name: string | null; city: string | null; country: string | null }
+
+const normName = (s: string) => s.toLowerCase().normalize('NFKC').replace(/[^\p{L}\p{N}]+/gu, '')
+function bigrams(s: string): Set<string> {
+  const out = new Set<string>()
+  for (let i = 0; i < s.length - 1; i++) out.add(s.slice(i, i + 2))
+  return out
+}
+/** Loose name match: exact/containment after stripping punctuation & case,
+ *  or high bigram overlap (catches "Jenny Bakery" vs "Jenny's Bakery"). */
+function similarName(a: string, b: string): boolean {
+  const x = normName(a), y = normName(b)
+  if (!x || !y) return false
+  if (x === y || x.includes(y) || y.includes(x)) return true
+  const bx = bigrams(x), by = bigrams(y)
+  if (!bx.size || !by.size) return false
+  let hit = 0
+  for (const g of bx) if (by.has(g)) hit++
+  return (2 * hit) / (bx.size + by.size) >= 0.72
+}
+
+/** Places in the shared pool (any user's) with a name similar to `name`,
+ *  excluding the row being edited. Used live while typing AND as the final
+ *  confirm gate on save. */
+export async function searchExploreSimilar(name: string, excludeId?: string | null): Promise<ExploreDupe[]> {
+  const q = name.trim()
+  if (q.length < 3) return []
+  // broad candidate fetch on the longest word, then rank precisely client-side
+  const token = (q.split(/\s+/).sort((a, b) => b.length - a.length)[0] ?? q).replace(/[%,()]/g, '')
+  if (token.length < 2) return []
+  const { data } = await supabase.from('explore_places')
+    .select('id,name,city,country')
+    .ilike('name', `%${token}%`)
+    .limit(15)
+  return ((data ?? []) as ExploreDupe[])
+    .filter((d) => d.id !== excludeId && similarName(d.name ?? '', q))
+    .slice(0, 4)
+}
+
 export async function addExplore(created_by: string, input: ExploreInput) {
   const payload: Record<string, unknown> = { id: crypto.randomUUID(), created_by, ...input }
   let res = await supabase.from('explore_places').insert(payload)

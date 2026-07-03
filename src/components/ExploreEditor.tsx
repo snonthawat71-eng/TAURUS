@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPhoto, IconLoader2, IconPlus, IconTrash, IconBuildingStore, IconCheck, IconToolsKitchen2, IconFileTypePdf, IconX, IconCrop } from '@tabler/icons-react'
+import { IconPhoto, IconLoader2, IconPlus, IconTrash, IconBuildingStore, IconCheck, IconToolsKitchen2, IconFileTypePdf, IconX, IconCrop, IconAlertTriangle } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { PhotoCropper } from './PhotoCropper'
@@ -11,6 +11,8 @@ import { modeMeta } from '@/lib/transitModes'
 import { uploadPublicImage } from '@/lib/files'
 import { hscroll } from '@/lib/hscroll'
 import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
+import { searchExploreSimilar, type ExploreDupe } from '@/lib/exploreMutations'
+import { confirmDialog } from '@/lib/confirm'
 import type { ExploreInput } from '@/lib/exploreMutations'
 import type { PlaceGroup, ExplorePlace, ExploreRoute, PlaceBranch } from '@/lib/database.types'
 
@@ -50,6 +52,15 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [morePhotoUploading, setMorePhotoUploading] = useState(false)
   const [menuUploading, setMenuUploading] = useState(false)
   const [busy, setBusy] = useState(false)
+
+  // กันกรอกซ้ำชั้นที่ 1: live-warn while typing the name — similar entries from
+  // the WHOLE pool (any user's) show up right under the field
+  const [dupes, setDupes] = useState<ExploreDupe[]>([])
+  useEffect(() => {
+    if (!open || name.trim().length < 3) { setDupes([]); return }
+    const t = setTimeout(async () => setDupes(await searchExploreSimilar(name, initial?.id)), 350)
+    return () => clearTimeout(t)
+  }, [name, open, initial?.id])
 
   // previously-used city/country pairs — for the quick city chips + comboboxes.
   const sugg = useMemo(() => {
@@ -174,6 +185,20 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
 
   async function save() {
     setBusy(true)
+    // กันกรอกซ้ำชั้นที่ 2: final fuzzy check right before writing — a fresh
+    // query, so it also catches entries added while this form was open
+    const conflicts = await searchExploreSimilar(name, initial?.id)
+    if (conflicts.length > 0) {
+      const first = conflicts[0]
+      const where = [first.city, first.country].filter(Boolean).join(', ')
+      const ok = await confirmDialog({
+        message: conflicts.length === 1
+          ? `มี "${first.name}"${where ? ` (${where})` : ''} อยู่ใน Explore แล้ว — ยืนยันเพิ่มเป็นรายการใหม่อีกอัน?`
+          : `มีรายการคล้ายกันใน Explore แล้ว ${conflicts.length} รายการ เช่น "${first.name}"${where ? ` (${where})` : ''} — ยืนยันเพิ่มเป็นรายการใหม่อีกอัน?`,
+        confirmLabel: 'เพิ่มต่อ',
+      })
+      if (!ok) { setBusy(false); return }
+    }
     const clean = routes.filter((r) => r.line || r.station)
     const first = clean[0]
     const cleanBranches = branches.filter((b) => b.label || b.map_url || b.line || b.station)
@@ -200,7 +225,24 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
               className={['px-3 h-8 rounded-[6px] text-[12px] font-medium', group === g ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>{label}</button>
           ))}
         </div>
-        <div><div className={lbl}>ชื่อ *</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Farmily" /></div>
+        <div>
+          <div className={lbl}>ชื่อ *</div>
+          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Farmily" />
+          {dupes.length > 0 && (
+            <div className="rounded-md px-2.5 py-2 mt-1.5 text-[12px]"
+              style={{ background: 'rgba(217,119,6,0.08)', border: '0.5px solid rgba(217,119,6,0.35)' }}>
+              <div className="flex items-center gap-1 font-medium" style={{ color: '#B45309' }}>
+                <IconAlertTriangle size={13} /> มีใน Explore แล้ว — เช็คก่อนเพิ่มซ้ำ
+              </div>
+              <ul className="mt-1 space-y-0.5 text-ink-2">
+                {dupes.map((d) => (
+                  <li key={d.id} className="truncate">• {d.name}{[d.city, d.country].filter(Boolean).length ? ` — ${[d.city, d.country].filter(Boolean).join(', ')}` : ''}</li>
+                ))}
+              </ul>
+              <div className="text-[11px] text-ink-3 mt-1">ถ้าใช่ที่เดียวกัน ลองค้นหาในหน้า Explore แล้วกด ⭐ เซฟของเดิมแทน</div>
+            </div>
+          )}
+        </div>
         <div>
           <div className={lbl}>หมวด</div>
           <select className={field} value={category} onChange={(e) => setCategory(e.target.value)}>
