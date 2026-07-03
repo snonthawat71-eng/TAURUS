@@ -51,7 +51,10 @@ async function main(req, res) {
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } = process.env
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY' })
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return res.status(500).json({ error: 'missing VAPID keys' })
-  webpush.setVapidDetails(VAPID_SUBJECT || 'mailto:admin@example.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+  // subject must be a mailto:/https URL — auto-prefix a bare email address
+  let subject = (VAPID_SUBJECT || 'mailto:admin@example.com').trim()
+  if (!/^(mailto:|https?:\/\/)/i.test(subject)) subject = `mailto:${subject}`
+  webpush.setVapidDetails(subject, VAPID_PUBLIC_KEY.trim(), VAPID_PRIVATE_KEY.trim())
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   // date window ±1 day around UTC today covers "today" in every timezone
