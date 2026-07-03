@@ -32,7 +32,18 @@ function nowInTz(tz) {
   return { date: `${p.year}-${p.month}-${p.day}`, minutes: +p.hour * 60 + +p.minute }
 }
 
+// Crash-proof wrapper: any unexpected error comes back as JSON in the HTTP
+// response, so it shows up readable in Supabase's net._http_response table
+// instead of an opaque FUNCTION_INVOCATION_FAILED page.
 export default async function handler(req, res) {
+  try {
+    return await main(req, res)
+  } catch (e) {
+    return res.status(500).json({ error: String((e && e.message) || e) })
+  }
+}
+
+async function main(req, res) {
   const secret = process.env.CRON_SECRET ?? ''
   const given = req.headers['x-cron-secret'] ?? req.query?.secret
   if (secret && given !== secret) return res.status(403).json({ error: 'forbidden' })
