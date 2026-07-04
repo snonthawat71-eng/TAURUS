@@ -559,11 +559,14 @@ export default function Itinerary() {
     // other days this stop could move to (exclude its current one)
     const otherDays = localDays.filter((d) => d.id !== row.day_id)
 
+    const place = getMatchedPlace(row)
     const action = await choiceDialog({
       title: name,
       message: 'ต้องการทำอะไรกับจุดแวะนี้?',
       choices: [
         ...(otherDays.length ? [{ label: 'เปลี่ยนวัน', value: 'move' }] : []),
+        // only meaningful when this stop is linked to an in-plan place
+        ...(place?.in_plan ? [{ label: 'เอาออกจากวันนี้ (ยังอยู่ในแพลน)', value: 'unschedule' }] : []),
         { label: 'เอาออกจากแพลน', value: 'remove', danger: true },
       ],
     })
@@ -588,20 +591,19 @@ export default function Itinerary() {
       return
     }
 
-    // remove from plan: delete the stop AND unlink the matched place so it drops
-    // off the Places page's "in plan" and the All plans view
-    const place = getMatchedPlace(row)
+    // unschedule = drop the stop off the day but KEEP the place in the plan
+    // (stays on Places "in plan" + All plans); remove = also clear in_plan so it
+    // disappears everywhere.
+    const clearPlan = action === 'remove' && !!place?.in_plan
     await deleteStop(id)
-    if (place?.in_plan) {
-      patch((d) => ({ places: d.places.map((x) => (x.id === place.id ? { ...x, in_plan: false } : x)) }))
-      await setInPlan(place.id, false)
+    if (clearPlan) {
+      patch((d) => ({ places: d.places.map((x) => (x.id === place!.id ? { ...x, in_plan: false } : x)) }))
+      await setInPlan(place!.id, false)
     }
     await reload()
-    const undoRows = [{ table: 'itinerary_stops', rows: [row] }]
-    offerUndo('เอาออกจากแพลนแล้ว', undoRows, async () => {
-      if (place?.in_plan) await setInPlan(place.id, true)
-      await reload()
-    })
+    offerUndo(action === 'remove' ? 'เอาออกจากแพลนแล้ว' : 'เอาออกจากวันแล้ว',
+      [{ table: 'itinerary_stops', rows: [row] }],
+      async () => { if (clearPlan) await setInPlan(place!.id, true); await reload() })
   }
   async function saveRoute(transit: Parameters<typeof updateStop>[1]['transit']) {
     if (!routeEdit) return
