@@ -523,6 +523,14 @@ export default function TripInfo() {
   }
   async function togglePrivacy(t: Traveler) {
     const next = (t.privacy ?? 'private') === 'trip' ? 'private' : 'trip'
+    // always ask before flipping — a mis-tap here changes who can see documents
+    const ok = await confirmDialog({
+      message: next === 'trip'
+        ? `เปิดให้ทุกคนในทริปเห็นเอกสาร/QR ของ "${t.nickname ?? 'การ์ดนี้'}"?`
+        : `ตั้งเอกสาร/QR ของ "${t.nickname ?? 'การ์ดนี้'}" เป็นส่วนตัว? (เห็นเฉพาะเจ้าของการ์ดกับเจ้าของทริป)`,
+      confirmLabel: next === 'trip' ? 'เปิดให้ทุกคน' : 'ตั้งเป็นส่วนตัว',
+    })
+    if (!ok) return
     patch((d) => ({ travelers: d.travelers.map((x) => (x.id === t.id ? { ...x, privacy: next } : x)) }))
     await setTravelerPrivacy(t.id, next)
     toast.success(next === 'trip'
@@ -547,29 +555,29 @@ export default function TripInfo() {
           <div className="flex items-center gap-2.5">
             <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
             <div className="min-w-0 flex-1">
+              {/* nickname line — the ownership/privacy chip sits inline at the end */}
               <div className="text-[14px] font-medium leading-tight flex items-center gap-1.5">
                 <span className="truncate">{t.nickname}</span>
                 {isMe && <span className="inline-flex items-center rounded-full bg-brand-soft text-brand-dark text-[10px] font-semibold px-1.5 py-0.5 shrink-0">Me</span>}
+                {!t.user_id && !!user && !iClaimed && (
+                  <span role="button" tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); claimCard(t) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); claimCard(t) } }}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-brand-mid bg-brand-soft/60 hover:bg-brand-soft cursor-pointer shrink-0 ml-auto">
+                    <IconUserCheck size={11} /> การ์ดนี้คือฉัน
+                  </span>
+                )}
+                {(isMineCard || (isTripOwner && !!t.user_id)) && (
+                  <span role="button" tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); togglePrivacy(t) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); togglePrivacy(t) } }}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-ink-2 bg-surface-2 hover:bg-surface-2/70 cursor-pointer shrink-0 ml-auto">
+                    {(t.privacy ?? 'private') === 'trip' ? <><IconUsers size={11} /> ทุกคนเห็น</> : <><IconLock size={11} /> ส่วนตัว</>}
+                  </span>
+                )}
               </div>
               {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
             </div>
-            {/* ownership/privacy controls live up here — separate from the document pills below */}
-            {!t.user_id && !!user && !iClaimed && (
-              <span role="button" tabIndex={0}
-                onClick={(e) => { e.stopPropagation(); claimCard(t) }}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); claimCard(t) } }}
-                className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer shrink-0">
-                <IconUserCheck size={12} /> การ์ดนี้คือฉัน
-              </span>
-            )}
-            {(isMineCard || (isTripOwner && !!t.user_id)) && (
-              <span role="button" tabIndex={0}
-                onClick={(e) => { e.stopPropagation(); togglePrivacy(t) }}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); togglePrivacy(t) } }}
-                className="chip hover:bg-surface-2 cursor-pointer shrink-0">
-                {(t.privacy ?? 'private') === 'trip' ? <><IconUsers size={12} /> ทุกคนเห็น</> : <><IconLock size={12} /> ส่วนตัว</>}
-              </span>
-            )}
           </div>
           <div className="flex flex-wrap gap-1.5 mt-3">
             {!visible ? (
