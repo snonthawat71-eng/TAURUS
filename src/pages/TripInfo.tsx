@@ -555,26 +555,26 @@ export default function TripInfo() {
           <div className="flex items-center gap-2.5">
             <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
             <div className="min-w-0 flex-1">
-              {/* nickname line — the ownership/privacy chip sits inline at the end */}
+              {/* nickname line — the chip sits where the Me badge used to be */}
               <div className="text-[14px] font-medium leading-tight flex items-center gap-1.5">
                 <span className="truncate">{t.nickname}</span>
-                {isMe && <span className="inline-flex items-center rounded-full bg-brand-soft text-brand-dark text-[10px] font-semibold px-1.5 py-0.5 shrink-0">Me</span>}
-                {!t.user_id && !!user && !iClaimed && (
+                {!t.user_id && !!user && !iClaimed ? (
                   <span role="button" tabIndex={0}
                     onClick={(e) => { e.stopPropagation(); claimCard(t) }}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); claimCard(t) } }}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-brand-mid bg-brand-soft/60 hover:bg-brand-soft cursor-pointer shrink-0 ml-auto">
-                    <IconUserCheck size={11} /> การ์ดนี้คือฉัน
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-brand-mid bg-brand-soft/60 hover:bg-brand-soft cursor-pointer shrink-0">
+                    <IconUserCheck size={11} /> This is me
                   </span>
-                )}
-                {(isMineCard || (isTripOwner && !!t.user_id)) && (
+                ) : (isMineCard || (isTripOwner && !!t.user_id)) ? (
                   <span role="button" tabIndex={0}
                     onClick={(e) => { e.stopPropagation(); togglePrivacy(t) }}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); togglePrivacy(t) } }}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-ink-2 bg-surface-2 hover:bg-surface-2/70 cursor-pointer shrink-0 ml-auto">
-                    {(t.privacy ?? 'private') === 'trip' ? <><IconUsers size={11} /> ทุกคนเห็น</> : <><IconLock size={11} /> ส่วนตัว</>}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold cursor-pointer shrink-0 bg-brand-soft text-brand-dark hover:opacity-80">
+                    {(t.privacy ?? 'private') === 'trip' ? <><IconUsers size={11} /> Everyone</> : <><IconLock size={11} /> Private</>}
                   </span>
-                )}
+                ) : isMe ? (
+                  <span className="inline-flex items-center rounded-full bg-brand-soft text-brand-dark text-[10px] font-semibold px-1.5 py-0.5 shrink-0">Me</span>
+                ) : null}
               </div>
               {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
             </div>
