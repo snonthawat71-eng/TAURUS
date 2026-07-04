@@ -22,6 +22,7 @@ export function ConfirmHost() {
   if (!state) return null
   const danger = state.danger ?? false
   const isPrompt = !!state.input
+  const choices = state.choices
   const confirm = () => resolveDialog(isPrompt ? value : true)
   const cancel = () => resolveDialog(false)
 
@@ -48,17 +49,34 @@ export function ConfirmHost() {
             placeholder={state.input!.placeholder}
             className="mt-3.5 w-full hairline rounded-[8px] px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-brand" />
         )}
-        <div className="flex justify-end gap-2 mt-5">
-          <button type="button" onClick={cancel}
-            className="px-3.5 py-2 rounded-[8px] text-[13px] font-medium text-ink-2 hairline hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-brand outline-none">
-            {state.cancelLabel ?? 'ยกเลิก'}
-          </button>
-          <button type="submit" autoFocus={!isPrompt}
-            className="px-3.5 py-2 rounded-[8px] text-[13px] font-medium text-white focus-visible:ring-2 focus-visible:ring-offset-1 outline-none"
-            style={{ background: danger ? '#D85A30' : 'var(--color-brand)' }}>
-            {state.confirmLabel ?? 'ยืนยัน'}
-          </button>
-        </div>
+        {choices ? (
+          // stacked choice buttons + a cancel row
+          <div className="mt-4 flex flex-col gap-2">
+            {choices.map((c) => (
+              <button key={c.value} type="button" onClick={() => resolveDialog(c.value)}
+                className="w-full px-3.5 py-2.5 rounded-[8px] text-[13px] font-medium text-white text-center focus-visible:ring-2 focus-visible:ring-offset-1 outline-none"
+                style={{ background: c.danger ? '#D85A30' : 'var(--color-brand)' }}>
+                {c.label}
+              </button>
+            ))}
+            <button type="button" onClick={cancel}
+              className="w-full px-3.5 py-2.5 rounded-[8px] text-[13px] font-medium text-ink-2 hairline hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-brand outline-none">
+              {state.cancelLabel ?? 'ยกเลิก'}
+            </button>
+          </div>
+        ) : (
+          <div className="flex justify-end gap-2 mt-5">
+            <button type="button" onClick={cancel}
+              className="px-3.5 py-2 rounded-[8px] text-[13px] font-medium text-ink-2 hairline hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-brand outline-none">
+              {state.cancelLabel ?? 'ยกเลิก'}
+            </button>
+            <button type="submit" autoFocus={!isPrompt}
+              className="px-3.5 py-2 rounded-[8px] text-[13px] font-medium text-white focus-visible:ring-2 focus-visible:ring-offset-1 outline-none"
+              style={{ background: danger ? '#D85A30' : 'var(--color-brand)' }}>
+              {state.confirmLabel ?? 'ยืนยัน'}
+            </button>
+          </div>
+        )}
       </form>
     </div>,
     document.body,

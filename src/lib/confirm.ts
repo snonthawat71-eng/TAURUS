@@ -2,6 +2,7 @@
 // can `await confirmDialog(...)` / `await promptDialog(...)` instead of using
 // window.confirm / window.prompt. <ConfirmHost /> subscribes and renders them.
 
+export interface DialogChoice { label: string; value: string; danger?: boolean }
 export interface DialogOptions {
   title?: string
   message?: string
@@ -10,6 +11,9 @@ export interface DialogOptions {
   danger?: boolean
   /** When present, the dialog shows a text input and resolves its value. */
   input?: { placeholder?: string; defaultValue?: string }
+  /** When present, the dialog shows a stacked list of buttons and resolves the
+   *  chosen `value` (or null on cancel/dismiss). */
+  choices?: DialogChoice[]
 }
 export interface DialogState extends DialogOptions { id: number }
 
@@ -43,6 +47,12 @@ function open(options: DialogOptions): Promise<boolean | string | null> {
 export function confirmDialog(opts: DialogOptions | string): Promise<boolean> {
   const options = typeof opts === 'string' ? { message: opts } : opts
   return open(options).then((r) => r === true)
+}
+
+/** Multiple-choice dialog. Resolves the chosen option's `value`, or null when
+ *  cancelled/dismissed. */
+export function choiceDialog(opts: DialogOptions & { choices: DialogChoice[] }): Promise<string | null> {
+  return open(opts).then((r) => (typeof r === 'string' ? r : null))
 }
 
 /** Prompt dialog with a text field. Resolves the entered string, or null when

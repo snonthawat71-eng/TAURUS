@@ -19,7 +19,7 @@ import { TransitEditor } from '@/components/TransitEditor'
 import { PopMenu } from '@/components/PopMenu'
 import { PlaceDetail } from '@/components/PlaceDetail'
 import { openMap } from '@/lib/maps'
-import { confirmDialog } from '@/lib/confirm'
+import { confirmDialog, choiceDialog } from '@/lib/confirm'
 import { offerUndo } from '@/lib/undo'
 import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
@@ -553,10 +553,55 @@ export default function Itinerary() {
     await reload()
   }
   async function removeStop(id: string) {
-    if (!(await confirmDialog({ message: 'ลบจุดแวะนี้?', danger: true, confirmLabel: 'ลบ' }))) return
     const row = stops.find((s) => s.id === id)
-    await deleteStop(id); await reload()
-    if (row) offerUndo('ลบจุดแวะแล้ว', [{ table: 'itinerary_stops', rows: [row] }], reload)
+    if (!row) return
+    const name = row.place_name || 'จุดแวะนี้'
+    // other days this stop could move to (exclude its current one)
+    const otherDays = localDays.filter((d) => d.id !== row.day_id)
+
+    const action = await choiceDialog({
+      title: name,
+      message: 'ต้องการทำอะไรกับจุดแวะนี้?',
+      choices: [
+        ...(otherDays.length ? [{ label: 'เปลี่ยนวัน', value: 'move' }] : []),
+        { label: 'เอาออกจากแพลน', value: 'remove', danger: true },
+      ],
+    })
+    if (!action) return
+
+    if (action === 'move') {
+      const pick = await choiceDialog({
+        title: `ย้าย "${name}" ไปวันไหน`,
+        choices: otherDays.map((d) => {
+          const n = localDays.indexOf(d) + 1
+          return { value: d.id, label: `Day ${n}${d.day_date ? ` · ${formatLongDate(d.day_date)}` : ''}` }
+        }),
+      })
+      if (!pick) return
+      // append to the end of the chosen day, keeping every row's current position
+      const dayStops = stops.filter((s) => s.day_id === pick)
+      const nextPos = dayStops.length ? Math.max(...dayStops.map((s) => s.position)) + 1 : 0
+      patch((d) => ({ stops: d.stops.map((s) => (s.id === id ? { ...s, day_id: pick, position: nextPos } : s)) }))
+      await persistStopOrder([{ ...row, day_id: pick, position: nextPos }])
+      await reload()
+      toast.success('ย้ายวันแล้ว')
+      return
+    }
+
+    // remove from plan: delete the stop AND unlink the matched place so it drops
+    // off the Places page's "in plan" and the All plans view
+    const place = getMatchedPlace(row)
+    await deleteStop(id)
+    if (place?.in_plan) {
+      patch((d) => ({ places: d.places.map((x) => (x.id === place.id ? { ...x, in_plan: false } : x)) }))
+      await setInPlan(place.id, false)
+    }
+    await reload()
+    const undoRows = [{ table: 'itinerary_stops', rows: [row] }]
+    offerUndo('เอาออกจากแพลนแล้ว', undoRows, async () => {
+      if (place?.in_plan) await setInPlan(place.id, true)
+      await reload()
+    })
   }
   async function saveRoute(transit: Parameters<typeof updateStop>[1]['transit']) {
     if (!routeEdit) return
