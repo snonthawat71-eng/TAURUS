@@ -132,7 +132,9 @@ async function geocode(query: string): Promise<LatLon | null> {
 async function resolveCoords(candidates: string[]): Promise<LatLon | null> {
   const clean = candidates.map((c) => c?.trim()).filter(Boolean) as string[]
   if (!clean.length) return null
-  const key = `${PREFIX}geo:${clean.join('|').toLowerCase()}`
+  // "geo2": the old wx:geo: generation could contain permanently-poisoned
+  // entries (failed lookups cached as null) — new prefix sidesteps them all
+  const key = `${PREFIX}geo2:${clean.join('|').toLowerCase()}`
   const hit = localStorage.getItem(key)
   if (hit) {
     // trust the cache only if it's real coordinates — an old app version cached
@@ -235,7 +237,9 @@ function pruneStaleCache() {
     const stale: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
-      if (!k || !k.startsWith(PREFIX) || k.startsWith(`${PREFIX}geo:`)) continue
+      if (!k || !k.startsWith(PREFIX)) continue
+      if (k.startsWith(`${PREFIX}geo:`)) { stale.push(k); continue } // legacy generation — retired
+      if (k.startsWith(`${PREFIX}geo2:`)) continue
       const date = k.slice(PREFIX.length, PREFIX.length + 10)
       if (/^\d{4}-\d{2}-\d{2}$/.test(date) && date !== day) stale.push(k)
     }
