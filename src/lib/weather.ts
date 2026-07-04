@@ -206,9 +206,18 @@ export async function getWeatherForDates(candidates: string[], dates: string[]):
   if (near.length) Object.assign(merged, await fetchForecast(geo.lat, geo.lon))
   if (far.length) Object.assign(merged, await fetchClimate(geo.lat, geo.lon, far))
 
+  // forecast host unreachable (it can go down independently of the archive
+  // host)? fall back to climate averages so badges still show (~) instead of
+  // vanishing entirely
+  const missingNear = near.filter((d) => !merged[d])
+  if (missingNear.length) Object.assign(merged, await fetchClimate(geo.lat, geo.lon, missingNear))
+
   const out: Record<string, DayWeather> = {}
   for (const d of clean) if (merged[d]) out[d] = merged[d]
-  if (Object.keys(out).length) {
+  // don't cache fallback values for forecast-range dates — retry next load so
+  // the real forecast replaces the ~averages as soon as the host is back
+  const usedFallback = near.some((d) => out[d]?.climate)
+  if (Object.keys(out).length && !usedFallback) {
     pruneStaleCache()
     try { localStorage.setItem(cacheKey, JSON.stringify(out)) }
     catch { /* quota — prune already ran; drop this day's cache */ }
