@@ -546,33 +546,32 @@ export default function TripInfo() {
           className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0">
           <div className="flex items-center gap-2.5">
             <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="text-[14px] font-medium leading-tight flex items-center gap-1.5">
                 <span className="truncate">{t.nickname}</span>
                 {isMe && <span className="inline-flex items-center rounded-full bg-brand-soft text-brand-dark text-[10px] font-semibold px-1.5 py-0.5 shrink-0">Me</span>}
               </div>
               {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
             </div>
-          </div>
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {/* claim an ownerless card (one per person per trip) */}
+            {/* ownership/privacy controls live up here — separate from the document pills below */}
             {!t.user_id && !!user && !iClaimed && (
               <span role="button" tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); claimCard(t) }}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); claimCard(t) } }}
-                className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
+                className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer shrink-0">
                 <IconUserCheck size={12} /> การ์ดนี้คือฉัน
               </span>
             )}
-            {/* privacy toggle — card owner (or trip owner) flips who can open the docs */}
             {(isMineCard || (isTripOwner && !!t.user_id)) && (
               <span role="button" tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); togglePrivacy(t) }}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); togglePrivacy(t) } }}
-                className="chip hover:bg-surface-2 cursor-pointer">
+                className="chip hover:bg-surface-2 cursor-pointer shrink-0">
                 {(t.privacy ?? 'private') === 'trip' ? <><IconUsers size={12} /> ทุกคนเห็น</> : <><IconLock size={12} /> ส่วนตัว</>}
               </span>
             )}
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-3">
             {!visible ? (
               <span className="chip !text-ink-3"><IconLock size={12} /> เอกสารส่วนตัว — เฉพาะเจ้าของ</span>
             ) : (
