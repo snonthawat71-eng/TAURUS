@@ -134,7 +134,15 @@ async function resolveCoords(candidates: string[]): Promise<LatLon | null> {
   if (!clean.length) return null
   const key = `${PREFIX}geo:${clean.join('|').toLowerCase()}`
   const hit = localStorage.getItem(key)
-  if (hit) { try { return JSON.parse(hit) } catch { /* ignore */ } }
+  if (hit) {
+    // trust the cache only if it's real coordinates — an old app version cached
+    // failed lookups as "null" FOREVER, silently killing weather for that trip
+    try {
+      const v = JSON.parse(hit)
+      if (v && typeof v.lat === 'number' && typeof v.lon === 'number') return v
+    } catch { /* fall through */ }
+    localStorage.removeItem(key) // poisoned/legacy entry — resolve fresh below
+  }
   let coords = builtInCoords(clean)
   if (!coords) { for (const c of clean) { coords = await geocode(c); if (coords) break } }
   if (coords) localStorage.setItem(key, JSON.stringify(coords))
