@@ -43,9 +43,28 @@ const COUNTRY: Record<string, string> = {
   france: 'paris', usa: 'newyork', unitedstates: 'newyork', america: 'newyork',
   australia: 'sydney', uae: 'dubai', emirates: 'dubai', hongkong: 'hongkong', singapore: 'singapore',
 }
+// Thai spellings → the C key above (trip names/cities are often typed in Thai,
+// which the ascii-only tables can't match and the geocoder may miss)
+const ALIAS: Record<string, string> = {
+  'โตเกียว': 'tokyo', 'โอซาก้า': 'osaka', 'โอซากะ': 'osaka', 'เกียวโต': 'kyoto', 'นาโกย่า': 'nagoya',
+  'ฟุกุโอกะ': 'fukuoka', 'ซัปโปโร': 'sapporo', 'ปักกิ่ง': 'beijing', 'เซี่ยงไฮ้': 'shanghai',
+  'เซินเจิ้น': 'shenzhen', 'กวางเจา': 'guangzhou', 'กว่างโจว': 'guangzhou', 'เฉิงตู': 'chengdu',
+  'ฮ่องกง': 'hongkong', 'มาเก๊า': 'macau', 'ไทเป': 'taipei', 'เกาสง': 'kaohsiung',
+  'โซล': 'seoul', 'ปูซาน': 'busan', 'สิงคโปร์': 'singapore', 'กรุงเทพ': 'bangkok', 'กรุงเทพฯ': 'bangkok',
+  'เชียงใหม่': 'chiangmai', 'ภูเก็ต': 'phuket', 'ฮานอย': 'hanoi', 'โฮจิมินห์': 'hochiminh',
+  'ดานัง': 'danang', 'กัวลาลัมเปอร์': 'kualalumpur', 'จาการ์ตา': 'jakarta', 'บาหลี': 'bali',
+  'มะนิลา': 'manila', 'ลอนดอน': 'london', 'ปารีส': 'paris', 'นิวยอร์ก': 'newyork',
+  'ซิดนีย์': 'sydney', 'ดูไบ': 'dubai',
+  // countries in Thai → representative city
+  'ญี่ปุ่น': 'tokyo', 'จีน': 'beijing', 'ไต้หวัน': 'taipei', 'เกาหลี': 'seoul', 'เกาหลีใต้': 'seoul',
+  'ไทย': 'bangkok', 'เวียดนาม': 'hanoi', 'มาเลเซีย': 'kualalumpur', 'อินโดนีเซีย': 'jakarta',
+  'ฟิลิปปินส์': 'manila', 'อังกฤษ': 'london', 'ฝรั่งเศส': 'paris', 'อเมริกา': 'newyork',
+  'สหรัฐ': 'newyork', 'ออสเตรเลีย': 'sydney',
+}
 
 const PREFIX = 'wx:'
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
+// keep Thai characters so ALIAS keys can match (ascii tables strip to a-z anyway)
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z฀-๿]/g, '')
 const todayStr = () => new Date().toISOString().slice(0, 10)
 const shiftDays = (d: string, n: number) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10) }
 const shiftYear = (d: string, n: number) => { const [y, m, day] = d.split('-'); return `${Number(y) + n}-${m}-${day}` }
@@ -93,9 +112,11 @@ function builtInCoords(candidates: string[]): LatLon | null {
     if (!n) continue
     if (C[n]) return C[n]
     if (COUNTRY[n]) return C[COUNTRY[n]]
-    // the candidate may embed a known city/country (e.g. "hongkong2026")
+    if (ALIAS[n]) return C[ALIAS[n]]
+    // the candidate may embed a known city/country (e.g. "hongkong2026", "ทริปเซี่ยงไฮ้")
     for (const key in C) if (n.includes(key)) return C[key]
     for (const key in COUNTRY) if (n.includes(key)) return C[COUNTRY[key]]
+    for (const key in ALIAS) if (n.includes(key)) return C[ALIAS[key]]
   }
   return null
 }
