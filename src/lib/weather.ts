@@ -1,4 +1,9 @@
 import { useEffect, useState } from 'react'
+import { toast } from './toast'
+
+// diagnostic breadcrumb for the "weather missing" case — surfaced as a small
+// toast by useWeather when a lookup produces nothing (temporary, low-noise)
+let wxDebug = ''
 
 // Weather via Open-Meteo (free, no API key). We resolve the trip's location from
 // a built-in coordinate table first (covers the app's common cities + countries,
@@ -198,7 +203,7 @@ export async function getWeatherForDates(candidates: string[], dates: string[]):
   if (cached) { try { const v = JSON.parse(cached); if (Object.keys(v).length) return v } catch { /* ignore */ } }
 
   const geo = await resolveCoords(candidates)
-  if (!geo) return {}
+  if (!geo) { wxDebug = `หาพิกัดไม่เจอ: ${candidates.join(' | ')}`; return {} }
   const today = todayStr()
   const horizon = shiftDays(today, 15)
   const near = clean.filter((d) => d >= today && d <= horizon)
@@ -216,6 +221,7 @@ export async function getWeatherForDates(candidates: string[], dates: string[]):
 
   const out: Record<string, DayWeather> = {}
   for (const d of clean) if (merged[d]) out[d] = merged[d]
+  if (!Object.keys(out).length) wxDebug = `โหลดข้อมูลไม่ได้ (พิกัด ${geo.lat},${geo.lon} · near ${near.length} · far ${far.length})`
   // don't cache fallback values for forecast-range dates — retry next load so
   // the real forecast replaces the ~averages as soon as the host is back
   const usedFallback = near.some((d) => out[d]?.climate)
@@ -254,7 +260,12 @@ export function useWeather(candidates: string[], dates: string[]): Record<string
   useEffect(() => {
     let active = true
     if (candidates.filter(Boolean).length === 0 || dates.filter(Boolean).length === 0) { setData({}); return }
-    getWeatherForDates(candidates, dates).then((r) => { if (active) setData(r) })
+    getWeatherForDates(candidates, dates).then((r) => {
+      if (!active) return
+      setData(r)
+      // temporary diagnostics: say WHY nothing came back (deduped via key)
+      if (!Object.keys(r).length && wxDebug) toast.action(`สภาพอากาศ: ${wxDebug}`, { label: 'ปิด', run: () => { /* dismiss */ } }, { ttl: 12_000, key: 'wxdbg' })
+    })
     return () => { active = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig])
