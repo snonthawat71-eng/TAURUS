@@ -57,7 +57,23 @@ function nowInTz(tz?: string) {
 
 /** Called on an interval by TripContext. Fires each due reminder exactly once
  *  per device (marks reset daily). */
+// When Web Push is active on this device, the server (/api/send-reminders) is
+// the SINGLE source of reminders — the in-app engine must stay silent, otherwise
+// each stop notifies twice (server push + this). Cached; refreshed each tick.
+let pushActive = false
+async function refreshPushActive() {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { pushActive = false; return }
+    const reg = await navigator.serviceWorker.ready
+    pushActive = !!(await reg.pushManager.getSubscription())
+  } catch { pushActive = false }
+}
+// probe once at load so the very first tick already knows (avoids a one-off dup)
+refreshPushActive()
+
 export function checkPlanReminders(uid: string | undefined, trip: Trip | null, days: ItineraryDay[], stops: ItineraryStop[]) {
+  refreshPushActive() // keep fresh for subsequent ticks
+  if (pushActive) return // push subscribed → server handles it, stay silent
   if (!uid || !trip || !remindersEnabled(uid)) return
   const lead = reminderLead(uid)
   let now: { date: string; minutes: number }
