@@ -514,6 +514,9 @@ export default function Itinerary() {
     stopsRef.current = next
     setLocalStops(next)
     await persistStopOrder(toPersist, { withTime: !crossed })
+    // same-day reorder re-pins the time labels to their slots → tell the user so
+    // (also a clear signal this build is live)
+    if (!crossed && slotTimes.some(Boolean) && oldIdx !== newIdx) toast.success('สลับเวลาตามตำแหน่งใหม่แล้ว')
     await reload()
   }
 
