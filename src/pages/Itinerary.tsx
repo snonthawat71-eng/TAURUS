@@ -571,7 +571,9 @@ export default function Itinerary() {
     setClipboard({ time: s.time, place_name: s.place_name, note: s.note, map_url: s.map_url, transit: s.transit, link_mode: s.link_mode, skip_transit: s.skip_transit })
     toast.success(`คัดลอก "${s.place_name || 'จุดแวะ'}" แล้ว — กด ⋯ ของวันเพื่อวาง`)
   }
-  async function pasteStop(dayId: string) {
+  // Paste the clipboard into a day. `at` = a specific slot (from the "+" between
+  // stops); omitted = slot by time (timed) or append (untimed), as the day menu does.
+  async function pasteStop(dayId: string, at?: number) {
     if (!trip || !clipboard) return
     const dayStops = stopsByDay.get(dayId) ?? []
     const id = crypto.randomUUID()
@@ -580,13 +582,15 @@ export default function Itinerary() {
       map_url: clipboard.map_url ?? null, transit: clipboard.transit ?? null,
       link_mode: clipboard.link_mode ?? null, skip_transit: clipboard.skip_transit ?? null,
     }
-    // slot by time if it has one (like a normal timed add), else append at the end
     let ordered: ItineraryStop[]
     const fresh = { id, day_id: dayId, trip_id: trip.id, position: dayStops.length, created_at: new Date().toISOString(), ...input } as ItineraryStop
-    if (clipboard.time) {
-      let at = dayStops.findIndex((s) => s.time != null && s.time > clipboard.time!)
-      if (at < 0) at = dayStops.map((s) => s.time != null).lastIndexOf(true) + 1
-      ordered = [...dayStops.slice(0, at), fresh, ...dayStops.slice(at)]
+    if (at != null) {
+      const idx = Math.min(Math.max(at, 0), dayStops.length)
+      ordered = [...dayStops.slice(0, idx), fresh, ...dayStops.slice(idx)]
+    } else if (clipboard.time) {
+      let a = dayStops.findIndex((s) => s.time != null && s.time > clipboard.time!)
+      if (a < 0) a = dayStops.map((s) => s.time != null).lastIndexOf(true) + 1
+      ordered = [...dayStops.slice(0, a), fresh, ...dayStops.slice(a)]
     } else {
       ordered = [...dayStops, fresh]
     }
@@ -594,6 +598,22 @@ export default function Itinerary() {
     await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
     await reload()
     toast.success('วางจุดแวะแล้ว')
+  }
+  // "+" between stops: paste here or add new when the clipboard has content,
+  // otherwise open the add editor directly at that slot.
+  async function insertAt(dayId: string, at: number) {
+    if (clipboard) {
+      const choice = await choiceDialog({
+        title: 'แทรกตรงนี้',
+        choices: [
+          { label: `วาง "${clipboard.place_name || 'จุดแวะ'}"`, value: 'paste' },
+          { label: 'เพิ่มกิจกรรมใหม่', value: 'new' },
+        ],
+      })
+      if (!choice) return
+      if (choice === 'paste') { await pasteStop(dayId, at); return }
+    }
+    setEditor({ dayId, at })
   }
   async function removeStop(id: string) {
     const row = stops.find((s) => s.id === id)
@@ -777,7 +797,7 @@ export default function Itinerary() {
                 onEditDay={() => setDayEdit({ id: day.id, label: day.label, day_date: day.day_date, version: day.version })}
                 onDeleteDay={() => removeDay(day.id)}
                 onAddStop={() => setEditor({ dayId: day.id })}
-                onInsertStop={(at) => setEditor({ dayId: day.id, at })}
+                onInsertStop={(at) => insertAt(day.id, at)}
                 onEditStop={(s) => setEditor({ dayId: day.id, stop: s })}
                 onDeleteStop={removeStop}
                 onEditRoute={(s) => setRouteEdit(s)}
