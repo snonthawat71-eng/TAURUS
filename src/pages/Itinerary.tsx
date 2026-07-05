@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid,
+  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid, IconCopy, IconClipboard,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -34,7 +34,7 @@ import {
 import type { ItineraryDay, ItineraryStop, Place } from '@/lib/database.types'
 
 function SortableStop({
-  stop, matchedPlace, canEdit, isNext, onToggleDone, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute,
+  stop, matchedPlace, canEdit, isNext, onToggleDone, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute, onCopy,
 }: {
   stop: ItineraryStop
   matchedPlace: Place | null
@@ -46,6 +46,7 @@ function SortableStop({
   onDelete: () => void
   onEditRoute: () => void
   onSkipRoute: () => void
+  onCopy: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id, disabled: !canEdit })
   const done = !!stop.done
@@ -117,6 +118,7 @@ function SortableStop({
             <PopMenu items={[
               { label: done ? 'ยังไม่เสร็จ' : 'เช็คอินว่าไปมาแล้ว', icon: <IconCheck size={15} />, onClick: onToggleDone },
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
+              { label: 'คัดลอก', icon: <IconCopy size={15} />, onClick: onCopy },
               // once the user opted out, the "set transit" action lives here instead
               ...(!stop.transit && stop.skip_transit ? [{ label: 'กำหนดการเดินทาง', icon: <IconRoute size={15} />, onClick: onEditRoute }] : []),
               { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
@@ -146,7 +148,7 @@ function SortableStop({
 }
 
 function DayCard({
-  day, index, stops, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute,
+  day, index, stops, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste,
 }: {
   day: ItineraryDay
   index: number
@@ -168,6 +170,9 @@ function DayCard({
   onDeleteStop: (id: string) => void
   onEditRoute: (s: ItineraryStop) => void
   onSkipRoute: (s: ItineraryStop) => void
+  onCopyStop: (s: ItineraryStop) => void
+  canPaste: boolean
+  onPaste: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day.id, disabled: !canEdit })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }
@@ -192,6 +197,7 @@ function DayCard({
           {canEdit && (
             <PopMenu size={22} buttonClassName="!bg-transparent !text-white hover:!bg-white/15" items={[
               { label: 'แก้ไขวัน', icon: <IconPencil size={15} />, onClick: onEditDay },
+              ...(canPaste ? [{ label: 'วางจุดแวะที่คัดลอก', icon: <IconClipboard size={15} />, onClick: onPaste }] : []),
               { label: 'ลบวัน', icon: <IconTrash size={15} />, onClick: onDeleteDay, danger: true },
             ]} />
           )}
@@ -220,7 +226,7 @@ function DayCard({
               <div className={canEdit ? '' : 'space-y-2.5'}>
                 {stops.flatMap((s, i) => {
                   const nodes = [
-                    <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} />,
+                    <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} onCopy={() => onCopyStop(s)} />,
                   ]
                   // subtle "+" between two activities → insert a new stop right here
                   if (canEdit && i < stops.length - 1) {
@@ -493,9 +499,11 @@ export default function Itinerary() {
     if (newIdx < 0) newIdx = list.length - 1 // dropped on day area → end
     const reordered = (oldIdx >= 0 && newIdx >= 0) ? arrayMove(list, oldIdx, newIdx) : list
     const crossed = origin != null && origin !== finalDay
-    // The time travels WITH the moved card — reordering only changes positions, each
-    // stop keeps its own time (so dragging a place up brings its time up with it).
-    const finalPos = reordered.map((s, i) => ({ ...s, position: i }))
+    // Same-day reorder: the TIME SLOTS stay put (top→bottom order preserved) and
+    // only the places move between them — so dragging a place onto an earlier
+    // slot swaps their times. Cross-day move: the stop carries its own time.
+    const slotTimes = list.map((s) => s.time)
+    const finalPos = reordered.map((s, i) => ({ ...s, position: i, ...(crossed ? {} : { time: slotTimes[i] ?? null }) }))
     let next = [...cur.filter((s) => s.day_id !== finalDay), ...finalPos]
     let toPersist = [...finalPos]
     if (crossed) {
@@ -505,7 +513,7 @@ export default function Itinerary() {
     }
     stopsRef.current = next
     setLocalStops(next)
-    await persistStopOrder(toPersist)
+    await persistStopOrder(toPersist, { withTime: !crossed })
     await reload()
   }
 
@@ -551,6 +559,38 @@ export default function Itinerary() {
       await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
     }
     await reload()
+  }
+  // Copy/paste a stop's content (place + arranged transit) across days. The
+  // clipboard lives for the session; paste drops a fresh copy into a day.
+  type StopClip = Pick<ItineraryStop, 'time' | 'place_name' | 'note' | 'map_url' | 'transit' | 'link_mode' | 'skip_transit'>
+  const [clipboard, setClipboard] = useState<StopClip | null>(null)
+  function copyStop(s: ItineraryStop) {
+    setClipboard({ time: s.time, place_name: s.place_name, note: s.note, map_url: s.map_url, transit: s.transit, link_mode: s.link_mode, skip_transit: s.skip_transit })
+    toast.success(`คัดลอก "${s.place_name || 'จุดแวะ'}" แล้ว — กด ⋯ ของวันเพื่อวาง`)
+  }
+  async function pasteStop(dayId: string) {
+    if (!trip || !clipboard) return
+    const dayStops = stopsByDay.get(dayId) ?? []
+    const id = crypto.randomUUID()
+    const input: StopInput = {
+      time: clipboard.time ?? null, place_name: clipboard.place_name ?? null, note: clipboard.note ?? null,
+      map_url: clipboard.map_url ?? null, transit: clipboard.transit ?? null,
+      link_mode: clipboard.link_mode ?? null, skip_transit: clipboard.skip_transit ?? null,
+    }
+    // slot by time if it has one (like a normal timed add), else append at the end
+    let ordered: ItineraryStop[]
+    const fresh = { id, day_id: dayId, trip_id: trip.id, position: dayStops.length, created_at: new Date().toISOString(), ...input } as ItineraryStop
+    if (clipboard.time) {
+      let at = dayStops.findIndex((s) => s.time != null && s.time > clipboard.time!)
+      if (at < 0) at = dayStops.map((s) => s.time != null).lastIndexOf(true) + 1
+      ordered = [...dayStops.slice(0, at), fresh, ...dayStops.slice(at)]
+    } else {
+      ordered = [...dayStops, fresh]
+    }
+    await addStop(trip.id, dayId, ordered.indexOf(fresh), input, id)
+    await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
+    await reload()
+    toast.success('วางจุดแวะแล้ว')
   }
   async function removeStop(id: string) {
     const row = stops.find((s) => s.id === id)
@@ -739,6 +779,9 @@ export default function Itinerary() {
                 onDeleteStop={removeStop}
                 onEditRoute={(s) => setRouteEdit(s)}
                 onSkipRoute={skipRoute}
+                onCopyStop={copyStop}
+                canPaste={!!clipboard}
+                onPaste={() => pasteStop(day.id)}
               />
             ))}
           </div>

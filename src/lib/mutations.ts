@@ -92,14 +92,15 @@ export async function deleteStop(id: string) {
 
 /** Persist a new order by writing each stop's position (and day_id, so a stop can
  *  move to another day). Each stop carries its own `position`/`day_id`; falls back
- *  to the array index when position is absent. Deliberately does NOT touch `time`
- *  — reordering never changes times, and writing them back here would clobber a
- *  teammate's concurrent time edit (last-writer-wins). */
-export async function persistStopOrder(stops: ItineraryStop[]) {
+ *  to the array index when position is absent. By default it does NOT touch
+ *  `time` — writing it back would clobber a teammate's concurrent time edit. Pass
+ *  `{ withTime: true }` for a same-day reorder that intentionally re-pins the
+ *  time labels to their slots. */
+export async function persistStopOrder(stops: ItineraryStop[], opts?: { withTime?: boolean }) {
   const results = await Promise.all(
     stops.map((s, i) =>
       supabase.from('itinerary_stops')
-        .update({ position: s.position ?? i, day_id: s.day_id })
+        .update({ position: s.position ?? i, day_id: s.day_id, ...(opts?.withTime ? { time: s.time ?? null } : {}) })
         .eq('id', s.id),
     ),
   )
