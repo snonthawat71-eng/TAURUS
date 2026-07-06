@@ -233,6 +233,8 @@ export interface ItineraryStop {
   link_mode?: string | null
   /** optional — present after extra_columns; user chose not to set a transit route */
   skip_transit?: boolean | null
+  /** optional — present after stop_role.sql; null/'main' = แผนหลัก, 'backup' = แผนสำรอง */
+  role?: string | null
   /** optional — present after itinerary_done.sql; the group checked this stop off */
   done?: boolean | null
   done_at?: string | null

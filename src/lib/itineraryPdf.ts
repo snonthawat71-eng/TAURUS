@@ -29,7 +29,7 @@ export async function downloadItineraryPdf(trip: Trip) {
   const stops = (stopsRes.data ?? []) as ItineraryStop[]
 
   const body = days.map((d, i) => {
-    const list = stops.filter((s) => s.day_id === d.id).sort((a, b) => a.position - b.position)
+    const list = stops.filter((s) => s.day_id === d.id && s.role !== 'backup').sort((a, b) => a.position - b.position)
     const rows = list.map((s) => `
       <div class="stop${s.done ? ' done' : ''}">
         <div class="time">${esc(s.time)}</div>

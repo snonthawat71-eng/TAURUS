@@ -24,6 +24,7 @@ export function StopEditor({
   const [note, setNote] = useState('')
   const [mapUrl, setMapUrl] = useState('')
   const [linkMode, setLinkMode] = useState('map')
+  const [role, setRole] = useState<'main' | 'backup'>('main')
   const [busy, setBusy] = useState(false)
   const [pickedId, setPickedId] = useState<string | null>(null)
   const [cityFilter, setCityFilter] = useState('all')
@@ -63,6 +64,7 @@ export function StopEditor({
       setNote(initial?.note ?? '')
       setMapUrl(initial?.map_url ?? '')
       setLinkMode(initial?.link_mode ?? 'map')
+      setRole(initial?.role === 'backup' ? 'backup' : 'main')
       setPickedId(null)
       setCityFilter('all')
       setGroupFilter('all')
@@ -113,7 +115,7 @@ export function StopEditor({
 
   async function save() {
     setBusy(true)
-    await onSave({ time: time || null, place_name: place.trim() || null, note: note || null, map_url: mapUrl || null, link_mode: linkMode })
+    await onSave({ time: time || null, place_name: place.trim() || null, note: note || null, map_url: mapUrl || null, link_mode: linkMode, role: role === 'backup' ? 'backup' : null })
     setBusy(false)
     onClose()
   }
@@ -191,9 +193,23 @@ export function StopEditor({
               <p className="text-[11px] text-ink-3 mt-1.5">ยังไม่มีสถานที่ในแพลน — แตะ "เลือกด่วนจาก Explore" เพื่อเพิ่มได้เลย</p>
             )}
           </div>
-        <div>
-          <label className="text-[11px] text-ink-3">เวลา</label>
-          <ClearableField type="time" ariaLabel="ล้างเวลา" value={time} onChange={setTime} onClear={() => setTime('')} />
+        <div className="flex items-end gap-2.5">
+          <div className="flex-1 min-w-0">
+            <label className="text-[11px] text-ink-3">เวลา</label>
+            <ClearableField type="time" ariaLabel="ล้างเวลา" value={time} onChange={setTime} onClear={() => setTime('')} />
+          </div>
+          {/* แผนหลัก / สำรอง — สำรองไปอยู่โซนพับท้ายวัน ไม่นับ/ไม่เตือน */}
+          <div className="shrink-0">
+            <label className="text-[11px] text-ink-3">ประเภทแพลน</label>
+            <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2 mt-0.5 h-10 items-center">
+              {([['main', 'หลัก'], ['backup', 'สำรอง']] as const).map(([v, label]) => (
+                <button key={v} onClick={() => setRole(v)}
+                  className={['px-3 h-8 rounded-[6px] text-[12px] font-medium', role === v ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <div>
           <label className="text-[11px] text-ink-3">ชื่อสถานที่ / กิจกรรม</label>

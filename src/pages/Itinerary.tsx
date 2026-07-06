@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid, IconCopy, IconClipboard,
+  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid, IconCopy, IconClipboard, IconTarget, IconSwitchHorizontal,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -35,7 +35,7 @@ import {
 import type { ItineraryDay, ItineraryStop, Place } from '@/lib/database.types'
 
 function SortableStop({
-  stop, matchedPlace, canEdit, isNext, onToggleDone, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute, onCopy,
+  stop, matchedPlace, canEdit, isNext, onToggleDone, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute, onCopy, onMoveBackup,
 }: {
   stop: ItineraryStop
   matchedPlace: Place | null
@@ -48,6 +48,7 @@ function SortableStop({
   onEditRoute: () => void
   onSkipRoute: () => void
   onCopy: () => void
+  onMoveBackup: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id, disabled: !canEdit })
   const done = !!stop.done
@@ -120,6 +121,7 @@ function SortableStop({
               { label: done ? 'ยังไม่เสร็จ' : 'เช็คอินว่าไปมาแล้ว', icon: <IconCheck size={15} />, onClick: onToggleDone },
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
               { label: 'คัดลอก', icon: <IconCopy size={15} />, onClick: onCopy },
+              { label: 'ย้ายไปแผนสำรอง', icon: <IconTarget size={15} />, onClick: onMoveBackup },
               // once the user opted out, the "set transit" action lives here instead
               ...(!stop.transit && stop.skip_transit ? [{ label: 'กำหนดการเดินทาง', icon: <IconRoute size={15} />, onClick: onEditRoute }] : []),
               { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
@@ -149,11 +151,12 @@ function SortableStop({
 }
 
 function DayCard({
-  day, index, stops, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste,
+  day, index, stops, backups, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste, onUseBackup, onMoveToBackup, onPromoteBackup,
 }: {
   day: ItineraryDay
   index: number
   stops: ItineraryStop[]
+  backups: ItineraryStop[]
   getMatchedPlace: (s: ItineraryStop) => Place | null
   canEdit: boolean
   collapsed: boolean
@@ -174,10 +177,14 @@ function DayCard({
   onCopyStop: (s: ItineraryStop) => void
   canPaste: boolean
   onPaste: () => void
+  onUseBackup: (b: ItineraryStop) => void
+  onMoveToBackup: (s: ItineraryStop) => void
+  onPromoteBackup: (b: ItineraryStop) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day.id, disabled: !canEdit })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }
   const doneCount = stops.filter((s) => s.done).length
+  const [bkOpen, setBkOpen] = useState(false)
 
   return (
     <div ref={setNodeRef} style={style} className="relative flex flex-col">
@@ -227,7 +234,7 @@ function DayCard({
               <div className={canEdit ? '' : 'space-y-2.5'}>
                 {stops.flatMap((s, i) => {
                   const nodes = [
-                    <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} onCopy={() => onCopyStop(s)} />,
+                    <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} onCopy={() => onCopyStop(s)} onMoveBackup={() => onMoveToBackup(s)} />,
                   ]
                   // subtle "+" between two activities → insert a new stop right here
                   if (canEdit && i < stops.length - 1) {
@@ -245,6 +252,52 @@ function DayCard({
                 })}
               </div>
             </SortableContext>
+
+            {/* 🎯 แผนสำรอง — collapsed dashed bar; expands to dimmed backup cards.
+                Backups have no time, aren't counted and never fire reminders. */}
+            {backups.length > 0 && (
+              <div className="rounded-[10px] p-2.5" style={{ border: '0.5px dashed var(--color-line-2)', background: 'rgba(238,241,246,.5)' }}>
+                <button onClick={() => setBkOpen((o) => !o)} className="w-full flex items-center gap-2 text-[12px] font-medium text-ink-2" aria-expanded={bkOpen}>
+                  <IconTarget size={14} className="text-ink-3" /> แผนสำรอง
+                  <span className="text-[10.5px] text-ink-3 bg-surface-2 rounded-full px-1.5 py-px tabular-nums">{backups.length}</span>
+                  <span className="ml-auto text-[11px] text-ink-3 flex items-center gap-0.5">
+                    {bkOpen ? 'พับเก็บ' : 'แตะเพื่อเปิด'} <IconChevronDown size={12} className={`transition-transform ${bkOpen ? 'rotate-180' : ''}`} />
+                  </span>
+                </button>
+                {bkOpen && (
+                  <div className="space-y-2 mt-2.5">
+                    {backups.map((b) => (
+                      <div key={b.id} className="rounded-[10px] p-2.5 bg-surface" style={{ border: '0.5px solid var(--color-line)' }}>
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[13px] font-medium text-ink-2 flex items-center gap-1.5">
+                              <span className="truncate">{b.place_name || 'จุดสำรอง'}</span>
+                              <span className="text-[9px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: '#FDF1E3', color: '#D97706', border: '0.5px solid #F3DDBD' }}>สำรอง</span>
+                            </div>
+                            {b.note && <div className="text-[11px] text-ink-3 mt-0.5">{b.note}</div>}
+                          </div>
+                          {canEdit && (
+                            <PopMenu items={[
+                              { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEditStop(b) },
+                              { label: 'เพิ่มเข้าตาราง (ไม่แทนใคร)', icon: <IconPlus size={15} />, onClick: () => onPromoteBackup(b) },
+                              { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDeleteStop(b.id), danger: true },
+                            ]} />
+                          )}
+                        </div>
+                        {canEdit && (
+                          <button onClick={() => onUseBackup(b)}
+                            className="mt-2 w-full h-8 rounded-full text-[11.5px] font-medium flex items-center justify-center gap-1.5"
+                            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
+                            <IconSwitchHorizontal size={13} /> ใช้ตัวนี้แทน
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {canEdit && <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>}
           </div>
         )}
@@ -383,7 +436,7 @@ export default function Itinerary() {
   const nextStopId = useMemo(() => {
     const today = localDays.find((d) => d.day_date === todayStr)
     if (!today) return null
-    return (stopsByDay.get(today.id) ?? []).find((s) => !s.done)?.id ?? null
+    return (stopsByDay.get(today.id) ?? []).find((s) => !s.done && s.role !== 'backup')?.id ?? null
   }, [localDays, stopsByDay, todayStr])
 
   // auto-scroll to the next stop once per visit (only if its day is expanded)
@@ -399,7 +452,7 @@ export default function Itinerary() {
     const done_at = done ? new Date().toISOString() : null
     const toggled = { ...s, done, done_at }
     const updated = stopsRef.current.map((x) => (x.id === s.id ? toggled : x))
-    const dayList = updated.filter((x) => x.day_id === s.day_id).sort((a, b) => a.position - b.position)
+    const dayList = updated.filter((x) => x.day_id === s.day_id && x.role !== 'backup').sort((a, b) => a.position - b.position)
     // Build the day order: active items first, done items last.
     const active = dayList.filter((x) => !x.done && x.id !== s.id)
     const doneItems = dayList.filter((x) => x.done && x.id !== s.id)
@@ -454,10 +507,10 @@ export default function Itinerary() {
     const toDay = dayOf(overId, cur)
     if (!toDay || moving.day_id === toDay) return
     const without = cur.filter((s) => s.id !== activeId)
-    const dst = without.filter((s) => s.day_id === toDay).sort((a, b) => a.position - b.position)
+    const dst = without.filter((s) => s.day_id === toDay && s.role !== 'backup').sort((a, b) => a.position - b.position)
     const overIdx = dst.findIndex((s) => s.id === overId)
     dst.splice(overIdx >= 0 ? overIdx : dst.length, 0, { ...moving, day_id: toDay })
-    const next = [...without.filter((s) => s.day_id !== toDay), ...dst.map((s, i) => ({ ...s, position: i }))]
+    const next = [...without.filter((s) => s.day_id !== toDay || s.role === 'backup'), ...dst.map((s, i) => ({ ...s, position: i }))]
     stopsRef.current = next
     setLocalStops(next)
   }
@@ -494,7 +547,7 @@ export default function Itinerary() {
     const moving = cur.find((s) => s.id === activeId)
     if (!moving) return
     const finalDay = moving.day_id
-    const list = cur.filter((s) => s.day_id === finalDay).sort((a, b) => a.position - b.position)
+    const list = cur.filter((s) => s.day_id === finalDay && s.role !== 'backup').sort((a, b) => a.position - b.position)
     const oldIdx = list.findIndex((s) => s.id === activeId)
     let newIdx = list.findIndex((s) => s.id === overId)
     if (newIdx < 0) newIdx = list.length - 1 // dropped on day area → end
@@ -505,11 +558,11 @@ export default function Itinerary() {
     // slot swaps their times. Cross-day move: the stop carries its own time.
     const slotTimes = list.map((s) => s.time)
     const finalPos = reordered.map((s, i) => ({ ...s, position: i, ...(crossed ? {} : { time: slotTimes[i] ?? null }) }))
-    let next = [...cur.filter((s) => s.day_id !== finalDay), ...finalPos]
+    let next = [...cur.filter((s) => s.day_id !== finalDay || s.role === 'backup'), ...finalPos]
     let toPersist = [...finalPos]
     if (crossed) {
-      const originPos = next.filter((s) => s.day_id === origin).sort((a, b) => a.position - b.position).map((s, i) => ({ ...s, position: i }))
-      next = [...next.filter((s) => s.day_id !== origin), ...originPos]
+      const originPos = next.filter((s) => s.day_id === origin && s.role !== 'backup').sort((a, b) => a.position - b.position).map((s, i) => ({ ...s, position: i }))
+      next = [...next.filter((s) => s.day_id !== origin || s.role === 'backup'), ...originPos]
       toPersist = [...toPersist, ...originPos]
     }
     stopsRef.current = next
@@ -524,7 +577,7 @@ export default function Itinerary() {
   async function saveStop(input: StopInput) {
     if (!trip || !editor) return
     const dayId = editor.dayId
-    const dayStops = stopsByDay.get(dayId) ?? []
+    const dayStops = (stopsByDay.get(dayId) ?? []).filter((s) => s.role !== 'backup')
     let target: ItineraryStop
     if (editor.stop) {
       const r = await updateStop(editor.stop.id, input, editor.stop.version)
@@ -548,7 +601,7 @@ export default function Itinerary() {
     // a stop with a clear time slots into its chronological position AMONG THE
     // OTHER TIMED stops. If nothing is scheduled later, it sits at the end of the
     // timed group (just above any not-yet-timed stops) — never below them.
-    if (input.time) {
+    if (input.time && input.role !== 'backup') {
       const rest = dayStops.filter((s) => s.id !== target.id)
       let insertAt = rest.findIndex((s) => s.time != null && s.time > input.time!)
       if (insertAt < 0) insertAt = rest.map((s) => s.time != null).lastIndexOf(true) + 1
@@ -616,6 +669,51 @@ export default function Itinerary() {
     }
     setEditor({ dayId, at })
   }
+  // ---- แผนหลัก/สำรอง ----
+  const mainsOf = (dayId: string) => (stopsByDay.get(dayId) ?? []).filter((s) => s.role !== 'backup')
+
+  async function moveToBackup(s: ItineraryStop) {
+    patch((d) => ({ stops: d.stops.map((x) => (x.id === s.id ? { ...x, role: 'backup' } : x)) }))
+    await updateStop(s.id, { role: 'backup' }, s.version)
+    await reload()
+    toast.success('ย้ายไปแผนสำรองแล้ว')
+  }
+  async function promoteBackup(b: ItineraryStop) {
+    const mains = mainsOf(b.day_id)
+    patch((d) => ({ stops: d.stops.map((x) => (x.id === b.id ? { ...x, role: null } : x)) }))
+    await updateStop(b.id, { role: null }, b.version)
+    await persistStopOrder([...mains, { ...b, role: null }].map((s, i) => ({ ...s, position: i })))
+    await reload()
+    toast.success('เพิ่มเข้าตารางแล้ว')
+  }
+  async function useBackup(b: ItineraryStop) {
+    const mains = mainsOf(b.day_id)
+    if (mains.length === 0) { await promoteBackup(b); return }
+    const pick = await choiceDialog({
+      title: `ใช้ "${b.place_name || 'จุดสำรอง'}" แทนจุดไหน?`,
+      message: 'จุดที่ถูกแทนจะย้ายลงไปอยู่แผนสำรองแทน (สลับที่กัน) — เวลาของช่องเดิมยังอยู่ครบ',
+      choices: [
+        ...mains.map((m) => ({ value: m.id, label: `แทนที่ ${m.place_name ?? '-'}${m.time ? ` · ${m.time.slice(0, 5)}` : ''}` })),
+        { value: 'append', label: '＋ เพิ่มเข้าตารางเฉยๆ (ไม่แทนใคร)' },
+      ],
+    })
+    if (!pick) return
+    if (pick === 'append') { await promoteBackup(b); return }
+    const target = mains.find((m) => m.id === pick)
+    if (!target) return
+    // the backup takes over the slot: its time + position (+ the slot's route
+    // when the backup has none of its own); the old stop drops to สำรอง
+    patch((d) => ({ stops: d.stops.map((x) =>
+      x.id === b.id ? { ...x, role: null, time: target.time, transit: x.transit ?? target.transit }
+        : x.id === target.id ? { ...x, role: 'backup' } : x) }))
+    await updateStop(b.id, { role: null, time: target.time, transit: b.transit ?? target.transit }, b.version)
+    await updateStop(target.id, { role: 'backup' }, target.version)
+    const ordered = mains.map((m) => (m.id === target.id ? { ...b } : m))
+    await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
+    await reload()
+    toast.success(`สลับแผนแล้ว — "${b.place_name ?? ''}" เข้าตาราง`)
+  }
+
   async function removeStop(id: string) {
     const row = stops.find((s) => s.id === id)
     if (!row) return
@@ -783,7 +881,8 @@ export default function Itinerary() {
                 day={day}
                 index={idx}
                 isPast={isPast}
-                stops={stopsByDay.get(day.id) ?? []}
+                stops={(stopsByDay.get(day.id) ?? []).filter((s) => s.role !== 'backup')}
+                backups={(stopsByDay.get(day.id) ?? []).filter((s) => s.role === 'backup')}
                 getMatchedPlace={getMatchedPlace}
                 canEdit={canEdit}
                 wx={day.day_date ? dayWx[day.day_date] : undefined}
@@ -806,6 +905,9 @@ export default function Itinerary() {
                 onCopyStop={copyStop}
                 canPaste={!!clipboard}
                 onPaste={() => pasteStop(day.id)}
+                onUseBackup={useBackup}
+                onMoveToBackup={moveToBackup}
+                onPromoteBackup={promoteBackup}
               />
             ))}
           </div>

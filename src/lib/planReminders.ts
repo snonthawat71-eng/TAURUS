@@ -90,7 +90,7 @@ export function checkPlanReminders(uid: string | undefined, trip: Trip | null, d
 
   let changed = false
   for (const s of stops) {
-    if (!todayDayIds.has(s.day_id) || !s.time || s.done) continue
+    if (!todayDayIds.has(s.day_id) || !s.time || s.done || s.role === 'backup') continue
     const hh = +s.time.slice(0, 2), mm = +s.time.slice(3, 5)
     if (Number.isNaN(hh) || Number.isNaN(mm)) continue
     const t = hh * 60 + mm

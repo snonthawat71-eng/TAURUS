@@ -102,9 +102,9 @@ async function main(req, res) {
   if (!dueDayIds.length) return res.json({ sent: 0, reason: 'no trip is on today' })
 
   const { data: stops } = await admin
-    .from('itinerary_stops').select('id,day_id,trip_id,time,place_name,done')
+    .from('itinerary_stops').select('*')
     .in('day_id', dueDayIds).not('time', 'is', null)
-  const active = (stops ?? []).filter((s) => !s.done)
+  const active = (stops ?? []).filter((s) => !s.done && s.role !== 'backup')
   if (!active.length) return res.json({ sent: 0, reason: 'no timed stops today' })
 
   // recipients: trip owner + members, but ONLY those with an enabled push sub

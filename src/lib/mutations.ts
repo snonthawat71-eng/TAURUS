@@ -45,6 +45,7 @@ export interface StopInput {
   transit?: Transit | null
   link_mode?: string | null
   skip_transit?: boolean | null
+  role?: string | null
   done?: boolean | null
   done_at?: string | null
 }
@@ -56,13 +57,16 @@ export async function addStop(trip_id: string, day_id: string, position: number,
     time: input.time ?? null, place_name: input.place_name ?? null,
     note: input.note ?? null, map_url: input.map_url ?? null,
     transit: input.transit ?? null, link_mode: input.link_mode ?? null,
+    role: input.role ?? null,
   }
   return surfaced(runOrQueue(async () => {
     let res = await supabase.from('itinerary_stops').insert(payload)
-    if (res.error && res.error.message.includes('link_mode')) {
-      const { link_mode: _omit, ...rest } = payload
-      void _omit
-      res = await supabase.from('itinerary_stops').insert(rest)
+    // optional columns (pre-migration) — strip whichever the error names, retry
+    for (const col of ['link_mode', 'role']) {
+      if (res.error && res.error.message.includes(col)) {
+        delete (payload as Record<string, unknown>)[col]
+        res = await supabase.from('itinerary_stops').insert(payload)
+      }
     }
     return res
   }, { kind: 'insert', table: 'itinerary_stops', payload }))
@@ -72,7 +76,7 @@ export async function updateStop(id: string, fields: StopInput, expectedVersion?
   return updateWithVersion('itinerary_stops', id, { ...fields }, expectedVersion, (p, msg) => {
     // optional columns may not exist yet — strip the whole group the error names and
     // retry (done/done_at ship together, so drop both at once)
-    const groups: string[][] = [['link_mode'], ['skip_transit'], ['done', 'done_at']]
+    const groups: string[][] = [['link_mode'], ['skip_transit'], ['role'], ['done', 'done_at']]
     const g = groups.find((cols) => cols.some((c) => msg.includes(c) && c in p))
     if (g) { const rest = { ...p }; for (const c of g) delete rest[c]; return rest }
     return null
