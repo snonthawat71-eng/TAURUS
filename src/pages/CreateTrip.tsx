@@ -65,6 +65,7 @@ export default function CreateTrip() {
   const [multi, setMulti] = useState(false)
   const [people, setPeople] = useState<Person[]>([])
   const [newName, setNewName] = useState('')
+  const [newFull, setNewFull] = useState('')
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ tripId: string; travelers: Traveler[] } | null>(null)
   const [sent, setSent] = useState<Set<string>>(new Set())
@@ -125,6 +126,13 @@ export default function CreateTrip() {
     setPeople((ps) => (ps.length ? ps : [{ nick: myName, full: '' }]))
     setPhase('people')
   }
+
+  function addPerson() {
+    if (!newName.trim() || !newFull.trim()) return
+    setPeople((ps) => [...ps, { nick: newName.trim(), full: newFull.trim() }])
+    setNewName(''); setNewFull('')
+  }
+  const peopleComplete = people.length > 0 && people.every((p) => p.nick.trim() && p.full.trim())
 
   async function createAll() {
     if (!user || busy) return
@@ -307,8 +315,8 @@ export default function CreateTrip() {
                       <span className="truncate">{p.nick}</span>
                       {i === 0 && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>}
                     </div>
-                    <input className="w-full min-w-0 bg-transparent outline-none text-[12px] text-ink-2 mt-0.5 placeholder:text-ink-3"
-                      value={p.full} placeholder="ชื่อจริง-นามสกุล (ไม่บังคับ)"
+                    <input className="w-full min-w-0 bg-transparent outline-none text-[12px] text-ink-2 mt-0.5 placeholder:text-[#D85A30]/70"
+                      value={p.full} placeholder="ชื่อจริง-นามสกุล *"
                       onChange={(e) => setPeople((ps) => ps.map((x, idx) => (idx === i ? { ...x, full: e.target.value } : x)))} />
                   </div>
                   {i > 0 && (
@@ -318,14 +326,17 @@ export default function CreateTrip() {
                 </div>
               ))}
             </div>
-            <div className="flex gap-2 mt-3">
-              <input className={field} value={newName} placeholder="พิมพ์ชื่อเล่น…"
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && newName.trim()) { setPeople((ps) => [...ps, { nick: newName.trim(), full: '' }]); setNewName('') } }} />
-              <button onClick={() => { if (newName.trim()) { setPeople((ps) => [...ps, { nick: newName.trim(), full: '' }]); setNewName('') } }}
-                className="shrink-0 h-10 px-4 rounded-md text-[13px] font-medium inline-flex items-center gap-1"
-                style={{ border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-mid)', background: 'var(--color-surface)' }}>
-                <IconPlus size={14} /> เพิ่ม
+            {/* ฟอร์มเพิ่มคน — ชื่อเล่น + ชื่อจริง-นามสกุล บังคับทั้งคู่ */}
+            <div className="card p-2.5 space-y-2 mt-3">
+              <div className="grid grid-cols-2 gap-2">
+                <input className={field} value={newName} placeholder="ชื่อเล่น *" onChange={(e) => setNewName(e.target.value)} />
+                <input className={field} value={newFull} placeholder="ชื่อจริง-นามสกุล *" onChange={(e) => setNewFull(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addPerson() }} />
+              </div>
+              <button onClick={addPerson} disabled={!newName.trim() || !newFull.trim()}
+                className="w-full h-9 rounded-md text-[13px] font-medium inline-flex items-center justify-center gap-1 disabled:opacity-40"
+                style={{ border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-mid)', background: 'var(--color-brand-soft)' }}>
+                <IconPlus size={14} /> เพิ่มผู้เดินทาง
               </button>
             </div>
           </>
@@ -461,7 +472,12 @@ export default function CreateTrip() {
             </button>
           </>
         )}
-        {phase === 'people' && <button onClick={() => setPhase('confirm')} className="btn-primary w-full h-10">เสร็จสิ้น</button>}
+        {phase === 'people' && (
+          <>
+            {!peopleComplete && <div className="text-center text-[11px]" style={{ color: '#D85A30' }}>กรอกชื่อจริง-นามสกุลให้ครบทุกคนก่อนกดเสร็จสิ้น</div>}
+            <button onClick={() => setPhase('confirm')} disabled={!peopleComplete} className="btn-primary w-full h-10 disabled:opacity-50">เสร็จสิ้น</button>
+          </>
+        )}
         {phase === 'confirm' && (
           <>
             <button onClick={createAll} disabled={busy} className="btn-primary w-full h-10 disabled:opacity-50 inline-flex items-center justify-center gap-1.5">
