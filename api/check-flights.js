@@ -35,6 +35,27 @@ function tzOffsetMs(date, tz) {
   const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second)
   return asUTC - date.getTime()
 }
+// active-segment timezone for multi-city trips (segments carry `until`)
+function tripTzOf(trip) {
+  const base = trip.timezone || DEFAULT_TZ
+  const segs = Array.isArray(trip.segments) ? trip.segments : null
+  if (!segs || !segs.length) return base
+  const nowStrIn = (tz) => {
+    const p = {}
+    for (const x of new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    }).formatToParts(new Date())) p[x.type] = x.value
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`
+  }
+  for (const s of segs) {
+    if (!s) continue
+    const tz = s.tz || base
+    if (!s.until) return tz
+    try { if (nowStrIn(tz) < s.until) return tz } catch { return base }
+  }
+  return segs[segs.length - 1].tz || base
+}
+
 function wallToUtc(dateStr, timeStr, tz) {
   const [y, m, d] = String(dateStr).split('-').map(Number)
   const [hh, mm] = String(timeStr).split(':').map(Number)
@@ -100,9 +121,9 @@ async function main(req, res) {
   if (!flights?.length) return res.json({ checked: 0, reason: 'no flights' })
 
   const tripIds = [...new Set(flights.map((f) => f.trip_id))]
-  const { data: trips } = await admin.from('trips').select('id,owner_id,timezone').in('id', tripIds)
+  const { data: trips } = await admin.from('trips').select('*').in('id', tripIds)
   const tripTz = new Map(), tripOwner = new Map()
-  for (const t of trips ?? []) { tripTz.set(t.id, t.timezone || DEFAULT_TZ); tripOwner.set(t.id, t.owner_id) }
+  for (const t of trips ?? []) { tripTz.set(t.id, tripTzOf(t)); tripOwner.set(t.id, t.owner_id) }
 
   // only flights inside the watch window (also keep the departure Date around)
   const due = []

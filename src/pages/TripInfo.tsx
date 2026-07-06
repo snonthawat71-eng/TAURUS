@@ -24,6 +24,7 @@ import { toast } from '@/lib/toast'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
 import { flightDuration, formatFlightDate, formatCheckTime } from '@/lib/format'
 import { travelerColor, ORDER } from '@/lib/avatars'
+import { tripTz } from '@/lib/segments'
 import {
   addTraveler, updateTraveler, deleteTraveler, claimTraveler, setTravelerPrivacy,
   addFlight, updateFlight, deleteFlight,
@@ -138,7 +139,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
 }) {
   const { travelers, trip } = useTrip()
   // default leg follows the trip's clock (ข้อ 1); a manual toggle overrides until collapse
-  const autoDir = useMemo(() => autoLegDir(flights, nowInTz(trip?.timezone), (f) => ({ dir: f.direction ?? 'outbound', date: f.flight_date, dep: f.dep_time, arr: f.arr_time })), [flights, trip?.timezone])
+  const autoDir = useMemo(() => autoLegDir(flights, nowInTz(tripTz(trip) ?? undefined), (f) => ({ dir: f.direction ?? 'outbound', date: f.flight_date, dep: f.dep_time, arr: f.arr_time })), [flights, trip])
   const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
   const [open, setOpen] = useState(false)
   const [logoFailed, setLogoFailed] = useState(false)
@@ -341,7 +342,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
   onAdd: (dir: FlightDirection) => void
 }) {
   const { trip } = useTrip()
-  const autoDir = useMemo(() => autoLegDir(trains, nowInTz(trip?.timezone), (t) => ({ dir: t.direction ?? 'outbound', date: t.travel_date, dep: t.dep_time, arr: t.arr_time })), [trains, trip?.timezone])
+  const autoDir = useMemo(() => autoLegDir(trains, nowInTz(tripTz(trip) ?? undefined), (t) => ({ dir: t.direction ?? 'outbound', date: t.travel_date, dep: t.dep_time, arr: t.arr_time })), [trains, trip])
   const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
   const [open, setOpen] = useState(false)
   const dir = manualDir ?? autoDir

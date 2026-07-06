@@ -32,6 +32,24 @@ function nowInTz(tz) {
   return { date: `${p.year}-${p.month}-${p.day}`, minutes: +p.hour * 60 + +p.minute }
 }
 
+// Multi-city trips carry ordered `segments` with a handover datetime (`until`,
+// local 'YYYY-MM-DDTHH:mm'); the effective timezone is the ACTIVE segment's.
+function tripTzOf(trip) {
+  const base = trip.timezone || DEFAULT_TZ
+  const segs = Array.isArray(trip.segments) ? trip.segments : null
+  if (!segs || !segs.length) return base
+  for (const s of segs) {
+    if (!s) continue
+    const tz = s.tz || base
+    if (!s.until) return tz
+    let now
+    try { now = nowInTz(tz) } catch { now = nowInTz(DEFAULT_TZ) }
+    const nowStr = `${now.date}T${String(Math.floor(now.minutes / 60)).padStart(2, '0')}:${String(now.minutes % 60).padStart(2, '0')}`
+    if (nowStr < s.until) return tz
+  }
+  return segs[segs.length - 1].tz || base
+}
+
 // Crash-proof wrapper: any unexpected error comes back as JSON in the HTTP
 // response, so it shows up readable in Supabase's net._http_response table
 // instead of an opaque FUNCTION_INVOCATION_FAILED page.
@@ -67,7 +85,7 @@ async function main(req, res) {
   if (!days?.length) return res.json({ sent: 0, reason: 'no days in window' })
 
   const tripIds = [...new Set(days.map((d) => d.trip_id))]
-  const { data: trips } = await admin.from('trips').select('id,owner_id,timezone').in('id', tripIds)
+  const { data: trips } = await admin.from('trips').select('*').in('id', tripIds)
 
   // today's day ids per trip, evaluated in each trip's own timezone
   const nowByTrip = new Map()
@@ -75,7 +93,7 @@ async function main(req, res) {
   const dueDayIds = []
   for (const t of trips ?? []) {
     let now
-    try { now = nowInTz(t.timezone || DEFAULT_TZ) } catch { now = nowInTz(DEFAULT_TZ) }
+    try { now = nowInTz(tripTzOf(t)) } catch { now = nowInTz(DEFAULT_TZ) }
     nowByTrip.set(t.id, now)
     for (const d of days) {
       if (d.trip_id === t.id && d.day_date === now.date) { dueDayIds.push(d.id); tripByDay.set(d.id, t) }

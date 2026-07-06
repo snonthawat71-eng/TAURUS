@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { activeSegment } from './segments'
+import type { TripSegment } from './database.types'
 
 // Weather via Open-Meteo (free, no API key). We resolve the trip's location from
 // a built-in coordinate table first (covers the app's common cities + countries,
@@ -98,8 +100,11 @@ export function weatherLabel(code: number): string {
 
 /** Ordered location candidates for a trip: cities → name (may contain the city)
  *  → country. */
-export function tripCityCandidates(t: { cities?: string[] | null; country?: string | null; name?: string | null }): string[] {
+export function tripCityCandidates(t: { cities?: string[] | null; country?: string | null; name?: string | null; segments?: TripSegment[] | null; timezone?: string | null }): string[] {
   const out: string[] = []
+  // multi-city trip: the city we're in RIGHT NOW comes first
+  const act = activeSegment(t)
+  if (act?.city?.trim()) out.push(act.city.trim())
   for (const c of t.cities ?? []) if (c?.trim()) out.push(c.trim())
   if (t.name?.trim()) out.push(t.name.trim())
   if (t.country?.trim()) out.push(t.country.trim())

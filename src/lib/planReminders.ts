@@ -7,6 +7,7 @@
 // else's phone goes off.
 
 import { toast } from './toast'
+import { tripTz } from './segments'
 import type { ItineraryDay, ItineraryStop, Trip } from './database.types'
 
 const onKey = (uid: string) => `taurus:remind:on:${uid}`
@@ -77,7 +78,7 @@ export function checkPlanReminders(uid: string | undefined, trip: Trip | null, d
   if (!uid || !trip || !remindersEnabled(uid)) return
   const lead = reminderLead(uid)
   let now: { date: string; minutes: number }
-  try { now = nowInTz(trip.timezone ?? undefined) } catch { now = nowInTz() } // bad tz string → device tz
+  try { now = nowInTz(tripTz(trip) ?? undefined) } catch { now = nowInTz() } // bad tz string → device tz
 
   const todayDayIds = new Set(days.filter((d) => d.day_date === now.date).map((d) => d.id))
   if (todayDayIds.size === 0) return

@@ -19,6 +19,7 @@ import { formatDateRange, dayCount, tripCountdown } from '@/lib/format'
 import { useWeather, tripCityCandidates } from '@/lib/weather'
 import { WeatherBadge } from '@/components/WeatherBadge'
 import { countryFlag } from '@/lib/countries'
+import { tripFlag, tripActiveCity } from '@/lib/segments'
 import { CITY_IMAGES, TRIP_COVER_IMAGES, tripCoverImage } from '@/lib/cityImages'
 import { createTrip, updateTrip, deleteTrip, duplicateTrip } from '@/lib/tripMutations'
 import { downloadItineraryPdf } from '@/lib/itineraryPdf'
@@ -48,6 +49,9 @@ function heroGradient(t: Trip) {
 // inside the trip name (e.g. "Hongkong 2026" → Hongkong).
 const normCity = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
 function coverImage(t: Trip): string | undefined {
+  // multi-city: the card shows the city we're in right now
+  const act = tripActiveCity(t)
+  if (act) { const img = tripCoverImage(act); if (img) return img }
   for (const c of t.cities ?? []) { const img = tripCoverImage(c); if (img) return img }
   const direct = tripCoverImage(t.country ?? '') ?? tripCoverImage(t.name ?? '')
   if (direct) return direct
@@ -163,7 +167,7 @@ export default function TripsDashboard() {
     await reload()
   }
 
-  const flagOf = (t: Trip) => t.flag || countryFlag(t.country)
+  const flagOf = (t: Trip) => tripFlag(t) || countryFlag(t.country)
 
   return (
     <div className="min-h-dvh bg-canvas">

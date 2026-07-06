@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconPlus, IconReceipt, IconChevronRight } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
+import { tripCurrency } from '@/lib/segments'
 import { ExpenseEditor } from '@/components/ExpenseEditor'
 import { baht } from '@/lib/format'
 import { addExpense } from '@/lib/budgetMutations'
@@ -36,7 +37,7 @@ export function BudgetSection() {
 
   // total in the trip's foreign currency (same source as the budget page)
   useEffect(() => {
-    const code = trip?.currency ?? localStorage.getItem('fx:currency') ?? 'CNY'
+    const code = tripCurrency(trip) ?? localStorage.getItem('fx:currency') ?? 'CNY'
     const cur = CURRENCIES.find((c) => c.code === code)
     getRateToTHB(code).then((r) => {
       if (r.rate) setEquiv(`${cur?.symbol ?? ''}${Math.round(total / r.rate).toLocaleString('en-US')}`)

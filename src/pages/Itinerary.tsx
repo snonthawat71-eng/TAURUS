@@ -25,6 +25,7 @@ import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
 import { setInPlan, toggleInterest } from '@/lib/placeMutations'
 import { useWeather, tripCityCandidates, type DayWeather } from '@/lib/weather'
+import { tripTz } from '@/lib/segments'
 import { WeatherBadge } from '@/components/WeatherBadge'
 import { ReminderSettings } from '@/components/ReminderSettings'
 import {
@@ -376,9 +377,9 @@ export default function Itinerary() {
   // that isn't checked off yet. That stop gets the "ต่อไป" highlight + auto-scroll.
   const todayStr = useMemo(() => {
     try {
-      return new Intl.DateTimeFormat('en-CA', { timeZone: trip?.timezone || undefined, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+      return new Intl.DateTimeFormat('en-CA', { timeZone: tripTz(trip) || undefined, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
     } catch { return new Date().toISOString().slice(0, 10) }
-  }, [trip?.timezone])
+  }, [trip])
   const nextStopId = useMemo(() => {
     const today = localDays.find((d) => d.day_date === todayStr)
     if (!today) return null

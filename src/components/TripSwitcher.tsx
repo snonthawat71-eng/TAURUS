@@ -7,10 +7,11 @@ import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatDateRange, dayCount } from '@/lib/format'
 import { countryFlag } from '@/lib/countries'
+import { tripFlag } from '@/lib/segments'
 import { createTrip, updateTrip, deleteTrip } from '@/lib/tripMutations'
 import type { Trip } from '@/lib/database.types'
 
-const flagOf = (t: Trip | null | undefined) => (t?.flag || countryFlag(t?.country))
+const flagOf = (t: Trip | null | undefined) => (tripFlag(t) || countryFlag(t?.country))
 
 export function TripSwitcher({ variant }: { variant: 'sidebar' | 'topbar' }) {
   const { trip, trips, travelers, switchTrip, reload } = useTrip()
