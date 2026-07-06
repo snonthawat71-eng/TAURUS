@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
   IconBed, IconPlane, IconPencil, IconTrash, IconTrain, IconQrcode, IconChevronDown,
-  IconLock, IconUsers, IconUserCheck,
+  IconLock, IconUsers, IconUserCheck, IconLink,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -514,6 +514,16 @@ export default function TripInfo() {
   const canSeePrivate = (t: Traveler) =>
     (t.privacy ?? 'private') === 'trip' || !t.user_id || t.user_id === user?.id || isTripOwner
 
+  async function shareInvite(t: Traveler) {
+    if (!t.invite_token) return
+    const url = `${location.origin}/join/${t.invite_token}`
+    const text = `มาร่วมทริป "${trip?.name ?? ''}" กัน! เปิดลิงก์เพื่อยืนยันว่าคุณคือ "${t.nickname}" → ${url}`
+    try {
+      if (navigator.share) await navigator.share({ text })
+      else { await navigator.clipboard.writeText(text); toast.success('คัดลอกลิงก์เชิญแล้ว — ส่งต่อได้เลย') }
+    } catch { /* share sheet closed */ }
+  }
+
   async function claimCard(t: Traveler) {
     if (!user) return
     if (!(await confirmDialog({ message: `ตั้งการ์ด "${t.nickname ?? 'ผู้เดินทาง'}" เป็นของฉัน? เอกสาร/QR ของการ์ดนี้จะถูกตั้งเป็นส่วนตัว (คุณ + เจ้าของทริป) และคุณเปลี่ยนระดับได้ทีหลัง`, confirmLabel: 'ใช่ นี่การ์ดฉัน' }))) return
@@ -575,6 +585,16 @@ export default function TripInfo() {
                 ) : isMe ? (
                   <span className="inline-flex items-center rounded-full bg-brand-soft text-brand-dark text-[10px] font-semibold px-1.5 py-0.5 shrink-0">Me</span>
                 ) : null}
+                {/* owner can (re)send an unclaimed card's personal invite link */}
+                {isTripOwner && !t.user_id && !!t.invite_token && (
+                  <span role="button" tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); shareInvite(t) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); shareInvite(t) } }}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-brand-dark bg-brand-soft hover:opacity-80 cursor-pointer shrink-0"
+                    title="แชร์ลิงก์เชิญของคนนี้">
+                    <IconLink size={11} /> แชร์ลิงก์
+                  </span>
+                )}
               </div>
               {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
             </div>

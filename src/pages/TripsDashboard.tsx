@@ -209,7 +209,7 @@ export default function TripsDashboard() {
               {tab === 'upcoming' ? 'ยังไม่มีทริปที่กำลังจะถึง' : 'ยังไม่มีทริปที่ผ่านไปแล้ว'}
             </p>
             {tab === 'upcoming' && (
-              <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 mt-1">
+              <button onClick={() => navigate('/create')} className="btn-primary h-9 px-4 flex items-center gap-1.5 mt-1">
                 <IconPlus size={16} /> สร้างทริป
               </button>
             )}
@@ -288,7 +288,7 @@ export default function TripsDashboard() {
 
             {/* create card — only on the Upcoming tab */}
             {tab === 'upcoming' && (
-              <button onClick={() => setEditor('new')}
+              <button onClick={() => navigate('/create')}
                 className="card border-dashed p-4 min-h-[150px] flex flex-col items-center justify-center gap-2 text-ink-3 hover:bg-surface-2/40">
                 <div className="size-10 rounded-full bg-brand-soft grid place-items-center text-brand"><IconPlus size={20} /></div>
                 <span className="text-[13px] font-medium text-ink-2">สร้างทริปใหม่</span>

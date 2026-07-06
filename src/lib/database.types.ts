@@ -11,6 +11,16 @@ export interface Profile {
   created_at: string
 }
 
+/** One city leg of a multi-city trip. `until` = local datetime the trip moves
+ *  on to the next segment ('YYYY-MM-DDTHH:mm'); null on the last segment. */
+export interface TripSegment {
+  city: string
+  flag?: string | null
+  currency?: string | null
+  tz?: string | null
+  until?: string | null
+}
+
 export interface Trip {
   id: string
   name: string
@@ -21,6 +31,8 @@ export interface Trip {
   currency?: string | null
   /** optional — present after notifications.sql; IANA tz for stop-time reminders */
   timezone?: string | null
+  /** optional — city segments from the create wizard (supabase/invites.sql) */
+  segments?: TripSegment[] | null
   start_date: string | null
   end_date: string | null
   owner_id: string
@@ -48,6 +60,8 @@ export interface Traveler {
   user_id?: string | null
   /** optional — 'trip' (everyone) | 'private' (card owner + trip owner); default private */
   privacy?: string | null
+  /** optional — per-card invite link secret (supabase/invites.sql) */
+  invite_token?: string | null
   created_at: string
 }
 

@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { TaurusMark } from '@/components/TaurusMark'
 import { TripProvider } from '@/contexts/TripContext'
@@ -12,6 +13,23 @@ import Itinerary from '@/pages/Itinerary'
 import PlacesFood from '@/pages/PlacesFood'
 import AllPlans from '@/pages/AllPlans'
 import Budget from '@/pages/Budget'
+import CreateTrip from '@/pages/CreateTrip'
+import JoinTrip, { PENDING_INVITE_KEY } from '@/pages/JoinTrip'
+
+// After the OAuth redirect (which always lands on "/"), resume a pending
+// invite so the user comes straight back to the welcome page to confirm.
+function PendingInviteRedirect() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  useEffect(() => {
+    if (location.pathname.startsWith('/join/')) return
+    let tok: string | null = null
+    try { tok = localStorage.getItem(PENDING_INVITE_KEY) } catch { /* ignore */ }
+    if (tok) navigate(`/join/${tok}`, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return null
+}
 
 export default function App() {
   const { loading, session } = useAuth()
@@ -24,13 +42,29 @@ export default function App() {
     )
   }
 
-  if (!session) return <Login />
+  // invite links work logged-out — the join page walks the user through login
+  if (!session) {
+    if (window.location.pathname.startsWith('/join/')) {
+      return (
+        <BrowserRouter>
+          <Routes>
+            <Route path="/join/:token" element={<JoinTrip />} />
+            <Route path="*" element={<Login />} />
+          </Routes>
+        </BrowserRouter>
+      )
+    }
+    return <Login />
+  }
 
   return (
     <TripProvider>
       <BrowserRouter>
+        <PendingInviteRedirect />
         <Routes>
           <Route path="/" element={<TripsDashboard />} />
+          <Route path="/create" element={<CreateTrip />} />
+          <Route path="/join/:token" element={<JoinTrip />} />
           <Route path="/explore" element={<Explore />} />
           <Route path="/explore/mine" element={<ExploreManage />} />
           <Route element={<AppShell />}>

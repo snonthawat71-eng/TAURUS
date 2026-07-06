@@ -4,7 +4,7 @@ import type { Flight, Train, HotelRoom, Trip } from './database.types'
 
 // Columns added by supabase/extra_columns.sql — the app still works before the
 // migration is run by stripping any column the API reports as unknown.
-const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone', 'direction', 'dep_tz', 'arr_tz', 'gate', 'car', 'seat_no', 'label', 'from_station', 'to_station', 'is_main', 'used', 'kind', 'note', 'iccid', 'link', 'privacy', 'user_id']
+const OPTIONAL_COLS = ['avatar_color', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone', 'direction', 'dep_tz', 'arr_tz', 'gate', 'car', 'seat_no', 'label', 'from_station', 'to_station', 'is_main', 'used', 'kind', 'note', 'iccid', 'link', 'privacy', 'user_id', 'segments']
 
 function stripMentioned(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
@@ -47,6 +47,7 @@ export interface TripInput {
   cities?: string[] | null
   currency?: string | null
   timezone?: string | null
+  segments?: unknown
   start_date?: string | null
   end_date?: string | null
 }
@@ -166,8 +167,9 @@ export async function claimTraveler(id: string, userId: string) {
 export async function setTravelerPrivacy(id: string, privacy: 'trip' | 'private') {
   return updateGraceful('travelers', id, { privacy })
 }
-export async function addTraveler(trip_id: string, input: TravelerInput) {
-  return insertGraceful('travelers', { id: crypto.randomUUID(), trip_id, ...input })
+export async function addTraveler(trip_id: string, input: TravelerInput, id: string = crypto.randomUUID()) {
+  await insertGraceful('travelers', { id, trip_id, ...input })
+  return id
 }
 export async function updateTraveler(id: string, fields: TravelerInput) {
   return updateGraceful('travelers', id, { ...fields })
