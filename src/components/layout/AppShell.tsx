@@ -39,6 +39,7 @@ export function AppShell() {
   // restricted member could still open them by URL. `/food` is the Food tab of
   // the Places page and follows /places' visibility.
   const allowed = new Set(visibleNav(myPermission).map((n) => n.to))
+  if (allowed.has('/itinerary')) allowed.add('/plans') // All plans now lives inside Itinerary
   if (allowed.has('/places')) allowed.add('/food')
   if (allowed.has('/info')) allowed.add('/budget') // budget lives inside Personal Info
   if (!allowed.has(location.pathname)) {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   DndContext, PointerSensor, useSensor, useSensors, closestCenter,
   type DragEndEvent, type DragOverEvent, type DragStartEvent,
@@ -8,7 +9,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid, IconCopy, IconClipboard, IconTarget,
+  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid, IconCopy, IconClipboard, IconTarget, IconLayoutList, IconChevronRight,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -329,6 +330,7 @@ function DayCard({
 
 export default function Itinerary() {
   const { trip, days, stops, places, interests, memberProfiles, reload, patch, canEdit } = useTrip()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [detailPlace, setDetailPlace] = useState<Place | null>(null)
   const dayWx = useWeather(trip ? tripCityCandidates(trip) : [], days.map((d) => d.day_date).filter(Boolean) as string[])
@@ -839,6 +841,20 @@ export default function Itinerary() {
   return (
     <div className="space-y-4">
       {localDays.length > 0 && <ReminderSettings />}
+
+      {/* All plans moved here from the nav — one prominent tap under the reminder card */}
+      <button onClick={() => navigate('/plans')}
+        className="w-full rounded-[12px] px-4 py-3 flex items-center gap-3 text-white"
+        style={{ background: 'linear-gradient(120deg, var(--color-brand), var(--color-accent))' }}>
+        <span className="size-9 rounded-full grid place-items-center shrink-0" style={{ background: 'rgba(255,255,255,.2)' }}>
+          <IconLayoutList size={18} />
+        </span>
+        <span className="flex-1 min-w-0 text-left">
+          <span className="block text-[14px] font-semibold leading-tight">All plans</span>
+          <span className="block text-[11px] text-white/85 mt-0.5">สถานที่ในแพลนทั้งหมด · {places.filter((p) => p.in_plan).length} ที่</span>
+        </span>
+        <IconChevronRight size={18} className="shrink-0 text-white/90" />
+      </button>
 
       {/* Date filter — "ดูทั้งหมด" + one chip per planned day (past days go gray).
           Sized so 6 chips fill the row; extra days scroll (faint fade hints at more).

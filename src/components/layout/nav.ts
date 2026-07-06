@@ -14,9 +14,13 @@ export interface NavItem {
   section: 'PLAN' | 'OVERVIEW'
 }
 
-/** Nav items visible for a given permission (places-only sees just Places & Food). */
+const ALL_PLANS: NavItem = { to: '/plans', label: 'All plans', short: 'All plans', icon: IconLayoutList, section: 'OVERVIEW' }
+
+/** Nav items visible for a given permission. All plans moved INTO the
+ *  Itinerary page (big button) — only places-only members still get it in the
+ *  nav, since they can't open Itinerary. */
 export function visibleNav(perm: string): NavItem[] {
-  if (perm === 'places') return NAV_ITEMS.filter((n) => ['/places', '/plans'].includes(n.to))
+  if (perm === 'places') return [...NAV_ITEMS.filter((n) => n.to === '/places'), ALL_PLANS]
   return NAV_ITEMS
 }
 
@@ -24,5 +28,4 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/info', label: 'Personal Information', short: 'Info', icon: IconInfoCircle, section: 'PLAN' },
   { to: '/itinerary', label: 'Itinerary', short: 'Itinerary', icon: IconCalendarEvent, count: 'itinerary', section: 'PLAN' },
   { to: '/places', label: 'Places & Food', short: 'Places', icon: IconMapPin, count: 'placesfood', section: 'PLAN' },
-  { to: '/plans', label: 'All plans', short: 'All plans', icon: IconLayoutList, section: 'OVERVIEW' },
 ]
