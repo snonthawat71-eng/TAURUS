@@ -209,6 +209,11 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
           <div className="text-[10.5px] tabular-nums line-through opacity-45 leading-tight">{sched}</div>
         </>
       : <div className={`${cls} tabular-nums`}>{sched}</div>
+  // gate/terminal line — the checker refreshes these every ~15 min from 6h
+  // before departure, so the card shows the gate ahead of boarding
+  const gateLine = live && f.live_gate
+    ? `Gate ${f.live_gate}${f.live_terminal ? ` · T${f.live_terminal}` : ''}`
+    : null
   const statusPill = live && (
     <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap"
       style={{ background: live.color }}>
@@ -255,6 +260,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
                 {f.flight_no && <div className="text-[11px] font-medium text-ink-2 truncate max-w-full">{f.flight_no}</div>}
               </div>
               {live && <div className="mt-1">{statusPill}</div>}
+              {gateLine && <div className="text-[11px] font-medium text-ink-2 tabular-nums mt-1">{gateLine}</div>}
             </div>
             <div className="w-[104px] shrink-0 text-right">
               <div className="text-[26px] font-medium leading-none">{f.arr_code}</div>
@@ -306,8 +312,9 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
               <span className="size-2 rounded-full shrink-0 ring-2 bg-surface" style={{ '--tw-ring-color': 'var(--color-brand)' } as React.CSSProperties} />
             </div>
           </div>
-          <div className="mt-0.5">
+          <div className="mt-0.5 flex flex-col items-center gap-1">
             {live ? statusPill : <div className="text-[11px] text-ink-3">direct</div>}
+            {gateLine && <div className="text-[11px] font-medium text-ink-2 tabular-nums">{gateLine}</div>}
           </div>
         </div>
         <div className="w-[88px] shrink-0 text-right">
@@ -321,6 +328,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <DetailRow items={[
           { label: 'ชั้นโดยสาร', value: f.seat_class || 'Economy' },
           { label: 'ที่นั่ง', value: `${f.seats ?? travelers.length}` },
+          ...(gateLine ? [{ label: 'Gate', value: gateLine.replace('Gate ', '') }] : []),
           { label: 'รหัสจอง', value: f.booking_ref, booking: true },
         ]} />
       </div>
