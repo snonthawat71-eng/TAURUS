@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid, IconCopy, IconClipboard, IconTarget, IconSwitchHorizontal,
+  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid, IconCopy, IconClipboard, IconTarget,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -150,8 +150,52 @@ function SortableStop({
   )
 }
 
+/** A backup card inside the 🎯 zone — draggable straight into the schedule
+ *  (dropping it among the day's stops promotes it to a main stop there). */
+function SortableBackup({ stop, canEdit, onPromote, onEdit, onDelete }: {
+  stop: ItineraryStop
+  canEdit: boolean
+  onPromote: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id, disabled: !canEdit })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+  return (
+    <div ref={setNodeRef} style={style} className="rounded-[10px] p-2.5 bg-surface" >
+      <div className="flex items-start gap-2">
+        {canEdit && (
+          <button {...attributes} {...listeners} className="mt-0.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากเข้าตาราง">
+            <IconGripVertical size={16} />
+          </button>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-medium text-ink-2 flex items-center gap-1.5">
+            <span className="truncate">{stop.place_name || 'จุดสำรอง'}</span>
+            <span className="text-[9px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: '#FDF1E3', color: '#D97706', border: '0.5px solid #F3DDBD' }}>สำรอง</span>
+          </div>
+          {stop.note && <div className="text-[11px] text-ink-3 mt-0.5">{stop.note}</div>}
+        </div>
+        {canEdit && (
+          <PopMenu items={[
+            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
+            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
+          ]} />
+        )}
+      </div>
+      {canEdit && (
+        <button onClick={onPromote}
+          className="mt-2 w-full h-8 rounded-full text-[11.5px] font-medium flex items-center justify-center gap-1.5"
+          style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
+          <IconPlus size={13} /> เพิ่มเข้าตาราง — หรือลาก ⠿ ไปวางตรงไหนก็ได้
+        </button>
+      )}
+    </div>
+  )
+}
+
 function DayCard({
-  day, index, stops, backups, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste, onUseBackup, onMoveToBackup, onPromoteBackup,
+  day, index, stops, backups, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste, onMoveToBackup, onPromoteBackup,
 }: {
   day: ItineraryDay
   index: number
@@ -177,7 +221,6 @@ function DayCard({
   onCopyStop: (s: ItineraryStop) => void
   canPaste: boolean
   onPaste: () => void
-  onUseBackup: (b: ItineraryStop) => void
   onMoveToBackup: (s: ItineraryStop) => void
   onPromoteBackup: (b: ItineraryStop) => void
 }) {
@@ -230,7 +273,7 @@ function DayCard({
         {!collapsed && (
           <div className="p-3 space-y-2.5 min-h-[60px] bg-surface-2">
             {stops.length === 0 && <div className="text-[12px] text-ink-3 text-center py-2">ยังไม่มีจุดแวะในวันนี้ — ลากกิจกรรมมาวางที่นี่ได้</div>}
-            <SortableContext items={stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={[...stops.map((s) => s.id), ...backups.map((s) => s.id)]} strategy={verticalListSortingStrategy}>
               <div className={canEdit ? '' : 'space-y-2.5'}>
                 {stops.flatMap((s, i) => {
                   const nodes = [
@@ -251,52 +294,30 @@ function DayCard({
                   return nodes
                 })}
               </div>
+              {/* 🎯 แผนสำรอง — พับเหมือนเดิม; การ์ดข้างในลากไปวางในตารางตรงไหนก็ได้
+                  (inside the SortableContext so the cards are draggable) */}
+              {backups.length > 0 && (
+                <div className="rounded-[10px] p-2.5 mt-2.5" style={{ border: '0.5px dashed var(--color-line-2)', background: 'rgba(238,241,246,.5)' }}>
+                  <button onClick={() => setBkOpen((o) => !o)} className="w-full flex items-center gap-2 text-[12px] font-medium text-ink-2" aria-expanded={bkOpen}>
+                    <IconTarget size={14} className="text-ink-3" /> แผนสำรอง
+                    <span className="text-[10.5px] text-ink-3 bg-surface-2 rounded-full px-1.5 py-px tabular-nums">{backups.length}</span>
+                    <span className="ml-auto text-[11px] text-ink-3 flex items-center gap-0.5">
+                      {bkOpen ? 'พับเก็บ' : 'แตะเพื่อเปิด'} <IconChevronDown size={12} className={`transition-transform ${bkOpen ? 'rotate-180' : ''}`} />
+                    </span>
+                  </button>
+                  {bkOpen && (
+                    <div className="space-y-2 mt-2.5">
+                      {backups.map((b) => (
+                        <SortableBackup key={b.id} stop={b} canEdit={canEdit}
+                          onPromote={() => onPromoteBackup(b)}
+                          onEdit={() => onEditStop(b)}
+                          onDelete={() => onDeleteStop(b.id)} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </SortableContext>
-
-            {/* 🎯 แผนสำรอง — collapsed dashed bar; expands to dimmed backup cards.
-                Backups have no time, aren't counted and never fire reminders. */}
-            {backups.length > 0 && (
-              <div className="rounded-[10px] p-2.5" style={{ border: '0.5px dashed var(--color-line-2)', background: 'rgba(238,241,246,.5)' }}>
-                <button onClick={() => setBkOpen((o) => !o)} className="w-full flex items-center gap-2 text-[12px] font-medium text-ink-2" aria-expanded={bkOpen}>
-                  <IconTarget size={14} className="text-ink-3" /> แผนสำรอง
-                  <span className="text-[10.5px] text-ink-3 bg-surface-2 rounded-full px-1.5 py-px tabular-nums">{backups.length}</span>
-                  <span className="ml-auto text-[11px] text-ink-3 flex items-center gap-0.5">
-                    {bkOpen ? 'พับเก็บ' : 'แตะเพื่อเปิด'} <IconChevronDown size={12} className={`transition-transform ${bkOpen ? 'rotate-180' : ''}`} />
-                  </span>
-                </button>
-                {bkOpen && (
-                  <div className="space-y-2 mt-2.5">
-                    {backups.map((b) => (
-                      <div key={b.id} className="rounded-[10px] p-2.5 bg-surface" style={{ border: '0.5px solid var(--color-line)' }}>
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[13px] font-medium text-ink-2 flex items-center gap-1.5">
-                              <span className="truncate">{b.place_name || 'จุดสำรอง'}</span>
-                              <span className="text-[9px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: '#FDF1E3', color: '#D97706', border: '0.5px solid #F3DDBD' }}>สำรอง</span>
-                            </div>
-                            {b.note && <div className="text-[11px] text-ink-3 mt-0.5">{b.note}</div>}
-                          </div>
-                          {canEdit && (
-                            <PopMenu items={[
-                              { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEditStop(b) },
-                              { label: 'เพิ่มเข้าตาราง (ไม่แทนใคร)', icon: <IconPlus size={15} />, onClick: () => onPromoteBackup(b) },
-                              { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDeleteStop(b.id), danger: true },
-                            ]} />
-                          )}
-                        </div>
-                        {canEdit && (
-                          <button onClick={() => onUseBackup(b)}
-                            className="mt-2 w-full h-8 rounded-full text-[11.5px] font-medium flex items-center justify-center gap-1.5"
-                            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
-                            <IconSwitchHorizontal size={13} /> ใช้ตัวนี้แทน
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
 
             {canEdit && <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>}
           </div>
@@ -503,7 +524,7 @@ export default function Itinerary() {
     const overId = String(over.id)
     const cur = stopsRef.current
     const moving = cur.find((s) => s.id === activeId)
-    if (!moving) return // a day is being dragged, not a stop
+    if (!moving || moving.role === 'backup') return // days & backups: handled on drop only
     const toDay = dayOf(overId, cur)
     if (!toDay || moving.day_id === toDay) return
     const without = cur.filter((s) => s.id !== activeId)
@@ -546,6 +567,25 @@ export default function Itinerary() {
     const cur = stopsRef.current
     const moving = cur.find((s) => s.id === activeId)
     if (!moving) return
+
+    // a BACKUP dragged into the schedule → becomes a main stop right where it
+    // was dropped; nobody else's time moves (the backup itself stays untimed)
+    if (moving.role === 'backup') {
+      const toDay = dayOf(overId, cur) ?? moving.day_id
+      const mains = cur.filter((s) => s.day_id === toDay && s.role !== 'backup' && s.id !== activeId).sort((a, b) => a.position - b.position)
+      let at = mains.findIndex((s) => s.id === overId)
+      if (at < 0) at = mains.length
+      const promoted = { ...moving, role: null, day_id: toDay }
+      const ordered = [...mains.slice(0, at), promoted, ...mains.slice(at)].map((s, i) => ({ ...s, position: i }))
+      const next = [...cur.filter((s) => s.id !== activeId && (s.day_id !== toDay || s.role === 'backup')), ...ordered]
+      stopsRef.current = next
+      setLocalStops(next)
+      await updateStop(moving.id, { role: null }, moving.version)
+      await persistStopOrder(ordered)
+      await reload()
+      toast.success('เพิ่มเข้าตารางแล้ว')
+      return
+    }
     const finalDay = moving.day_id
     const list = cur.filter((s) => s.day_id === finalDay && s.role !== 'backup').sort((a, b) => a.position - b.position)
     const oldIdx = list.findIndex((s) => s.id === activeId)
@@ -686,34 +726,6 @@ export default function Itinerary() {
     await reload()
     toast.success('เพิ่มเข้าตารางแล้ว')
   }
-  async function useBackup(b: ItineraryStop) {
-    const mains = mainsOf(b.day_id)
-    if (mains.length === 0) { await promoteBackup(b); return }
-    const pick = await choiceDialog({
-      title: `ใช้ "${b.place_name || 'จุดสำรอง'}" แทนจุดไหน?`,
-      message: 'จุดที่ถูกแทนจะย้ายลงไปอยู่แผนสำรองแทน (สลับที่กัน) — เวลาของช่องเดิมยังอยู่ครบ',
-      choices: [
-        ...mains.map((m) => ({ value: m.id, label: `แทนที่ ${m.place_name ?? '-'}${m.time ? ` · ${m.time.slice(0, 5)}` : ''}` })),
-        { value: 'append', label: '＋ เพิ่มเข้าตารางเฉยๆ (ไม่แทนใคร)' },
-      ],
-    })
-    if (!pick) return
-    if (pick === 'append') { await promoteBackup(b); return }
-    const target = mains.find((m) => m.id === pick)
-    if (!target) return
-    // the backup takes over the slot: its time + position (+ the slot's route
-    // when the backup has none of its own); the old stop drops to สำรอง
-    patch((d) => ({ stops: d.stops.map((x) =>
-      x.id === b.id ? { ...x, role: null, time: target.time, transit: x.transit ?? target.transit }
-        : x.id === target.id ? { ...x, role: 'backup' } : x) }))
-    await updateStop(b.id, { role: null, time: target.time, transit: b.transit ?? target.transit }, b.version)
-    await updateStop(target.id, { role: 'backup' }, target.version)
-    const ordered = mains.map((m) => (m.id === target.id ? { ...b } : m))
-    await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
-    await reload()
-    toast.success(`สลับแผนแล้ว — "${b.place_name ?? ''}" เข้าตาราง`)
-  }
-
   async function removeStop(id: string) {
     const row = stops.find((s) => s.id === id)
     if (!row) return
@@ -905,7 +917,6 @@ export default function Itinerary() {
                 onCopyStop={copyStop}
                 canPaste={!!clipboard}
                 onPaste={() => pasteStop(day.id)}
-                onUseBackup={useBackup}
                 onMoveToBackup={moveToBackup}
                 onPromoteBackup={promoteBackup}
               />
