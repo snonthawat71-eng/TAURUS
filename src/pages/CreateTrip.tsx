@@ -334,47 +334,63 @@ export default function CreateTrip() {
         {phase === 'confirm' && (
           <>
             <h1 className="text-[18px] font-medium text-center mt-1">ตรวจสอบก่อนสร้างทริป</h1>
+            <div className="text-[15px] font-medium text-center mt-1.5 flex items-center justify-center gap-1.5">
+              <span>{segs[0].flag}</span> {name.trim() || 'ทริปใหม่'}
+            </div>
 
-            {/* ภาพรวมทริป — ชื่อ + ช่วงวัน + จำนวนวัน + คนไป (ข้อ 6) */}
-            <div className="relative flex flex-col mt-4">
-              <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center gap-1.5 text-white" style={{ background: 'var(--color-brand)' }}>
-                <IconPlaneTilt size={14} className="text-white/90" />
-                <span className="text-[13px] font-medium truncate">{name.trim() || 'ทริปใหม่'}</span>
+            {/* ① วันเดินทาง — หัวข้อของตัวเอง */}
+            <div className="text-[11px] text-ink-3 mt-5 mb-1.5 flex items-center gap-1"><IconCalendar size={12} /> วันเดินทาง</div>
+            <div className="card p-3.5">
+              <div className="grid grid-cols-2">
+                <div>
+                  <div className="text-[10.5px] text-ink-3">วันไป</div>
+                  <div className="text-[14px] font-medium mt-0.5">{thDate(start)}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10.5px] text-ink-3">วันกลับ</div>
+                  <div className="text-[14px] font-medium mt-0.5">{thDate(end)}</div>
+                </div>
               </div>
-              <div className="card relative p-3.5">
-                <div className="flex items-center gap-2.5">
-                  <IconCalendar size={16} className="text-brand shrink-0" />
-                  <div>
-                    <div className="text-[14px] font-medium">{thDate(start)} – {thDate(end)}</div>
-                    <div className="text-[11px] text-ink-3 mt-0.5">รวม {days ?? '-'} วัน</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2.5 mt-3 pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-                  <IconUsers size={16} className="text-brand shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <div className="text-[11px] text-ink-3">ผู้เดินทาง {people.length} คน</div>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {people.map((p, i) => (
-                        <span key={i} className="inline-flex items-center gap-1 rounded-full hairline bg-surface pl-0.5 pr-2 py-0.5 text-[11.5px]">
-                          <Avatar name={p.nick} color={ORDER[i % ORDER.length]} size={20} ring={false} /> {p.nick}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+              <div className="text-[11.5px] mt-2.5 pt-2.5 flex items-center gap-1" style={{ borderTop: '0.5px solid var(--color-line)', color: '#1D9E75' }}>
+                <IconCheck size={12} /> ไป-กลับ รวม {days ?? '-'} วัน
               </div>
             </div>
 
-            {/* การ์ดแยกรายเมือง 1 เมือง 1 ใบ (ข้อ 6) */}
-            <div className="text-[11px] text-ink-3 mt-4 mb-1.5 flex items-center gap-1"><IconBuildingSkyscraper size={12} /> เมืองที่ไป · {segs.length} เมือง</div>
-            <div className="space-y-2">
-              {segs.map((s, i) => (
-                <div key={i} className="card p-3 flex items-center gap-3">
-                  <div className="size-10 rounded-full grid place-items-center text-[20px] shrink-0 bg-surface hairline">{s.flag}</div>
+            {/* ② ผู้เดินทาง */}
+            <div className="text-[11px] text-ink-3 mt-4 mb-1.5 flex items-center gap-1"><IconUsers size={12} /> ผู้เดินทาง · {people.length} คน</div>
+            <div className="card p-2 space-y-0.5">
+              {people.map((p, i) => (
+                <div key={i} className="flex items-center gap-2.5 px-1.5 py-1.5">
+                  <Avatar name={p.nick} color={ORDER[i % ORDER.length]} size={28} ring={false} />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13.5px] font-medium truncate">{segName(s)}{segs.length > 1 ? <span className="text-[10.5px] text-ink-3 font-normal"> · เมืองที่ {i + 1}</span> : null}</div>
-                    <div className="text-[11.5px] text-ink-2 mt-0.5">{segRange(i)}</div>
-                    <div className="text-[11px] text-ink-3 mt-0.5">{s.currency} · {tzLabel(s.tz)}</div>
+                    <div className="text-[13px] font-medium flex items-center gap-1.5">
+                      <span className="truncate">{p.nick}</span>
+                      {i === 0 && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>}
+                    </div>
+                    {p.full.trim() && <div className="text-[11px] text-ink-3 truncate">{p.full.trim()}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ③ การ์ดรายเมือง — แถบฟ้าขอบมนซ้อน + รายละเอียดวันที่ */}
+            <div className="text-[11px] text-ink-3 mt-4 mb-1.5 flex items-center gap-1"><IconBuildingSkyscraper size={12} /> เมืองที่ไป · {segs.length} เมือง</div>
+            <div className="space-y-3">
+              {segs.map((s, i) => (
+                <div key={i} className="relative flex flex-col">
+                  <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center gap-1.5 text-white" style={{ background: 'var(--color-brand)' }}>
+                    <span className="text-[13px]">{s.flag}</span>
+                    <span className="text-[13px] font-medium truncate">{segName(s)}</span>
+                    {segs.length > 1 && <span className="text-[11px] text-white/80 ml-auto shrink-0">เมืองที่ {i + 1}</span>}
+                  </div>
+                  <div className="card relative p-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <IconCalendar size={15} className="text-brand shrink-0" />
+                      <div className="text-[12.5px] text-ink">{segRange(i)}</div>
+                    </div>
+                    <div className="text-[11px] text-ink-3 mt-2 pt-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+                      ค่าเงิน {s.currency} · โซนเวลา {tzLabel(s.tz)}
+                    </div>
                   </div>
                 </div>
               ))}
