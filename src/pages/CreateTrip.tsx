@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   IconChevronLeft, IconPlaneTilt, IconCalendar, IconUsers, IconCheck, IconPlus, IconX,
-  IconMapPin, IconCoin, IconLink, IconPencil,
+  IconMapPin, IconLink, IconPencil, IconBuildingSkyscraper,
 } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
@@ -13,6 +13,7 @@ import { CURRENCIES } from '@/lib/fx'
 import { TIMEZONES } from '@/lib/timezones'
 import { ORDER } from '@/lib/avatars'
 import { Avatar } from '@/components/Avatar'
+import { ClearableField } from '@/components/ClearableField'
 import { toast } from '@/lib/toast'
 import type { Traveler } from '@/lib/database.types'
 
@@ -20,6 +21,7 @@ const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full min-w
 const lbl = 'text-[11px] text-ink-3 mb-1'
 
 // Destination presets — pick a country and currency/timezone/flag autofill.
+// The CITY stays for the user to type (ข้อ 2).
 const DESTS = [
   { name: 'Hongkong', flag: '🇭🇰', currency: 'HKD', tz: 'Asia/Hong_Kong' },
   { name: 'China', flag: '🇨🇳', currency: 'CNY', tz: 'Asia/Shanghai' },
@@ -33,16 +35,21 @@ const DESTS = [
   { name: 'USA', flag: '🇺🇸', currency: 'USD', tz: 'America/New_York' },
 ]
 
-interface Seg { city: string; flag: string; currency: string; tz: string; until: string | null }
-const blankSeg = (): Seg => ({ city: '', flag: '🌍', currency: 'CNY', tz: '', until: null })
+interface Seg { country: string; city: string; flag: string; currency: string; tz: string; until: string | null }
+const blankSeg = (): Seg => ({ country: '', city: '', flag: '🌍', currency: 'CNY', tz: '', until: null })
+const segName = (s: Seg) => s.city.trim() || s.country.trim()
+
+interface Person { nick: string; full: string }
 
 type Phase = 'name' | 'dates' | 'city' | 'people' | 'confirm' | 'share'
 
-const thDate = (d: string) => {
-  if (!d) return ''
-  const dt = new Date(d + 'T00:00:00')
-  return dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+const thDate = (d: string | null | undefined) =>
+  d ? new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+const thDay = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' })
+const tzLabel = (tz: string) => TIMEZONES.find((t) => t.tz === tz)?.label ?? tz
+
+// 30-minute time choices for the "ย้ายเมืองกี่โมง" select
+const TIMES = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
 
 export default function CreateTrip() {
   const navigate = useNavigate()
@@ -55,27 +62,40 @@ export default function CreateTrip() {
   const [end, setEnd] = useState('')
   const [segs, setSegs] = useState<Seg[]>([blankSeg()])
   const [cityIdx, setCityIdx] = useState(0)
-  const [multi, setMulti] = useState(false) // "เที่ยวหลายเมือง?" toggled on the current segment
-  const [people, setPeople] = useState<string[]>([])
+  const [multi, setMulti] = useState(false)
+  const [people, setPeople] = useState<Person[]>([])
   const [newName, setNewName] = useState('')
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ tripId: string; travelers: Traveler[] } | null>(null)
   const [sent, setSent] = useState<Set<string>>(new Set())
 
   const myName = profile?.nickname?.trim() || 'ฉัน'
-  const allPeople = useMemo(() => [myName, ...people], [myName, people])
   const seg = segs[cityIdx]
   const days = start && end && end >= start
     ? Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1
     : null
+  // every date of the trip — the "อยู่ถึงวันไหน" picker only offers these (ข้อ 4)
+  const tripDates = useMemo(() => {
+    if (!start || !end || end < start) return []
+    const out: string[] = []
+    const d = new Date(start + 'T00:00:00Z')
+    while (d.toISOString().slice(0, 10) <= end) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1) }
+    return out
+  }, [start, end])
   const stepNo = phase === 'name' ? 1 : phase === 'dates' ? 2 : phase === 'city' ? Math.min(3 + cityIdx, 4) : phase === 'people' ? 5 : 6
 
-  const patchSeg = (p: Partial<Seg>) => setSegs((ss) => ss.map((s, i) => (i === cityIdx ? { ...s, ...p } : s)))
-  function pickDest(name: string) {
-    const d = DESTS.find((x) => x.name === name)
-    if (d) patchSeg({ city: d.name, flag: d.flag, currency: d.currency, tz: d.tz })
-    else patchSeg({ city: '' })
+  const patchSeg = (p: Partial<Seg>, idx = cityIdx) => setSegs((ss) => ss.map((s, i) => (i === idx ? { ...s, ...p } : s)))
+  function pickDest(destName: string) {
+    const d = DESTS.find((x) => x.name === destName)
+    if (d) patchSeg({ country: d.name, flag: d.flag, currency: d.currency, tz: d.tz })
   }
+
+  // dates this segment may hand over on: after the previous segment's handover
+  const untilChoices = useMemo(() => {
+    const prev = cityIdx > 0 ? segs[cityIdx - 1].until?.slice(0, 10) : null
+    return tripDates.filter((d) => !prev || d >= prev)
+  }, [tripDates, segs, cityIdx])
+  const defaultUntil = () => `${untilChoices[1] ?? untilChoices[0] ?? start}T12:00`
 
   function back() {
     if (phase === 'name') { navigate('/'); return }
@@ -87,18 +107,22 @@ export default function CreateTrip() {
     else if (phase === 'confirm') setPhase('people')
   }
 
-  // city step actions
+  function toggleMulti() {
+    if (multi) { setMulti(false); patchSeg({ until: null }) }
+    else { setMulti(true); if (!seg.until) patchSeg({ until: defaultUntil() }) } // prefill (ข้อ 4)
+  }
   function addAnotherCity() {
-    if (!seg.city.trim() || !seg.tz) { toast.error('เลือกประเทศ/เมืองและโซนเวลาก่อน'); return }
-    if (!seg.until) { toast.error('ระบุว่าอยู่เมืองนี้ถึงวันไหน-กี่โมงก่อน'); return }
+    if (!segName(seg) || !seg.tz) { toast.error('เลือกประเทศและใส่ชื่อเมืองก่อน'); return }
+    if (!seg.until) patchSeg({ until: defaultUntil() }) // เมืองถัดไปต้องรู้วันย้าย — เติมให้แก้ได้
     setSegs((ss) => (cityIdx === ss.length - 1 ? [...ss, blankSeg()] : ss))
     setCityIdx(cityIdx + 1)
     setMulti(false)
   }
   function cityNext() {
-    if (!seg.city.trim() || !seg.tz) { toast.error('เลือกประเทศ/เมืองและโซนเวลาก่อน'); return }
-    if (multi && cityIdx === 0) { addAnotherCity(); return } // "ถัดไป · กรอกเมืองที่ 2"
+    if (!segName(seg) || !seg.tz) { toast.error('เลือกประเทศและใส่ชื่อเมืองก่อน'); return }
+    if (multi && cityIdx === 0) { addAnotherCity(); return }
     patchSeg({ until: null }) // last segment runs to the end of the trip
+    setPeople((ps) => (ps.length ? ps : [{ nick: myName, full: '' }]))
     setPhase('people')
   }
 
@@ -108,22 +132,15 @@ export default function CreateTrip() {
     try {
       const first = segs[0]
       const { id: tripId } = await createTrip(user.id, {
-        name: name.trim(), country: first.city, flag: first.flag,
-        cities: segs.map((s) => s.city), currency: first.currency, timezone: first.tz,
-        segments: segs.map((s) => ({ city: s.city, flag: s.flag, currency: s.currency, tz: s.tz, until: s.until })),
+        name: name.trim(), country: first.country || segName(first), flag: first.flag,
+        cities: segs.map(segName), currency: first.currency, timezone: first.tz,
+        segments: segs.map((s) => ({ city: segName(s), country: s.country, flag: s.flag, currency: s.currency, tz: s.tz, until: s.until })),
         start_date: start || null, end_date: end || null,
       })
-      // one itinerary day per trip date
-      if (start && end && end >= start) {
-        const dates: string[] = []
-        const d = new Date(start + 'T00:00:00Z')
-        while (d.toISOString().slice(0, 10) <= end) { dates.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1) }
-        for (let i = 0; i < dates.length; i++) await addDay(tripId, i, dates[i])
-      }
-      // travelers — me first, claimed to my account right away
+      for (let i = 0; i < tripDates.length; i++) await addDay(tripId, i, tripDates[i])
       const ids: string[] = []
-      for (let i = 0; i < allPeople.length; i++) {
-        ids.push(await addTraveler(tripId, { nickname: allPeople[i], avatar_color: ORDER[i % ORDER.length] }))
+      for (let i = 0; i < people.length; i++) {
+        ids.push(await addTraveler(tripId, { nickname: people[i].nick, full_name: people[i].full.trim() || null, avatar_color: ORDER[i % ORDER.length] }))
       }
       await claimTraveler(ids[0], user.id)
       const { data } = await supabase.from('travelers').select('*').eq('trip_id', tripId).order('created_at')
@@ -156,9 +173,17 @@ export default function CreateTrip() {
     </div>
   )
 
+  // segment date range for the confirm cards (ข้อ 6)
+  const segRange = (i: number): string => {
+    const from = i === 0 ? start : segs[i - 1].until
+    const to = segs[i].until
+    const fromTxt = i === 0 ? thDate(start) : `${thDate(from?.slice(0, 10))} ${from?.slice(11, 16) ?? ''}`
+    const toTxt = to ? `${thDate(to.slice(0, 10))} ${to.slice(11, 16)}` : `${thDate(end)} (วันกลับ)`
+    return `${fromTxt} → ${toTxt}`
+  }
+
   return (
     <div className="min-h-dvh bg-canvas flex flex-col max-w-[520px] mx-auto">
-      {/* header + progress */}
       {phase !== 'share' && (
         <>
           <div className="flex items-center justify-between px-4 pt-4">
@@ -190,11 +215,15 @@ export default function CreateTrip() {
             {art(<IconCalendar size={28} stroke={1.8} />)}
             <h1 className="text-[18px] font-medium text-center mt-4">เดินทางเมื่อไหร่?</h1>
             <p className="text-[12px] text-ink-3 text-center mt-1.5">เลือกวันไปและวันกลับ</p>
-            <div className="grid grid-cols-2 gap-2.5 mt-5">
+            <div className="grid grid-cols-2 gap-3 mt-5">
               <div><div className={lbl}>วันไป</div>
-                <input type="date" className={field} value={start} onChange={(e) => { setStart(e.target.value); if (end && e.target.value && end < e.target.value) setEnd(e.target.value) }} /></div>
+                <ClearableField type="date" ariaLabel="ล้างวันไป" value={start}
+                  onChange={(val) => { setStart(val); if (end && val && end < val) setEnd(val) }} onClear={() => setStart('')} />
+              </div>
               <div><div className={lbl}>วันกลับ</div>
-                <input type="date" className={field} value={end} min={start || undefined} onChange={(e) => setEnd(e.target.value)} /></div>
+                <ClearableField type="date" ariaLabel="ล้างวันกลับ" value={end} min={start || undefined}
+                  onChange={(val) => setEnd(val && start && val < start ? start : val)} onClear={() => setEnd('')} />
+              </div>
             </div>
             {days != null && (
               <div className="text-[11px] mt-2 flex items-center gap-1" style={{ color: '#1D9E75' }}>
@@ -212,14 +241,17 @@ export default function CreateTrip() {
               <p className="text-[12px] text-ink-3 text-center mt-1.5">ตั้งแต่ {thDate(segs[cityIdx - 1].until!.slice(0, 10))} {segs[cityIdx - 1].until!.slice(11, 16)} เป็นต้นไป</p>
             )}
             <div className="space-y-3 mt-5">
-              <div><div className={lbl}>ประเทศ / เมือง</div>
-                <select className={field} value={DESTS.some((d) => d.name === seg.city) ? seg.city : ''} onChange={(e) => pickDest(e.target.value)}>
-                  <option value="" disabled>— เลือกปลายทาง —</option>
+              <div><div className={lbl}>ประเทศ</div>
+                <select className={[field, !seg.country ? 'text-ink-3' : ''].join(' ')} value={seg.country} onChange={(e) => pickDest(e.target.value)}>
+                  <option value="" disabled>— เลือกประเทศ —</option>
                   {DESTS.map((d) => <option key={d.name} value={d.name}>{d.flag} {d.name}</option>)}
                 </select>
-                <input className={`${field} mt-2`} value={seg.city} onChange={(e) => patchSeg({ city: e.target.value })} placeholder="หรือพิมพ์ชื่อเมืองเอง เช่น Shenzhen" />
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div><div className={lbl}>เมืองที่จะไป</div>
+                <input className={field} value={seg.city} onChange={(e) => patchSeg({ city: e.target.value })}
+                  placeholder={seg.country === 'Japan' ? 'เช่น Tokyo, Osaka' : seg.country === 'China' ? 'เช่น Shanghai, Shenzhen' : 'พิมพ์ชื่อเมือง เช่น Hongkong'} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div><div className={lbl}>ค่าเงิน</div>
                   <select className={field} value={seg.currency} onChange={(e) => patchSeg({ currency: e.target.value })}>
                     {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
@@ -234,19 +266,25 @@ export default function CreateTrip() {
                 </div>
               </div>
 
-              {/* อยู่เมืองนี้ถึงเมื่อไหร่ — โผล่เมื่อกด "เที่ยวหลายเมือง?" (เมืองแรก)
-                  หรือกด "มีอีกเมือง" (เมืองถัดๆ ไป) */}
+              {/* วันย้ายเมือง — เลือกจากวันในทริปเท่านั้น + เติมค่าให้ล่วงหน้า (ข้อ 4) */}
               {(multi || cityIdx > 0) && (
                 <div className="rounded-[12px] p-3" style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
-                  <div className="text-[12px] font-medium flex items-center gap-1.5 mb-2" style={{ color: 'var(--color-brand-dark)' }}>
-                    <IconMapPin size={13} /> อยู่ {seg.city || 'เมืองนี้'} ถึงเมื่อไหร่?{cityIdx > 0 ? ' (เว้นว่าง = จนถึงวันกลับ)' : ''}
+                  <div className="text-[12px] font-medium flex items-center gap-1.5" style={{ color: 'var(--color-brand-dark)' }}>
+                    <IconMapPin size={13} /> อยู่ {segName(seg) || 'เมืองนี้'} ถึงวันไหน?
                   </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <input type="date" className={field} min={start || undefined} max={end || undefined}
-                      value={seg.until?.slice(0, 10) ?? ''}
-                      onChange={(e) => patchSeg({ until: e.target.value ? `${e.target.value}T${seg.until?.slice(11, 16) || '12:00'}` : null })} />
-                    <input type="time" className={field} value={seg.until?.slice(11, 16) ?? ''}
-                      onChange={(e) => seg.until && patchSeg({ until: `${seg.until.slice(0, 10)}T${e.target.value || '12:00'}` })} />
+                  <div className="text-[11px] mt-0.5 mb-2" style={{ color: 'var(--color-brand-dark)', opacity: .75 }}>
+                    เลือกได้เฉพาะวันในทริป ({thDate(start)} – {thDate(end)})
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <select className={field} value={seg.until?.slice(0, 10) ?? ''}
+                      onChange={(e) => patchSeg({ until: e.target.value ? `${e.target.value}T${seg.until?.slice(11, 16) || '12:00'}` : null })}>
+                      {cityIdx > 0 && <option value="">จนถึงวันกลับ</option>}
+                      {untilChoices.map((d) => <option key={d} value={d}>{thDay(d)}</option>)}
+                    </select>
+                    <select className={field} disabled={!seg.until} value={seg.until?.slice(11, 16) ?? '12:00'}
+                      onChange={(e) => seg.until && patchSeg({ until: `${seg.until.slice(0, 10)}T${e.target.value}` })}>
+                      {TIMES.map((t) => <option key={t} value={t}>{t} น.</option>)}
+                    </select>
                   </div>
                 </div>
               )}
@@ -259,22 +297,32 @@ export default function CreateTrip() {
             {art(<IconUsers size={28} stroke={1.8} />)}
             <h1 className="text-[18px] font-medium text-center mt-4">ใครไปบ้าง?</h1>
             <p className="text-[12px] text-ink-3 text-center mt-1.5">ใส่ชื่อเล่นทีละคน — เดี๋ยวได้ลิงก์เชิญเฉพาะคนตอนจบ</p>
-            <div className="flex flex-wrap gap-2 mt-5">
-              {allPeople.map((p, i) => (
-                <span key={`${p}-${i}`} className="inline-flex items-center gap-1.5 rounded-full hairline bg-surface pl-1.5 pr-3 py-1 text-[13px]">
-                  <Avatar name={p} color={ORDER[i % ORDER.length]} size={24} ring={false} />
-                  {p}
-                  {i === 0
-                    ? <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>
-                    : <button onClick={() => setPeople((ps) => ps.filter((_, idx) => idx !== i - 1))} className="text-ink-3" aria-label={`ลบ ${p}`}><IconX size={12} /></button>}
-                </span>
+            {/* รายชื่อแบบลิสต์แนวตั้ง + ช่องชื่อจริง-นามสกุลต่อคน (ข้อ 5) */}
+            <div className="space-y-2 mt-5">
+              {people.map((p, i) => (
+                <div key={i} className="card flex items-center gap-2.5 p-2.5">
+                  <Avatar name={p.nick} color={ORDER[i % ORDER.length]} size={32} ring={false} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-medium flex items-center gap-1.5">
+                      <span className="truncate">{p.nick}</span>
+                      {i === 0 && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>}
+                    </div>
+                    <input className="w-full min-w-0 bg-transparent outline-none text-[12px] text-ink-2 mt-0.5 placeholder:text-ink-3"
+                      value={p.full} placeholder="ชื่อจริง-นามสกุล (ไม่บังคับ)"
+                      onChange={(e) => setPeople((ps) => ps.map((x, idx) => (idx === i ? { ...x, full: e.target.value } : x)))} />
+                  </div>
+                  {i > 0 && (
+                    <button onClick={() => setPeople((ps) => ps.filter((_, idx) => idx !== i))}
+                      className="shrink-0 text-ink-3 hover:text-[#D85A30]" aria-label={`ลบ ${p.nick}`}><IconX size={15} /></button>
+                  )}
+                </div>
               ))}
             </div>
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-2 mt-3">
               <input className={field} value={newName} placeholder="พิมพ์ชื่อเล่น…"
                 onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && newName.trim()) { setPeople((ps) => [...ps, newName.trim()]); setNewName('') } }} />
-              <button onClick={() => { if (newName.trim()) { setPeople((ps) => [...ps, newName.trim()]); setNewName('') } }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && newName.trim()) { setPeople((ps) => [...ps, { nick: newName.trim(), full: '' }]); setNewName('') } }} />
+              <button onClick={() => { if (newName.trim()) { setPeople((ps) => [...ps, { nick: newName.trim(), full: '' }]); setNewName('') } }}
                 className="shrink-0 h-10 px-4 rounded-md text-[13px] font-medium inline-flex items-center gap-1"
                 style={{ border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-mid)', background: 'var(--color-surface)' }}>
                 <IconPlus size={14} /> เพิ่ม
@@ -286,45 +334,50 @@ export default function CreateTrip() {
         {phase === 'confirm' && (
           <>
             <h1 className="text-[18px] font-medium text-center mt-1">ตรวจสอบก่อนสร้างทริป</h1>
+
+            {/* ภาพรวมทริป — ชื่อ + ช่วงวัน + จำนวนวัน + คนไป (ข้อ 6) */}
             <div className="relative flex flex-col mt-4">
               <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center gap-1.5 text-white" style={{ background: 'var(--color-brand)' }}>
                 <IconPlaneTilt size={14} className="text-white/90" />
                 <span className="text-[13px] font-medium truncate">{name.trim() || 'ทริปใหม่'}</span>
-                <span className="text-[11px] text-white/80 ml-auto shrink-0">{thDate(start)} – {thDate(end)}{days ? ` · ${days} วัน` : ''}</span>
               </div>
-              <div className="card relative">
-                <div className="flex gap-2.5 px-3.5 py-3">
-                  <IconMapPin size={16} className="text-brand shrink-0 mt-0.5" />
+              <div className="card relative p-3.5">
+                <div className="flex items-center gap-2.5">
+                  <IconCalendar size={16} className="text-brand shrink-0" />
+                  <div>
+                    <div className="text-[14px] font-medium">{thDate(start)} – {thDate(end)}</div>
+                    <div className="text-[11px] text-ink-3 mt-0.5">รวม {days ?? '-'} วัน</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 mt-3 pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+                  <IconUsers size={16} className="text-brand shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <div className="text-[10.5px] text-ink-3">เมือง</div>
-                    <div className="text-[13px] mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      {segs.map((s, i) => (
-                        <span key={i} className="inline-flex items-center gap-1">
-                          {i > 0 && <span className="text-[10.5px] text-ink-3">— {segs[i - 1].until ? `${thDate(segs[i - 1].until!.slice(0, 10))} ${segs[i - 1].until!.slice(11, 16)}` : ''} →</span>}
-                          {s.flag} {s.city}
+                    <div className="text-[11px] text-ink-3">ผู้เดินทาง {people.length} คน</div>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {people.map((p, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 rounded-full hairline bg-surface pl-0.5 pr-2 py-0.5 text-[11.5px]">
+                          <Avatar name={p.nick} color={ORDER[i % ORDER.length]} size={20} ring={false} /> {p.nick}
                         </span>
                       ))}
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2.5 px-3.5 py-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-                  <IconCoin size={16} className="text-brand shrink-0 mt-0.5" />
-                  <div>
-                    <div className="text-[10.5px] text-ink-3">ค่าเงิน · โซนเวลา</div>
-                    <div className="text-[13px] mt-0.5">{[...new Set(segs.map((s) => s.currency))].join(' → ')}
-                      {segs.length > 1 && <span className="text-ink-3"> (สลับตามช่วงเมืองอัตโนมัติ)</span>}</div>
-                  </div>
-                </div>
-                <div className="flex gap-2.5 px-3.5 py-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-                  <IconUsers size={16} className="text-brand shrink-0 mt-0.5" />
-                  <div>
-                    <div className="text-[10.5px] text-ink-3">ผู้เดินทาง {allPeople.length} คน</div>
-                    <div className="flex gap-1 mt-1.5">
-                      {allPeople.map((p, i) => <Avatar key={i} name={p} color={ORDER[i % ORDER.length]} size={26} ring={false} />)}
-                    </div>
-                  </div>
-                </div>
               </div>
+            </div>
+
+            {/* การ์ดแยกรายเมือง 1 เมือง 1 ใบ (ข้อ 6) */}
+            <div className="text-[11px] text-ink-3 mt-4 mb-1.5 flex items-center gap-1"><IconBuildingSkyscraper size={12} /> เมืองที่ไป · {segs.length} เมือง</div>
+            <div className="space-y-2">
+              {segs.map((s, i) => (
+                <div key={i} className="card p-3 flex items-center gap-3">
+                  <div className="size-10 rounded-full grid place-items-center text-[20px] shrink-0 bg-surface hairline">{s.flag}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-medium truncate">{segName(s)}{segs.length > 1 ? <span className="text-[10.5px] text-ink-3 font-normal"> · เมืองที่ {i + 1}</span> : null}</div>
+                    <div className="text-[11.5px] text-ink-2 mt-0.5">{segRange(i)}</div>
+                    <div className="text-[11px] text-ink-3 mt-0.5">{s.currency} · {tzLabel(s.tz)}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </>
         )}
@@ -345,7 +398,7 @@ export default function CreateTrip() {
                   <Avatar name={t.nickname} color={t.avatar_color ?? ORDER[i % ORDER.length]} size={30} ring={false} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium truncate">{t.nickname}</div>
-                    {t.user_id === user?.id && <div className="text-[10.5px] text-ink-3">เจ้าของทริป</div>}
+                    <div className="text-[10.5px] text-ink-3 truncate">{t.user_id === user?.id ? 'เจ้าของทริป' : t.full_name || ''}</div>
                   </div>
                   {t.user_id === user?.id
                     ? <span className="text-[11px] text-ink-3 pr-1">คุณ</span>
@@ -365,7 +418,7 @@ export default function CreateTrip() {
         )}
       </div>
 
-      {/* footer buttons */}
+      {/* footer */}
       <div className="px-4 pb-6 pt-2 space-y-2">
         {phase === 'name' && <button onClick={() => name.trim() && setPhase('dates')} disabled={!name.trim()} className="btn-primary w-full h-10 disabled:opacity-50">ถัดไป</button>}
         {phase === 'dates' && <button onClick={() => start && end && setPhase('city')} disabled={!start || !end} className="btn-primary w-full h-10 disabled:opacity-50">ถัดไป</button>}
@@ -377,15 +430,19 @@ export default function CreateTrip() {
                 <IconPlus size={14} /> มีอีกเมือง
               </button>
             )}
+            {/* ปุ่มเที่ยวหลายเมือง — เด่นชัดเป็นปุ่มเต็มแถบ (ข้อ 3) */}
+            {cityIdx === 0 && (
+              <button onClick={toggleMulti}
+                className="w-full h-10 rounded-md text-[13px] font-medium inline-flex items-center justify-center gap-1.5"
+                style={multi
+                  ? { border: '0.5px solid var(--color-line)', color: 'var(--color-ink-2)', background: 'var(--color-surface)' }
+                  : { border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-mid)', background: 'var(--color-brand-soft)' }}>
+                {multi ? <><IconX size={14} /> ยกเลิกเที่ยวหลายเมือง</> : <><IconBuildingSkyscraper size={15} /> เที่ยวหลายเมือง?</>}
+              </button>
+            )}
             <button onClick={cityNext} className="btn-primary w-full h-10">
               {multi && cityIdx === 0 ? 'ถัดไป · กรอกเมืองที่ 2' : 'ถัดไป'}
             </button>
-            {cityIdx === 0 && (
-              <button onClick={() => { setMulti((m) => !m); if (multi) patchSeg({ until: null }) }}
-                className="w-full h-8 text-[12px] text-ink-3 inline-flex items-center justify-center gap-1">
-                {multi ? <><IconX size={12} /> ยกเลิกเที่ยวหลายเมือง</> : <>🏙️ เที่ยวหลายเมือง?</>}
-              </button>
-            )}
           </>
         )}
         {phase === 'people' && <button onClick={() => setPhase('confirm')} className="btn-primary w-full h-10">เสร็จสิ้น</button>}
