@@ -63,23 +63,34 @@ export function NotePanel() {
   const start = useRef<{ x: number; y: number } | null>(null)
   const raf = useRef(0)
 
-  // swipe the open sheet to the right to fold it back
+  // swipe the open sheet to the right — anywhere in the list view — to fold it
+  // back. Direction is decided on first move so vertical scroll & taps survive.
   const [sheetDX, setSheetDX] = useState(0)
   const [sheetDragging, setSheetDragging] = useState(false)
-  const sheetStart = useRef<number | null>(null)
+  const sheetStart = useRef<{ x: number; y: number } | null>(null)
+  const sheetMode = useRef<'pending' | 'drag' | 'scroll'>('pending')
   function sheetDown(e: React.PointerEvent) {
-    if ((e.target as HTMLElement).closest('button')) return // let header buttons work
-    e.currentTarget.setPointerCapture(e.pointerId)
-    sheetStart.current = e.clientX; setSheetDragging(true)
+    sheetStart.current = { x: e.clientX, y: e.clientY }
+    sheetMode.current = 'pending'
   }
   function sheetMove(e: React.PointerEvent) {
-    if (sheetStart.current == null) return
-    setSheetDX(Math.max(0, e.clientX - sheetStart.current))
+    if (!sheetStart.current) return
+    const dx = e.clientX - sheetStart.current.x, dy = e.clientY - sheetStart.current.y
+    if (sheetMode.current === 'pending') {
+      if (Math.abs(dy) > 10 && Math.abs(dy) >= Math.abs(dx)) { sheetMode.current = 'scroll'; return }
+      if (dx > 10 && dx > Math.abs(dy)) {
+        sheetMode.current = 'drag'; setSheetDragging(true)
+        try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* ignore */ }
+      } else return
+    }
+    if (sheetMode.current === 'drag') setSheetDX(Math.max(0, dx))
   }
   function sheetUp() {
-    if (sheetStart.current == null) return
+    const wasDrag = sheetMode.current === 'drag'
     const dx = sheetDX
-    sheetStart.current = null; setSheetDragging(false)
+    sheetStart.current = null; sheetMode.current = 'pending'
+    if (!wasDrag) return
+    setSheetDragging(false)
     if (dx > 80) {
       // pulled far enough → slide the rest of the way out, then unmount
       setSheetDX(440)
@@ -223,10 +234,9 @@ export function NotePanel() {
               <NoteEditor note={editing} isNew={isNew} onChange={setEditing} onBack={() => setEditing(null)}
                 onSave={() => saveEditing(editing)} onDelete={!isNew ? () => { removeNote(editing); setEditing(null) } : undefined} />
             ) : (
-              <>
-                <header onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}
-                  className="flex items-center gap-2 px-4 h-14 shrink-0 text-white cursor-grab active:cursor-grabbing"
-                  style={{ background: 'var(--color-brand)', touchAction: 'pan-y' }}>
+              // whole list view is a drag surface — swipe right anywhere to fold back
+              <div className="flex flex-col h-full min-h-0" onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp} style={{ touchAction: 'pan-y' }}>
+                <header className="flex items-center gap-2 px-4 h-14 shrink-0 text-white" style={{ background: 'var(--color-brand)' }}>
                   <IconNotes size={18} />
                   <h2 className="text-[14.5px] font-semibold flex-1">โน้ตของฉัน</h2>
                   {/* two icon-only add buttons — pick note or to-do straight away */}
@@ -258,7 +268,7 @@ export function NotePanel() {
                       onToggleItem={(id) => toggleItem(n, id)} />
                   ))}
                 </div>
-              </>
+              </div>
             )}
           </aside>
         </div>,
