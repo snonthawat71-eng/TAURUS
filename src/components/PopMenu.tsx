@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { IconDots } from '@tabler/icons-react'
 
 export interface PopMenuItem {
@@ -10,15 +11,38 @@ export interface PopMenuItem {
 
 export function PopMenu({ items, size = 28, buttonClassName = '' }: { items: PopMenuItem[]; size?: number; buttonClassName?: string }) {
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  function openMenu() {
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) })
+    setOpen(true)
+  }
+
+  // dropdown is portaled (see below) so it can't be clipped by a card's
+  // overflow-hidden — but that means its position is a snapshot, so close it
+  // if the page scrolls or resizes underneath instead of drifting stale
+  useLayoutEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('resize', close)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('resize', close)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [open])
+
   return (
     <div className="relative shrink-0">
-      <button className={`btn-icon !border-0 ${buttonClassName}`} style={{ width: size, height: size }} onClick={() => setOpen((v) => !v)} aria-label="เมนู">
+      <button ref={btnRef} className={`btn-icon !border-0 ${buttonClassName}`} style={{ width: size, height: size }} onClick={() => (open ? setOpen(false) : openMenu())} aria-label="เมนู">
         <IconDots size={16} />
       </button>
-      {open && (
+      {open && pos && createPortal(
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-1 w-40 card p-1 shadow-lg z-50">
+          <div className="fixed w-40 card p-1 shadow-lg z-50" style={{ top: pos.top, right: pos.right }}>
             {items.map((it, i) => (
               <button
                 key={i}
@@ -32,7 +56,8 @@ export function PopMenu({ items, size = 28, buttonClassName = '' }: { items: Pop
               </button>
             ))}
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   )
