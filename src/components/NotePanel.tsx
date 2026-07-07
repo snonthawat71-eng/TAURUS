@@ -14,9 +14,9 @@ const OPEN_THRESHOLD = 90 // px of pull before releasing opens the panel
  *  left border bulges toward the finger (classic "liquid swipe" reveal). */
 function liquidPath(pull: number, y: number) {
   const W = window.innerWidth, H = window.innerHeight
-  const edge = W - pull * 0.35            // the flat part of the sheet's edge
+  const edge = W - pull * 0.2             // the flat part of the sheet's edge
   const apex = W - Math.min(pull, W * 0.6) // the tip of the bulge, at finger Y
-  const R = 150 + pull * 0.9              // vertical reach of the bulge
+  const R = 60 + pull * 0.45              // vertical reach of the bulge (short wave)
   const top = Math.max(0, y - R), bottom = Math.min(H, y + R)
   return [
     `M ${W} 0`, `L ${edge} 0`, `L ${edge} ${top}`,
@@ -140,25 +140,24 @@ export function NotePanel() {
         <button
           onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
           onPointerCancel={() => { start.current = null; setDrag(null) }}
-          className="fixed right-0 top-[46%] z-[70] h-16 w-[26px] rounded-l-full grid place-items-center text-white shadow-md select-none"
-          style={{ background: 'var(--color-brand)', opacity: drag ? 0 : 0.88, touchAction: 'none' }}
+          className="fixed right-0 top-[46%] z-[70] h-14 w-[22px] rounded-l-full grid place-items-center text-ink-3 select-none bg-surface"
+          style={{ opacity: drag ? 0 : 1, touchAction: 'none', boxShadow: '-2px 2px 10px rgba(15,30,60,.16)', border: '0.5px solid var(--color-line)', borderRight: 0 }}
           aria-label="โน้ตทริป — แตะหรือลากออกมา">
-          <IconChevronLeft size={13} className="-mr-1 opacity-70" />
-          <IconNotes size={15} className="-mr-1" />
+          <IconChevronLeft size={15} />
         </button>
       )}
 
       {/* the liquid tongue while dragging */}
       {drag && drag.pull > 0 && createPortal(
         <>
-          <div className="fixed inset-0 z-[98] pointer-events-none" style={{ background: `rgba(10,20,35,${Math.min(0.25, drag.pull / 700)})` }} />
-          <svg className="fixed inset-0 z-[99] pointer-events-none" width="100%" height="100%">
-            <path d={liquidPath(drag.pull, drag.y)} fill="var(--color-brand)" opacity="0.96" />
+          <div className="fixed inset-0 z-[98] pointer-events-none" style={{ background: `rgba(10,20,35,${Math.min(0.18, drag.pull / 900)})` }} />
+          <svg className="fixed inset-0 z-[99] pointer-events-none" width="100%" height="100%"
+            style={{ filter: 'drop-shadow(-4px 0 14px rgba(15,30,60,.22))' }}>
+            <path d={liquidPath(drag.pull, drag.y)} fill="var(--color-surface)" />
           </svg>
-          <div className="fixed z-[100] pointer-events-none grid place-items-center size-8 rounded-full bg-white text-brand shadow"
-            style={{ left: window.innerWidth - Math.min(drag.pull, window.innerWidth * 0.6) + 6, top: drag.y - 16, opacity: Math.min(1, drag.pull / 60) }}>
-            <IconNotes size={16} style={{ color: 'var(--color-brand)' }} />
-          </div>
+          {/* just the pull arrow, riding the tip of the wave */}
+          <IconChevronLeft size={18} className="fixed z-[100] pointer-events-none text-ink-3"
+            style={{ left: window.innerWidth - Math.min(drag.pull, window.innerWidth * 0.6) + 4, top: drag.y - 9, opacity: Math.min(1, drag.pull / 50) }} />
         </>,
         document.body,
       )}
