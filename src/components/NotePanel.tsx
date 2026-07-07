@@ -10,19 +10,17 @@ import type { TripNote } from '@/lib/database.types'
 
 const OPEN_THRESHOLD = 90 // px of pull before releasing opens the panel
 
-/** The liquid tongue: a brand-coloured sheet anchored to the right edge whose
- *  left border bulges toward the finger (classic "liquid swipe" reveal). */
+/** The liquid tongue: just a blob swelling out of the right screen edge toward
+ *  the finger — no full-height sheet above/below it. */
 function liquidPath(pull: number, y: number) {
-  const W = window.innerWidth, H = window.innerHeight
-  const edge = W - pull * 0.2             // the flat part of the sheet's edge
+  const W = window.innerWidth
   const apex = W - Math.min(pull, W * 0.6) // the tip of the bulge, at finger Y
-  const R = 60 + pull * 0.45              // vertical reach of the bulge (short wave)
-  const top = Math.max(0, y - R), bottom = Math.min(H, y + R)
+  const R = 60 + pull * 0.45               // vertical reach of the bulge
   return [
-    `M ${W} 0`, `L ${edge} 0`, `L ${edge} ${top}`,
-    `C ${edge} ${y - R * 0.45}, ${apex} ${y - R * 0.45}, ${apex} ${y}`,
-    `C ${apex} ${y + R * 0.45}, ${edge} ${y + R * 0.45}, ${edge} ${bottom}`,
-    `L ${edge} ${H}`, `L ${W} ${H}`, 'Z',
+    `M ${W} ${y - R}`,
+    `C ${W} ${y - R * 0.45}, ${apex} ${y - R * 0.45}, ${apex} ${y}`,
+    `C ${apex} ${y + R * 0.45}, ${W} ${y + R * 0.45}, ${W} ${y + R}`,
+    'Z',
   ].join(' ')
 }
 
