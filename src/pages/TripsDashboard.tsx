@@ -36,6 +36,12 @@ const HERO_GRADIENTS = [
   'linear-gradient(135deg,#0c2f63,#03101f)',
   'linear-gradient(135deg,#143f80,#06182e)',
 ]
+/** Hard cap the card title so a long name can never stretch the card — over
+ *  15 chars gets clipped to "…" (the full name is on the title attribute). */
+const clipName = (s?: string | null) => {
+  const t = (s ?? '').trim()
+  return t.length > 15 ? `${t.slice(0, 15)}…` : t
+}
 function heroGradient(t: Trip) {
   const s = t.id || t.name || ''
   let h = 0
@@ -219,7 +225,7 @@ export default function TripsDashboard() {
             )}
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {visibleTrips.map((t) => {
               const isOwner = t.owner_id === user?.id
               const tvs = byTrip.get(t.id) ?? []
@@ -252,7 +258,7 @@ export default function TripsDashboard() {
 
                     <button onClick={() => open(t)} className="text-left block w-full min-w-0">
                       <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/85">Trip to</div>
-                      <div className="text-[20px] font-semibold leading-tight truncate">{t.name}</div>
+                      <div className="text-[20px] font-semibold leading-tight truncate" title={t.name ?? ''}>{clipName(t.name)}</div>
                       <div className="flex items-center gap-1.5 text-[11px] text-white/95 mt-0.5">
                         <IconCalendar size={12} />
                         <span>{formatDateRange(t.start_date, t.end_date) || 'ยังไม่กำหนดวัน'}{t.start_date && t.end_date ? ` · ${dayCount(t.start_date, t.end_date)} วัน` : ''}</span>
