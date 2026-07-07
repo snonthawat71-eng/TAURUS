@@ -239,7 +239,8 @@ export default function TripsDashboard() {
                       <span className="text-[24px] leading-none">{flagOf(t)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <PopMenu items={[
-                          { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setEditor(t) },
+                          // draft trips (no dates) edit through the create wizard, like the "พร้อมเดินทางแล้ว" button
+                          { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => (t.start_date ? setEditor(t) : navigate(`/create?upgrade=${t.id}`)) },
                           { label: 'ทำสำเนา', icon: busyId === t.id ? <IconLoader2 size={15} className="animate-spin" /> : <IconCopy size={15} />, onClick: () => duplicate(t) },
                           ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
                         ]} buttonClassName="!bg-transparent !text-white hover:!bg-white/25" />
