@@ -233,8 +233,9 @@ export default function TripsDashboard() {
                   <div className="absolute inset-0" style={{ background: 'linear-gradient(100deg, rgba(7,22,60,0.92) 0%, rgba(9,28,74,0.55) 38%, rgba(9,28,74,0.10) 66%, rgba(9,28,74,0) 100%)' }} />
                   <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 52%, rgba(4,12,32,0.48) 100%)' }} />
 
-                  {/* everything sits on the photo */}
-                  <div className="relative flex-1 flex flex-col p-3.5">
+                  {/* everything sits on the photo (min-w-0 so a long name can truncate
+                      instead of stretching the card) */}
+                  <div className="relative flex-1 flex flex-col p-3.5 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-[24px] leading-none">{flagOf(t)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -249,7 +250,7 @@ export default function TripsDashboard() {
 
                     <div className="flex-1 min-h-3" />
 
-                    <button onClick={() => open(t)} className="text-left">
+                    <button onClick={() => open(t)} className="text-left block w-full min-w-0">
                       <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/85">Trip to</div>
                       <div className="text-[20px] font-semibold leading-tight truncate">{t.name}</div>
                       <div className="flex items-center gap-1.5 text-[11px] text-white/95 mt-0.5">
