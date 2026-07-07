@@ -30,13 +30,12 @@ function liquidPath(pull: number, y: number) {
   ].join(' ')
 }
 
-/** The resting pull handle: a wavy tab budding off the right edge — pinched at
- *  top & bottom, bulging out at the middle (a liquid-drip silhouette). */
+/** The resting pull handle: a tall single-bulge tab budding off the right edge. */
 function handlePath(w: number, h: number) {
   return [
     `M ${w} 0`,
-    `C ${w * 0.15} ${h * 0.10}, ${w} ${h * 0.32}, 0 ${h * 0.5}`,
-    `C ${w} ${h * 0.68}, ${w * 0.15} ${h * 0.90}, ${w} ${h}`,
+    `C ${w} ${h * 0.34}, 0 ${h * 0.30}, 0 ${h * 0.5}`,
+    `C 0 ${h * 0.70}, ${w} ${h * 0.66}, ${w} ${h}`,
     'Z',
   ].join(' ')
 }
@@ -162,11 +161,11 @@ export function NotePanel() {
         <button
           onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
           onPointerCancel={() => { start.current = null; setDrag(null) }}
-          className="fixed right-0 top-[44%] z-[70] grid place-items-center text-ink-3 select-none"
-          style={{ width: 22, height: 104, opacity: drag ? 0 : 1, touchAction: 'none' }}
+          className="fixed right-0 top-[40%] z-[70] grid place-items-center text-ink-3 select-none"
+          style={{ width: 22, height: 152, opacity: drag ? 0 : 1, touchAction: 'none' }}
           aria-label="โน้ตทริป — แตะหรือลากออกมา">
-          <svg width="22" height="104" viewBox="0 0 22 104" className="absolute inset-0" style={{ filter: 'drop-shadow(-3px 0 8px rgba(15,30,60,.16))' }}>
-            <path d={handlePath(22, 104)} fill="var(--color-surface)" stroke="var(--color-line)" strokeWidth="0.5" />
+          <svg width="22" height="152" viewBox="0 0 22 152" className="absolute inset-0" style={{ filter: 'drop-shadow(-3px 0 8px rgba(15,30,60,.16))' }}>
+            <path d={handlePath(22, 152)} fill="var(--color-surface)" stroke="var(--color-line)" strokeWidth="0.5" />
           </svg>
           <IconChevronLeft size={16} className="relative -ml-1" />
         </button>
