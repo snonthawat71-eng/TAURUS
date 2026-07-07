@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { TopBar } from './TopBar'
 import { OfflineBanner } from '@/components/OfflineBanner'
+import { NotePanel } from '@/components/NotePanel'
 import { NoTrip } from '@/components/NoTrip'
 import { useTrip } from '@/contexts/TripContext'
 import { visibleNav } from './nav'
@@ -60,6 +61,7 @@ export function AppShell() {
         </div>
       </main>
       <BottomNav />
+      <NotePanel />
     </div>
   )
 }

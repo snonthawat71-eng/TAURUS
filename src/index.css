@@ -163,6 +163,16 @@
   }
 }
 
+/* NotePanel — the note sheet sliding in from the right edge */
+@keyframes note-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 @keyframes toast-in {
   from {
     transform: translateY(12px);

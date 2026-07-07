@@ -373,3 +373,17 @@ export interface Expense {
   /** optional — present after the concurrency.sql migration (optimistic lock) */
   version?: number
 }
+
+/** Shared trip note (trip_notes table — supabase/notes.sql). Pulled out from
+ *  the right screen edge via the liquid-swipe NotePanel. */
+export interface TripNote {
+  id: string
+  trip_id: string
+  /** filled by the DB default (auth.uid()) */
+  user_id?: string | null
+  author_name?: string | null
+  author_color?: string | null
+  body: string
+  created_at: string
+  updated_at?: string | null
+}
