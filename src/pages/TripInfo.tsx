@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
   IconBed, IconPlane, IconPencil, IconTrash, IconTrain, IconQrcode, IconChevronDown,
@@ -487,6 +488,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
 
 export default function TripInfo() {
   const { trip, travelers, travelerFiles, flights, trains, trainTickets, hotels, profile, reload, patch, canEdit } = useTrip()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [selected, setSelected] = useState<Traveler | null>(null)
   const [qrFor, setQrFor] = useState<Traveler | null>(null)
@@ -654,6 +656,28 @@ export default function TripInfo() {
                 <span className="text-[10px] text-ink-3 tabular-nums leading-none">ใช้แล้ว {usedTickets}</span>
               )}
             </div>
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // ── draft trip (no start date yet): Personal is locked until "พร้อมเดินทาง" ──
+  if (trip && !trip.start_date) {
+    return (
+      <div className="card p-8 text-center">
+        <div className="mx-auto mb-4 size-14 rounded-full grid place-items-center" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand)' }}>
+          <IconLock size={26} stroke={1.8} />
+        </div>
+        <h2 className="text-[16px] font-medium">ทริปนี้ยังเป็นแบบร่าง</h2>
+        <p className="text-[12.5px] text-ink-3 mt-2 leading-relaxed">
+          ยังไม่ได้กำหนดวันเดินทางและผู้เดินทาง — หน้านี้จะเปิดใช้เมื่อพร้อมเดินทาง<br />
+          แพลนที่ทำไว้ (สถานที่ · แพลนรายวัน) อยู่ครบ ไม่หายแน่นอน
+        </p>
+        {canEdit && (
+          <button onClick={() => navigate(`/create?upgrade=${trip.id}`)}
+            className="btn-primary h-10 px-6 mt-5 inline-flex items-center justify-center gap-1.5">
+            🚀 พร้อมเดินทางแล้ว
           </button>
         )}
       </div>
