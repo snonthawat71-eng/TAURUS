@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  IconNotes, IconX, IconPencil, IconTrash, IconChevronLeft, IconLoader2, IconPlus,
+  IconNotes, IconX, IconPencil, IconTrash, IconChevronLeft, IconChevronRight, IconLoader2, IconPlus,
   IconListCheck, IconNote, IconLock, IconUsers, IconArrowLeft,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { listNotes, addNote, updateNote, deleteNote, isNotesMissing, type NoteInsert } from '@/lib/noteMutations'
-import { STATUS_META, STATUS_ORDER, StatusIcon, StatusBadge } from './NoteStatus'
+import { STATUS_META, STATUS_ORDER, StatusIcon } from './NoteStatus'
 import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import type { TripNote, NoteKind, TodoItem } from '@/lib/database.types'
@@ -30,12 +30,13 @@ function liquidPath(pull: number, y: number) {
   ].join(' ')
 }
 
-/** The resting pull handle: a pronounced curved tab budding off the right edge. */
+/** The resting pull handle: a wavy tab budding off the right edge — pinched at
+ *  top & bottom, bulging out at the middle (a liquid-drip silhouette). */
 function handlePath(w: number, h: number) {
   return [
     `M ${w} 0`,
-    `C ${w} ${h * 0.34}, 0 ${h * 0.30}, 0 ${h * 0.5}`,
-    `C 0 ${h * 0.70}, ${w} ${h * 0.66}, ${w} ${h}`,
+    `C ${w * 0.15} ${h * 0.10}, ${w} ${h * 0.32}, 0 ${h * 0.5}`,
+    `C ${w} ${h * 0.68}, ${w * 0.15} ${h * 0.90}, ${w} ${h}`,
     'Z',
   ].join(' ')
 }
@@ -55,8 +56,6 @@ function blankNote(kind: NoteKind): TripNote {
   }
 }
 
-type Filter = 'all' | 'note' | 'todo'
-
 export function NotePanel() {
   const { trip, memberProfiles } = useTrip()
   const { user } = useAuth()
@@ -68,8 +67,6 @@ export function NotePanel() {
   const [notes, setNotes] = useState<TripNote[]>([])
   const [loading, setLoading] = useState(false)
   const [missing, setMissing] = useState(false)
-  const [filter, setFilter] = useState<Filter>('all')
-  const [addMenu, setAddMenu] = useState(false)
   const [editing, setEditing] = useState<TripNote | null>(null) // editor view when set
   const [isNew, setIsNew] = useState(false)
 
@@ -117,7 +114,6 @@ export function NotePanel() {
   const myProfile = memberProfiles.find((p) => p.id === user?.id)
 
   function startNew(kind: NoteKind) {
-    setAddMenu(false)
     setEditing(blankNote(kind))
     setIsNew(true)
   }
@@ -158,7 +154,6 @@ export function NotePanel() {
   }
 
   if (!trip) return null
-  const shown = notes.filter((n) => filter === 'all' || n.kind === filter)
 
   return (
     <>
@@ -202,53 +197,28 @@ export function NotePanel() {
                 onSave={() => saveEditing(editing)} onDelete={!isNew ? () => { removeNote(editing); setEditing(null) } : undefined} />
             ) : (
               <>
-                <header className="flex items-center gap-2.5 px-4 h-14 shrink-0 text-white relative" style={{ background: 'var(--color-brand)' }}>
+                <header className="flex items-center gap-2 px-4 h-14 shrink-0 text-white" style={{ background: 'var(--color-brand)' }}>
                   <IconNotes size={18} />
                   <h2 className="text-[14.5px] font-semibold flex-1">โน้ตของฉัน</h2>
-                  <button onClick={() => setAddMenu((v) => !v)} className="grid place-items-center h-8 px-2.5 gap-1 rounded-full bg-white/20 hover:bg-white/30 text-[12.5px] font-medium" aria-label="สร้างใหม่">
-                    <IconPlus size={15} /> ใหม่
-                  </button>
-                  <button onClick={() => setOpen(false)} className="grid place-items-center size-8 rounded-full hover:bg-white/15" aria-label="ปิด"><IconX size={17} /></button>
-                  {addMenu && (
-                    <>
-                      <div className="fixed inset-0 z-[1]" onClick={() => setAddMenu(false)} />
-                      <div className="absolute right-11 top-12 z-[2] w-44 card p-1 shadow-lg">
-                        <button onClick={() => startNew('note')} className="w-full flex items-center gap-2.5 px-2.5 h-10 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
-                          <IconNote size={17} className="text-brand" /> Note
-                        </button>
-                        <button onClick={() => startNew('todo')} className="w-full flex items-center gap-2.5 px-2.5 h-10 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
-                          <IconListCheck size={17} className="text-brand" /> To-do list
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  {/* two icon-only add buttons — pick note or to-do straight away */}
+                  <button onClick={() => startNew('note')} className="grid place-items-center size-8 rounded-full bg-white/20 hover:bg-white/30" aria-label="เพิ่ม Note" title="เพิ่ม Note"><IconNote size={17} /></button>
+                  <button onClick={() => startNew('todo')} className="grid place-items-center size-8 rounded-full bg-white/20 hover:bg-white/30" aria-label="เพิ่ม To-do" title="เพิ่ม To-do"><IconListCheck size={17} /></button>
+                  <button onClick={() => setOpen(false)} className="grid place-items-center size-8 rounded-full hover:bg-white/15 ml-0.5" aria-label="ปิด"><IconX size={17} /></button>
                 </header>
 
-                {/* filter */}
-                {!missing && (
-                  <div className="flex gap-1 p-2 shrink-0" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-                    {([['all', 'ทั้งหมด'], ['note', 'Note'], ['todo', 'To-do']] as const).map(([k, l]) => (
-                      <button key={k} onClick={() => setFilter(k)}
-                        className={['flex-1 h-8 rounded-full text-[12px] font-medium transition-colors', filter === k ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>
-                        {l}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
                   {missing ? (
                     <div className="card p-4 text-[12.5px] text-ink-2 leading-relaxed">
                       ⚙️ ยังไม่ได้เปิดใช้ / อัปเกรดโน้ต — รัน SQL <code className="text-[11.5px] bg-surface-2 rounded px-1">supabase/notes.sql</code> ใน Supabase SQL Editor ก่อน แล้วเปิดแผงนี้ใหม่
                     </div>
                   ) : loading && notes.length === 0 ? (
                     <div className="grid place-items-center py-10 text-ink-3"><IconLoader2 size={20} className="animate-spin" /></div>
-                  ) : shown.length === 0 ? (
+                  ) : notes.length === 0 ? (
                     <div className="text-center py-12">
                       <IconNotes size={26} className="mx-auto text-ink-3" />
-                      <p className="text-[12.5px] text-ink-3 mt-2">ยังไม่มีรายการ — แตะ “ใหม่” เพื่อเพิ่ม Note หรือ To-do</p>
+                      <p className="text-[12.5px] text-ink-3 mt-2">ยังไม่มีรายการ — แตะไอคอน 📝 / ✅ ด้านบนเพื่อเพิ่ม</p>
                     </div>
-                  ) : shown.map((n) => (
+                  ) : notes.map((n) => (
                     <NoteCard key={n.id} note={n} mine={!!user && n.user_id === user.id}
                       onEdit={() => startEdit(n)} onDelete={() => removeNote(n)}
                       onCycleStatus={() => {
@@ -282,68 +252,73 @@ function NoteCard({ note, mine, onEdit, onDelete, onCycleStatus, onToggleShare, 
 }) {
   const items = note.items ?? []
   const done = items.filter((it) => it.done).length
+  const m = STATUS_META[note.status]
   return (
-    <div className="card p-3">
-      <div className="flex items-center gap-2">
-        {/* tap the badge to advance status (mine only) */}
-        <button onClick={mine ? onCycleStatus : undefined} disabled={!mine} className={mine ? 'active:scale-95 transition-transform' : ''}>
-          <StatusBadge status={note.status} />
+    <div className="relative flex flex-col">
+      {/* status-tinted strip peeks out the top with rounded corners; the white
+          card overlaps it (layered look, like the itinerary day cards) */}
+      <div className="relative -mb-3 pt-1.5 pb-4 px-3 rounded-t-[14px] flex items-center gap-1.5" style={{ background: m.bg }}>
+        {/* tap to advance status → chevron hints it's changeable (mine only) */}
+        <button onClick={mine ? onCycleStatus : undefined} disabled={!mine}
+          className="inline-flex items-center gap-1.5 text-[12px] font-semibold active:scale-95 transition-transform" style={{ color: m.color }}>
+          <StatusIcon status={note.status} size={15} /> {m.label}
+          {mine && <IconChevronRight size={13} className="opacity-70 -ml-0.5" />}
         </button>
         <span className="ml-auto flex items-center gap-1 shrink-0">
           {mine ? (
             <button onClick={onToggleShare}
-              className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-[10.5px] font-medium"
-              style={note.shared
-                ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }
-                : { background: 'var(--color-surface-2)', color: 'var(--color-ink-3)' }}>
+              className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-[10.5px] font-medium bg-white/70"
+              style={{ color: note.shared ? 'var(--color-brand-dark)' : 'var(--color-ink-3)' }}>
               {note.shared ? <><IconUsers size={12} /> แชร์แล้ว</> : <><IconLock size={12} /> ส่วนตัว</>}
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-[10.5px] font-medium" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>
+            <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-[10.5px] font-medium bg-white/70" style={{ color: 'var(--color-brand-dark)' }}>
               <IconUsers size={12} /> แชร์
             </span>
           )}
           {mine && (
             <>
-              <button onClick={onEdit} className="grid place-items-center size-6 rounded-md text-ink-3 hover:bg-surface-2" aria-label="แก้ไข"><IconPencil size={13} /></button>
-              <button onClick={onDelete} className="grid place-items-center size-6 rounded-md text-ink-3 hover:text-[#D85A30] hover:bg-surface-2" aria-label="ลบ"><IconTrash size={13} /></button>
+              <button onClick={onEdit} className="grid place-items-center size-6 rounded-md text-ink-3 hover:bg-white/60" aria-label="แก้ไข"><IconPencil size={13} /></button>
+              <button onClick={onDelete} className="grid place-items-center size-6 rounded-md text-ink-3 hover:text-[#D85A30] hover:bg-white/60" aria-label="ลบ"><IconTrash size={13} /></button>
             </>
           )}
         </span>
       </div>
 
-      <div className="flex items-center gap-1.5 mt-2">
-        {note.kind === 'todo' ? <IconListCheck size={15} className="text-ink-3 shrink-0" /> : <IconNote size={15} className="text-ink-3 shrink-0" />}
-        <h3 className="text-[14px] font-semibold text-ink truncate">{note.title || (note.kind === 'todo' ? 'To-do' : 'ไม่มีหัวข้อ')}</h3>
+      <div className="card relative p-3">
+        <div className="flex items-center gap-1.5">
+          {note.kind === 'todo' ? <IconListCheck size={15} className="text-ink-3 shrink-0" /> : <IconNote size={15} className="text-ink-3 shrink-0" />}
+          <h3 className="text-[14px] font-semibold text-ink truncate">{note.title || (note.kind === 'todo' ? 'To-do' : 'ไม่มีหัวข้อ')}</h3>
+        </div>
+
+        {note.kind === 'note' ? (
+          note.body?.trim() && <p className="text-[12.5px] text-ink-2 mt-1 leading-relaxed whitespace-pre-wrap line-clamp-4 break-words">{note.body}</p>
+        ) : items.length > 0 && (
+          <div className="mt-2 space-y-1.5">
+            {items.slice(0, 5).map((it) => (
+              <button key={it.id} onClick={mine ? () => onToggleItem(it.id) : undefined} disabled={!mine}
+                className="w-full flex items-start gap-2 text-left">
+                <span className="mt-[1px] grid place-items-center size-4 rounded-[5px] shrink-0"
+                  style={it.done ? { background: 'var(--color-brand)', color: '#fff' } : { border: '1.4px solid var(--color-line-2)' }}>
+                  {it.done && <IconCheckSmall />}
+                </span>
+                <span className={`text-[12.5px] leading-snug ${it.done ? 'line-through text-ink-3' : 'text-ink-2'}`}>{it.text}</span>
+              </button>
+            ))}
+            {items.length > 5 && <div className="text-[11px] text-ink-3 pl-6">+{items.length - 5} รายการ</div>}
+            <div className="text-[11px] text-ink-3 pl-6 pt-0.5">{done}/{items.length} เสร็จ</div>
+          </div>
+        )}
+
+        {!mine && (
+          <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-ink-3">
+            <span className="size-4 rounded-full grid place-items-center text-[8px] font-bold text-white shrink-0" style={{ background: note.author_color || 'var(--color-brand)' }}>
+              {(note.author_name || 'U').slice(0, 1).toUpperCase()}
+            </span>
+            {note.author_name || 'สมาชิกทริป'} · {noteTime(note.created_at)}
+          </div>
+        )}
       </div>
-
-      {note.kind === 'note' ? (
-        note.body?.trim() && <p className="text-[12.5px] text-ink-2 mt-1 leading-relaxed whitespace-pre-wrap line-clamp-4 break-words">{note.body}</p>
-      ) : items.length > 0 && (
-        <div className="mt-2 space-y-1.5">
-          {items.slice(0, 5).map((it) => (
-            <button key={it.id} onClick={mine ? () => onToggleItem(it.id) : undefined} disabled={!mine}
-              className="w-full flex items-start gap-2 text-left">
-              <span className="mt-[1px] grid place-items-center size-4 rounded-[5px] shrink-0"
-                style={it.done ? { background: 'var(--color-brand)', color: '#fff' } : { border: '1.4px solid var(--color-line-2)' }}>
-                {it.done && <IconCheckSmall />}
-              </span>
-              <span className={`text-[12.5px] leading-snug ${it.done ? 'line-through text-ink-3' : 'text-ink-2'}`}>{it.text}</span>
-            </button>
-          ))}
-          {items.length > 5 && <div className="text-[11px] text-ink-3 pl-6">+{items.length - 5} รายการ</div>}
-          <div className="text-[11px] text-ink-3 pl-6 pt-0.5">{done}/{items.length} เสร็จ</div>
-        </div>
-      )}
-
-      {!mine && (
-        <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-ink-3">
-          <span className="size-4 rounded-full grid place-items-center text-[8px] font-bold text-white shrink-0" style={{ background: note.author_color || 'var(--color-brand)' }}>
-            {(note.author_name || 'U').slice(0, 1).toUpperCase()}
-          </span>
-          {note.author_name || 'สมาชิกทริป'} · {noteTime(note.created_at)}
-        </div>
-      )}
     </div>
   )
 }
@@ -371,7 +346,6 @@ function NoteEditor({ note, isNew, onChange, onBack, onSave, onDelete }: {
       <header className="flex items-center gap-2 px-3 h-14 shrink-0 text-white" style={{ background: 'var(--color-brand)' }}>
         <button onClick={onBack} className="grid place-items-center size-8 rounded-full hover:bg-white/15" aria-label="ย้อนกลับ"><IconArrowLeft size={18} /></button>
         <h2 className="text-[14.5px] font-semibold flex-1">{isNew ? 'สร้างใหม่' : 'แก้ไข'}</h2>
-        <button onClick={onSave} className="h-8 px-3.5 rounded-full bg-white text-brand text-[12.5px] font-semibold">บันทึก</button>
       </header>
 
       <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
@@ -464,6 +438,11 @@ function NoteEditor({ note, isNew, onChange, onBack, onSave, onDelete }: {
           </button>
         )}
       </div>
+
+      {/* save lives at the bottom */}
+      <footer className="p-3 shrink-0 bg-canvas" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+        <button onClick={onSave} className="btn-primary w-full h-11 text-[14px] font-semibold">บันทึก</button>
+      </footer>
     </>
   )
 }
