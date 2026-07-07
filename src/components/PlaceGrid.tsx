@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar } from '@tabler/icons-react'
+import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar, IconHeart } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { PlaceCard, type Interested, type CardMode } from './PlaceCard'
@@ -33,6 +33,7 @@ export function PlaceGrid({
   const mode: CardMode = canEdit ? 'edit' : myPermission === 'places' ? 'pin' : 'view'
   const [dim, setDim] = useState<Dim>('none')
   const [chip, setChip] = useState('all')
+  const [wantSort, setWantSort] = useState(false)
   const [query, setQuery] = useState('')
   const [dimMenu, setDimMenu] = useState(false)
   const [editor, setEditor] = useState<'new' | Place | null>(null)
@@ -67,15 +68,25 @@ export function PlaceGrid({
     dim === 'city' ? (p.city || 'ไม่ระบุเมือง')
       : catTabKey(p.category, group)
 
+  // how many people tapped "อยากไป" on each place
+  const wantCountByPlace = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const i of interests) m.set(i.place_id, (m.get(i.place_id) ?? 0) + 1)
+    return m
+  }, [interests])
+  const wantCount = (p: Place) => wantCountByPlace.get(p.id) ?? 0
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return places
       .filter((p) => p.group_type === group)
       .filter((p) => !q || (p.name ?? '').toLowerCase().includes(q) || (p.station_name ?? '').toLowerCase().includes(q) || (p.note ?? '').toLowerCase().includes(q))
       .filter((p) => dim === 'none' || chip === 'all' || valueOf(p) === chip)
-      .sort((a, b) => Number(a.in_plan) - Number(b.in_plan))
+      // "อยากไป" mode: only places someone wants, ranked most-wanted first
+      .filter((p) => !wantSort || wantCount(p) > 0)
+      .sort((a, b) => wantSort ? (wantCount(b) - wantCount(a)) : (Number(a.in_plan) - Number(b.in_plan)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [places, group, query, chip, dim])
+  }, [places, group, query, chip, dim, wantSort, wantCountByPlace])
 
   // chips reflect the selected dimension (none = no value chips)
   const chipList: CategoryTab[] = dim === 'none'
@@ -214,7 +225,13 @@ export function PlaceGrid({
             </>
           )}
         </div>
-        <div ref={hscroll} className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0" style={chipList.length === 0 ? { display: 'none' } : undefined}>
+        {/* อยากไป — filter to places people want, ranked by vote count */}
+        <button onClick={() => setWantSort((v) => !v)}
+          className={['inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
+            wantSort ? 'bg-brand text-white' : 'hairline bg-surface text-ink-2'].join(' ')}>
+          {wantSort ? <IconHeart size={14} fill="currentColor" /> : <IconHeart size={14} />} อยากไป
+        </button>
+        <div ref={hscroll} className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0" style={chipList.length === 0 || wantSort ? { display: 'none' } : undefined}>
           {chipList.map((t) => (
             <button key={t.key} onClick={() => setChip(t.key)}
               className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
@@ -227,11 +244,11 @@ export function PlaceGrid({
 
       {filtered.length === 0 ? (
         <div className="card p-8 flex flex-col items-center gap-2 text-center">
-          <IconSearch size={28} className="text-ink-3" />
-          <p className="text-[13px] text-ink-2">{query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</p>
-          {canEdit && !query && <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-[13px] mt-1"><IconPlus size={15} /> {addLabel}</button>}
+          {wantSort ? <IconHeart size={28} className="text-ink-3" /> : <IconSearch size={28} className="text-ink-3" />}
+          <p className="text-[13px] text-ink-2">{wantSort ? 'ยังไม่มีใครกด “อยากไป”' : query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</p>
+          {canEdit && !query && !wantSort && <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-[13px] mt-1"><IconPlus size={15} /> {addLabel}</button>}
         </div>
-      ) : (dim === 'none' || chip !== 'all') ? (
+      ) : (wantSort || dim === 'none' || chip !== 'all') ? (
         <div className="grid grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
       ) : (
         <div className="space-y-6">
