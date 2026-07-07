@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore, IconZoomScan, IconPhoto } from '@tabler/icons-react'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore, IconZoomScan, IconPhoto, IconWorldShare } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
 import { SignedImage } from './SignedImage'
@@ -20,7 +20,7 @@ import type { Interested } from './PlaceCard'
 import type { Place } from '@/lib/database.types'
 
 export function PlaceDetail({
-  place, interested, mine, open, canEdit = true, onClose, onTogglePlan, onToggleInterest, onEdit, onPin,
+  place, interested, mine, open, canEdit = true, onClose, onTogglePlan, onToggleInterest, onEdit, onPin, onShare,
 }: {
   place: Place | null
   interested: Interested[]
@@ -32,6 +32,7 @@ export function PlaceDetail({
   onToggleInterest: () => void
   onEdit?: () => void
   onPin?: () => void
+  onShare?: () => void
 }) {
   // which branch (chain location) is selected; null = the place's own location
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
@@ -91,7 +92,10 @@ export function PlaceDetail({
               </div>
             )}
           </div>
-          {onEdit && <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไข"><IconPencil size={15} /></button>}
+          <div className="flex items-center gap-1 shrink-0">
+            {onShare && <button onClick={onShare} className="btn-icon !size-8" aria-label="แชร์ไป Explore" title="แชร์ไป Explore"><IconWorldShare size={15} /></button>}
+            {onEdit && <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไข"><IconPencil size={15} /></button>}
+          </div>
         </div>
 
         {/* branch picker — for chains with multiple locations */}

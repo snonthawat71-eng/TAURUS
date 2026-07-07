@@ -8,6 +8,7 @@ import { PlaceDetail } from './PlaceDetail'
 import { SaveToTripDialog } from './SaveToTripDialog'
 import { AddToDayDialog } from './AddToDayDialog'
 import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
+import { addExplore, searchExploreSimilar, placeAsExploreInput } from '@/lib/exploreMutations'
 import { confirmDialog } from '@/lib/confirm'
 import { offerUndo } from '@/lib/undo'
 import { toast } from '@/lib/toast'
@@ -118,13 +119,35 @@ export function PlaceGrid({
     await deletePlace(p.id); await reload()
     offerUndo('ลบรายการแล้ว', [{ table: 'places', rows: [p] }], reload)
   }
+  // Share a place we added into the public Explore pool — but first warn if the
+  // same spot looks like it's already there, so we don't flood it with dupes.
+  async function shareToExplore(p: Place) {
+    if (!user) return
+    if (!p.name?.trim()) { toast.error('ตั้งชื่อสถานที่ก่อนแชร์'); return }
+    const dupes = await searchExploreSimilar(p.name, null)
+    if (dupes.length > 0) {
+      const first = dupes[0]
+      const where = [first.city, first.country].filter(Boolean).join(', ')
+      const ok = await confirmDialog({
+        message: dupes.length === 1
+          ? `มี "${first.name}"${where ? ` (${where})` : ''} อยู่ใน Explore แล้ว — ยืนยันแชร์เพิ่มเป็นรายการใหม่?`
+          : `มีรายการคล้ายกันใน Explore แล้ว ${dupes.length} รายการ เช่น "${first.name}"${where ? ` (${where})` : ''} — ยืนยันแชร์เพิ่ม?`,
+        confirmLabel: 'แชร์เลย',
+      })
+      if (!ok) return
+    }
+    const res = await addExplore(user.id, placeAsExploreInput(p, trip?.country ?? null))
+    if (res.error) toast.error(`แชร์ไม่สำเร็จ: ${res.error.message}`)
+    else toast.success('แชร์ไป Explore แล้ว 🎉 คนอื่นค้นเจอในหน้า Explore ได้เลย')
+  }
 
   const renderCard = (p: Place) => {
     const { list, mine } = interestFor(p)
     return (
       <PlaceCard key={p.id} place={p} interested={list} mine={mine} mode={mode}
         onOpen={() => setDetail(p)} onTogglePlan={() => (p.in_plan ? togglePlan(p) : setDayPickFor(p))} onToggleInterest={() => toggleWant(p)}
-        onEdit={() => setEditor(p)} onDelete={() => remove(p)} onPin={() => setPinPlace(p)} />
+        onEdit={() => setEditor(p)} onDelete={() => remove(p)} onPin={() => setPinPlace(p)}
+        onShare={mode === 'edit' ? () => shareToExplore(p) : undefined} />
     )
   }
 
@@ -239,6 +262,7 @@ export function PlaceGrid({
             onClose={() => setDetail(null)} onToggleInterest={() => toggleWant(detail)}
             onTogglePlan={() => { if (detail.in_plan) togglePlan(detail); else { setDayPickFor(detail); setDetail(null) } }}
             onEdit={canEdit ? () => { setEditor(detail); setDetail(null) } : undefined}
+            onShare={mode === 'edit' ? () => shareToExplore(detail) : undefined}
             onPin={mode === 'pin' ? () => { setPinPlace(detail); setDetail(null) } : undefined} />
         )
       })()}

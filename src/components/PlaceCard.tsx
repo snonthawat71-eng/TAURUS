@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, IconHeartFilled, IconStar, IconBuildingStore, IconZoomScan } from '@tabler/icons-react'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, IconHeartFilled, IconStar, IconBuildingStore, IconZoomScan, IconWorldShare } from '@tabler/icons-react'
 import { AvatarStack } from './Avatar'
 import { PopMenu } from './PopMenu'
 import { PhotoCarousel } from './PhotoCarousel'
@@ -13,7 +13,7 @@ export interface Interested { name: string; color?: string }
 export type CardMode = 'edit' | 'pin' | 'view'
 
 export function PlaceCard({
-  place, interested, mine, mode = 'edit', onOpen, onTogglePlan, onToggleInterest, onEdit, onDelete, onPin,
+  place, interested, mine, mode = 'edit', onOpen, onTogglePlan, onToggleInterest, onEdit, onDelete, onPin, onShare,
 }: {
   place: Place
   interested: Interested[]
@@ -25,6 +25,7 @@ export function PlaceCard({
   onEdit: () => void
   onDelete: () => void
   onPin?: () => void
+  onShare?: () => void
 }) {
   // photo viewer — index into the gallery (cover + extra photos); null = closed
   const [lightbox, setLightbox] = useState<number | null>(null)
@@ -89,6 +90,7 @@ export function PlaceCard({
           {mode === 'edit' && (
             <PopMenu size={24} items={[
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
+              ...(onShare ? [{ label: 'แชร์ไป Explore', icon: <IconWorldShare size={15} />, onClick: onShare }] : []),
               { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
             ]} />
           )}

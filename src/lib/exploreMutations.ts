@@ -269,6 +269,28 @@ export function popularSet(stats: Map<string, PopStat>): Set<string> {
   return new Set(entries.filter(([, s]) => s.score >= cutoff).map(([id]) => id))
 }
 
+const httpOnly = (refs?: string[] | null) => (refs ?? []).filter((r) => /^https?:\/\//.test(r))
+
+/** Inverse of exploreAsPlace: shape a user's own trip Place as an Explore
+ *  submission. Only PUBLIC (http) photo refs carry over — private trip-file
+ *  paths can't be shown in the shared pool, so they're dropped. `country`
+ *  comes from the trip (Place doesn't store it). */
+export function placeAsExploreInput(p: Place, country?: string | null): ExploreInput {
+  const cover = p.photo_url || (p.photo_path && /^https?:\/\//.test(p.photo_path) ? p.photo_path : null)
+  const menu = httpOnly(p.menu_paths)
+  const morePhotos = httpOnly(p.photos)
+  return {
+    group_type: p.group_type, category: p.category, name: p.name,
+    city: p.city ?? null, country: country ?? null,
+    station_line: p.station_line, station_color: p.station_color, station_name: p.station_name,
+    routes: p.routes ?? null, branches: p.branches ?? null, multi_branch: p.multi_branch ?? null,
+    menu_paths: menu.length ? menu : null,
+    map_url: p.map_url, note: p.note,
+    photo_url: cover, photo_focus: cover ? (p.photo_focus ?? null) : null,
+    photos: morePhotos.length ? morePhotos : null,
+  }
+}
+
 /** Shape an Explore pool item as a Place so it can be copied into a trip. */
 export function exploreAsPlace(e: ExplorePlace): Place {
   return {
