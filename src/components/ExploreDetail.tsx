@@ -91,22 +91,23 @@ export function ExploreDetail({ e, open, saved, onClose, onFav, onOpenPlace }: {
     setNearby([]); setNearbyOpen(false); setNearbyByStation(false)
     if (!open || !e?.city?.trim()) return
     let active = true
+    // match by the STATION NAME only (station_name vs station_name) — ไม่เอา
+    // ทั้งสายรถไฟ/สาขาอื่นมาปน; ที่ไม่มีสถานีเลยค่อยถอยไปแนะนำระดับเมือง
     const norm = (x?: string | null) => (x ?? '').trim().toLowerCase()
-    const stationsOf = (pl: ExplorePlace) => [
-      pl.station_name,
-      ...(pl.routes?.map((r) => r.station) ?? []),
-      ...(pl.branches?.map((b) => b.station) ?? []),
-    ].map(norm).filter(Boolean)
-    const mine = new Set(stationsOf(e))
+    const mine = norm(e.station_name)
     supabase.from('explore_places').select('*')
       .eq('city', e.city).neq('id', e.id)
       .order('created_at', { ascending: false }).limit(50)
       .then(({ data }) => {
         if (!active) return
         const rows = (data ?? []) as ExplorePlace[]
-        const sameStation = mine.size ? rows.filter((pl) => stationsOf(pl).some((st) => mine.has(st))) : []
-        setNearby(sameStation.length ? sameStation : rows)
-        setNearbyByStation(sameStation.length > 0)
+        if (mine) {
+          setNearby(rows.filter((pl) => norm(pl.station_name) === mine))
+          setNearbyByStation(true)
+        } else {
+          setNearby(rows)
+          setNearbyByStation(false)
+        }
       })
     return () => { active = false }
   }, [open, e?.id, e?.city])
@@ -370,7 +371,7 @@ export function ExploreDetail({ e, open, saved, onClose, onFav, onOpenPlace }: {
       {nearby.length > 0 && (
         <div className="mt-5">
           <div className="text-[13px] font-medium mb-2">
-            สถานที่ใกล้เคียง{nearbyByStation ? ` · สถานี ${e?.station_name || e?.routes?.[0]?.station || ''}` : `ใน ${e?.city}`}
+            สถานที่ใกล้เคียง{nearbyByStation ? ` · สถานี ${e?.station_name ?? ''}` : `ใน ${e?.city}`}
             {' '}<span className="text-ink-3 font-normal">{nearby.length}</span>
           </div>
           <div className="space-y-2">
