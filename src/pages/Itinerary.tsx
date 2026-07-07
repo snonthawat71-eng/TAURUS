@@ -195,6 +195,41 @@ function SortableBackup({ stop, canEdit, onPromote, onEdit, onDelete }: {
   )
 }
 
+/** A collapsed 🎯 แผนสำรอง fold — sits under the main stop it shares a time
+ *  slot with (or at the day's end for backups with no matching time). The
+ *  cards inside are draggable straight into the schedule. */
+function BackupFold({ backups, canEdit, label, onPromote, onEditStop, onDeleteStop }: {
+  backups: ItineraryStop[]
+  canEdit: boolean
+  label?: string
+  onPromote: (b: ItineraryStop) => void
+  onEditStop: (b: ItineraryStop) => void
+  onDeleteStop: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-[10px] p-2.5 mt-1.5 ml-6" style={{ border: '0.5px dashed var(--color-line-2)', background: 'rgba(238,241,246,.5)' }}>
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-2 text-[12px] font-medium text-ink-2" aria-expanded={open}>
+        <IconTarget size={14} className="text-ink-3" /> {label ?? 'แผนสำรอง'}
+        <span className="text-[10.5px] text-ink-3 bg-surface-2 rounded-full px-1.5 py-px tabular-nums">{backups.length}</span>
+        <span className="ml-auto text-[11px] text-ink-3 flex items-center gap-0.5">
+          {open ? 'พับเก็บ' : 'แตะเพื่อเปิด'} <IconChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+      {open && (
+        <div className="space-y-2 mt-2.5">
+          {backups.map((b) => (
+            <SortableBackup key={b.id} stop={b} canEdit={canEdit}
+              onPromote={() => onPromote(b)}
+              onEdit={() => onEditStop(b)}
+              onDelete={() => onDeleteStop(b.id)} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function DayCard({
   day, index, stops, backups, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste, onMoveToBackup, onPromoteBackup,
 }: {
@@ -228,7 +263,18 @@ function DayCard({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day.id, disabled: !canEdit })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }
   const doneCount = stops.filter((s) => s.done).length
-  const [bkOpen, setBkOpen] = useState(false)
+
+  // แผนสำรองไปพับอยู่ใต้จุดหลักที่ "เวลาตรงกัน"; ที่เหลือ (เวลาไม่ตรง/ไม่ระบุ) รวมท้ายวัน
+  const backupsForStop = new Map<string, ItineraryStop[]>()
+  const looseBackups: ItineraryStop[] = []
+  const timeToStop = new Map<string, string>()
+  for (const s of stops) { const k = s.time?.slice(0, 5); if (k && !timeToStop.has(k)) timeToStop.set(k, s.id) }
+  for (const b of backups) {
+    const k = b.time?.slice(0, 5)
+    const sid = k ? timeToStop.get(k) : undefined
+    if (sid) { const arr = backupsForStop.get(sid) ?? []; arr.push(b); backupsForStop.set(sid, arr) }
+    else looseBackups.push(b)
+  }
 
   return (
     <div ref={setNodeRef} style={style} className="relative flex flex-col">
@@ -280,6 +326,15 @@ function DayCard({
                   const nodes = [
                     <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} onCopy={() => onCopyStop(s)} onMoveBackup={() => onMoveToBackup(s)} />,
                   ]
+                  // 🎯 แผนสำรองของช่วงเวลานี้ — พับไว้ใต้จุดหลักที่เวลาตรงกัน
+                  const mine = backupsForStop.get(s.id)
+                  if (mine?.length) {
+                    nodes.push(
+                      <BackupFold key={`bk-${s.id}`} backups={mine} canEdit={canEdit}
+                        label={`แผนสำรอง · ${s.time?.slice(0, 5) ?? ''}`}
+                        onPromote={onPromoteBackup} onEditStop={onEditStop} onDeleteStop={onDeleteStop} />,
+                    )
+                  }
                   // subtle "+" between two activities → insert a new stop right here
                   if (canEdit && i < stops.length - 1) {
                     nodes.push(
@@ -295,28 +350,11 @@ function DayCard({
                   return nodes
                 })}
               </div>
-              {/* 🎯 แผนสำรอง — พับเหมือนเดิม; การ์ดข้างในลากไปวางในตารางตรงไหนก็ได้
-                  (inside the SortableContext so the cards are draggable) */}
-              {backups.length > 0 && (
-                <div className="rounded-[10px] p-2.5 mt-2.5" style={{ border: '0.5px dashed var(--color-line-2)', background: 'rgba(238,241,246,.5)' }}>
-                  <button onClick={() => setBkOpen((o) => !o)} className="w-full flex items-center gap-2 text-[12px] font-medium text-ink-2" aria-expanded={bkOpen}>
-                    <IconTarget size={14} className="text-ink-3" /> แผนสำรอง
-                    <span className="text-[10.5px] text-ink-3 bg-surface-2 rounded-full px-1.5 py-px tabular-nums">{backups.length}</span>
-                    <span className="ml-auto text-[11px] text-ink-3 flex items-center gap-0.5">
-                      {bkOpen ? 'พับเก็บ' : 'แตะเพื่อเปิด'} <IconChevronDown size={12} className={`transition-transform ${bkOpen ? 'rotate-180' : ''}`} />
-                    </span>
-                  </button>
-                  {bkOpen && (
-                    <div className="space-y-2 mt-2.5">
-                      {backups.map((b) => (
-                        <SortableBackup key={b.id} stop={b} canEdit={canEdit}
-                          onPromote={() => onPromoteBackup(b)}
-                          onEdit={() => onEditStop(b)}
-                          onDelete={() => onDeleteStop(b.id)} />
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {/* แผนสำรองที่เวลาไม่ตรงกับจุดไหน (หรือยังไม่ระบุเวลา) — รวมไว้ท้ายวัน
+                  (inside the SortableContext so the cards stay draggable into the schedule) */}
+              {looseBackups.length > 0 && (
+                <BackupFold backups={looseBackups} canEdit={canEdit}
+                  onPromote={onPromoteBackup} onEditStop={onEditStop} onDeleteStop={onDeleteStop} />
               )}
             </SortableContext>
 
