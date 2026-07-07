@@ -10,16 +10,29 @@ import type { TripNote } from '@/lib/database.types'
 
 const OPEN_THRESHOLD = 90 // px of pull before releasing opens the panel
 
-/** The liquid tongue: just a blob swelling out of the right screen edge toward
- *  the finger — no full-height sheet above/below it. */
+/** The liquid tongue: a sheet anchored to the right edge whose left border
+ *  bulges toward the finger (classic "liquid swipe" reveal). */
 function liquidPath(pull: number, y: number) {
-  const W = window.innerWidth
+  const W = window.innerWidth, H = window.innerHeight
+  const edge = W - pull * 0.2             // the flat part of the sheet's edge
   const apex = W - Math.min(pull, W * 0.6) // the tip of the bulge, at finger Y
-  const R = 60 + pull * 0.45               // vertical reach of the bulge
+  const R = 60 + pull * 0.45              // vertical reach of the bulge (short wave)
+  const top = Math.max(0, y - R), bottom = Math.min(H, y + R)
   return [
-    `M ${W} ${y - R}`,
-    `C ${W} ${y - R * 0.45}, ${apex} ${y - R * 0.45}, ${apex} ${y}`,
-    `C ${apex} ${y + R * 0.45}, ${W} ${y + R * 0.45}, ${W} ${y + R}`,
+    `M ${W} 0`, `L ${edge} 0`, `L ${edge} ${top}`,
+    `C ${edge} ${y - R * 0.45}, ${apex} ${y - R * 0.45}, ${apex} ${y}`,
+    `C ${apex} ${y + R * 0.45}, ${edge} ${y + R * 0.45}, ${edge} ${bottom}`,
+    `L ${edge} ${H}`, `L ${W} ${H}`, 'Z',
+  ].join(' ')
+}
+
+/** The resting pull handle: a small curved tab budding off the right edge —
+ *  a static preview of the wave, so the affordance matches the liquid pull. */
+function handlePath(w: number, h: number) {
+  return [
+    `M ${w} 0`,
+    `C ${w} ${h * 0.22}, 0 ${h * 0.26}, 0 ${h * 0.5}`,
+    `C 0 ${h * 0.74}, ${w} ${h * 0.78}, ${w} ${h}`,
     'Z',
   ].join(' ')
 }
@@ -138,10 +151,13 @@ export function NotePanel() {
         <button
           onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
           onPointerCancel={() => { start.current = null; setDrag(null) }}
-          className="fixed right-0 top-[46%] z-[70] h-14 w-[22px] rounded-l-full grid place-items-center text-ink-3 select-none bg-surface"
-          style={{ opacity: drag ? 0 : 1, touchAction: 'none', boxShadow: '-2px 2px 10px rgba(15,30,60,.16)', border: '0.5px solid var(--color-line)', borderRight: 0 }}
+          className="fixed right-0 top-[44%] z-[70] grid place-items-center text-ink-3 select-none"
+          style={{ width: 20, height: 96, opacity: drag ? 0 : 1, touchAction: 'none' }}
           aria-label="โน้ตทริป — แตะหรือลากออกมา">
-          <IconChevronLeft size={15} />
+          <svg width="20" height="96" viewBox="0 0 20 96" className="absolute inset-0" style={{ filter: 'drop-shadow(-3px 0 8px rgba(15,30,60,.16))' }}>
+            <path d={handlePath(20, 96)} fill="var(--color-surface)" stroke="var(--color-line)" strokeWidth="0.5" />
+          </svg>
+          <IconChevronLeft size={15} className="relative -ml-0.5" />
         </button>
       )}
 
