@@ -374,8 +374,12 @@ export interface Expense {
   version?: number
 }
 
-/** Shared trip note (trip_notes table — supabase/notes.sql). Pulled out from
- *  the right screen edge via the liquid-swipe NotePanel. */
+/** Trip note / to-do (trip_notes table — supabase/notes.sql). Pulled out from
+ *  the right screen edge via the liquid-swipe NotePanel. Private to its owner
+ *  by default; `shared` makes it visible to everyone on the trip. */
+export type NoteKind = 'note' | 'todo'
+export type NoteStatus = 'draft' | 'in_progress' | 'in_review' | 'completed'
+export interface TodoItem { id: string; text: string; done: boolean }
 export interface TripNote {
   id: string
   trip_id: string
@@ -383,7 +387,15 @@ export interface TripNote {
   user_id?: string | null
   author_name?: string | null
   author_color?: string | null
-  body: string
+  kind: NoteKind
+  title?: string | null
+  /** note body (kind = 'note') */
+  body?: string | null
+  /** checklist (kind = 'todo') */
+  items?: TodoItem[] | null
+  status: NoteStatus
+  /** false = private to the owner, true = visible to all trip members */
+  shared?: boolean
   created_at: string
   updated_at?: string | null
 }
