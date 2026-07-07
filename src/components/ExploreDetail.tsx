@@ -82,17 +82,32 @@ export function ExploreDetail({ e, open, saved, onClose, onFav, onOpenPlace }: {
   const [loading, setLoading] = useState(true)
   // full-size photo viewer — index into the extra-photos gallery (null = closed)
   const [lightbox, setLightbox] = useState<number | null>(null)
-  // สถานที่ใกล้เคียง — everything shared in the SAME city (list style = All plans)
+  // สถานที่ใกล้เคียง — same STATION in the same city first (falls back to the
+  // whole city when this place has no station or nothing shares one)
   const [nearby, setNearby] = useState<ExplorePlace[]>([])
   const [nearbyOpen, setNearbyOpen] = useState(false)
+  const [nearbyByStation, setNearbyByStation] = useState(false)
   useEffect(() => {
-    setNearby([]); setNearbyOpen(false)
+    setNearby([]); setNearbyOpen(false); setNearbyByStation(false)
     if (!open || !e?.city?.trim()) return
     let active = true
+    const norm = (x?: string | null) => (x ?? '').trim().toLowerCase()
+    const stationsOf = (pl: ExplorePlace) => [
+      pl.station_name,
+      ...(pl.routes?.map((r) => r.station) ?? []),
+      ...(pl.branches?.map((b) => b.station) ?? []),
+    ].map(norm).filter(Boolean)
+    const mine = new Set(stationsOf(e))
     supabase.from('explore_places').select('*')
       .eq('city', e.city).neq('id', e.id)
-      .order('created_at', { ascending: false }).limit(30)
-      .then(({ data }) => { if (active) setNearby((data ?? []) as ExplorePlace[]) })
+      .order('created_at', { ascending: false }).limit(50)
+      .then(({ data }) => {
+        if (!active) return
+        const rows = (data ?? []) as ExplorePlace[]
+        const sameStation = mine.size ? rows.filter((pl) => stationsOf(pl).some((st) => mine.has(st))) : []
+        setNearby(sameStation.length ? sameStation : rows)
+        setNearbyByStation(sameStation.length > 0)
+      })
     return () => { active = false }
   }, [open, e?.id, e?.city])
   // which branch (chain location) is selected; null = the item's own location
@@ -355,7 +370,8 @@ export function ExploreDetail({ e, open, saved, onClose, onFav, onOpenPlace }: {
       {nearby.length > 0 && (
         <div className="mt-5">
           <div className="text-[13px] font-medium mb-2">
-            สถานที่ใกล้เคียงใน {e?.city} <span className="text-ink-3 font-normal">{nearby.length}</span>
+            สถานที่ใกล้เคียง{nearbyByStation ? ` · สถานี ${e?.station_name || e?.routes?.[0]?.station || ''}` : `ใน ${e?.city}`}
+            {' '}<span className="text-ink-3 font-normal">{nearby.length}</span>
           </div>
           <div className="space-y-2">
             {nearby.slice(0, 2).map((p) => <NearbyCard key={p.id} p={p} onOpen={onOpenPlace} />)}
