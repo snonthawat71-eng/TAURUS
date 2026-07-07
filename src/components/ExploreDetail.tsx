@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import {
   IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
   IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
-  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconPhoto,
+  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconPhoto, IconChevronDown,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { PhotoCarousel } from './PhotoCarousel'
@@ -15,6 +15,8 @@ import { openMap } from '@/lib/maps'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { listComments, addComment, deleteComment, getVotes, setVote, ratingFrom } from '@/lib/exploreMutations'
+import { supabase } from '@/lib/supabase'
+import { SignedImage } from './SignedImage'
 import type { ExplorePlace, ExploreComment } from '@/lib/database.types'
 
 function timeAgo(iso: string) {
@@ -26,12 +28,48 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
 }
 
-export function ExploreDetail({ e, open, saved, onClose, onFav }: {
+/** All-plans-style row card for a nearby suggestion. */
+function NearbyCard({ p, onOpen }: { p: ExplorePlace; onOpen?: (p: ExplorePlace) => void }) {
+  const m = catMeta(p.category)
+  const Ic = m.icon
+  return (
+    <div className="card p-3 flex items-center gap-3">
+      <button onClick={() => onOpen?.(p)} disabled={!onOpen} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+        <span className="size-12 rounded-md overflow-hidden grid place-items-center shrink-0" style={{ background: m.bg, color: m.fg }}>
+          <SignedImage url={p.photo_url} focus={p.photo_focus} alt={p.name ?? ''} width={96}
+            className="w-full h-full object-cover" fallback={<Ic size={20} stroke={1.5} />} />
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[14px] font-medium truncate">{p.name}</span>
+            {(p.multi_branch || !!p.branches?.length) && (
+              <span className="chip !py-0 !px-1.5 !text-[10px] inline-flex items-center gap-0.5 shrink-0"><IconBuildingStore size={11} /> หลายสาขา</span>
+            )}
+          </div>
+          {(p.station_line || p.station_name) && (
+            <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
+              <span className="size-2 rounded-full shrink-0" style={{ background: p.station_color ?? '#888780' }} />
+              <span className="truncate">{p.station_line}{p.station_name ? ` · ${p.station_name}` : ''}</span>
+            </div>
+          )}
+        </div>
+      </button>
+      <button onClick={() => openMap(p.map_url)} disabled={!p.map_url}
+        className="inline-flex items-center gap-1 text-[11px] text-ink-3 enabled:hover:text-brand-mid shrink-0">
+        <IconMapPin size={13} /> MAP
+      </button>
+    </div>
+  )
+}
+
+export function ExploreDetail({ e, open, saved, onClose, onFav, onOpenPlace }: {
   e: ExplorePlace | null
   open: boolean
   saved: boolean
   onClose: () => void
   onFav: () => void
+  /** tap a nearby suggestion → open that place's detail instead */
+  onOpenPlace?: (p: ExplorePlace) => void
 }) {
   const { user } = useAuth()
   const { profile } = useTrip()
@@ -44,6 +82,19 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
   const [loading, setLoading] = useState(true)
   // full-size photo viewer — index into the extra-photos gallery (null = closed)
   const [lightbox, setLightbox] = useState<number | null>(null)
+  // สถานที่ใกล้เคียง — everything shared in the SAME city (list style = All plans)
+  const [nearby, setNearby] = useState<ExplorePlace[]>([])
+  const [nearbyOpen, setNearbyOpen] = useState(false)
+  useEffect(() => {
+    setNearby([]); setNearbyOpen(false)
+    if (!open || !e?.city?.trim()) return
+    let active = true
+    supabase.from('explore_places').select('*')
+      .eq('city', e.city).neq('id', e.id)
+      .order('created_at', { ascending: false }).limit(30)
+      .then(({ data }) => { if (active) setNearby((data ?? []) as ExplorePlace[]) })
+    return () => { active = false }
+  }, [open, e?.id, e?.city])
   // which branch (chain location) is selected; null = the item's own location
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
   const hasOwnLocation = !!(e && (e.map_url || e.station_name || e.station_line))
@@ -299,6 +350,39 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
           {votes.mine === -1 ? <IconThumbDownFilled size={17} /> : <IconThumbDown size={17} />} ไม่แนะนำ · {votes.down}
         </button>
       </div>
+
+      {/* สถานที่ใกล้เคียง — same-city suggestions; >2 fold with a faint peek */}
+      {nearby.length > 0 && (
+        <div className="mt-5">
+          <div className="text-[13px] font-medium mb-2">
+            สถานที่ใกล้เคียงใน {e?.city} <span className="text-ink-3 font-normal">{nearby.length}</span>
+          </div>
+          <div className="space-y-2">
+            {nearby.slice(0, 2).map((p) => <NearbyCard key={p.id} p={p} onOpen={onOpenPlace} />)}
+            {nearby.length > 2 && (nearbyOpen ? (
+              <>
+                {nearby.slice(2).map((p) => <NearbyCard key={p.id} p={p} onOpen={onOpenPlace} />)}
+                <button onClick={() => setNearbyOpen(false)}
+                  className="w-full flex items-center justify-center gap-1 py-1.5 text-[12px] font-medium text-ink-3 hover:text-ink-2">
+                  พับเก็บ <IconChevronDown size={15} className="rotate-180" />
+                </button>
+              </>
+            ) : (
+              // peek: a faint preview of the next card hints there are more
+              <div role="button" tabIndex={0} onClick={() => setNearbyOpen(true)}
+                onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') setNearbyOpen(true) }}
+                className="relative block w-full overflow-hidden rounded-[12px] cursor-pointer" style={{ height: 60 }}
+                aria-label={`แสดงสถานที่ใกล้เคียงอีก ${nearby.length - 2} ที่`}>
+                <div className="opacity-55 pointer-events-none"><NearbyCard p={nearby[2]} /></div>
+                <div className="absolute inset-x-0 bottom-0 h-10 flex items-end justify-center pb-1"
+                  style={{ background: 'linear-gradient(to bottom, transparent, var(--color-surface))' }}>
+                  <span className="text-[12px] font-semibold text-brand inline-flex items-center gap-1">อีก {nearby.length - 2} ที่ <IconChevronDown size={14} /></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* comments */}
       <div className="mt-5">

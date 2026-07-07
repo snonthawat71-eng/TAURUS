@@ -157,7 +157,8 @@ export default function ExploreManage() {
         }} />
 
       <ExploreDetail e={detail} open={!!detail} saved={detail ? savedSet.has(detail.id) : false}
-        onClose={() => { setDetail(null); refreshStats() }} onFav={() => detail && toggleFav(detail)} />
+        onClose={() => { setDetail(null); refreshStats() }} onFav={() => detail && toggleFav(detail)}
+        onOpenPlace={(p) => openDetail(p)} />
 
       <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
         onClose={() => setFav(null)} onChanged={refreshSaved} />
