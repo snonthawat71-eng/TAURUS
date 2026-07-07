@@ -63,6 +63,32 @@ export function NotePanel() {
   const start = useRef<{ x: number; y: number } | null>(null)
   const raf = useRef(0)
 
+  // swipe the open sheet to the right to fold it back
+  const [sheetDX, setSheetDX] = useState(0)
+  const [sheetDragging, setSheetDragging] = useState(false)
+  const sheetStart = useRef<number | null>(null)
+  function sheetDown(e: React.PointerEvent) {
+    if ((e.target as HTMLElement).closest('button')) return // let header buttons work
+    e.currentTarget.setPointerCapture(e.pointerId)
+    sheetStart.current = e.clientX; setSheetDragging(true)
+  }
+  function sheetMove(e: React.PointerEvent) {
+    if (sheetStart.current == null) return
+    setSheetDX(Math.max(0, e.clientX - sheetStart.current))
+  }
+  function sheetUp() {
+    if (sheetStart.current == null) return
+    const dx = sheetDX
+    sheetStart.current = null; setSheetDragging(false)
+    if (dx > 80) {
+      // pulled far enough → slide the rest of the way out, then unmount
+      setSheetDX(440)
+      window.setTimeout(() => { setOpen(false); setSheetDX(0) }, 200)
+    } else {
+      setSheetDX(0) // snap back
+    }
+  }
+
   const [notes, setNotes] = useState<TripNote[]>([])
   const [loading, setLoading] = useState(false)
   const [missing, setMissing] = useState(false)
@@ -187,16 +213,20 @@ export function NotePanel() {
       {/* the sheet */}
       {open && createPortal(
         <div className="fixed inset-0 z-[100]" role="presentation">
-          <div className="absolute inset-0 bg-black/35 backdrop-blur-[1px] animate-[toast-in_.15s_ease-out]" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-black/35 backdrop-blur-[1px] animate-[toast-in_.15s_ease-out]"
+            style={{ opacity: sheetDX ? Math.max(0, 1 - sheetDX / 320) : undefined }} onClick={() => setOpen(false)} />
           <aside className="absolute right-0 top-0 h-full w-[min(90vw,380px)] bg-canvas shadow-2xl flex flex-col animate-[note-in_.24s_cubic-bezier(.22,1,.36,1)]"
-            role="dialog" aria-modal="true" aria-label="โน้ตทริป">
+            role="dialog" aria-modal="true" aria-label="โน้ตทริป"
+            style={{ transform: sheetDX ? `translateX(${sheetDX}px)` : undefined, transition: sheetDragging ? 'none' : 'transform .24s cubic-bezier(.22,1,.36,1)' }}>
 
             {editing ? (
               <NoteEditor note={editing} isNew={isNew} onChange={setEditing} onBack={() => setEditing(null)}
                 onSave={() => saveEditing(editing)} onDelete={!isNew ? () => { removeNote(editing); setEditing(null) } : undefined} />
             ) : (
               <>
-                <header className="flex items-center gap-2 px-4 h-14 shrink-0 text-white" style={{ background: 'var(--color-brand)' }}>
+                <header onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}
+                  className="flex items-center gap-2 px-4 h-14 shrink-0 text-white cursor-grab active:cursor-grabbing"
+                  style={{ background: 'var(--color-brand)', touchAction: 'pan-y' }}>
                   <IconNotes size={18} />
                   <h2 className="text-[14.5px] font-semibold flex-1">โน้ตของฉัน</h2>
                   {/* two icon-only add buttons — pick note or to-do straight away */}
