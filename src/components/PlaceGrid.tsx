@@ -9,7 +9,8 @@ import { SaveToTripDialog } from './SaveToTripDialog'
 import { AddToDayDialog } from './AddToDayDialog'
 import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
 import { addExplore, searchExploreSimilar, placeAsExploreInput } from '@/lib/exploreMutations'
-import { confirmDialog } from '@/lib/confirm'
+import { confirmDialog, alertDialog } from '@/lib/confirm'
+import { IconWorldShare, IconCircleCheck } from '@tabler/icons-react'
 import { offerUndo } from '@/lib/undo'
 import { toast } from '@/lib/toast'
 import { catMeta, catTabKey, type CategoryTab } from '@/lib/placeMeta'
@@ -124,21 +125,30 @@ export function PlaceGrid({
   async function shareToExplore(p: Place) {
     if (!user) return
     if (!p.name?.trim()) { toast.error('ตั้งชื่อสถานที่ก่อนแชร์'); return }
+    // already in the pool → just say so and close; no duplicate sharing
     const dupes = await searchExploreSimilar(p.name, null)
     if (dupes.length > 0) {
-      const first = dupes[0]
-      const where = [first.city, first.country].filter(Boolean).join(', ')
-      const ok = await confirmDialog({
-        message: dupes.length === 1
-          ? `มี "${first.name}"${where ? ` (${where})` : ''} อยู่ใน Explore แล้ว — ยืนยันแชร์เพิ่มเป็นรายการใหม่?`
-          : `มีรายการคล้ายกันใน Explore แล้ว ${dupes.length} รายการ เช่น "${first.name}"${where ? ` (${where})` : ''} — ยืนยันแชร์เพิ่ม?`,
-        confirmLabel: 'แชร์เลย',
+      await alertDialog({
+        icon: <IconCircleCheck size={26} />,
+        tone: 'brand',
+        title: 'มีอยู่ใน Explore แล้ว',
+        message: `"${dupes[0].name}" อยู่ในหน้า Explore แล้ว`,
+        confirmLabel: 'ปิด',
       })
-      if (!ok) return
+      return
     }
+    // shareable → confirm first
+    const ok = await confirmDialog({
+      icon: <IconWorldShare size={26} />,
+      tone: 'brand',
+      title: 'แชร์ไป Explore?',
+      message: `“${p.name}” จะไปอยู่ในหน้า Explore ให้คนอื่นค้นเจอและเซฟไปทริปได้`,
+      confirmLabel: 'แชร์เลย',
+    })
+    if (!ok) return
     const res = await addExplore(user.id, placeAsExploreInput(p, trip?.country ?? null))
     if (res.error) toast.error(`แชร์ไม่สำเร็จ: ${res.error.message}`)
-    else toast.success('แชร์ไป Explore แล้ว 🎉 คนอื่นค้นเจอในหน้า Explore ได้เลย')
+    else toast.success('แชร์ไป Explore แล้ว 🎉')
   }
 
   const renderCard = (p: Place) => {

@@ -2,6 +2,8 @@
 // can `await confirmDialog(...)` / `await promptDialog(...)` instead of using
 // window.confirm / window.prompt. <ConfirmHost /> subscribes and renders them.
 
+import type { ReactNode } from 'react'
+
 export interface DialogChoice { label: string; value: string; danger?: boolean }
 export interface DialogOptions {
   title?: string
@@ -9,6 +11,12 @@ export interface DialogOptions {
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
+  /** Optional icon shown in a coloured circle at the top of a centered card. */
+  icon?: ReactNode
+  /** Colour theme for the icon circle (defaults to brand, or danger red). */
+  tone?: 'brand' | 'warn' | 'danger'
+  /** A single-button acknowledgement card (no cancel — just closes). */
+  dismissOnly?: boolean
   /** When present, the dialog shows a text input and resolves its value. */
   input?: { placeholder?: string; defaultValue?: string }
   /** When present, the dialog shows a stacked list of buttons and resolves the
@@ -47,6 +55,12 @@ function open(options: DialogOptions): Promise<boolean | string | null> {
 export function confirmDialog(opts: DialogOptions | string): Promise<boolean> {
   const options = typeof opts === 'string' ? { message: opts } : opts
   return open(options).then((r) => r === true)
+}
+
+/** One-button acknowledgement card (e.g. "already exists"). No action to
+ *  confirm — it just informs and closes. Resolves when dismissed. */
+export function alertDialog(opts: DialogOptions): Promise<void> {
+  return open({ ...opts, dismissOnly: true }).then(() => undefined)
 }
 
 /** Multiple-choice dialog. Resolves the chosen option's `value`, or null when
