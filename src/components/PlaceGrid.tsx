@@ -231,7 +231,7 @@ export function PlaceGrid({
             wantSort ? 'bg-brand text-white' : 'hairline bg-surface text-ink-2'].join(' ')}>
           {wantSort ? <IconHeart size={14} fill="currentColor" /> : <IconHeart size={14} />} อยากไป
         </button>
-        <div ref={hscroll} className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0" style={chipList.length === 0 || wantSort ? { display: 'none' } : undefined}>
+        <div ref={hscroll} className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0" style={chipList.length === 0 ? { display: 'none' } : undefined}>
           {chipList.map((t) => (
             <button key={t.key} onClick={() => setChip(t.key)}
               className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
@@ -248,7 +248,7 @@ export function PlaceGrid({
           <p className="text-[13px] text-ink-2">{wantSort ? 'ยังไม่มีใครกด “อยากไป”' : query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</p>
           {canEdit && !query && !wantSort && <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-[13px] mt-1"><IconPlus size={15} /> {addLabel}</button>}
         </div>
-      ) : (wantSort || dim === 'none' || chip !== 'all') ? (
+      ) : (dim === 'none' || chip !== 'all') ? (
         <div className="grid grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
       ) : (
         <div className="space-y-6">
