@@ -75,6 +75,11 @@ async function main(req, res) {
   webpush.setVapidDetails(subject, VAPID_PUBLIC_KEY.trim(), VAPID_PRIVATE_KEY.trim())
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+  // ---- NOTE reminders — personal, keyed on an absolute due_at (independent of
+  //      trip dates, so run this BEFORE the stop pass's early returns). Sent to
+  //      the note owner only; deduped via sent_reminders (kind='note'). ----
+  const noteSent = await sendNoteReminders(admin)
+
   // date window ±1 day around UTC today covers "today" in every timezone
   const utcNow = Date.now()
   const iso = (ms) => new Date(ms).toISOString().slice(0, 10)
@@ -180,5 +185,47 @@ async function main(req, res) {
     }
   }
   if (dead.length) await admin.from('push_subscriptions').delete().in('endpoint', dead)
-  return res.json({ sent, due: due.length, ...(errors.length ? { errors: errors.slice(0, 5) } : {}) })
+  return res.json({ sent, notesSent: noteSent, due: due.length, ...(errors.length ? { errors: errors.slice(0, 5) } : {}) })
+}
+
+// Send push for notes whose due_at just passed (within the catch-up window),
+// to the owner's enabled devices. Best-effort: never throws (so it can't block
+// the stop reminders). Returns how many pushes were sent.
+async function sendNoteReminders(admin) {
+  try {
+    const nowMs = Date.now()
+    const WINDOW_MS = 15 * 60000 // covers a missed 5-min cron tick
+    const { data: notes } = await admin.from('trip_notes')
+      .select('id,user_id,title,due_at,status,remind')
+      .eq('remind', true).neq('status', 'done').not('due_at', 'is', null)
+      .lte('due_at', new Date(nowMs).toISOString())
+      .gte('due_at', new Date(nowMs - WINDOW_MS).toISOString())
+    const dueNotes = (notes ?? []).filter((n) => n.user_id)
+    if (!dueNotes.length) return 0
+
+    const owners = [...new Set(dueNotes.map((n) => n.user_id))]
+    const { data: subs } = await admin.from('push_subscriptions').select('*').eq('enabled', true).in('user_id', owners)
+    const byUser = new Map()
+    for (const s of subs ?? []) { if (!byUser.has(s.user_id)) byUser.set(s.user_id, []); byUser.get(s.user_id).push(s) }
+
+    const claims = dueNotes.filter((n) => byUser.has(n.user_id)).map((n) => ({ stop_id: n.id, user_id: n.user_id, kind: 'note' }))
+    if (!claims.length) return 0
+    const { data: claimed } = await admin.from('sent_reminders')
+      .upsert(claims, { onConflict: 'stop_id,user_id,kind', ignoreDuplicates: true }).select()
+    const won = new Set((claimed ?? []).map((c) => `${c.stop_id}:${c.user_id}`))
+
+    let sent = 0
+    const dead = []
+    for (const n of dueNotes) {
+      if (!won.has(`${n.id}:${n.user_id}`)) continue
+      const title = n.title || 'โน้ต'
+      const payload = JSON.stringify({ title: `🔔 ${title}`, body: 'ถึงเวลาที่ตั้งเตือนไว้ในโน้ต', url: '/', tag: `note-${n.id}` })
+      for (const s of byUser.get(n.user_id) ?? []) {
+        try { await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload); sent++ }
+        catch (e) { const code = e?.statusCode; if ([400, 401, 403, 404, 410].includes(code)) dead.push(s.endpoint) }
+      }
+    }
+    if (dead.length) await admin.from('push_subscriptions').delete().in('endpoint', dead)
+    return sent
+  } catch { return 0 }
 }
