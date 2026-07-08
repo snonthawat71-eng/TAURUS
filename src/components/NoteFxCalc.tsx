@@ -56,7 +56,7 @@ export function NoteFxCalc() {
   function pick(c: string) { setOverride(c); setPickOpen(false) }
 
   return (
-    <div className="card p-3 relative">
+    <div className="relative">
       <div className="flex items-center justify-between mb-2">
         {/* currency picker chip — only the trip's plan currencies. With a single
             plan currency there's nothing to pick, so it's a static chip. */}

@@ -163,6 +163,18 @@
   }
 }
 
+/* NotePanel FAB menu — each item pops up from the button */
+@keyframes fab-in {
+  from {
+    transform: translateY(10px) scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
 /* NotePanel — the note sheet sliding in from the right edge */
 @keyframes note-in {
   from {

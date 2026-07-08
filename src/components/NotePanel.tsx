@@ -132,6 +132,7 @@ export function NotePanel() {
   const [isNew, setIsNew] = useState(false)
   const [upOpen, setUpOpen] = useState(true)
   const [finOpen, setFinOpen] = useState(true)
+  const [fabOpen, setFabOpen] = useState(false)
 
   async function load() {
     if (!trip) return
@@ -300,10 +301,7 @@ export function NotePanel() {
               <div className="flex flex-col h-full min-h-0" onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp} style={{ touchAction: 'pan-y' }}>
                 <header className="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
                   <h2 className="text-[25px] font-extrabold tracking-tight text-ink flex-1">Notes</h2>
-                  {/* two icon-only add buttons — pick note or to-do straight away */}
-                  <button onClick={() => startNew('note')} className="grid place-items-center size-9 rounded-full bg-brand text-white shadow-sm active:scale-95 transition-transform" aria-label="New note" title="New note"><IconNote size={18} /></button>
-                  <button onClick={() => startNew('todo')} className="grid place-items-center size-9 rounded-full bg-brand text-white shadow-sm active:scale-95 transition-transform" aria-label="New to-do" title="New to-do"><IconListCheck size={18} /></button>
-                  <button onClick={() => setOpen(false)} className="grid place-items-center size-9 rounded-full bg-surface-2 text-ink-2 hover:bg-surface-2/70 ml-0.5" aria-label="Close"><IconX size={18} /></button>
+                  <button onClick={() => setOpen(false)} className="grid place-items-center size-9 rounded-full bg-surface-2 text-ink-2 hover:bg-surface-2/70" aria-label="Close"><IconX size={18} /></button>
                 </header>
 
                 <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
@@ -339,9 +337,29 @@ export function NotePanel() {
                     </>
                   )}
                 </div>
-                {/* currency calculator pinned at the bottom, always visible */}
+                {/* floating add menu (bottom-right) + currency bar */}
                 {!missing && (
-                  <footer className="shrink-0 px-3 pt-3 bg-canvas" style={{ borderTop: '0.5px solid var(--color-line)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 18px)' }} onPointerDown={(e) => e.stopPropagation()}>
+                  <footer className="shrink-0 px-4 pt-3 bg-surface/95 backdrop-blur relative" style={{ borderTop: '0.5px solid var(--color-line)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }} onPointerDown={(e) => e.stopPropagation()}>
+                    {/* the FAB + its menu float just above this bar, bottom-right */}
+                    <div className="absolute right-4 bottom-full mb-3 flex flex-col items-end gap-2.5 z-30">
+                      {fabOpen && (
+                        <>
+                          {([['note', 'Note', IconNote], ['todo', 'To-do', IconListCheck]] as const).map(([k, label, Ic], i) => (
+                            <button key={k} onClick={() => { setFabOpen(false); startNew(k) }}
+                              className="flex items-center gap-2 h-10 pl-3 pr-4 rounded-full bg-surface shadow-lg text-[13px] font-semibold text-ink"
+                              style={{ animation: `fab-in .18s cubic-bezier(.22,1,.36,1) ${i * 40}ms both`, border: '0.5px solid var(--color-line)' }}>
+                              <span className="grid place-items-center size-6 rounded-full bg-brand-soft text-brand"><Ic size={15} /></span> {label}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      <button onClick={() => setFabOpen((v) => !v)} aria-label="สร้างใหม่"
+                        className="size-14 rounded-full bg-brand text-white grid place-items-center shadow-xl active:scale-95 transition-transform">
+                        <IconPlus size={26} className="transition-transform duration-200" style={{ transform: fabOpen ? 'rotate(45deg)' : 'none' }} />
+                      </button>
+                    </div>
+                    {/* tap-away scrim while the menu is open */}
+                    {fabOpen && <div className="fixed inset-0 z-20" onClick={() => setFabOpen(false)} />}
                     <NoteFxCalc />
                   </footer>
                 )}
