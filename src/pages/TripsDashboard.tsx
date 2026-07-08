@@ -235,20 +235,13 @@ export default function TripsDashboard() {
                   <div className="card !border-0 p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white z-10" style={{ background: heroGradient(t) }}>
                   {/* full photo (shifted right) */}
                   <CoverImage url={coverImage(t)} />
-                  {/* liquid-glass: frost the photo (blur), then a navy tint that fades
-                      left→right for text contrast. Kept mask-free — backdrop-filter +
-                      mask-image blanks the layer (white screen) on iOS Safari. */}
-                  <div className="absolute inset-0 pointer-events-none" style={{
-                    backdropFilter: 'blur(16px) saturate(1.3)',
-                    WebkitBackdropFilter: 'blur(16px) saturate(1.3)',
-                  }} />
-                  <div className="absolute inset-0 pointer-events-none" style={{
-                    background: 'linear-gradient(100deg, rgba(9,28,74,0.50) 0%, rgba(9,28,74,0.24) 42%, rgba(9,28,74,0.06) 72%, rgba(9,28,74,0) 100%)',
-                  }} />
+                  {/* navy gradient on the left so the title/buttons read; photo stays natural on the right */}
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(100deg, rgba(7,22,60,0.92) 0%, rgba(9,28,74,0.55) 38%, rgba(9,28,74,0.10) 66%, rgba(9,28,74,0) 100%)' }} />
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 52%, rgba(4,12,32,0.48) 100%)' }} />
 
                   {/* everything sits on the photo (min-w-0 so a long name can truncate
                       instead of stretching the card) */}
-                  <div className="relative flex-1 flex flex-col p-3.5 min-w-0" style={{ textShadow: '0 1px 4px rgba(8,18,40,.45)' }}>
+                  <div className="relative flex-1 flex flex-col p-3.5 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-[24px] leading-none">{flagOf(t)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
