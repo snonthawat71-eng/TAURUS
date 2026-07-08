@@ -235,13 +235,19 @@ export default function TripsDashboard() {
                   <div className="card !border-0 p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white z-10" style={{ background: heroGradient(t) }}>
                   {/* full photo (shifted right) */}
                   <CoverImage url={coverImage(t)} />
-                  {/* navy gradient on the left so the title/buttons read; photo stays natural on the right */}
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(100deg, rgba(7,22,60,0.92) 0%, rgba(9,28,74,0.55) 38%, rgba(9,28,74,0.10) 66%, rgba(9,28,74,0) 100%)' }} />
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 52%, rgba(4,12,32,0.48) 100%)' }} />
+                  {/* liquid-glass: the city photo is frosted (blurred + faint navy tint)
+                      on the left behind the text and fades clear toward the right */}
+                  <div className="absolute inset-0 pointer-events-none" style={{
+                    backdropFilter: 'blur(18px) saturate(1.35)',
+                    WebkitBackdropFilter: 'blur(18px) saturate(1.35)',
+                    background: 'linear-gradient(100deg, rgba(9,28,74,0.46) 0%, rgba(9,28,74,0.16) 40%, rgba(9,28,74,0) 68%)',
+                    maskImage: 'linear-gradient(100deg, #000 42%, transparent 74%)',
+                    WebkitMaskImage: 'linear-gradient(100deg, #000 42%, transparent 74%)',
+                  }} />
 
                   {/* everything sits on the photo (min-w-0 so a long name can truncate
                       instead of stretching the card) */}
-                  <div className="relative flex-1 flex flex-col p-3.5 min-w-0">
+                  <div className="relative flex-1 flex flex-col p-3.5 min-w-0" style={{ textShadow: '0 1px 4px rgba(8,18,40,.45)' }}>
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-[24px] leading-none">{flagOf(t)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
