@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  IconNotes, IconX, IconPencil, IconTrash, IconChevronLeft, IconChevronRight, IconChevronDown, IconLoader2, IconPlus,
+  IconNotes, IconX, IconPencil, IconTrash, IconChevronLeft, IconChevronDown, IconLoader2, IconPlus,
   IconListCheck, IconNote, IconLock, IconUsers, IconArrowLeft, IconClock, IconBell, IconBellOff, IconCheck, IconArrowBackUp,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { listNotes, addNote, updateNote, deleteNote, isNotesMissing, type NoteInsert } from '@/lib/noteMutations'
-import { STATUS_META, STATUS_ORDER, StatusIcon, normalizeStatus } from './NoteStatus'
+import { STATUS_META, StatusIcon, normalizeStatus } from './NoteStatus'
 import { NoteFxCalc } from './NoteFxCalc'
 import { ClearableField } from './ClearableField'
 import { resetNoteReminder } from '@/lib/noteReminders'
@@ -188,8 +188,10 @@ export function NotePanel() {
     const items = (n.items ?? []).filter((it) => it.text.trim()).map((it) => ({ ...it, text: it.text.trim() }))
     if (!title && !((n.body ?? '').trim()) && !items.length) { toast.error('ใส่หัวข้อหรือเนื้อหาก่อนบันทึก'); return }
     const remind = !!n.due_at && !!n.remind
+    // a to-do with every item checked is Done
+    const status = (n.kind === 'todo' && items.length && items.every((it) => it.done)) ? 'done' : n.status
     const payload: NoteInsert = {
-      kind: n.kind, title: title || null, status: n.status, shared: !!n.shared,
+      kind: n.kind, title: title || null, status, shared: !!n.shared,
       body: n.kind === 'note' ? (n.body ?? '') : null,
       items: n.kind === 'todo' ? items : null,
       due_at: n.due_at ?? null, remind,
@@ -216,7 +218,14 @@ export function NotePanel() {
   }
   function toggleItem(n: TripNote, itemId: string) {
     const items = (n.items ?? []).map((it) => (it.id === itemId ? { ...it, done: !it.done } : it))
-    patchNote(n, { items })
+    const patch: Partial<TripNote> = { items }
+    // a to-do auto-completes when every item is checked (and reopens if unchecked)
+    if (n.kind === 'todo' && items.length) {
+      const allDone = items.every((it) => it.done)
+      if (allDone && n.status !== 'done') patch.status = 'done'
+      else if (!allDone && n.status === 'done') patch.status = 'draft'
+    }
+    patchNote(n, patch)
   }
 
   if (!trip) return null
@@ -232,10 +241,6 @@ export function NotePanel() {
   const renderNote = (n: TripNote) => (
     <NoteCard note={n} mine={!!user && n.user_id === user.id}
       onEdit={() => startEdit(n)} onDelete={() => removeNote(n)}
-      onCycleStatus={() => {
-        const i = STATUS_ORDER.indexOf(n.status)
-        patchNote(n, { status: STATUS_ORDER[(i + 1) % STATUS_ORDER.length] })
-      }}
       onToggleShare={() => patchNote(n, { shared: !n.shared })}
       onToggleItem={(id) => toggleItem(n, id)}
       onToggleDone={() => patchNote(n, { status: n.status === 'done' ? 'draft' : 'done' })} />
@@ -329,7 +334,7 @@ export function NotePanel() {
                 </div>
                 {/* currency calculator pinned at the bottom, always visible */}
                 {!missing && (
-                  <footer className="shrink-0 p-3 bg-canvas" style={{ borderTop: '0.5px solid var(--color-line)' }} onPointerDown={(e) => e.stopPropagation()}>
+                  <footer className="shrink-0 px-3 pt-3 bg-canvas" style={{ borderTop: '0.5px solid var(--color-line)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 18px)' }} onPointerDown={(e) => e.stopPropagation()}>
                     <NoteFxCalc />
                   </footer>
                 )}
@@ -389,12 +394,11 @@ function TimelineRow({ due, tone, last, children }: {
 
 // ---------------------------------------------------------------- card ------
 
-function NoteCard({ note, mine, onEdit, onDelete, onCycleStatus, onToggleShare, onToggleItem, onToggleDone }: {
+function NoteCard({ note, mine, onEdit, onDelete, onToggleShare, onToggleItem, onToggleDone }: {
   note: TripNote
   mine: boolean
   onEdit: () => void
   onDelete: () => void
-  onCycleStatus: () => void
   onToggleShare: () => void
   onToggleItem: (id: string) => void
   onToggleDone: () => void
@@ -408,12 +412,9 @@ function NoteCard({ note, mine, onEdit, onDelete, onCycleStatus, onToggleShare, 
       {/* status-tinted strip peeks out the top with rounded corners; the white
           card overlaps it (layered look, like the itinerary day cards) */}
       <div className="relative -mb-3 pt-1.5 pb-4 px-3 rounded-t-[14px] flex items-center gap-1.5" style={{ background: m.bg }}>
-        {/* tap to advance status → chevron hints it's changeable (mine only) */}
-        <button onClick={mine ? onCycleStatus : undefined} disabled={!mine}
-          className="inline-flex items-center gap-1.5 text-[12px] font-semibold active:scale-95 transition-transform" style={{ color: m.color }}>
+        <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: m.color }}>
           <StatusIcon status={note.status} size={15} /> {m.label}
-          {mine && <IconChevronRight size={13} className="opacity-70 -ml-0.5" />}
-        </button>
+        </span>
         <span className="ml-auto flex items-center gap-1 shrink-0">
           {mine ? (
             <button onClick={onToggleShare}
@@ -536,24 +537,18 @@ function NoteEditor({ note, isNew, onChange, onBack, onSave, onDelete }: {
             className="w-full hairline rounded-md h-10 px-3 text-[13.5px] font-medium bg-surface outline-none focus:border-brand" autoFocus />
         </div>
 
-        {/* status picker */}
+        {/* priority — just an Urgent toggle (Done is handled by the card button /
+            auto-complete on to-dos) */}
         <div>
-          <div className="text-[11px] text-ink-3 mb-1.5">สถานะ</div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {STATUS_ORDER.map((s) => {
-              const sel = note.status === s
-              const m = STATUS_META[s]
-              return (
-                <button key={s} onClick={() => set({ status: s })}
-                  className="flex items-center gap-2 h-10 px-2.5 rounded-md text-[12.5px] font-medium transition-all"
-                  style={sel
-                    ? { background: m.bg, color: m.color, boxShadow: `inset 0 0 0 1.5px ${m.color}` }
-                    : { background: 'var(--color-surface)', color: 'var(--color-ink-3)', border: '0.5px solid var(--color-line)' }}>
-                  <span style={{ color: m.color }}><StatusIcon status={s} size={16} /></span> {m.label}
-                </button>
-              )
-            })}
-          </div>
+          <div className="text-[11px] text-ink-3 mb-1.5">Priority</div>
+          <button onClick={() => set({ status: note.status === 'urgent' ? 'draft' : 'urgent' })}
+            className="w-full h-11 rounded-md flex items-center justify-center gap-2 text-[13px] font-semibold transition-all"
+            style={note.status === 'urgent'
+              ? { background: STATUS_META.urgent.bg, color: STATUS_META.urgent.color, boxShadow: `inset 0 0 0 1.5px ${STATUS_META.urgent.color}` }
+              : { background: 'var(--color-surface)', color: 'var(--color-ink-3)', border: '0.5px solid var(--color-line)' }}>
+            <span style={{ color: STATUS_META.urgent.color }}><StatusIcon status="urgent" size={16} /></span>
+            Urgent {note.status === 'urgent' && <IconCheck size={15} />}
+          </button>
         </div>
 
         {/* share toggle */}
