@@ -92,12 +92,15 @@ function TripWeather({ trip, className }: { trip: Trip; className?: string }) {
   return <WeatherBadge wx={wx[date]} showMin={false} size={13} className={className} />
 }
 
-function CoverImage({ url }: { url?: string }) {
+function CoverImage({ url, frost = false }: { url?: string; frost?: boolean }) {
   const [loaded, setLoaded] = useState(false)
   const [broken, setBroken] = useState(false)
   if (!url || broken) return null
   const full = cld(url, 'f_auto,q_auto,w_560,c_limit')
   const tiny = cld(url, 'f_auto,q_auto:low,w_32,e_blur:1200')
+  // liquid-glass frost: a blurred COPY of the photo, faded left→right with a
+  // mask. Uses filter (not backdrop-filter) so mask-image is safe on iOS Safari.
+  const fade = 'linear-gradient(100deg, #000 0%, #000 26%, transparent 66%)'
   return (
     <>
       <div className="absolute inset-0 bg-cover bg-center scale-105"
@@ -105,6 +108,10 @@ function CoverImage({ url }: { url?: string }) {
       <img src={full} alt="" loading="eager" decoding="async"
         onLoad={() => setLoaded(true)} onError={() => setBroken(true)}
         className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`} />
+      {frost && (
+        <div className="absolute inset-0 bg-cover bg-center pointer-events-none"
+          style={{ backgroundImage: `url(${full})`, transform: 'scale(1.15)', filter: 'blur(16px) saturate(1.15)', maskImage: fade, WebkitMaskImage: fade }} />
+      )}
     </>
   )
 }
@@ -233,15 +240,15 @@ export default function TripsDashboard() {
               return (
                 <div key={t.id} className="relative flex flex-col">
                   <div className="card !border-0 p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white z-10" style={{ background: heroGradient(t) }}>
-                  {/* full photo (shifted right) */}
-                  <CoverImage url={coverImage(t)} />
-                  {/* navy gradient on the left so the title/buttons read; photo stays natural on the right */}
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(100deg, rgba(7,22,60,0.92) 0%, rgba(9,28,74,0.55) 38%, rgba(9,28,74,0.10) 66%, rgba(9,28,74,0) 100%)' }} />
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 52%, rgba(4,12,32,0.48) 100%)' }} />
+                  {/* full photo — frosted (liquid glass) on the left, sharp on the right */}
+                  <CoverImage url={coverImage(t)} frost />
+                  {/* a little of the original navy tint under the frost so the title reads;
+                      same left→right range as before, right side stays clear */}
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(100deg, rgba(9,28,74,0.52) 0%, rgba(9,28,74,0.30) 38%, rgba(9,28,74,0.08) 66%, rgba(9,28,74,0) 100%)' }} />
 
                   {/* everything sits on the photo (min-w-0 so a long name can truncate
                       instead of stretching the card) */}
-                  <div className="relative flex-1 flex flex-col p-3.5 min-w-0">
+                  <div className="relative flex-1 flex flex-col p-3.5 min-w-0" style={{ textShadow: '0 1px 3px rgba(8,18,40,.4)' }}>
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-[24px] leading-none">{flagOf(t)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
