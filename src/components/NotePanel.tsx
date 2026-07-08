@@ -247,7 +247,6 @@ export function NotePanel() {
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                  <NoteFxCalc />
                   {missing ? (
                     <div className="card p-4 text-[12.5px] text-ink-2 leading-relaxed">
                       ⚙️ ยังไม่ได้เปิดใช้ / อัปเกรดโน้ต — รัน SQL <code className="text-[11.5px] bg-surface-2 rounded px-1">supabase/notes.sql</code> ใน Supabase SQL Editor ก่อน แล้วเปิดแผงนี้ใหม่
@@ -270,6 +269,12 @@ export function NotePanel() {
                       onToggleItem={(id) => toggleItem(n, id)} />
                   ))}
                 </div>
+                {/* currency calculator pinned at the bottom, always visible */}
+                {!missing && (
+                  <footer className="shrink-0 p-3 bg-canvas" style={{ borderTop: '0.5px solid var(--color-line)' }} onPointerDown={(e) => e.stopPropagation()}>
+                    <NoteFxCalc />
+                  </footer>
+                )}
               </div>
             )}
           </aside>
