@@ -44,17 +44,38 @@ function extract(s) {
   return null
 }
 
+// Last-resort scan for a China-plausible coordinate pair anywhere in the text.
+// lng ∈ [73,135], lat ∈ [3,54] — the disjoint ranges let us fix the order and
+// convert GCJ-02 → WGS-84 (AMap data is GCJ-02).
+function scanChina(s) {
+  if (!s) return null
+  const re = /(\d{1,3}\.\d{4,})\s*[,%\s]{1,3}\s*(\d{1,3}\.\d{4,})/g
+  let m
+  while ((m = re.exec(s))) {
+    const a = +m[1], b = +m[2]
+    if (a >= 73 && a <= 135.5 && b >= 3 && b <= 54) return gcj2wgs(b, a) // lng,lat
+    if (a >= 3 && a <= 54 && b >= 73 && b <= 135.5) return gcj2wgs(a, b) // lat,lng
+  }
+  return null
+}
+
+const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1'
+
 export default async function handler(req, res) {
   try {
     const url = req.query?.url
     if (!url || !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'bad url' })
-    let finalUrl = url, body = ''
+    const amap = /amap|gaode/i.test(url)
+    let finalUrl = url, body = '', status = 0
     try {
-      const r = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TaurusMap/1.0)' } })
-      finalUrl = r.url || url
+      const r = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': UA, 'Accept-Language': 'zh-CN,zh;q=0.9', Accept: 'text/html' } })
+      finalUrl = r.url || url; status = r.status
       body = await r.text().catch(() => '')
-    } catch { /* fall through to whatever we have */ }
-    const coords = extract(finalUrl) || extract(body)
+    } catch (e) { body = ''; if (req.query?.debug) return res.json({ error: String(e?.message || e) }) }
+    const coords = extract(finalUrl) || extract(body) || (amap ? scanChina(finalUrl) || scanChina(body) : null)
+    if (req.query?.debug) {
+      return res.json({ finalUrl, status, len: body.length, coords: coords || null, snippet: body.slice(0, 800) })
+    }
     res.setHeader('Cache-Control', 's-maxage=604800') // cache a week at the edge
     return res.json(coords || {})
   } catch (e) {
