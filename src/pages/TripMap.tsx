@@ -33,7 +33,6 @@ export default function TripMap() {
   const [query, setQuery] = useState('')
   const [coords, setCoords] = useState<Record<string, LatLng>>({})
   const [selected, setSelected] = useState<Place | null>(null)
-  const [center, setCenter] = useState<LatLng | null>(null)
   const [me, setMe] = useState<LatLng | null>(null)
   const [geoBusy, setGeoBusy] = useState(0)
   const [placing, setPlacing] = useState<Place | null>(null) // the place we're pinning
@@ -64,19 +63,21 @@ export default function TripMap() {
     }
     setCoords(next)
     setGeoBusy(missing.length)
+    const gotCoords = (p: Place, r: LatLng | null) => {
+      if (!alive) return
+      setGeoBusy((n) => Math.max(0, n - 1))
+      if (r) { setCoords((c) => ({ ...c, [p.id]: r })); setPlaceCoords(p.id, r.lat, r.lng).catch(() => {}) }
+    }
+    // A2) links (short google/amap) — resolve server-side, in parallel (fast)
+    const links = missing.filter((p) => isMapLink(p.map_url))
+    const queue = [...links]
+    const worker = async () => { while (queue.length && alive) { const p = queue.shift()!; gotCoords(p, await resolveMapUrl(p.map_url!)) } }
+    Promise.all(Array.from({ length: 6 }, worker))
+    // C) the rest — geocode by name+city (throttled inside geocode())
     ;(async () => {
-      for (const p of missing) {
+      for (const p of missing.filter((p) => !isMapLink(p.map_url))) {
         if (!alive) return
-        // A2) follow a short Google link server-side, else C) geocode by name+city
-        let r: LatLng | null = null
-        if (isMapLink(p.map_url)) r = await resolveMapUrl(p.map_url!)
-        if (!r) r = await geocode([p.name, p.station_name, p.city, trip?.country])
-        if (!alive) return
-        setGeoBusy((n) => Math.max(0, n - 1))
-        if (r) {
-          setCoords((c) => ({ ...c, [p.id]: r! }))
-          setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
-        }
+        gotCoords(p, await geocode([p.name, p.station_name, p.city, trip?.country]))
       }
     })()
     return () => { alive = false }
@@ -100,11 +101,9 @@ export default function TripMap() {
     L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19, detectRetina: true }).addTo(map)
     L.control.zoom({ position: 'bottomright' }).addTo(map)
     layerRef.current = L.layerGroup().addTo(map)
-    map.on('moveend', () => setCenter({ lat: map.getCenter().lat, lng: map.getCenter().lng }))
     // tap the map while pinning a place → set its location
     map.on('click', (e) => { const p = placingRef.current; if (p) applyRef.current(p, { lat: e.latlng.lat, lng: e.latlng.lng }) })
     mapRef.current = map
-    setCenter({ lat: map.getCenter().lat, lng: map.getCenter().lng })
     return () => { map.remove(); mapRef.current = null }
   }, [])
 
@@ -170,7 +169,9 @@ export default function TripMap() {
     if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.2), { maxZoom: 15 })
   }
 
-  const ref = me ?? center
+  // distances (and the "nearby" sort) are measured from the user's location only —
+  // NOT the map centre, so panning the map never re-renders/re-sorts the list.
+  const ref = me
   const nearby = useMemo(() => {
     if (!ref) return shown
     return [...shown].sort((a, b) => haversine(ref, coords[a.id]) - haversine(ref, coords[b.id]))

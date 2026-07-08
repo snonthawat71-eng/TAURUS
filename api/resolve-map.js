@@ -22,10 +22,19 @@ function gcj2wgs(lat, lng) {
 function extract(s) {
   if (!s) return null
   const ok = (a, b) => (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180 ? { lat: a, lng: b } : null)
-  // AMap first — lng,lat order + GCJ-02 (convert to WGS-84)
-  if (/amap|gaode|ditu\.amap|uri\.amap/i.test(s)) {
-    let m = s.match(/[?&](?:position|location|ll|point|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i) || s.match(/[?&]lng=(-?\d+\.\d+)&lat=(-?\d+\.\d+)/i)
-    if (m) { const r = ok(+m[2], +m[1]); if (r) return gcj2wgs(r.lat, r.lng) } // note: lng,lat → swap
+  // AMap — lng,lat order + GCJ-02 (convert to WGS-84). Coords can be in the URL
+  // params OR embedded in the page's JS, so try several shapes.
+  if (/amap|gaode/i.test(s)) {
+    const amapPats = [
+      /[?&](?:position|location|ll|point|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i, // url param lng,lat
+      /[?&]lng=(-?\d+\.\d+)&lat=(-?\d+\.\d+)/i,                                   // lng,lat params
+      /["'](?:position|location|center|lnglat)["']?\s*[:=]\s*["'\[]\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/i, // json lng,lat
+      /["']lng["']\s*:\s*(-?\d+\.\d+)\s*,\s*["']lat["']\s*:\s*(-?\d+\.\d+)/i,      // {lng:..,lat:..}
+    ]
+    for (const re of amapPats) { const m = s.match(re); if (m) { const r = ok(+m[2], +m[1]); if (r) return gcj2wgs(r.lat, r.lng) } }
+    // some amap pages carry lat,lng (not lng,lat) as "lat":..,"lng":..
+    const m2 = s.match(/["']lat["']\s*:\s*(-?\d+\.\d+)\s*,\s*["']lng["']\s*:\s*(-?\d+\.\d+)/i)
+    if (m2) { const r = ok(+m2[1], +m2[2]); if (r) return gcj2wgs(r.lat, r.lng) }
   }
   let m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/); if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
   m = s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/); if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
