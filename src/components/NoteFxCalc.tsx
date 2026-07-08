@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconArrowsExchange, IconRefresh, IconChevronDown, IconCheck } from '@tabler/icons-react'
+import { IconArrowsExchange, IconRefresh, IconChevronDown, IconCheck, IconX } from '@tabler/icons-react'
 import { CURRENCIES, getRateToTHB, type FxResult } from '@/lib/fx'
 import { useTrip } from '@/contexts/TripContext'
 import { useActiveSegment } from '@/lib/segments'
@@ -86,11 +86,17 @@ export function NoteFxCalc() {
       </div>
 
       <div className="flex items-stretch gap-2">
-        <label className="flex-1 min-w-0">
-          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ''))}
-            placeholder="0" className="w-full hairline rounded-md h-11 px-3 text-[16px] font-medium bg-surface outline-none focus:border-brand tabular-nums" />
+        <div className="flex-1 min-w-0">
+          <div className="hairline rounded-md h-11 bg-surface flex items-center overflow-hidden focus-within:border-brand">
+            <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ''))}
+              placeholder="0" className="flex-1 min-w-0 h-full bg-transparent outline-none px-3 text-[16px] font-medium tabular-nums" />
+            {amount && (
+              <button type="button" onClick={() => setAmount('')} aria-label="ล้างตัวเลข"
+                className="shrink-0 size-9 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={15} /></button>
+            )}
+          </div>
           <div className="text-[10px] text-ink-3 mt-0.5 truncate">{from.flag} {from.code}</div>
-        </label>
+        </div>
 
         <button onClick={() => setSwapped((v) => !v)} className="shrink-0 self-start mt-[6px] size-8 grid place-items-center rounded-full hairline bg-surface text-ink-2 hover:bg-surface-2" aria-label="สลับสกุลเงิน" title="สลับ">
           <IconArrowsExchange size={16} />
