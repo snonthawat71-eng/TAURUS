@@ -31,7 +31,9 @@ export function NoteFxCalc() {
   const n = parseFloat(amount.replace(',', '.'))
   const result = !Number.isFinite(n) || !rate ? null : swapped ? n / rate : n * rate
   const resultText = result == null ? '—' : result.toLocaleString('en-US', { maximumFractionDigits: 2 })
-  const rateText = fx ? fx.rate.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—'
+  // show the rate at full working precision so amount × rate visibly matches
+  // (4.25 rounded made 100 → ฿424.76 look wrong; the real rate is 4.2476)
+  const rateText = fx ? fx.rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '—'
 
   const status = !fx ? { color: 'var(--color-ink-3)', label: '…' }
     : fx.live ? { color: '#1E8E5A', label: 'วันนี้' }
