@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  IconNotes, IconX, IconPencil, IconTrash, IconChevronLeft, IconChevronRight, IconLoader2, IconPlus,
-  IconListCheck, IconNote, IconLock, IconUsers, IconArrowLeft, IconClock, IconBell, IconBellOff,
+  IconNotes, IconX, IconPencil, IconTrash, IconChevronLeft, IconChevronRight, IconChevronDown, IconLoader2, IconPlus,
+  IconListCheck, IconNote, IconLock, IconUsers, IconArrowLeft, IconClock, IconBell, IconBellOff, IconCheck, IconArrowBackUp,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -130,6 +130,8 @@ export function NotePanel() {
   const [missing, setMissing] = useState(false)
   const [editing, setEditing] = useState<TripNote | null>(null) // editor view when set
   const [isNew, setIsNew] = useState(false)
+  const [upOpen, setUpOpen] = useState(true)
+  const [finOpen, setFinOpen] = useState(true)
 
   async function load() {
     if (!trip) return
@@ -219,6 +221,26 @@ export function NotePanel() {
 
   if (!trip) return null
 
+  // Upcoming = not done; Finished = done. Dated notes sort by due time, undated
+  // sink to the bottom of Upcoming.
+  const dueMs = (n: TripNote) => (n.due_at ? new Date(n.due_at).getTime() : NaN)
+  const upcoming = notes.filter((n) => n.status !== 'done')
+    .sort((a, b) => (Number.isNaN(dueMs(a)) ? Infinity : dueMs(a)) - (Number.isNaN(dueMs(b)) ? Infinity : dueMs(b)))
+  const finished = notes.filter((n) => n.status === 'done')
+    .sort((a, b) => (Number.isNaN(dueMs(b)) ? 0 : dueMs(b)) - (Number.isNaN(dueMs(a)) ? 0 : dueMs(a)))
+
+  const renderNote = (n: TripNote) => (
+    <NoteCard note={n} mine={!!user && n.user_id === user.id}
+      onEdit={() => startEdit(n)} onDelete={() => removeNote(n)}
+      onCycleStatus={() => {
+        const i = STATUS_ORDER.indexOf(n.status)
+        patchNote(n, { status: STATUS_ORDER[(i + 1) % STATUS_ORDER.length] })
+      }}
+      onToggleShare={() => patchNote(n, { shared: !n.shared })}
+      onToggleItem={(id) => toggleItem(n, id)}
+      onToggleDone={() => patchNote(n, { status: n.status === 'done' ? 'draft' : 'done' })} />
+  )
+
   return (
     <>
       {/* edge handle — tap or drag left */}
@@ -264,18 +286,17 @@ export function NotePanel() {
             ) : (
               // whole list view is a drag surface — swipe right anywhere to fold back
               <div className="flex flex-col h-full min-h-0" onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp} style={{ touchAction: 'pan-y' }}>
-                <header className="flex items-center gap-2 px-4 h-14 shrink-0 text-white" style={{ background: 'var(--color-brand)' }}>
-                  <IconNotes size={18} />
-                  <h2 className="text-[14.5px] font-semibold flex-1">โน้ตของฉัน</h2>
+                <header className="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
+                  <h2 className="text-[25px] font-extrabold tracking-tight text-ink flex-1">Notes</h2>
                   {/* two icon-only add buttons — pick note or to-do straight away */}
-                  <button onClick={() => startNew('note')} className="grid place-items-center size-8 rounded-full bg-white/20 hover:bg-white/30" aria-label="เพิ่ม Note" title="เพิ่ม Note"><IconNote size={17} /></button>
-                  <button onClick={() => startNew('todo')} className="grid place-items-center size-8 rounded-full bg-white/20 hover:bg-white/30" aria-label="เพิ่ม To-do" title="เพิ่ม To-do"><IconListCheck size={17} /></button>
-                  <button onClick={() => setOpen(false)} className="grid place-items-center size-8 rounded-full hover:bg-white/15 ml-0.5" aria-label="ปิด"><IconX size={17} /></button>
+                  <button onClick={() => startNew('note')} className="grid place-items-center size-9 rounded-full bg-brand text-white shadow-sm active:scale-95 transition-transform" aria-label="New note" title="New note"><IconNote size={18} /></button>
+                  <button onClick={() => startNew('todo')} className="grid place-items-center size-9 rounded-full bg-brand text-white shadow-sm active:scale-95 transition-transform" aria-label="New to-do" title="New to-do"><IconListCheck size={18} /></button>
+                  <button onClick={() => setOpen(false)} className="grid place-items-center size-9 rounded-full bg-surface-2 text-ink-2 hover:bg-surface-2/70 ml-0.5" aria-label="Close"><IconX size={18} /></button>
                 </header>
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                <div className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
                   {missing ? (
-                    <div className="card p-4 text-[12.5px] text-ink-2 leading-relaxed">
+                    <div className="card p-4 text-[12.5px] text-ink-2 leading-relaxed mt-2">
                       ⚙️ ยังไม่ได้เปิดใช้ / อัปเกรดโน้ต — รัน SQL <code className="text-[11.5px] bg-surface-2 rounded px-1">supabase/notes.sql</code> ใน Supabase SQL Editor ก่อน แล้วเปิดแผงนี้ใหม่
                     </div>
                   ) : loading && notes.length === 0 ? (
@@ -283,18 +304,28 @@ export function NotePanel() {
                   ) : notes.length === 0 ? (
                     <div className="text-center py-12">
                       <IconNotes size={26} className="mx-auto text-ink-3" />
-                      <p className="text-[12.5px] text-ink-3 mt-2">ยังไม่มีรายการ — แตะไอคอน 📝 / ✅ ด้านบนเพื่อเพิ่ม</p>
+                      <p className="text-[12.5px] text-ink-3 mt-2">No notes yet — tap 📝 / ✅ above to add one</p>
                     </div>
-                  ) : notes.map((n) => (
-                    <NoteCard key={n.id} note={n} mine={!!user && n.user_id === user.id}
-                      onEdit={() => startEdit(n)} onDelete={() => removeNote(n)}
-                      onCycleStatus={() => {
-                        const i = STATUS_ORDER.indexOf(n.status)
-                        patchNote(n, { status: STATUS_ORDER[(i + 1) % STATUS_ORDER.length] })
-                      }}
-                      onToggleShare={() => patchNote(n, { shared: !n.shared })}
-                      onToggleItem={(id) => toggleItem(n, id)} />
-                  ))}
+                  ) : (
+                    <>
+                      <Section title="Upcoming" count={upcoming.length} dot="var(--color-brand)" open={upOpen} onToggle={() => setUpOpen((v) => !v)}>
+                        {upcoming.map((n, i) => (
+                          <TimelineRow key={n.id} due={n.due_at} tone="up" last={i === upcoming.length - 1}>
+                            {renderNote(n)}
+                          </TimelineRow>
+                        ))}
+                      </Section>
+                      {finished.length > 0 && (
+                        <Section title="Finished" count={finished.length} dot="#1E8E5A" open={finOpen} onToggle={() => setFinOpen((v) => !v)}>
+                          {finished.map((n, i) => (
+                            <TimelineRow key={n.id} due={n.due_at} tone="done" last={i === finished.length - 1}>
+                              {renderNote(n)}
+                            </TimelineRow>
+                          ))}
+                        </Section>
+                      )}
+                    </>
+                  )}
                 </div>
                 {/* currency calculator pinned at the bottom, always visible */}
                 {!missing && (
@@ -312,9 +343,53 @@ export function NotePanel() {
   )
 }
 
+// ----------------------------------------------------- sections & rail ------
+
+function Section({ title, count, dot, open, onToggle, children }: {
+  title: string; count: number; dot: string; open: boolean; onToggle: () => void; children: React.ReactNode
+}) {
+  return (
+    <div className="first:mt-1 mt-4">
+      <button onClick={onToggle} className="flex items-center gap-2 w-full mb-3">
+        <span className="size-2.5 rounded-full shrink-0" style={{ background: dot }} />
+        <span className="text-[16px] font-bold text-ink">{title}</span>
+        <span className="text-[13px] text-ink-3 font-semibold">({count})</span>
+        <IconChevronDown size={16} className={`ml-auto text-ink-3 transition-transform ${open ? '' : '-rotate-90'}`} />
+      </button>
+      {open && <div>{children}</div>}
+    </div>
+  )
+}
+
+/** Left rail: month label OUTSIDE above a day-number circle, with a connecting
+ *  line. Undated notes get a neutral "—" badge. */
+function TimelineRow({ due, tone, last, children }: {
+  due?: string | null; tone: 'up' | 'done'; last: boolean; children: React.ReactNode
+}) {
+  const done = tone === 'done'
+  const color = done ? '#6B7480' : 'var(--color-brand)'
+  const lineColor = done ? 'var(--color-line-2)' : '#3B9BFF'
+  const d = due ? new Date(due) : null
+  const dated = !!d && !Number.isNaN(d.getTime())
+  const mo = dated ? d!.toLocaleString('en-US', { month: 'short' }).toUpperCase() : ''
+  return (
+    <div className="flex gap-3">
+      <div className="w-11 flex-none flex flex-col items-center">
+        <span className="text-[10px] font-extrabold tracking-wide leading-none mb-1" style={{ color, minHeight: 10 }}>{mo || ' '}</span>
+        <div className="size-[42px] rounded-full grid place-items-center font-extrabold text-[17px] shrink-0"
+          style={dated ? { background: color, color: '#fff' } : { background: 'var(--color-surface-2)', color: 'var(--color-ink-3)', fontSize: 15 }}>
+          {dated ? d!.getDate() : '—'}
+        </div>
+        {!last && <div className="flex-1 w-[2.5px] rounded mt-1.5 min-h-[22px]" style={{ background: lineColor }} />}
+      </div>
+      <div className="flex-1 min-w-0 pb-4">{children}</div>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------- card ------
 
-function NoteCard({ note, mine, onEdit, onDelete, onCycleStatus, onToggleShare, onToggleItem }: {
+function NoteCard({ note, mine, onEdit, onDelete, onCycleStatus, onToggleShare, onToggleItem, onToggleDone }: {
   note: TripNote
   mine: boolean
   onEdit: () => void
@@ -322,10 +397,12 @@ function NoteCard({ note, mine, onEdit, onDelete, onCycleStatus, onToggleShare, 
   onCycleStatus: () => void
   onToggleShare: () => void
   onToggleItem: (id: string) => void
+  onToggleDone: () => void
 }) {
   const items = note.items ?? []
   const done = items.filter((it) => it.done).length
   const m = STATUS_META[note.status]
+  const isDone = note.status === 'done'
   return (
     <div className="relative flex flex-col">
       {/* status-tinted strip peeks out the top with rounded corners; the white
@@ -358,10 +435,10 @@ function NoteCard({ note, mine, onEdit, onDelete, onCycleStatus, onToggleShare, 
         </span>
       </div>
 
-      <div className="card relative p-3">
+      <div className="card relative p-3" style={isDone ? { background: '#F1F3F6' } : undefined}>
         <div className="flex items-center gap-1.5">
           {note.kind === 'todo' ? <IconListCheck size={15} className="text-ink-3 shrink-0" /> : <IconNote size={15} className="text-ink-3 shrink-0" />}
-          <h3 className="text-[14px] font-semibold text-ink truncate">{note.title || (note.kind === 'todo' ? 'To-do' : 'ไม่มีหัวข้อ')}</h3>
+          <h3 className={`text-[14px] font-semibold truncate ${isDone ? 'text-ink-2' : 'text-ink'}`}>{note.title || (note.kind === 'todo' ? 'To-do' : 'ไม่มีหัวข้อ')}</h3>
         </div>
 
         {note.due_at && (
@@ -396,6 +473,19 @@ function NoteCard({ note, mine, onEdit, onDelete, onCycleStatus, onToggleShare, 
               {(note.author_name || 'U').slice(0, 1).toUpperCase()}
             </span>
             {note.author_name || 'สมาชิกทริป'} · {noteTime(note.created_at)}
+          </div>
+        )}
+
+        {/* mark-as-done / reopen — bottom-right */}
+        {mine && (
+          <div className="flex justify-end mt-2.5 pt-2.5" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+            <button onClick={onToggleDone}
+              className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-[12px] font-semibold transition-colors"
+              style={isDone
+                ? { background: 'var(--color-surface-2)', color: 'var(--color-ink-3)', border: '0.5px solid var(--color-line)' }
+                : { background: '#fff', color: 'var(--color-brand)', border: '0.5px solid var(--color-brand)' }}>
+              {isDone ? <><IconArrowBackUp size={14} /> Reopen</> : <><IconCheck size={14} /> Mark as done</>}
+            </button>
           </div>
         )}
       </div>
