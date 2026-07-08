@@ -67,11 +67,14 @@ export default async function handler(req, res) {
     if (!url || !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'bad url' })
     const amap = /amap|gaode/i.test(url)
     let finalUrl = url, body = '', status = 0
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 6000) // never hang the function
     try {
-      const r = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': UA, 'Accept-Language': 'zh-CN,zh;q=0.9', Accept: 'text/html' } })
+      const r = await fetch(url, { redirect: 'follow', signal: ctrl.signal, headers: { 'User-Agent': UA, 'Accept-Language': 'zh-CN,zh;q=0.9', Accept: 'text/html' } })
       finalUrl = r.url || url; status = r.status
       body = await r.text().catch(() => '')
-    } catch (e) { body = ''; if (req.query?.debug) return res.json({ error: String(e?.message || e) }) }
+    } catch (e) { body = ''; if (req.query?.debug) return res.json({ error: String(e?.message || e), finalUrl }) }
+    finally { clearTimeout(timer) }
     const coords = extract(finalUrl) || extract(body) || (amap ? scanChina(finalUrl) || scanChina(body) : null)
     if (req.query?.debug) {
       return res.json({ finalUrl, status, len: body.length, coords: coords || null, snippet: body.slice(0, 800) })
