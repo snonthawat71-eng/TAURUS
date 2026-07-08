@@ -13,6 +13,7 @@ import Itinerary from '@/pages/Itinerary'
 import PlacesFood from '@/pages/PlacesFood'
 import AllPlans from '@/pages/AllPlans'
 import Budget from '@/pages/Budget'
+import TripMap from '@/pages/TripMap'
 import CreateTrip from '@/pages/CreateTrip'
 import JoinTrip, { PENDING_INVITE_KEY } from '@/pages/JoinTrip'
 
@@ -74,6 +75,8 @@ export default function App() {
             <Route path="/food" element={<PlacesFood />} />
             <Route path="/plans" element={<AllPlans />} />
             <Route path="/budget" element={<Budget />} />
+            {/* test-only map, not in the nav yet */}
+            <Route path="/map" element={<TripMap />} />
           </Route>
         </Routes>
       </BrowserRouter>

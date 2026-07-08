@@ -8,7 +8,7 @@ export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
 
 // photo_path & city are optional (added by extra_columns.sql); strip whichever
 // the API reports as unknown so older databases still work.
-const OPTIONAL = ['photo_path', 'photo_url', 'photo_focus', 'photos', 'city', 'source_explore_id', 'routes', 'branches', 'multi_branch', 'menu_paths']
+const OPTIONAL = ['photo_path', 'photo_url', 'photo_focus', 'photos', 'city', 'source_explore_id', 'routes', 'branches', 'multi_branch', 'menu_paths', 'lat', 'lng']
 function stripUnknown(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
   let changed = false
@@ -27,6 +27,13 @@ export async function addPlace(trip_id: string, input: PlaceInput) {
 
 export async function updatePlace(id: string, fields: PlaceInput, expectedVersion?: number) {
   return updateWithVersion('places', id, { ...fields }, expectedVersion, (p, msg) => stripUnknown(p, msg))
+}
+
+/** Write just the map pin (lat/lng) — no version bump. Used to cache a geocode
+ *  result or a manually-picked location. Silent if the columns don't exist yet. */
+export async function setPlaceCoords(id: string, lat: number | null, lng: number | null) {
+  const res = await supabase.from('places').update({ lat, lng }).eq('id', id)
+  return res
 }
 
 export async function deletePlace(id: string) {

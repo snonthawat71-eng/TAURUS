@@ -272,6 +272,10 @@ export interface Place {
    *  its frame, stored as "x y scale" (see src/lib/photoFocus.ts) */
   photo_focus?: string | null
   city?: string | null
+  /** optional — present after supabase/place_geo.sql; map pin location. Filled
+   *  from map_url / geocoding / manual pick (see src/lib/geo.ts) */
+  lat?: number | null
+  lng?: number | null
   /** optional — present after menu.sql (menu images/PDFs for restaurants) */
   menu_paths?: string[] | null
   /** optional — present after photos.sql; extra photos (2nd–4th) shown only in

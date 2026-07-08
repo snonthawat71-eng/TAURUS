@@ -163,6 +163,22 @@
   }
 }
 
+/* Map pins (Leaflet divIcon) — teardrop with a photo/colour, ring by category */
+.tpin { width: 38px; height: 38px; }
+.tpin-b {
+  width: 38px; height: 38px; border-radius: 50% 50% 50% 2px;
+  transform: rotate(45deg); background: #fff; overflow: hidden;
+  border: 2.5px solid var(--c, #0270FB);
+  box-shadow: 0 3px 5px rgba(10, 20, 40, 0.3);
+  display: grid; place-items: center;
+}
+.tpin-b > * { transform: rotate(-45deg); }
+.tpin-b img { width: 150%; height: 150%; object-fit: cover; }
+.tpin.sel .tpin-b { width: 48px; height: 48px; border-width: 3px; box-shadow: 0 0 0 4px rgba(2, 112, 251, 0.25), 0 3px 6px rgba(10, 20, 40, 0.35); }
+.tpin.sel { width: 48px; height: 48px; }
+.leaflet-container { font: inherit; background: #eaeef1; }
+.leaflet-control-attribution { font-size: 9px !important; }
+
 /* NotePanel FAB menu — each item pops up from the button */
 @keyframes fab-in {
   from {

@@ -43,6 +43,7 @@ export function AppShell() {
   const allowed = new Set(visibleNav(myPermission).map((n) => n.to))
   if (allowed.has('/itinerary')) allowed.add('/plans') // All plans now lives inside Itinerary
   if (allowed.has('/places')) allowed.add('/food')
+  if (allowed.has('/places')) allowed.add('/map') // test-only map page (not in nav)
   if (allowed.has('/info')) allowed.add('/budget') // budget lives inside Personal Info
   if (!allowed.has(location.pathname)) {
     const fallback = visibleNav(myPermission)[0]?.to ?? '/'
