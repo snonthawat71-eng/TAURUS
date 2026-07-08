@@ -559,7 +559,7 @@ export default function TripInfo() {
       : 'ตั้งเป็นส่วนตัวแล้ว — เห็นเฉพาะเจ้าของการ์ดกับเจ้าของทริป')
   }
 
-  const travelerRow = (t: Traveler, isMe: boolean) => {
+  const travelerRow = (t: Traveler) => {
     const i = travelers.indexOf(t)
     const files = filesByTraveler.get(t.id) ?? []
     const visible = canSeePrivate(t)
@@ -572,30 +572,34 @@ export default function TripInfo() {
     return (
       <div key={t.id} className="flex gap-2.5 items-stretch">
         <button onClick={() => visible ? setSelected(t) : toast.info(`เอกสารของ "${t.nickname ?? 'การ์ดนี้'}" เป็นส่วนตัว`)}
-          className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0">
+          className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0 relative">
+          {/* share on/off — icon at the card's top-right corner */}
+          {(isMineCard || (isTripOwner && !!t.user_id)) && (
+            <span role="button" tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); togglePrivacy(t) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); togglePrivacy(t) } }}
+              className="absolute top-2.5 right-3 z-10 grid place-items-center size-6 cursor-pointer"
+              title={(t.privacy ?? 'private') === 'trip' ? 'ทุกคนในทริปเห็นเอกสาร/QR — แตะเพื่อตั้งเป็นส่วนตัว' : 'ส่วนตัว — แตะเพื่อแชร์ให้ทุกคนในทริป'}
+              aria-label="สลับการแชร์เอกสาร">
+              {(t.privacy ?? 'private') === 'trip'
+                ? <IconUsers size={17} className="text-brand" />
+                : <IconLock size={16} style={{ color: '#E86A8E' }} />}
+            </span>
+          )}
           <div className="flex items-center gap-2.5">
             <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
             <div className="min-w-0 flex-1">
-              {/* nickname line — the chip sits where the Me badge used to be */}
-              <div className="text-[14px] font-medium leading-tight flex items-center gap-1.5">
+              {/* nickname line (pr-7 leaves room for the top-right share icon) */}
+              <div className="text-[14px] font-medium leading-tight flex items-center gap-1.5 pr-7">
                 <span className="truncate">{t.nickname}</span>
-                {!t.user_id && !!user && !iClaimed ? (
+                {!t.user_id && !!user && !iClaimed && (
                   <span role="button" tabIndex={0}
                     onClick={(e) => { e.stopPropagation(); claimCard(t) }}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); claimCard(t) } }}
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-brand-mid bg-brand-soft/60 hover:bg-brand-soft cursor-pointer shrink-0">
                     <IconUserCheck size={11} /> This is me
                   </span>
-                ) : (isMineCard || (isTripOwner && !!t.user_id)) ? (
-                  <span role="button" tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); togglePrivacy(t) }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); togglePrivacy(t) } }}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold cursor-pointer shrink-0 bg-brand-soft text-brand-dark hover:opacity-80">
-                    {(t.privacy ?? 'private') === 'trip' ? <><IconUsers size={11} /> Everyone</> : <><IconLock size={11} /> Private</>}
-                  </span>
-                ) : isMe ? (
-                  <span className="inline-flex items-center rounded-full bg-brand-soft text-brand-dark text-[10px] font-semibold px-1.5 py-0.5 shrink-0">Me</span>
-                ) : null}
+                )}
                 {/* owner can (re)send an unclaimed card's personal invite link */}
                 {isTripOwner && !t.user_id && !!t.invite_token && (
                   <span role="button" tabIndex={0}
@@ -690,11 +694,11 @@ export default function TripInfo() {
       <SectionHead title="Travelers • ผู้เดินทาง"
         action={canEdit ? <button onClick={() => setTravelerEdit('new')} className="btn-link flex items-center gap-1"><IconUserPlus size={14} /> เพิ่มคน</button> : undefined} />
       <div className="space-y-2.5">
-        {meTraveler && travelerRow(meTraveler, true)}
+        {meTraveler && travelerRow(meTraveler)}
         {otherTravelers.length > 0 && (meTraveler ? (
           othersOpen ? (
             <>
-              {otherTravelers.map((t) => travelerRow(t, false))}
+              {otherTravelers.map((t) => travelerRow(t))}
               <button onClick={() => setOthersOpen(false)}
                 className="w-full flex items-center justify-center gap-1 py-1.5 text-[12px] font-medium text-ink-3 hover:text-ink-2">
                 พับเก็บ <IconChevronDown size={15} className="rotate-180" />
@@ -706,14 +710,14 @@ export default function TripInfo() {
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setOthersOpen(true)}
               className="relative block w-full overflow-hidden rounded-[12px] cursor-pointer"
               style={{ height: 66 }} aria-label={`แสดงผู้เดินทางอีก ${otherTravelers.length} คน`}>
-              <div className="opacity-55 pointer-events-none">{travelerRow(otherTravelers[0], false)}</div>
+              <div className="opacity-55 pointer-events-none">{travelerRow(otherTravelers[0])}</div>
               <div className="absolute inset-x-0 bottom-0 h-11 flex items-end justify-center pb-1"
                 style={{ background: 'linear-gradient(to bottom, transparent, var(--color-canvas))' }}>
                 <span className="text-[12px] font-semibold text-brand inline-flex items-center gap-1">อีก {otherTravelers.length} คน <IconChevronDown size={14} /></span>
               </div>
             </div>
           )
-        ) : otherTravelers.map((t) => travelerRow(t, false)))}
+        ) : otherTravelers.map((t) => travelerRow(t)))}
       </div>
 
       {/* Flights */}
