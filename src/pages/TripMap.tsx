@@ -8,6 +8,7 @@ import { catMeta } from '@/lib/placeMeta'
 import { latLngFromUrl, geocode, type LatLng } from '@/lib/geo'
 import { setPlaceCoords } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
+import { toast } from '@/lib/toast'
 import type { Place } from '@/lib/database.types'
 
 const TILE = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
@@ -35,6 +36,10 @@ export default function TripMap() {
   const [center, setCenter] = useState<LatLng | null>(null)
   const [me, setMe] = useState<LatLng | null>(null)
   const [geoBusy, setGeoBusy] = useState(0)
+  const [placing, setPlacing] = useState<Place | null>(null) // the place we're pinning
+  const [linkText, setLinkText] = useState('')
+  const placingRef = useRef<Place | null>(null)
+  useEffect(() => { placingRef.current = placing }, [placing])
 
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.LayerGroup | null>(null)
@@ -93,6 +98,8 @@ export default function TripMap() {
     L.control.zoom({ position: 'bottomright' }).addTo(map)
     layerRef.current = L.layerGroup().addTo(map)
     map.on('moveend', () => setCenter({ lat: map.getCenter().lat, lng: map.getCenter().lng }))
+    // tap the map while pinning a place → set its location
+    map.on('click', (e) => { const p = placingRef.current; if (p) applyRef.current(p, { lat: e.latlng.lat, lng: e.latlng.lng }) })
     mapRef.current = map
     setCenter({ lat: map.getCenter().lat, lng: map.getCenter().lng })
     return () => { map.remove(); mapRef.current = null }
@@ -121,6 +128,26 @@ export default function TripMap() {
     if (pts.length && !fitted.current) { map.fitBounds(L.latLngBounds(pts).pad(0.2), { maxZoom: 15 }); fitted.current = true }
   }, [shown, coords, selected])
 
+  function applyCoords(p: Place, c: LatLng) {
+    setCoords((m) => ({ ...m, [p.id]: c }))
+    setPlaceCoords(p.id, c.lat, c.lng).catch(() => {})
+    setPlacing(null); setLinkText('')
+    fitted.current = true // don't auto-refit after a manual pin
+    mapRef.current?.setView([c.lat, c.lng], 15)
+    toast.success(`ปักหมุด "${p.name}" แล้ว`)
+  }
+  const applyRef = useRef(applyCoords)
+  applyRef.current = applyCoords
+
+  function parsePasted(text: string): LatLng | null {
+    const t = text.trim()
+    const fromUrl = latLngFromUrl(t)
+    if (fromUrl) return fromUrl
+    const m = t.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/)
+    if (m) { const lat = +m[1], lng = +m[2]; if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng } }
+    return null
+  }
+
   function locate() {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -145,6 +172,7 @@ export default function TripMap() {
     if (!ref) return shown
     return [...shown].sort((a, b) => haversine(ref, coords[a.id]) - haversine(ref, coords[b.id]))
   }, [shown, coords, ref])
+  const unplaced = useMemo(() => tripPlaces.filter((p) => !coords[p.id]), [tripPlaces, coords])
 
   const CHIPS: { key: typeof filter; label: string }[] = [
     { key: 'all', label: 'ทั้งหมด' }, { key: 'place', label: 'สถานที่' }, { key: 'food', label: 'อาหาร/คาเฟ่' },
@@ -158,10 +186,26 @@ export default function TripMap() {
         🧪 หน้าแผนที่ (เทส) — ยังไม่เปิดให้ผู้ใช้ · /map
       </div>
 
-      <div ref={boxRef} className="absolute inset-0" />
+      <div ref={boxRef} className="absolute inset-0" style={placing ? { cursor: 'crosshair' } : undefined} />
+
+      {/* pinning banner — overlays the search while placing a pin */}
+      {placing && (
+        <div className="absolute top-7 inset-x-0 z-[600] px-3 pt-2">
+          <div className="rounded-2xl bg-ink text-white p-3 shadow-xl">
+            <div className="text-[12.5px] font-semibold flex items-center gap-1.5"><IconMapPin size={15} /> แตะบนแผนที่เพื่อวางหมุด: {placing.name}</div>
+            <div className="flex gap-2 mt-2">
+              <input value={linkText} onChange={(e) => setLinkText(e.target.value)} placeholder="หรือวางลิงก์ Google / พิกัด lat,lng"
+                className="flex-1 h-9 rounded-md px-2.5 text-[12px] text-ink bg-white outline-none" />
+              <button onClick={() => { const c = parsePasted(linkText); if (c) applyCoords(placing, c); else toast.error('อ่านพิกัดจากที่วางไม่ได้ — ใช้ลิงก์ที่มี @lat,lng หรือพิมพ์ 22.30,114.17') }}
+                className="h-9 px-3.5 rounded-md bg-brand text-white text-[12px] font-semibold shrink-0">ใช้</button>
+            </div>
+            <button onClick={() => { setPlacing(null); setLinkText('') }} className="mt-2 text-[11.5px] text-white/70">ยกเลิก</button>
+          </div>
+        </div>
+      )}
 
       {/* top controls */}
-      <div className="absolute top-7 inset-x-0 z-[500] px-3 pt-2 space-y-2">
+      <div className={`absolute top-7 inset-x-0 z-[500] px-3 pt-2 space-y-2 ${placing ? 'hidden' : ''}`}>
         <div className="flex items-center gap-2 h-11 rounded-full bg-white shadow-md px-4">
           <IconSearch size={17} className="text-ink-3" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ในทริป"
@@ -191,10 +235,27 @@ export default function TripMap() {
       <div className="absolute inset-x-0 bottom-0 z-[500] bg-white rounded-t-[18px] shadow-[0_-6px_24px_rgba(10,20,40,.14)] max-h-[42%] flex flex-col">
         <div className="w-9 h-1 rounded-full mx-auto mt-2.5 mb-1.5 shrink-0" style={{ background: 'var(--color-line-2)' }} />
         {selected ? (
-          <SelectedCard p={selected} dist={ref ? kmLabel(haversine(ref, coords[selected.id])) : null} onClose={() => setSelected(null)} />
+          <SelectedCard p={selected} dist={ref ? kmLabel(haversine(ref, coords[selected.id])) : null}
+            onClose={() => setSelected(null)} onRelocate={() => { setSelected(null); setPlacing(selected) }} />
         ) : (
           <div className="overflow-y-auto px-3 pb-4">
-            <div className="text-[14px] font-bold px-1 mb-1.5">ในทริปนี้ · {shown.length} ที่{tripPlaces.length > shown.length ? ` (อีก ${tripPlaces.length - shown.length} ยังไม่มีพิกัด)` : ''}</div>
+            {/* places still without a pin — tap to place one */}
+            {unplaced.length > 0 && (
+              <div className="mb-3">
+                <div className="text-[12px] font-bold text-[#D97706] px-1 mb-1">ยังไม่มีพิกัด · {unplaced.length} — แตะ “ปักหมุด”</div>
+                {unplaced.slice(0, 12).map((p) => {
+                  const meta = catMeta(p.category)
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 py-1.5">
+                      <span className="size-9 rounded-[9px] grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}><meta.icon size={17} /></span>
+                      <span className="text-[13px] font-medium truncate flex-1">{p.name}</span>
+                      <button onClick={() => setPlacing(p)} className="shrink-0 h-8 px-3 rounded-full bg-brand text-white text-[11.5px] font-semibold inline-flex items-center gap-1"><IconMapPin size={13} /> ปักหมุด</button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <div className="text-[14px] font-bold px-1 mb-1.5">บนแผนที่ · {shown.length} ที่</div>
             {nearby.length === 0 ? (
               <div className="text-center text-[12.5px] text-ink-3 py-8 flex flex-col items-center gap-2">
                 <IconMapPinOff size={24} /> ยังไม่มีสถานที่ที่มีพิกัดบนแผนที่
@@ -230,7 +291,7 @@ function NearbyRow({ p, dist, onOpen }: { p: Place; dist: string | null; onOpen:
   )
 }
 
-function SelectedCard({ p, dist, onClose }: { p: Place; dist: string | null; onClose: () => void }) {
+function SelectedCard({ p, dist, onClose, onRelocate }: { p: Place; dist: string | null; onClose: () => void; onRelocate: () => void }) {
   const meta = catMeta(p.category)
   const photo = httpPhoto(p)
   return (
@@ -249,9 +310,14 @@ function SelectedCard({ p, dist, onClose }: { p: Place; dist: string | null; onC
         <button onClick={onClose} className="shrink-0 size-7 grid place-items-center rounded-full bg-surface-2 text-ink-3"><IconX size={15} /></button>
       </div>
       {p.note && <p className="text-[12.5px] text-ink-2 mt-2.5 leading-relaxed">{p.note}</p>}
-      <button onClick={() => openMap(p.map_url)} className="btn-primary w-full h-11 mt-3 flex items-center justify-center gap-1.5">
-        <IconMapPin size={16} /> นำทางด้วย Google Maps
-      </button>
+      <div className="flex gap-2 mt-3">
+        <button onClick={() => openMap(p.map_url)} className="btn-primary flex-1 h-11 flex items-center justify-center gap-1.5">
+          <IconMapPin size={16} /> นำทาง
+        </button>
+        <button onClick={onRelocate} className="h-11 px-4 rounded-md text-[13px] font-medium text-ink-2 inline-flex items-center gap-1.5" style={{ border: '0.5px solid var(--color-line)' }}>
+          <IconFocus2 size={15} /> ย้ายหมุด
+        </button>
+      </div>
     </div>
   )
 }
