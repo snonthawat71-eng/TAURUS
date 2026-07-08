@@ -32,6 +32,29 @@ export function latLngFromUrl(url?: string | null): LatLng | null {
   return null
 }
 
+// A2) Short Google links (maps.app.goo.gl / goo.gl/maps) carry no coordinates and
+// can't be followed from the browser (CORS). Ask our serverless endpoint to
+// follow the redirect and pull @lat,lng out of the final URL. Cached per link.
+const linkCache = new Map<string, LatLng | null>()
+export function isMapLink(url?: string | null): boolean {
+  return !!url && /(goo\.gl\/maps|maps\.app\.goo\.gl|google\.[a-z.]+\/maps|g\.co\/kgs)/i.test(url)
+}
+export async function resolveMapUrl(url: string): Promise<LatLng | null> {
+  if (linkCache.has(url)) return linkCache.get(url) ?? null
+  const ls = lsGet(`url:${url}`)
+  if (ls !== undefined) { linkCache.set(url, ls); return ls }
+  let out: LatLng | null = null
+  try {
+    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}`)
+    if (res.ok) {
+      const j = await res.json()
+      if (valid(Number(j.lat), Number(j.lng))) out = { lat: Number(j.lat), lng: Number(j.lng) }
+    }
+  } catch { /* offline / endpoint missing */ }
+  linkCache.set(url, out); lsSet(`url:${url}`, out)
+  return out
+}
+
 // C) Nominatim geocoding — rate-limited (1 req/sec), so we serialize and cache.
 const geoCache = new Map<string, LatLng | null>()
 let chain: Promise<unknown> = Promise.resolve()

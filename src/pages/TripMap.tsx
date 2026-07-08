@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { latLngFromUrl, geocode, type LatLng } from '@/lib/geo'
+import { latLngFromUrl, geocode, resolveMapUrl, isMapLink, type LatLng } from '@/lib/geo'
 import { setPlaceCoords } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -67,11 +67,14 @@ export default function TripMap() {
     ;(async () => {
       for (const p of missing) {
         if (!alive) return
-        const r = await geocode([p.name, p.station_name, p.city, trip?.country])
+        // A2) follow a short Google link server-side, else C) geocode by name+city
+        let r: LatLng | null = null
+        if (isMapLink(p.map_url)) r = await resolveMapUrl(p.map_url!)
+        if (!r) r = await geocode([p.name, p.station_name, p.city, trip?.country])
         if (!alive) return
         setGeoBusy((n) => Math.max(0, n - 1))
         if (r) {
-          setCoords((c) => ({ ...c, [p.id]: r }))
+          setCoords((c) => ({ ...c, [p.id]: r! }))
           setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
         }
       }
