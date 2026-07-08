@@ -8,6 +8,7 @@ import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { listNotes, addNote, updateNote, deleteNote, isNotesMissing, type NoteInsert } from '@/lib/noteMutations'
 import { STATUS_META, STATUS_ORDER, StatusIcon } from './NoteStatus'
+import { NoteFxCalc } from './NoteFxCalc'
 import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import type { TripNote, NoteKind, TodoItem } from '@/lib/database.types'
@@ -246,6 +247,7 @@ export function NotePanel() {
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                  <NoteFxCalc />
                   {missing ? (
                     <div className="card p-4 text-[12.5px] text-ink-2 leading-relaxed">
                       ⚙️ ยังไม่ได้เปิดใช้ / อัปเกรดโน้ต — รัน SQL <code className="text-[11.5px] bg-surface-2 rounded px-1">supabase/notes.sql</code> ใน Supabase SQL Editor ก่อน แล้วเปิดแผงนี้ใหม่
