@@ -235,14 +235,15 @@ export default function TripsDashboard() {
                   <div className="card !border-0 p-0 overflow-hidden relative isolate min-h-[200px] flex flex-col text-white z-10" style={{ background: heroGradient(t) }}>
                   {/* full photo (shifted right) */}
                   <CoverImage url={coverImage(t)} />
-                  {/* liquid-glass: the city photo is frosted (blurred + faint navy tint)
-                      on the left behind the text and fades clear toward the right */}
+                  {/* liquid-glass: frost the photo (blur), then a navy tint that fades
+                      left→right for text contrast. Kept mask-free — backdrop-filter +
+                      mask-image blanks the layer (white screen) on iOS Safari. */}
                   <div className="absolute inset-0 pointer-events-none" style={{
-                    backdropFilter: 'blur(18px) saturate(1.35)',
-                    WebkitBackdropFilter: 'blur(18px) saturate(1.35)',
-                    background: 'linear-gradient(100deg, rgba(9,28,74,0.46) 0%, rgba(9,28,74,0.16) 40%, rgba(9,28,74,0) 68%)',
-                    maskImage: 'linear-gradient(100deg, #000 42%, transparent 74%)',
-                    WebkitMaskImage: 'linear-gradient(100deg, #000 42%, transparent 74%)',
+                    backdropFilter: 'blur(16px) saturate(1.3)',
+                    WebkitBackdropFilter: 'blur(16px) saturate(1.3)',
+                  }} />
+                  <div className="absolute inset-0 pointer-events-none" style={{
+                    background: 'linear-gradient(100deg, rgba(9,28,74,0.50) 0%, rgba(9,28,74,0.24) 42%, rgba(9,28,74,0.06) 72%, rgba(9,28,74,0) 100%)',
                   }} />
 
                   {/* everything sits on the photo (min-w-0 so a long name can truncate
