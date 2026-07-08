@@ -380,7 +380,7 @@ function TimelineRow({ due, tone, last, children }: {
   return (
     <div className="flex gap-3">
       <div className="w-11 flex-none flex flex-col items-center">
-        <span className="text-[10px] font-extrabold tracking-wide leading-none mb-1" style={{ color, minHeight: 10 }}>{mo || ' '}</span>
+        <span className="text-[10px] font-extrabold tracking-wide leading-none mt-1.5 mb-1" style={{ color, minHeight: 10 }}>{mo || ' '}</span>
         <div className="size-[42px] rounded-full grid place-items-center font-extrabold text-[17px] shrink-0"
           style={dated ? { background: color, color: '#fff' } : { background: 'var(--color-surface-2)', color: 'var(--color-ink-3)', fontSize: 15 }}>
           {dated ? d!.getDate() : '—'}
@@ -407,6 +407,7 @@ function NoteCard({ note, mine, onEdit, onDelete, onToggleShare, onToggleItem, o
   const done = items.filter((it) => it.done).length
   const m = STATUS_META[note.status]
   const isDone = note.status === 'done'
+  const [cardOpen, setCardOpen] = useState(!isDone) // finished cards start folded
   return (
     <div className="relative flex flex-col">
       {/* status-tinted strip peeks out the top with rounded corners; the white
@@ -437,10 +438,13 @@ function NoteCard({ note, mine, onEdit, onDelete, onToggleShare, onToggleItem, o
       </div>
 
       <div className="card relative p-3" style={isDone ? { background: '#F1F3F6' } : undefined}>
-        <div className="flex items-center gap-1.5">
+        {/* tap the title row to fold / unfold the card */}
+        <button onClick={() => setCardOpen((o) => !o)} className="w-full flex items-center gap-1.5 text-left">
           {note.kind === 'todo' ? <IconListCheck size={15} className="text-ink-3 shrink-0" /> : <IconNote size={15} className="text-ink-3 shrink-0" />}
-          <h3 className={`text-[14px] font-semibold truncate ${isDone ? 'text-ink-2' : 'text-ink'}`}>{note.title || (note.kind === 'todo' ? 'To-do' : 'ไม่มีหัวข้อ')}</h3>
-        </div>
+          <h3 className={`text-[14px] font-semibold truncate flex-1 ${isDone ? 'text-ink-2' : 'text-ink'}`}>{note.title || (note.kind === 'todo' ? 'To-do' : 'ไม่มีหัวข้อ')}</h3>
+          {note.kind === 'todo' && items.length > 0 && <span className="text-[11px] text-ink-3 shrink-0 tabular-nums">{done}/{items.length}</span>}
+          <IconChevronDown size={16} className={`text-ink-3 shrink-0 transition-transform ${cardOpen ? '' : '-rotate-90'}`} />
+        </button>
 
         {note.due_at && (
           <div className="flex items-center gap-1.5 mt-1.5 text-[11.5px] text-ink-3">
@@ -449,6 +453,7 @@ function NoteCard({ note, mine, onEdit, onDelete, onToggleShare, onToggleItem, o
           </div>
         )}
 
+        {cardOpen && (<>
         {note.kind === 'note' ? (
           note.body?.trim() && <p className="text-[12.5px] text-ink-2 mt-1 leading-relaxed whitespace-pre-wrap line-clamp-4 break-words">{note.body}</p>
         ) : items.length > 0 && (
@@ -489,6 +494,7 @@ function NoteCard({ note, mine, onEdit, onDelete, onToggleShare, onToggleItem, o
             </button>
           </div>
         )}
+        </>)}
       </div>
     </div>
   )
