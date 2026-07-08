@@ -243,7 +243,14 @@ export function NotePanel() {
       onEdit={() => startEdit(n)} onDelete={() => removeNote(n)}
       onToggleShare={() => patchNote(n, { shared: !n.shared })}
       onToggleItem={(id) => toggleItem(n, id)}
-      onToggleDone={() => patchNote(n, { status: n.status === 'done' ? 'draft' : 'done' })} />
+      onToggleDone={() => patchNote(n, { status: n.status === 'done' ? 'draft' : 'done' })}
+      onToggleRemind={async () => {
+        if (!n.due_at) { toast.error('ตั้งวัน/เวลาก่อน ถึงจะเปิดแจ้งเตือนได้'); return }
+        const next = !n.remind
+        if (next) await ensureNotifyPermission()
+        resetNoteReminder(n.id)
+        patchNote(n, { remind: next })
+      }} />
   )
 
   return (
@@ -380,7 +387,7 @@ function TimelineRow({ due, tone, last, children }: {
   return (
     <div className="flex gap-3">
       <div className="w-11 flex-none flex flex-col items-center">
-        <span className="text-[10px] font-extrabold tracking-wide leading-none mt-1.5 mb-1" style={{ color, minHeight: 10 }}>{mo || ' '}</span>
+        <span className="text-[10px] font-extrabold tracking-wide leading-none mt-[11px] mb-1" style={{ color, minHeight: 10 }}>{mo || ' '}</span>
         <div className="size-[42px] rounded-full grid place-items-center font-extrabold text-[17px] shrink-0"
           style={dated ? { background: color, color: '#fff' } : { background: 'var(--color-surface-2)', color: 'var(--color-ink-3)', fontSize: 15 }}>
           {dated ? d!.getDate() : '—'}
@@ -394,7 +401,7 @@ function TimelineRow({ due, tone, last, children }: {
 
 // ---------------------------------------------------------------- card ------
 
-function NoteCard({ note, mine, onEdit, onDelete, onToggleShare, onToggleItem, onToggleDone }: {
+function NoteCard({ note, mine, onEdit, onDelete, onToggleShare, onToggleItem, onToggleDone, onToggleRemind }: {
   note: TripNote
   mine: boolean
   onEdit: () => void
@@ -402,6 +409,7 @@ function NoteCard({ note, mine, onEdit, onDelete, onToggleShare, onToggleItem, o
   onToggleShare: () => void
   onToggleItem: (id: string) => void
   onToggleDone: () => void
+  onToggleRemind: () => void
 }) {
   const items = note.items ?? []
   const done = items.filter((it) => it.done).length
@@ -482,9 +490,17 @@ function NoteCard({ note, mine, onEdit, onDelete, onToggleShare, onToggleItem, o
           </div>
         )}
 
-        {/* mark-as-done / reopen — bottom-right */}
+        {/* reminder bell + mark-as-done / reopen — bottom-right */}
         {mine && (
-          <div className="flex justify-end mt-2.5 pt-2.5" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+          <div className="flex justify-end items-center gap-2 mt-2.5 pt-2.5" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+            <button onClick={onToggleRemind} disabled={!note.due_at}
+              className="size-8 grid place-items-center rounded-full transition-colors disabled:opacity-40"
+              style={note.remind && note.due_at
+                ? { background: 'var(--color-brand)', color: '#fff' }
+                : { border: '0.5px solid var(--color-line)', color: 'var(--color-ink-3)' }}
+              title={note.due_at ? (note.remind ? 'ปิดแจ้งเตือน' : 'เปิดแจ้งเตือน') : 'ตั้งวัน/เวลาก่อน'} aria-label="แจ้งเตือน">
+              {note.remind && note.due_at ? <IconBell size={15} /> : <IconBellOff size={15} />}
+            </button>
             <button onClick={onToggleDone}
               className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-[12px] font-semibold transition-colors"
               style={isDone
