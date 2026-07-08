@@ -341,7 +341,7 @@ export function NotePanel() {
                 {!missing && (
                   <footer className="shrink-0 px-4 pt-3 bg-surface/95 backdrop-blur relative" style={{ borderTop: '0.5px solid var(--color-line)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }} onPointerDown={(e) => e.stopPropagation()}>
                     {/* the FAB + its menu float just above this bar, bottom-right */}
-                    <div className="absolute right-4 bottom-full mb-3 flex flex-col items-end gap-2.5 z-30">
+                    <div className="absolute right-4 bottom-full mb-8 flex flex-col items-end gap-2.5 z-30">
                       {fabOpen && (
                         <>
                           {([['note', 'Note', IconNote], ['todo', 'To-do', IconListCheck]] as const).map(([k, label, Ic], i) => (
@@ -354,7 +354,7 @@ export function NotePanel() {
                         </>
                       )}
                       <button onClick={() => setFabOpen((v) => !v)} aria-label="สร้างใหม่"
-                        className="size-14 rounded-full bg-brand text-white grid place-items-center shadow-xl active:scale-95 transition-transform">
+                        className="size-14 rounded-full bg-ink text-white grid place-items-center shadow-xl active:scale-95 transition-transform">
                         <IconPlus size={26} className="transition-transform duration-200" style={{ transform: fabOpen ? 'rotate(45deg)' : 'none' }} />
                       </button>
                     </div>
