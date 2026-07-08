@@ -6,9 +6,51 @@ export interface LatLng { lat: number; lng: number }
 
 const valid = (a: number, b: number) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180
 
-/** A) Pull coordinates out of a Google / Apple / geo: map URL if present. */
+// --- GCJ-02 (China) → WGS-84. AMap/Gaode links use GCJ-02, which is offset ~500m
+// from the WGS-84 that OSM/Leaflet use. The conversion self-guards outside China. ---
+const GCJ_A = 6378245.0, GCJ_EE = 0.00669342162296594323
+const outOfChina = (lat: number, lng: number) => lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271
+function tLat(x: number, y: number) {
+  let r = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x))
+  r += ((20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2) / 3
+  r += ((20 * Math.sin(y * Math.PI) + 40 * Math.sin((y / 3) * Math.PI)) * 2) / 3
+  r += ((160 * Math.sin((y / 12) * Math.PI) + 320 * Math.sin((y * Math.PI) / 30)) * 2) / 3
+  return r
+}
+function tLng(x: number, y: number) {
+  let r = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x))
+  r += ((20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2) / 3
+  r += ((20 * Math.sin(x * Math.PI) + 40 * Math.sin((x / 3) * Math.PI)) * 2) / 3
+  r += ((150 * Math.sin((x / 12) * Math.PI) + 300 * Math.sin((x / 30) * Math.PI)) * 2) / 3
+  return r
+}
+export function gcj02ToWgs84(lat: number, lng: number): LatLng {
+  if (outOfChina(lat, lng)) return { lat, lng }
+  let dLat = tLat(lng - 105, lat - 35), dLng = tLng(lng - 105, lat - 35)
+  const radLat = (lat / 180) * Math.PI
+  let magic = Math.sin(radLat); magic = 1 - GCJ_EE * magic * magic
+  const sm = Math.sqrt(magic)
+  dLat = (dLat * 180) / (((GCJ_A * (1 - GCJ_EE)) / (magic * sm)) * Math.PI)
+  dLng = (dLng * 180) / ((GCJ_A / sm) * Math.cos(radLat) * Math.PI)
+  return { lat: lat - dLat, lng: lng - dLng }
+}
+
+export const isAmap = (url?: string | null) => !!url && /amap\.com|gaode|ditu\.amap|uri\.amap|surl\.amap/i.test(url)
+
+/** AMap uses `lng,lat` order (in position=/location=) and GCJ-02 coords. */
+export function amapLatLng(url?: string | null): LatLng | null {
+  if (!url) return null
+  const grab = (re: RegExp) => { const m = url.match(re); return m ? { lng: Number(m[1]), lat: Number(m[2]) } : null }
+  const p = grab(/[?&](?:position|location|ll|point|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i)
+    || grab(/[?&]lng=(-?\d+\.\d+)&lat=(-?\d+\.\d+)/i)
+  if (p && valid(p.lat, p.lng)) return gcj02ToWgs84(p.lat, p.lng)
+  return null
+}
+
+/** A) Pull coordinates out of a Google / Apple / AMap / geo: map URL if present. */
 export function latLngFromUrl(url?: string | null): LatLng | null {
   if (!url) return null
+  if (isAmap(url)) { const r = amapLatLng(url); if (r) return r }
   const tryPair = (a?: string, b?: string) => {
     const lat = Number(a), lng = Number(b)
     return a != null && b != null && valid(lat, lng) ? { lat, lng } : null
@@ -37,7 +79,7 @@ export function latLngFromUrl(url?: string | null): LatLng | null {
 // follow the redirect and pull @lat,lng out of the final URL. Cached per link.
 const linkCache = new Map<string, LatLng | null>()
 export function isMapLink(url?: string | null): boolean {
-  return !!url && /(goo\.gl\/maps|maps\.app\.goo\.gl|google\.[a-z.]+\/maps|g\.co\/kgs)/i.test(url)
+  return !!url && /(goo\.gl\/maps|maps\.app\.goo\.gl|google\.[a-z.]+\/maps|g\.co\/kgs|amap\.com|gaode|surl\.amap|uri\.amap|ditu\.amap)/i.test(url)
 }
 export async function resolveMapUrl(url: string): Promise<LatLng | null> {
   if (linkCache.has(url)) return linkCache.get(url) ?? null
