@@ -17,13 +17,15 @@ export function NoteFxCalc() {
     return CURRENCIES.some((x) => x.code === c) ? c : 'CNY'
   }, [active?.currency, trip?.currency])
 
-  // currencies used across the trip's plan (segments) — offered first in the picker
+  // ONLY the currencies defined in this trip's plan (the cities set at create
+  // time — segments, plus the trip's own currency). Nothing else is offered.
   const planCodes = useMemo(() => {
     const set = new Set<string>()
     for (const s of trip?.segments ?? []) if (s?.currency) set.add(s.currency)
     if (trip?.currency) set.add(trip.currency)
-    return [...set].filter((c) => c !== 'THB' && CURRENCIES.some((x) => x.code === c))
-  }, [trip?.segments, trip?.currency])
+    const list = [...set].filter((c) => c !== 'THB' && CURRENCIES.some((x) => x.code === c))
+    return list.length ? list : [autoCode]
+  }, [trip?.segments, trip?.currency, autoCode])
 
   // manual override (null = follow the active plan segment)
   const [override, setOverride] = useState<string | null>(null)
@@ -56,23 +58,27 @@ export function NoteFxCalc() {
   return (
     <div className="card p-3 relative">
       <div className="flex items-center justify-between mb-2">
-        {/* currency picker chip */}
-        <div className="relative">
-          <button onClick={() => setPickOpen((v) => !v)} className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-2 h-6 pl-1.5 pr-2 rounded-full bg-surface-2">
-            <span>{cur.flag}</span> {cur.code} <IconChevronDown size={12} className="text-ink-3" />
-          </button>
-          {pickOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setPickOpen(false)} />
-              <div className="absolute left-0 bottom-full mb-1.5 w-48 max-h-64 overflow-y-auto card p-1 shadow-lg z-50">
-                {planCodes.length > 0 && <div className="px-2 pt-1 pb-0.5 text-[10px] text-ink-3">ค่าเงินตามแพลน</div>}
-                {planCodes.map((c) => <CurRow key={`p${c}`} c={c} sel={c === code} onPick={pick} />)}
-                {planCodes.length > 0 && <div className="my-1" style={{ borderTop: '0.5px solid var(--color-line)' }} />}
-                {CURRENCIES.map((c) => <CurRow key={c.code} c={c.code} sel={c.code === code} onPick={pick} />)}
-              </div>
-            </>
-          )}
-        </div>
+        {/* currency picker chip — only the trip's plan currencies. With a single
+            plan currency there's nothing to pick, so it's a static chip. */}
+        {planCodes.length > 1 ? (
+          <div className="relative">
+            <button onClick={() => setPickOpen((v) => !v)} className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-2 h-6 pl-1.5 pr-2 rounded-full bg-surface-2">
+              <span>{cur.flag}</span> {cur.code} <IconChevronDown size={12} className="text-ink-3" />
+            </button>
+            {pickOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setPickOpen(false)} />
+                <div className="absolute left-0 bottom-full mb-1.5 w-48 max-h-64 overflow-y-auto card p-1 shadow-lg z-50">
+                  {planCodes.map((c) => <CurRow key={c} c={c} sel={c === code} onPick={pick} />)}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-2 h-6 pl-1.5 pr-2 rounded-full bg-surface-2">
+            <span>{cur.flag}</span> {cur.code}
+          </span>
+        )}
         <button onClick={refresh} disabled={refreshing} className="flex items-center gap-1 text-[10.5px] font-medium disabled:opacity-50" style={{ color: status.color }}>
           <span className="size-1.5 rounded-full" style={{ background: status.color }} /> {status.label}
           <IconRefresh size={10} className={refreshing ? 'animate-spin' : ''} />
