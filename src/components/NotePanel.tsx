@@ -2,16 +2,39 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   IconNotes, IconX, IconPencil, IconTrash, IconChevronLeft, IconChevronRight, IconLoader2, IconPlus,
-  IconListCheck, IconNote, IconLock, IconUsers, IconArrowLeft,
+  IconListCheck, IconNote, IconLock, IconUsers, IconArrowLeft, IconClock, IconBell, IconBellOff,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { listNotes, addNote, updateNote, deleteNote, isNotesMissing, type NoteInsert } from '@/lib/noteMutations'
-import { STATUS_META, STATUS_ORDER, StatusIcon } from './NoteStatus'
+import { STATUS_META, STATUS_ORDER, StatusIcon, normalizeStatus } from './NoteStatus'
 import { NoteFxCalc } from './NoteFxCalc'
+import { ClearableField } from './ClearableField'
+import { resetNoteReminder } from '@/lib/noteReminders'
+import { ensureNotifyPermission } from '@/lib/planReminders'
 import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import type { TripNote, NoteKind, TodoItem } from '@/lib/database.types'
+
+// ISO timestamp ↔ local date/time field values
+function splitDue(iso?: string | null): { date: string; time: string } {
+  if (!iso) return { date: '', time: '' }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { date: '', time: '' }
+  const p = (n: number) => String(n).padStart(2, '0')
+  return { date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, time: `${p(d.getHours())}:${p(d.getMinutes())}` }
+}
+function joinDue(date: string, time: string): string | null {
+  if (!date) return null
+  const dt = new Date(`${date}T${time || '09:00'}`)
+  return Number.isNaN(dt.getTime()) ? null : dt.toISOString()
+}
+function dueLabel(iso?: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
 
 const OPEN_THRESHOLD = 90 // px of pull before releasing opens the panel
 
@@ -52,6 +75,7 @@ function blankNote(kind: NoteKind): TripNote {
     id: uid(), trip_id: '', kind, title: '', status: 'draft', shared: false,
     body: kind === 'note' ? '' : null,
     items: kind === 'todo' ? [{ id: uid(), text: '', done: false }] : null,
+    due_at: null, remind: false,
     created_at: new Date().toISOString(),
   }
 }
@@ -112,7 +136,7 @@ export function NotePanel() {
     setLoading(true)
     const { data, error } = await listNotes(trip.id)
     if (error) { if (isNotesMissing(error.message)) setMissing(true); else toast.error(error.message) }
-    else { setMissing(false); setNotes((data ?? []) as TripNote[]) }
+    else { setMissing(false); setNotes(((data ?? []) as TripNote[]).map((n) => ({ ...n, status: normalizeStatus(n.status) }))) }
     setLoading(false)
   }
   useEffect(() => { if (open) load() /* eslint-disable-line react-hooks/exhaustive-deps */ }, [open, trip?.id])
@@ -161,15 +185,18 @@ export function NotePanel() {
     const title = (n.title ?? '').trim()
     const items = (n.items ?? []).filter((it) => it.text.trim()).map((it) => ({ ...it, text: it.text.trim() }))
     if (!title && !((n.body ?? '').trim()) && !items.length) { toast.error('ใส่หัวข้อหรือเนื้อหาก่อนบันทึก'); return }
+    const remind = !!n.due_at && !!n.remind
     const payload: NoteInsert = {
       kind: n.kind, title: title || null, status: n.status, shared: !!n.shared,
       body: n.kind === 'note' ? (n.body ?? '') : null,
       items: n.kind === 'todo' ? items : null,
+      due_at: n.due_at ?? null, remind,
     }
     const res = isNew
       ? await addNote(trip.id, payload, myProfile?.nickname ?? null, myProfile?.avatar_color ?? null)
       : await updateNote(n.id, payload)
     if (res.error) { if (isNotesMissing(res.error.message)) setMissing(true); else toast.error(`บันทึกไม่สำเร็จ: ${res.error.message}`); return }
+    resetNoteReminder(n.id) // edited due date → allow it to fire again
     setEditing(null)
     await load()
   }
@@ -227,7 +254,7 @@ export function NotePanel() {
         <div className="fixed inset-0 z-[100]" role="presentation">
           <div className="absolute inset-0 bg-black/35 backdrop-blur-[1px] animate-[toast-in_.15s_ease-out]"
             style={{ opacity: sheetDX ? Math.max(0, 1 - sheetDX / 320) : undefined }} onClick={() => setOpen(false)} />
-          <aside className="absolute right-0 top-0 h-full w-[min(90vw,380px)] bg-canvas shadow-2xl flex flex-col animate-[note-in_.24s_cubic-bezier(.22,1,.36,1)]"
+          <aside className="absolute inset-0 w-full h-full bg-canvas shadow-2xl flex flex-col animate-[note-in_.24s_cubic-bezier(.22,1,.36,1)]"
             role="dialog" aria-modal="true" aria-label="โน้ตทริป"
             style={{ transform: sheetDX ? `translateX(${sheetDX}px)` : undefined, transition: sheetDragging ? 'none' : 'transform .24s cubic-bezier(.22,1,.36,1)' }}>
 
@@ -337,6 +364,13 @@ function NoteCard({ note, mine, onEdit, onDelete, onCycleStatus, onToggleShare, 
           <h3 className="text-[14px] font-semibold text-ink truncate">{note.title || (note.kind === 'todo' ? 'To-do' : 'ไม่มีหัวข้อ')}</h3>
         </div>
 
+        {note.due_at && (
+          <div className="flex items-center gap-1.5 mt-1.5 text-[11.5px] text-ink-3">
+            <IconClock size={12} className="shrink-0" /> {dueLabel(note.due_at)}
+            {note.remind && <span className="inline-flex items-center gap-0.5 text-brand-mid"><IconBell size={11} /> เตือน</span>}
+          </div>
+        )}
+
         {note.kind === 'note' ? (
           note.body?.trim() && <p className="text-[12.5px] text-ink-2 mt-1 leading-relaxed whitespace-pre-wrap line-clamp-4 break-words">{note.body}</p>
         ) : items.length > 0 && (
@@ -386,6 +420,7 @@ function NoteEditor({ note, isNew, onChange, onBack, onSave, onDelete }: {
   const set = (patch: Partial<TripNote>) => onChange({ ...note, ...patch })
   const items = note.items ?? []
   const setItems = (next: TodoItem[]) => set({ items: next })
+  const due = splitDue(note.due_at)
 
   return (
     <>
@@ -444,6 +479,32 @@ function NoteEditor({ note, isNew, onChange, onBack, onSave, onDelete }: {
               <IconUsers size={14} /> แชร์ให้ทุกคน
             </button>
           </div>
+        </div>
+
+        {/* due date + time (each field like the rest of the app, with ✕) */}
+        <div>
+          <div className="text-[11px] text-ink-3 mb-1.5">วันและเวลา</div>
+          <div className="grid grid-cols-2 gap-2">
+            <ClearableField type="date" ariaLabel="ล้างวันที่"
+              value={due.date}
+              onChange={(v) => set({ due_at: joinDue(v, due.time) })}
+              onClear={() => set({ due_at: null, remind: false })} />
+            <ClearableField type="time" ariaLabel="ล้างเวลา"
+              value={due.time}
+              onChange={(v) => set({ due_at: joinDue(due.date, v) })}
+              onClear={() => set({ due_at: joinDue(due.date, '') })} />
+          </div>
+
+          {/* reminder toggle — only meaningful once a date is set */}
+          <button disabled={!note.due_at}
+            onClick={async () => { const next = !note.remind; if (next) await ensureNotifyPermission(); set({ remind: next }) }}
+            className={['w-full mt-2 h-10 rounded-md flex items-center justify-center gap-1.5 text-[12.5px] font-medium transition-colors disabled:opacity-45',
+              note.remind ? 'text-white' : 'text-ink-2 hairline bg-surface'].join(' ')}
+            style={note.remind ? { background: 'var(--color-brand)' } : undefined}>
+            {note.remind ? <IconBell size={15} /> : <IconBellOff size={15} />}
+            {note.remind ? 'เปิดแจ้งเตือนแล้ว' : 'เปิดแจ้งเตือน'}
+          </button>
+          {!note.due_at && <div className="text-[10.5px] text-ink-3 mt-1">ระบุวันก่อน ถึงจะเปิดแจ้งเตือนได้</div>}
         </div>
 
         {/* body / items */}

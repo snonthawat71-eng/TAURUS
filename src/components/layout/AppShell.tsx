@@ -6,6 +6,7 @@ import { BottomNav } from './BottomNav'
 import { TopBar } from './TopBar'
 import { OfflineBanner } from '@/components/OfflineBanner'
 import { NotePanel } from '@/components/NotePanel'
+import { NoteReminderEngine } from '@/components/NoteReminderEngine'
 import { NoTrip } from '@/components/NoTrip'
 import { useTrip } from '@/contexts/TripContext'
 import { visibleNav } from './nav'
@@ -62,6 +63,7 @@ export function AppShell() {
       </main>
       <BottomNav />
       <NotePanel />
+      <NoteReminderEngine />
     </div>
   )
 }

@@ -1,15 +1,20 @@
 import type { NoteStatus } from '@/lib/database.types'
 
 export const STATUS_META: Record<NoteStatus, { label: string; color: string; bg: string }> = {
-  draft:       { label: 'Draft',       color: '#3F4753', bg: '#EDF0F4' },
-  in_progress: { label: 'In-progress', color: '#E4711E', bg: '#FBE8D4' },
-  in_review:   { label: 'In-review',   color: '#2563EB', bg: '#E7ECFD' },
-  completed:   { label: 'Completed',   color: '#15803D', bg: '#D8F2E1' },
+  draft:  { label: 'Draft',  color: '#3F4753', bg: '#EDF0F4' },
+  urgent: { label: 'Urgent', color: '#D92D20', bg: '#FCE4E2' },
+  done:   { label: 'Done',   color: '#15803D', bg: '#D8F2E1' },
 }
-export const STATUS_ORDER: NoteStatus[] = ['draft', 'in_progress', 'in_review', 'completed']
+export const STATUS_ORDER: NoteStatus[] = ['draft', 'urgent', 'done']
 
-/** The four status glyphs from the reference — drawn by hand so they match:
- *  dashed ring · left-half fill · ¾ pie · filled check. Uses currentColor. */
+/** Map any legacy/unknown status value onto the current three. */
+export function normalizeStatus(s?: string | null): NoteStatus {
+  if (s === 'done' || s === 'completed') return 'done'
+  if (s === 'urgent') return 'urgent'
+  return 'draft' // draft / in_progress / in_review / anything else
+}
+
+/** The status glyphs — drawn by hand: dashed ring · red "!" · green check. */
 export function StatusIcon({ status, size = 16 }: { status: NoteStatus; size?: number }) {
   const c = 'currentColor'
   return (
@@ -17,19 +22,14 @@ export function StatusIcon({ status, size = 16 }: { status: NoteStatus; size?: n
       {status === 'draft' && (
         <circle cx="10" cy="10" r="7" stroke={c} strokeWidth="1.6" strokeDasharray="2.6 2.4" />
       )}
-      {status === 'in_progress' && (
+      {status === 'urgent' && (
         <>
-          <circle cx="10" cy="10" r="7" stroke={c} strokeWidth="1.6" />
-          <path d="M10 3 a7 7 0 0 0 0 14 z" fill={c} />
+          <circle cx="10" cy="10" r="8.5" fill={c} />
+          <rect x="9.05" y="5" width="1.9" height="6.2" rx="0.95" fill="#fff" />
+          <circle cx="10" cy="14" r="1.15" fill="#fff" />
         </>
       )}
-      {status === 'in_review' && (
-        <>
-          <circle cx="10" cy="10" r="7" stroke={c} strokeWidth="1.6" />
-          <path d="M10 10 L10 3 A7 7 0 1 0 17 10 Z" fill={c} />
-        </>
-      )}
-      {status === 'completed' && (
+      {status === 'done' && (
         <>
           <circle cx="10" cy="10" r="8.5" fill={c} />
           <path d="M6 10.2 l2.6 2.6 l5.4 -5.7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -39,7 +39,7 @@ export function StatusIcon({ status, size = 16 }: { status: NoteStatus; size?: n
   )
 }
 
-/** The status pill (icon + label on a soft tint) exactly like the reference. */
+/** The status pill (icon + label on a soft tint). */
 export function StatusBadge({ status, size = 'md' }: { status: NoteStatus; size?: 'sm' | 'md' }) {
   const m = STATUS_META[status]
   const sm = size === 'sm'

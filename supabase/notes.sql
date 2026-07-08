@@ -27,6 +27,8 @@ alter table public.trip_notes add column if not exists title text;
 alter table public.trip_notes add column if not exists items jsonb;
 alter table public.trip_notes add column if not exists status text not null default 'draft';
 alter table public.trip_notes add column if not exists shared boolean not null default false;
+alter table public.trip_notes add column if not exists due_at timestamptz;      -- optional date+time
+alter table public.trip_notes add column if not exists remind boolean not null default false; -- reminder on/off
 alter table public.trip_notes alter column body drop not null; -- to-dos carry no body
 
 create index if not exists trip_notes_trip_idx on public.trip_notes(trip_id, created_at desc);

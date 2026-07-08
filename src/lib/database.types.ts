@@ -378,7 +378,7 @@ export interface Expense {
  *  the right screen edge via the liquid-swipe NotePanel. Private to its owner
  *  by default; `shared` makes it visible to everyone on the trip. */
 export type NoteKind = 'note' | 'todo'
-export type NoteStatus = 'draft' | 'in_progress' | 'in_review' | 'completed'
+export type NoteStatus = 'draft' | 'urgent' | 'done'
 export interface TodoItem { id: string; text: string; done: boolean }
 export interface TripNote {
   id: string
@@ -396,6 +396,10 @@ export interface TripNote {
   status: NoteStatus
   /** false = private to the owner, true = visible to all trip members */
   shared?: boolean
+  /** optional due date+time (absolute ISO timestamp) */
+  due_at?: string | null
+  /** fire a personal reminder at due_at */
+  remind?: boolean
   created_at: string
   updated_at?: string | null
 }

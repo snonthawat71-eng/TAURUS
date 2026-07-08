@@ -10,7 +10,7 @@ export function isNotesMissing(msg?: string | null) {
   const m = msg.toLowerCase()
   const schema = m.includes('does not exist') || m.includes('schema cache')
   return schema && (m.includes('trip_notes')
-    || ["'kind'", "'title'", "'items'", "'status'", "'shared'"].some((c) => m.includes(c)))
+    || ["'kind'", "'title'", "'items'", "'status'", "'shared'", "'due_at'", "'remind'"].some((c) => m.includes(c)))
 }
 
 export async function listNotes(tripId: string) {
@@ -18,7 +18,7 @@ export async function listNotes(tripId: string) {
     .eq('trip_id', tripId).order('created_at', { ascending: false })
 }
 
-export type NoteInsert = Pick<TripNote, 'kind' | 'title' | 'body' | 'items' | 'status' | 'shared'>
+export type NoteInsert = Pick<TripNote, 'kind' | 'title' | 'body' | 'items' | 'status' | 'shared' | 'due_at' | 'remind'>
 
 export async function addNote(tripId: string, input: NoteInsert, authorName?: string | null, authorColor?: string | null) {
   const row: Partial<TripNote> = {
