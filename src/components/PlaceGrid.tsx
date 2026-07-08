@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar, IconHeart } from '@tabler/icons-react'
+import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar, IconHeart, IconMap2 } from '@tabler/icons-react'
+import { useNavigate } from 'react-router-dom'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { PlaceCard, type Interested, type CardMode } from './PlaceCard'
@@ -29,6 +30,7 @@ export function PlaceGrid({
   focusId?: string | null
 }) {
   const { trip, places, interests, memberProfiles, reload, patch, canEdit, myPermission } = useTrip()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const mode: CardMode = canEdit ? 'edit' : myPermission === 'places' ? 'pin' : 'view'
   const [dim, setDim] = useState<Dim>('none')
@@ -186,7 +188,11 @@ export function PlaceGrid({
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-[13px] font-medium text-ink-2">{title} · {filtered.length}</h2>
-        {canEdit && <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> {addLabel}</button>}
+        <div className="flex items-center gap-3">
+          {/* test-only entry to the map page (not shown to users elsewhere) */}
+          <button onClick={() => navigate('/map')} className="inline-flex items-center gap-1 text-[12px] font-medium text-[#D97706]"><IconMap2 size={14} /> แผนที่ (เทส)</button>
+          {canEdit && <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> {addLabel}</button>}
+        </div>
       </div>
       {mode === 'pin' && (
         <div className="mb-3 rounded-md p-2.5 text-[12px] flex items-center gap-2"
