@@ -13,7 +13,9 @@ import Itinerary from '@/pages/Itinerary'
 import PlacesFood from '@/pages/PlacesFood'
 import AllPlans from '@/pages/AllPlans'
 import Budget from '@/pages/Budget'
-import TripMap from '@/pages/TripMap'
+// Map page kept for future use (src/pages/TripMap.tsx). Re-enable by restoring
+// this import and the /map route below.
+// import TripMap from '@/pages/TripMap'
 import CreateTrip from '@/pages/CreateTrip'
 import JoinTrip, { PENDING_INVITE_KEY } from '@/pages/JoinTrip'
 
@@ -75,8 +77,8 @@ export default function App() {
             <Route path="/food" element={<PlacesFood />} />
             <Route path="/plans" element={<AllPlans />} />
             <Route path="/budget" element={<Budget />} />
-            {/* test-only map, not in the nav yet */}
-            <Route path="/map" element={<TripMap />} />
+            {/* Map page hidden for now — kept for future use.
+            <Route path="/map" element={<TripMap />} /> */}
           </Route>
         </Routes>
       </BrowserRouter>

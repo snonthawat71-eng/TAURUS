@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar, IconHeart, IconMap2 } from '@tabler/icons-react'
-import { useNavigate } from 'react-router-dom'
+import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar, IconHeart, IconArrowsSort } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { PlaceCard, type Interested, type CardMode } from './PlaceCard'
@@ -19,6 +18,7 @@ import { hscroll } from '@/lib/hscroll'
 import type { Place, PlaceGroup } from '@/lib/database.types'
 
 type Dim = 'none' | 'category' | 'city'
+type SortKey = 'recent' | 'new' | 'old'
 
 export function PlaceGrid({
   group, tabs, title, addLabel, focusId,
@@ -30,12 +30,13 @@ export function PlaceGrid({
   focusId?: string | null
 }) {
   const { trip, places, interests, memberProfiles, reload, patch, canEdit, myPermission } = useTrip()
-  const navigate = useNavigate()
   const { user } = useAuth()
   const mode: CardMode = canEdit ? 'edit' : myPermission === 'places' ? 'pin' : 'view'
   const [dim, setDim] = useState<Dim>('none')
   const [chip, setChip] = useState('all')
   const [wantSort, setWantSort] = useState(false)
+  const [sortMode, setSortMode] = useState<SortKey>('recent')
+  const [sortMenu, setSortMenu] = useState(false)
   const [query, setQuery] = useState('')
   const [dimMenu, setDimMenu] = useState(false)
   const [editor, setEditor] = useState<'new' | Place | null>(null)
@@ -86,9 +87,14 @@ export function PlaceGrid({
       .filter((p) => dim === 'none' || chip === 'all' || valueOf(p) === chip)
       // "อยากไป" mode: only places someone wants, ranked most-wanted first
       .filter((p) => !wantSort || wantCount(p) > 0)
-      .sort((a, b) => wantSort ? (wantCount(b) - wantCount(a)) : (Number(a.in_plan) - Number(b.in_plan)))
+      .sort((a, b) => {
+        if (wantSort) return wantCount(b) - wantCount(a)
+        if (sortMode === 'new') return (b.created_at || '').localeCompare(a.created_at || '') // newest first
+        if (sortMode === 'old') return (a.created_at || '').localeCompare(b.created_at || '') // oldest first
+        return Number(a.in_plan) - Number(b.in_plan) // 'recent' = default smart order
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [places, group, query, chip, dim, wantSort, wantCountByPlace])
+  }, [places, group, query, chip, dim, wantSort, sortMode, wantCountByPlace])
 
   // chips reflect the selected dimension (none = no value chips)
   const chipList: CategoryTab[] = dim === 'none'
@@ -103,6 +109,13 @@ export function PlaceGrid({
     ...(hasCityData ? [{ key: 'city' as Dim, label: 'ตามเมือง' }] : []),
   ]
   const dimLabel = DIM_OPTIONS.find((o) => o.key === dim)?.label ?? 'ทั้งหมด'
+
+  const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+    { key: 'recent', label: 'ล่าสุด' },
+    { key: 'new', label: 'ใหม่ - เก่า' },
+    { key: 'old', label: 'เก่า - ใหม่' },
+  ]
+  const sortLabel = SORT_OPTIONS.find((o) => o.key === sortMode)?.label ?? 'ล่าสุด'
 
   useEffect(() => {
     if (focusId) { const p = places.find((x) => x.id === focusId); if (p) setDetail(p) }
@@ -189,8 +202,6 @@ export function PlaceGrid({
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-[13px] font-medium text-ink-2">{title} · {filtered.length}</h2>
         <div className="flex items-center gap-3">
-          {/* test-only entry to the map page (not shown to users elsewhere) */}
-          <button onClick={() => navigate('/map')} className="inline-flex items-center gap-1 text-[12px] font-medium text-[#D97706]"><IconMap2 size={14} /> แผนที่ (เทส)</button>
           {canEdit && <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> {addLabel}</button>}
         </div>
       </div>
@@ -225,6 +236,27 @@ export function PlaceGrid({
                     className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
                     <span className="flex-1 text-left">{o.label}</span>
                     {dim === o.key && <IconCheck size={14} className="text-brand" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        {/* Sort — recent (default) / newest→oldest / oldest→newest */}
+        <div className="relative shrink-0">
+          <button onClick={() => setSortMenu((v) => !v)}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium hairline bg-surface whitespace-nowrap">
+            <IconArrowsSort size={14} /> {sortLabel} <IconChevronDown size={13} className="text-ink-3" />
+          </button>
+          {sortMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setSortMenu(false)} />
+              <div className="absolute left-0 mt-1 w-40 card p-1 shadow-lg z-50">
+                {SORT_OPTIONS.map((o) => (
+                  <button key={o.key} onClick={() => { setSortMode(o.key); setSortMenu(false) }}
+                    className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
+                    <span className="flex-1 text-left">{o.label}</span>
+                    {sortMode === o.key && <IconCheck size={14} className="text-brand" />}
                   </button>
                 ))}
               </div>
