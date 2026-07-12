@@ -191,23 +191,38 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     setUrlDraft('')
     setMenuPaths(initial?.menu_paths ?? [])
     setNote(initial?.note ?? '')
+    setLinkState('idle')
     setOpenCard(initial ? null : 'where')
   }, [open, initial])
 
   // ข้อ 3: paste a map link → auto-fill the name (still editable). Short links go
   // through /api/resolve-map; manual edits to the name stop future overwrites.
+  // linkState makes the outcome visible instead of failing silently.
+  const [linkState, setLinkState] = useState<'idle' | 'busy' | 'ok' | 'fail'>('idle')
   const nameRef = useRef(name); nameRef.current = name
   const autoRef = useRef(autoFilled); autoRef.current = autoFilled
   useEffect(() => {
     if (!open) return
-    const raw = mapUrl.trim()
-    if (!raw || !/^https?:\/\//i.test(raw)) return
+    let raw = mapUrl.trim()
+    if (!raw) { setLinkState('idle'); return }
+    // tolerate a pasted link without the scheme ("maps.app.goo.gl/xxx")
+    if (!/^https?:\/\//i.test(raw)) {
+      if (/^[\w-]+(\.[\w-]+)+\//.test(raw)) raw = `https://${raw}`
+      else { setLinkState('idle'); return }
+    }
     let stop = false
     const t = setTimeout(async () => {
+      // only auto-fill when the name is empty or still ours — a hand-typed name
+      // never gets overwritten, so don't even resolve (no pointless requests)
+      if (nameRef.current.trim() && !autoRef.current) { setLinkState('idle'); return }
       let got = nameFromMapUrl(raw)
-      if (!got && isMapLink(raw)) got = await resolveMapName(raw)
-      if (stop || !got) return
-      if (!nameRef.current.trim() || autoRef.current) { setName(got); setAutoFilled(true) }
+      if (!got && isMapLink(raw)) {
+        setLinkState('busy')
+        got = await resolveMapName(raw)
+      }
+      if (stop) return
+      if (got) { setName(got); setAutoFilled(true); setLinkState('ok') }
+      else setLinkState('fail')
     }, 450)
     return () => { stop = true; clearTimeout(t) }
   }, [mapUrl, open])
@@ -400,10 +415,18 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
             <div>
               <div className={lbl}>ลิงก์แผนที่ (Google Maps / AMap)</div>
               <input className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps..." inputMode="url" />
-              {autoFilled && name.trim() && (
+              {linkState === 'busy' && (
+                <div className="flex items-center gap-1 mt-1 text-[10.5px] font-medium text-ink-3">
+                  <IconLoader2 size={12} className="animate-spin" /> กำลังอ่านชื่อจากลิงก์…
+                </div>
+              )}
+              {linkState === 'ok' && autoFilled && name.trim() && (
                 <div className="flex items-center gap-1 mt-1 text-[10.5px] font-medium" style={{ color: '#16A34A' }}>
                   <IconCheck size={12} /> เติมชื่อจากลิงก์ให้แล้ว — แก้ไขได้
                 </div>
+              )}
+              {linkState === 'fail' && (
+                <div className="mt-1 text-[10.5px] text-ink-3">อ่านชื่อจากลิงก์นี้ไม่ได้ — พิมพ์ชื่อเองได้เลย</div>
               )}
             </div>
             <div>

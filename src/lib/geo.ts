@@ -79,7 +79,7 @@ export function latLngFromUrl(url?: string | null): LatLng | null {
 // follow the redirect and pull @lat,lng out of the final URL. Cached per link.
 const linkCache = new Map<string, LatLng | null>()
 export function isMapLink(url?: string | null): boolean {
-  return !!url && /(goo\.gl\/maps|maps\.app\.goo\.gl|google\.[a-z.]+\/maps|g\.co\/kgs|amap\.com|gaode|surl\.amap|uri\.amap|ditu\.amap)/i.test(url)
+  return !!url && /(goo\.gl\/maps|maps\.app\.goo\.gl|share\.google|google\.[a-z.]+\/maps|g\.co\/kgs|amap\.com|gaode|surl\.amap|uri\.amap|ditu\.amap)/i.test(url)
 }
 export async function resolveMapUrl(url: string): Promise<LatLng | null> {
   if (linkCache.has(url)) return linkCache.get(url) ?? null

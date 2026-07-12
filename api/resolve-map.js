@@ -70,6 +70,23 @@ function nameFrom(s) {
   } catch { return null }
 }
 
+// Fallback: og:title / <title> of the final page ("<name> - Google Maps",
+// "<name>-高德地图"). Covers links whose final URL carries no /place/ segment.
+function nameFromBody(s) {
+  if (!s) return null
+  const m = s.match(/property=["']og:title["'][^>]*content=["']([^"']{1,120})["']/i)
+    || s.match(/content=["']([^"']{1,120})["'][^>]*property=["']og:title["']/i)
+    || s.match(/<title[^>]*>([^<]{1,120})<\/title>/i)
+  if (!m) return null
+  let n = m[1].trim()
+    .replace(/\s*[-·|–]\s*Google\s*Maps?$/i, '')
+    .replace(/\s*[-|·–]?\s*高德地图\s*$/, '')
+    .replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .trim()
+  if (!n || /^google maps$/i.test(n) || /^高德/.test(n) || /^-?\d+(\.\d+)?\s*,/.test(n)) return null
+  return n
+}
+
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1'
 
 export default async function handler(req, res) {
@@ -87,7 +104,7 @@ export default async function handler(req, res) {
     } catch (e) { body = ''; if (req.query?.debug) return res.json({ error: String(e?.message || e), finalUrl }) }
     finally { clearTimeout(timer) }
     const coords = extract(finalUrl) || extract(body) || (amap ? scanChina(finalUrl) || scanChina(body) : null)
-    const name = nameFrom(finalUrl)
+    const name = nameFrom(finalUrl) || nameFromBody(body)
     if (req.query?.debug) {
       return res.json({ finalUrl, status, len: body.length, coords: coords || null, name, snippet: body.slice(0, 800) })
     }
