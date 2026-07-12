@@ -59,6 +59,31 @@ function scanChina(s) {
   return null
 }
 
+// AMap share links bury their data in params that are URL-encoded 2–3 levels
+// deep (surl.amap.com → wb.amap.com/?p=… → m.amap.com/callAPP?ios=…%2526…).
+// Peel the encoding until it stops changing so the p=/q= payloads are readable.
+function deepDecode(s) {
+  let out = s
+  for (let i = 0; i < 3; i++) {
+    try { const d = decodeURIComponent(out); if (d === out) break; out = d } catch { break }
+  }
+  return out
+}
+
+// AMap: "p=<poiid>,<lat>,<lng>,<name>,<address>" (wb.amap.com and nested inside
+// callAPP's ios=/android= params); fallback "q=<lat>,<lng>,<name>,…".
+function amapName(s) {
+  if (!s) return null
+  const d = deepDecode(s)
+  const m = d.match(/[?&]p=[A-Za-z0-9]{4,},\s*-?\d+\.\d+,\s*-?\d+\.\d+,([^,]+)/)
+    || d.match(/[?&]q=-?\d+\.\d+,\s*-?\d+\.\d+,([^,]+)/i)
+  if (!m) return null
+  const n = m[1].replace(/\+/g, ' ')
+    .replace(/&(?:apos|#0?39);/gi, "'").replace(/&amp;/gi, '&').replace(/&quot;/gi, '"')
+    .replace(/\s+/g, ' ').trim()
+  return n || null
+}
+
 // The q= of a shared place is often a full address — "LGF, Vission Bakery,
 // 7 Staunton St, Central, ฮ่องกง". Pick the segment that looks like the NAME:
 // the one right before the street address, skipping floor/unit tokens.
@@ -127,8 +152,9 @@ export default async function handler(req, res) {
       body = await r.text().catch(() => '')
     } catch (e) { body = ''; if (req.query?.debug) return res.json({ error: String(e?.message || e), finalUrl }) }
     finally { clearTimeout(timer) }
-    const coords = extract(finalUrl) || extract(body) || (amap ? scanChina(finalUrl) || scanChina(body) : null)
-    const name = nameFrom(finalUrl) || nameFromBody(body)
+    const coords = extract(finalUrl) || extract(body)
+      || (amap ? scanChina(deepDecode(finalUrl)) || scanChina(finalUrl) || scanChina(body) : null)
+    const name = (amap ? amapName(finalUrl) || amapName(body) : null) || nameFrom(finalUrl) || nameFromBody(body)
     if (req.query?.debug) {
       return res.json({ finalUrl, status, len: body.length, coords: coords || null, name, snippet: body.slice(0, 800) })
     }

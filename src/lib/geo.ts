@@ -37,14 +37,46 @@ export function gcj02ToWgs84(lat: number, lng: number): LatLng {
 
 export const isAmap = (url?: string | null) => !!url && /amap\.com|gaode|ditu\.amap|uri\.amap|surl\.amap/i.test(url)
 
-/** AMap uses `lng,lat` order (in position=/location=) and GCJ-02 coords. */
+/** AMap share links URL-encode their params 2–3 levels deep — peel until stable. */
+function deepDecode(s: string): string {
+  let out = s
+  for (let i = 0; i < 3; i++) {
+    try { const d = decodeURIComponent(out); if (d === out) break; out = d } catch { break }
+  }
+  return out
+}
+
+/** AMap uses `lng,lat` order (in position=/location=) and GCJ-02 coords.
+ *  Share targets instead carry "p=<poiid>,<lat>,<lng>,<name>,<address>". */
 export function amapLatLng(url?: string | null): LatLng | null {
   if (!url) return null
   const grab = (re: RegExp) => { const m = url.match(re); return m ? { lng: Number(m[1]), lat: Number(m[2]) } : null }
   const p = grab(/[?&](?:position|location|ll|point|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i)
     || grab(/[?&]lng=(-?\d+\.\d+)&lat=(-?\d+\.\d+)/i)
   if (p && valid(p.lat, p.lng)) return gcj02ToWgs84(p.lat, p.lng)
+  const mp = deepDecode(url).match(/[?&]p=[A-Za-z0-9]{4,},\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)/)
+  if (mp) {
+    const a = Number(mp[1]), b = Number(mp[2])
+    // p= is lat,lng — but disambiguate by China's disjoint ranges just in case
+    if (a >= 3 && a <= 54 && b >= 73 && b <= 135.5) return gcj02ToWgs84(a, b)
+    if (b >= 3 && b <= 54 && a >= 73 && a <= 135.5) return gcj02ToWgs84(b, a)
+    if (valid(a, b)) return gcj02ToWgs84(a, b)
+  }
   return null
+}
+
+/** Place NAME from an AMap share target — "p=<poiid>,<lat>,<lng>,<name>,<addr>"
+ *  (wb.amap.com, or nested inside m.amap.com/callAPP params). */
+export function amapNameFromUrl(url?: string | null): string | null {
+  if (!url || !isAmap(url)) return null
+  const d = deepDecode(url)
+  const m = d.match(/[?&]p=[A-Za-z0-9]{4,},\s*-?\d+\.\d+,\s*-?\d+\.\d+,([^,]+)/)
+    || d.match(/[?&]q=-?\d+\.\d+,\s*-?\d+\.\d+,([^,]+)/i)
+  if (!m) return null
+  const n = m[1].replace(/\+/g, ' ')
+    .replace(/&(?:apos|#0?39);/gi, "'").replace(/&amp;/gi, '&').replace(/&quot;/gi, '"')
+    .replace(/\s+/g, ' ').trim()
+  return n || null
 }
 
 /** A) Pull coordinates out of a Google / Apple / AMap / geo: map URL if present. */
@@ -113,9 +145,11 @@ export function pickNameFromQuery(q: string): string | null {
   return parts.find((s) => !isUnit(s) && !isStreet(s)) ?? parts[0]
 }
 
-/** Pull the place NAME out of a full Google Maps URL (/maps/place/<name>/ or ?q=). */
+/** Pull the place NAME out of a full map URL (AMap p=, /maps/place/<name>/ or ?q=). */
 export function nameFromMapUrl(url?: string | null): string | null {
   if (!url) return null
+  const am = amapNameFromUrl(url)
+  if (am) return am
   const m = url.match(/\/maps\/place\/([^/@?#]+)/)
   if (m) {
     try {
