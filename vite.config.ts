@@ -27,7 +27,9 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/rest/, /^\/auth/, /^\/storage/, /^\/realtime/],
+        // /api = Vercel serverless functions — the SW must NEVER hijack them,
+        // or opening /api/... shows the cached app shell (blank white page).
+        navigateFallbackDenylist: [/^\/api\//, /^\/rest/, /^\/auth/, /^\/storage/, /^\/realtime/],
         // pull in the push / notificationclick handlers (public/push-sw.js)
         importScripts: ['push-sw.js'],
         // Cache app shell + Supabase API/storage responses for offline viewing
