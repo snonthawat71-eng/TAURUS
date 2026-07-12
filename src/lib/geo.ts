@@ -97,6 +97,22 @@ export async function resolveMapUrl(url: string): Promise<LatLng | null> {
   return out
 }
 
+/** The `q=` of a shared place is often a full address — "LGF, Vission Bakery,
+ *  7 Staunton St, Central, ฮ่องกง". Pick the segment that looks like the NAME:
+ *  the one right before the street address, skipping floor/unit tokens. */
+export function pickNameFromQuery(q: string): string | null {
+  const parts = q.split(',').map((s) => s.trim()).filter(Boolean)
+  if (!parts.length) return null
+  if (parts.length === 1) return parts[0]
+  const isStreet = (s: string) => /^\d+[\w\-/]*\s+\S/.test(s) || /\b(road|rd\.?|street|st\.?|ave\.?|avenue|lane|ln\.?|alley|soi|ถนน|ซอย)\b/i.test(s)
+  const isUnit = (s: string) => /^(lgf|ugf|gf|g\/f|b\d|lg\d*|\d{1,2}\/?f|shop\b|unit\b|room\b|floor\b|ชั้น|no\.?\s?\d)/i.test(s)
+  const iStreet = parts.findIndex(isStreet)
+  if (iStreet > 0) {
+    for (let i = iStreet - 1; i >= 0; i--) if (!isUnit(parts[i])) return parts[i]
+  }
+  return parts.find((s) => !isUnit(s) && !isStreet(s)) ?? parts[0]
+}
+
 /** Pull the place NAME out of a full Google Maps URL (/maps/place/<name>/ or ?q=). */
 export function nameFromMapUrl(url?: string | null): string | null {
   if (!url) return null
@@ -110,7 +126,7 @@ export function nameFromMapUrl(url?: string | null): string | null {
   try {
     const u = new URL(url)
     const q = u.searchParams.get('q') || u.searchParams.get('query')
-    if (q && !/^-?\d+(\.\d+)?\s*,/.test(q) && !/^https?:/i.test(q)) return q.trim()
+    if (q && !/^-?\d+(\.\d+)?\s*,/.test(q) && !/^https?:/i.test(q)) return pickNameFromQuery(q.trim())
   } catch { /* not a URL */ }
   return null
 }

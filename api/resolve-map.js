@@ -59,15 +59,39 @@ function scanChina(s) {
   return null
 }
 
-// Place NAME from a resolved Google Maps URL (/maps/place/<name>/) — lets the
-// client auto-fill the name field from a pasted short link.
+// The q= of a shared place is often a full address — "LGF, Vission Bakery,
+// 7 Staunton St, Central, ฮ่องกง". Pick the segment that looks like the NAME:
+// the one right before the street address, skipping floor/unit tokens.
+function pickNameFromQuery(q) {
+  const parts = q.split(',').map((s) => s.trim()).filter(Boolean)
+  if (!parts.length) return null
+  if (parts.length === 1) return parts[0]
+  const isStreet = (s) => /^\d+[\w\-/]*\s+\S/.test(s) || /\b(road|rd\.?|street|st\.?|ave\.?|avenue|lane|ln\.?|alley|soi|ถนน|ซอย)\b/i.test(s)
+  const isUnit = (s) => /^(lgf|ugf|gf|g\/f|b\d|lg\d*|\d{1,2}\/?f|shop\b|unit\b|room\b|floor\b|ชั้น|no\.?\s?\d)/i.test(s)
+  const iStreet = parts.findIndex(isStreet)
+  if (iStreet > 0) {
+    for (let i = iStreet - 1; i >= 0; i--) if (!isUnit(parts[i])) return parts[i]
+  }
+  return parts.find((s) => !isUnit(s) && !isStreet(s)) ?? parts[0]
+}
+
+// Place NAME from a resolved Google Maps URL — /maps/place/<name>/ first, then
+// the ?q= of a "maps?q=<address>" share target.
 function nameFrom(s) {
-  const m = s && s.match(/\/maps\/place\/([^/@?#]+)/)
-  if (!m) return null
+  if (!s) return null
+  const m = s.match(/\/maps\/place\/([^/@?#]+)/)
+  if (m) {
+    try {
+      const n = decodeURIComponent(m[1].replace(/\+/g, ' ')).trim()
+      if (n && !/^-?\d+(\.\d+)?\s*,/.test(n)) return n
+    } catch { /* bad escape */ }
+  }
   try {
-    const n = decodeURIComponent(m[1].replace(/\+/g, ' ')).trim()
-    return n && !/^-?\d+(\.\d+)?\s*,/.test(n) ? n : null
-  } catch { return null }
+    const u = new URL(s)
+    const q = u.searchParams.get('q') || u.searchParams.get('query')
+    if (q && !/^-?\d+(\.\d+)?\s*,/.test(q) && !/^https?:/i.test(q)) return pickNameFromQuery(q.trim())
+  } catch { /* not a URL */ }
+  return null
 }
 
 // Fallback: og:title / <title> of the final page ("<name> - Google Maps",
@@ -98,7 +122,7 @@ export default async function handler(req, res) {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 6000) // never hang the function
     try {
-      const r = await fetch(url, { redirect: 'follow', signal: ctrl.signal, headers: { 'User-Agent': UA, 'Accept-Language': 'zh-CN,zh;q=0.9', Accept: 'text/html' } })
+      const r = await fetch(url, { redirect: 'follow', signal: ctrl.signal, headers: { 'User-Agent': UA, 'Accept-Language': amap ? 'zh-CN,zh;q=0.9' : 'en;q=0.9,th;q=0.8', Accept: 'text/html' } })
       finalUrl = r.url || url; status = r.status
       body = await r.text().catch(() => '')
     } catch (e) { body = ''; if (req.query?.debug) return res.json({ error: String(e?.message || e), finalUrl }) }
