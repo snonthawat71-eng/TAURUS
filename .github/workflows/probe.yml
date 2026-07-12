@@ -1,4 +1,4 @@
-# Temporary diagnostic — curls a Google Maps short link and the deployed
+# Temporary diagnostic — curls a map short link and the deployed
 # resolve-map endpoint from a GitHub runner (the dev sandbox has no egress).
 # Safe to delete once link auto-fill is confirmed working.
 name: probe
@@ -8,22 +8,21 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: short link redirect chain
+      - name: amap short link redirect chain
         run: |
           UA="Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1"
-          echo "== final URL (mobile UA) =="
-          curl -sL -A "$UA" -o /tmp/body.html -w "%{url_effective}\n" "https://maps.app.goo.gl/FVaJ6FA1JN3Z2Zin8"
+          echo "== redirect chain (mobile UA) =="
+          curl -s -A "$UA" -H "Accept-Language: zh-CN,zh;q=0.9" -o /dev/null -w "%{http_code} -> %{redirect_url}\n" "https://surl.amap.com/iGtckjwkbgO"
+          echo "== final URL (mobile UA, follow) =="
+          curl -sL -A "$UA" -H "Accept-Language: zh-CN,zh;q=0.9" -o /tmp/body.html -w "%{url_effective}\n" "https://surl.amap.com/iGtckjwkbgO"
           echo "== title / og:title =="
           grep -oE '<title>[^<]*</title>' /tmp/body.html | head -3 || true
-          grep -oE 'og:title[^>]{0,160}' /tmp/body.html | head -3 || true
-          grep -oE 'itemprop="name"[^>]{0,160}' /tmp/body.html | head -3 || true
+          grep -oE 'og:title[^>]{0,200}' /tmp/body.html | head -3 || true
+          echo "== name-ish json keys =="
+          grep -oE '"(name|poiname|poiName|title)"\s*:\s*"[^"]{1,80}"' /tmp/body.html | head -10 || true
           echo "== body size =="; wc -c < /tmp/body.html
-          echo "== final URL (no UA) =="
-          curl -sL -o /tmp/body2.html -w "%{url_effective}\n" "https://maps.app.goo.gl/FVaJ6FA1JN3Z2Zin8"
-          grep -oE '<title>[^<]*</title>' /tmp/body2.html | head -3 || true
+          echo "== body head =="; head -c 1500 /tmp/body.html; echo
       - name: deployed api
         run: |
-          echo "== /api/ping =="
-          curl -s --max-time 15 "https://trip-kohl-three.vercel.app/api/ping"; echo
-          echo "== /api/resolve-map debug =="
-          curl -s --max-time 25 "https://trip-kohl-three.vercel.app/api/resolve-map?url=https%3A%2F%2Fmaps.app.goo.gl%2FFVaJ6FA1JN3Z2Zin8&debug=1" | head -c 2000; echo
+          echo "== /api/resolve-map debug (amap) =="
+          curl -s --max-time 25 "https://trip-kohl-three.vercel.app/api/resolve-map?url=https%3A%2F%2Fsurl.amap.com%2FiGtckjwkbgO&debug=1" | head -c 3000; echo
