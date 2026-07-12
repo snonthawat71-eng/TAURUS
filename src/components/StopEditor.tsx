@@ -1,14 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconCheck, IconCompass } from '@tabler/icons-react'
+import { IconCheck, IconClock, IconCompass, IconLink, IconLoader2, IconNotes, IconTag, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
-import { ClearableField } from './ClearableField'
 import { SignedImage } from './SignedImage'
 import { QuickExplorePicker, type QuickPick } from './QuickExplorePicker'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
+import { nameFromMapUrl, resolveMapName, isMapLink } from '@/lib/geo'
 import type { StopInput } from '@/lib/mutations'
 
-const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
+// Option-C form: leading-icon inputs inside one card — the icon says what the
+// field is, so there are no text labels and the whole form fits one screen.
+const iconField = 'hairline rounded-[9px] text-[13px] h-10 pl-9 pr-3 bg-surface w-full outline-none focus:border-brand'
+
+function LeadIcon({ children, top }: { children: React.ReactNode; top?: boolean }) {
+  return (
+    <span className={['absolute left-3 text-ink-3 pointer-events-none', top ? 'top-[11px]' : 'top-1/2 -translate-y-1/2'].join(' ')}>
+      {children}
+    </span>
+  )
+}
 
 export function StopEditor({
   open, onClose, initial, onSave,
@@ -30,6 +40,7 @@ export function StopEditor({
   const [cityFilter, setCityFilter] = useState('all')
   const [groupFilter, setGroupFilter] = useState<'all' | 'place' | 'food'>('all')
   const [quickOpen, setQuickOpen] = useState(false)
+  const [autoFilled, setAutoFilled] = useState(false)
 
   // places the group has already added to the plan (from Places/Food/All),
   // most recently saved first
@@ -69,8 +80,39 @@ export function StopEditor({
       setCityFilter('all')
       setGroupFilter('all')
       setQuickOpen(false)
+      setAutoFilled(false)
+      setLinkState('idle')
     }
   }, [open, initial])
+
+  // paste a map link → auto-fill the name (still editable), same behaviour as
+  // the Explore/Place editors. A hand-typed name never gets overwritten.
+  const [linkState, setLinkState] = useState<'idle' | 'busy' | 'ok' | 'fail'>('idle')
+  const nameRef = useRef(place); nameRef.current = place
+  const autoRef = useRef(autoFilled); autoRef.current = autoFilled
+  useEffect(() => {
+    if (!open) return
+    let raw = mapUrl.trim()
+    if (!raw) { setLinkState('idle'); return }
+    // tolerate a pasted link without the scheme ("maps.app.goo.gl/xxx")
+    if (!/^https?:\/\//i.test(raw)) {
+      if (/^[\w-]+(\.[\w-]+)+\//.test(raw)) raw = `https://${raw}`
+      else { setLinkState('idle'); return }
+    }
+    let stop = false
+    const t = setTimeout(async () => {
+      if (nameRef.current.trim() && !autoRef.current) { setLinkState('idle'); return }
+      let got = nameFromMapUrl(raw)
+      if (!got && isMapLink(raw)) {
+        setLinkState('busy')
+        got = await resolveMapName(raw)
+      }
+      if (stop) return
+      if (got) { setPlace(got); setAutoFilled(true); setLinkState('ok') }
+      else setLinkState('fail')
+    }, 450)
+    return () => { stop = true; clearTimeout(t) }
+  }, [open, mapUrl])
 
   // Desktop: let the place strip be dragged with the mouse (touch already scrolls
   // natively). We track the drag on a ref and swallow the click that follows a
@@ -101,6 +143,7 @@ export function StopEditor({
     setMapUrl(p.map_url ?? '')
     setNote(p.note ?? '')
     setLinkMode('detail')
+    setAutoFilled(false)
   }
 
   // a place just quick-added from Explore — it's now in the plan (and Places/Food);
@@ -111,6 +154,7 @@ export function StopEditor({
     setMapUrl(pick.map_url ?? '')
     setNote(pick.note ?? '')
     setLinkMode('detail')
+    setAutoFilled(false)
   }
 
   async function save() {
@@ -193,54 +237,81 @@ export function StopEditor({
               <p className="text-[11px] text-ink-3 mt-1.5">ยังไม่มีสถานที่ในแพลน — แตะ "เลือกด่วนจาก Explore" เพื่อเพิ่มได้เลย</p>
             )}
           </div>
-        <div className="flex items-end gap-2.5">
-          <div className="flex-1 min-w-0">
-            <label className="text-[11px] text-ink-3">เวลา</label>
-            <ClearableField type="time" ariaLabel="ล้างเวลา" value={time} onChange={setTime} onClear={() => setTime('')} />
+
+        {/* option-C detail card: leading-icon fields, everything on one screen */}
+        <div className="rounded-[13px] bg-surface p-3 space-y-2.5"
+          style={{ border: '0.5px solid var(--color-line)' }}>
+          <div className="relative">
+            <LeadIcon><IconTag size={15} /></LeadIcon>
+            <input className={iconField} value={place}
+              onChange={(e) => { setPlace(e.target.value); setAutoFilled(false) }}
+              placeholder="ชื่อสถานที่ / กิจกรรม" />
           </div>
-          {/* แผนหลัก / สำรอง — สำรองไปอยู่โซนพับท้ายวัน ไม่นับ/ไม่เตือน */}
-          <div className="shrink-0">
-            <label className="text-[11px] text-ink-3">ประเภทแพลน</label>
-            <div className="inline-flex gap-0.5 p-0.5 rounded-md bg-surface-2 mt-0.5 h-10 items-center">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <LeadIcon><IconClock size={15} /></LeadIcon>
+              <div className="hairline rounded-[9px] h-10 bg-surface w-full min-w-0 flex items-center overflow-hidden focus-within:border-brand pl-9">
+                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="เวลา"
+                  className="flex-1 min-w-0 h-full bg-transparent outline-none text-[13px] appearance-none" />
+                {time && (
+                  <button type="button" onClick={() => setTime('')} aria-label="ล้างเวลา"
+                    className="shrink-0 size-8 grid place-items-center text-ink-3 hover:text-ink-2"><IconX size={14} /></button>
+                )}
+              </div>
+            </div>
+            {/* แผนหลัก / สำรอง — สำรองไปอยู่โซนพับท้ายวัน ไม่นับ/ไม่เตือน */}
+            <div className="inline-flex gap-0.5 p-0.5 rounded-[9px] bg-surface-2 h-10 items-center shrink-0">
               {([['main', 'หลัก'], ['backup', 'สำรอง']] as const).map(([v, label]) => (
                 <button key={v} onClick={() => setRole(v)}
-                  className={['px-3 h-8 rounded-[6px] text-[12px] font-medium', role === v ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>
+                  className={['px-3 h-8 rounded-[7px] text-[12px] font-medium', role === v ? 'bg-surface text-ink shadow-sm' : 'text-ink-3'].join(' ')}>
                   {label}
                 </button>
               ))}
             </div>
           </div>
-        </div>
-        <div>
-          <label className="text-[11px] text-ink-3">ชื่อสถานที่ / กิจกรรม</label>
-          <input className={field} value={place} onChange={(e) => setPlace(e.target.value)} placeholder="เช่น Forbidden City" />
-        </div>
-        <div>
-          <label className="text-[11px] text-ink-3">โน้ต</label>
-          <textarea
-            className="hairline rounded-md text-[13px] p-3 bg-surface w-full outline-none focus:border-brand resize-none"
-            rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="รายละเอียดเพิ่มเติม"
-          />
-        </div>
-        <div>
-          <label className="text-[11px] text-ink-3">ลิงก์แผนที่ (ถ้ามี)</label>
-          <input className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps.apple.com/?q=..." />
-        </div>
-        <div>
-          <label className="text-[11px] text-ink-3">เมื่อแตะชื่อสถานที่</label>
-          <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-            {([['map', 'เปิดแผนที่'], ['detail', 'ดูรายละเอียด'], ['none', 'ไม่มี']] as const).map(([v, label]) => (
-              <button key={v} onClick={() => setLinkMode(v)}
-                className="h-9 rounded-md text-[12px] font-medium transition-colors"
-                style={linkMode === v
-                  ? { background: 'var(--color-brand)', color: '#fff' }
-                  : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
-                {label}
-              </button>
-            ))}
+          <div>
+            <div className="relative">
+              <LeadIcon><IconLink size={15} /></LeadIcon>
+              <input className={iconField} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)}
+                placeholder="ลิงก์แผนที่ (ถ้ามี)" inputMode="url" />
+            </div>
+            {linkState === 'busy' && (
+              <div className="flex items-center gap-1 mt-1 text-[10.5px] font-medium text-ink-3">
+                <IconLoader2 size={12} className="animate-spin" /> กำลังอ่านชื่อจากลิงก์…
+              </div>
+            )}
+            {linkState === 'ok' && autoFilled && place.trim() && (
+              <div className="flex items-center gap-1 mt-1 text-[10.5px] font-medium" style={{ color: '#16A34A' }}>
+                <IconCheck size={12} /> เติมชื่อจากลิงก์ให้แล้ว — แก้ไขได้
+              </div>
+            )}
+            {linkState === 'fail' && (
+              <div className="mt-1 text-[10.5px] text-ink-3">อ่านชื่อจากลิงก์นี้ไม่ได้ — พิมพ์ชื่อเองได้เลย</div>
+            )}
           </div>
-          <p className="text-[11px] text-ink-3 mt-1.5">"ดูรายละเอียด" ใช้ได้เมื่อชื่อตรงกับสถานที่ในหน้า Places/Food</p>
+          <div className="relative">
+            <LeadIcon top><IconNotes size={15} /></LeadIcon>
+            <textarea
+              className="hairline rounded-[9px] text-[13px] py-2.5 pl-9 pr-3 bg-surface w-full outline-none focus:border-brand resize-none"
+              rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="รายละเอียดเพิ่มเติม"
+            />
+          </div>
+          <div>
+            <div className="flex gap-1.5">
+              {([['map', 'เปิดแผนที่'], ['detail', 'ดูรายละเอียด'], ['none', 'ไม่มี']] as const).map(([v, label]) => (
+                <button key={v} onClick={() => setLinkMode(v)}
+                  className="flex-1 h-9 rounded-full text-[12px] font-medium transition-colors"
+                  style={linkMode === v
+                    ? { background: 'var(--color-brand)', color: '#fff' }
+                    : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10.5px] text-ink-3 mt-1.5">เมื่อแตะชื่อสถานที่ · "ดูรายละเอียด" ใช้ได้เมื่อชื่อตรงกับสถานที่ในหน้า Places/Food</p>
+          </div>
         </div>
+
         <button onClick={save} disabled={busy || !place.trim()} className="btn-primary w-full h-10 disabled:opacity-50">
           {busy ? 'กำลังบันทึก...' : 'บันทึก'}
         </button>
