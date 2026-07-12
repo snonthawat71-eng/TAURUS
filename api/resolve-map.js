@@ -59,6 +59,17 @@ function scanChina(s) {
   return null
 }
 
+// Place NAME from a resolved Google Maps URL (/maps/place/<name>/) — lets the
+// client auto-fill the name field from a pasted short link.
+function nameFrom(s) {
+  const m = s && s.match(/\/maps\/place\/([^/@?#]+)/)
+  if (!m) return null
+  try {
+    const n = decodeURIComponent(m[1].replace(/\+/g, ' ')).trim()
+    return n && !/^-?\d+(\.\d+)?\s*,/.test(n) ? n : null
+  } catch { return null }
+}
+
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1'
 
 export default async function handler(req, res) {
@@ -76,11 +87,12 @@ export default async function handler(req, res) {
     } catch (e) { body = ''; if (req.query?.debug) return res.json({ error: String(e?.message || e), finalUrl }) }
     finally { clearTimeout(timer) }
     const coords = extract(finalUrl) || extract(body) || (amap ? scanChina(finalUrl) || scanChina(body) : null)
+    const name = nameFrom(finalUrl)
     if (req.query?.debug) {
-      return res.json({ finalUrl, status, len: body.length, coords: coords || null, snippet: body.slice(0, 800) })
+      return res.json({ finalUrl, status, len: body.length, coords: coords || null, name, snippet: body.slice(0, 800) })
     }
     res.setHeader('Cache-Control', 's-maxage=604800') // cache a week at the edge
-    return res.json(coords || {})
+    return res.json({ ...(coords || {}), ...(name ? { name } : {}) })
   } catch (e) {
     return res.status(500).json({ error: String((e && e.message) || e) })
   }

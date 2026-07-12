@@ -97,6 +97,44 @@ export async function resolveMapUrl(url: string): Promise<LatLng | null> {
   return out
 }
 
+/** Pull the place NAME out of a full Google Maps URL (/maps/place/<name>/ or ?q=). */
+export function nameFromMapUrl(url?: string | null): string | null {
+  if (!url) return null
+  const m = url.match(/\/maps\/place\/([^/@?#]+)/)
+  if (m) {
+    try {
+      const s = decodeURIComponent(m[1].replace(/\+/g, ' ')).trim()
+      if (s && !/^-?\d+(\.\d+)?\s*,/.test(s)) return s
+    } catch { /* bad escape */ }
+  }
+  try {
+    const u = new URL(url)
+    const q = u.searchParams.get('q') || u.searchParams.get('query')
+    if (q && !/^-?\d+(\.\d+)?\s*,/.test(q) && !/^https?:/i.test(q)) return q.trim()
+  } catch { /* not a URL */ }
+  return null
+}
+
+/** Name for a SHORT map link — our serverless endpoint follows the redirect and
+ *  returns the name found in the final URL. Quiet null on failure. */
+const nameCache = new Map<string, string | null>()
+export async function resolveMapName(url: string): Promise<string | null> {
+  const direct = nameFromMapUrl(url)
+  if (direct) return direct
+  if (!isMapLink(url)) return null
+  if (nameCache.has(url)) return nameCache.get(url) ?? null
+  let out: string | null = null
+  try {
+    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}`)
+    if (res.ok) {
+      const j = await res.json()
+      if (typeof j.name === 'string' && j.name.trim()) out = j.name.trim()
+    }
+  } catch { /* offline / endpoint missing */ }
+  nameCache.set(url, out)
+  return out
+}
+
 // C) Nominatim geocoding — rate-limited (1 req/sec), so we serialize and cache.
 const geoCache = new Map<string, LatLng | null>()
 let chain: Promise<unknown> = Promise.resolve()
