@@ -780,8 +780,8 @@ export default function Itinerary() {
       choices: [
         ...(otherDays.length ? [{ label: 'เปลี่ยนวัน', value: 'move' }] : []),
         // only meaningful when this stop is linked to an in-plan place
-        ...(place?.in_plan ? [{ label: 'เอาออกจากวันนี้ (ยังอยู่ในแพลน)', value: 'unschedule' }] : []),
-        { label: 'เอาออกจากแพลน', value: 'remove', danger: true },
+        ...(place?.in_plan ? [{ label: 'เอาออกจากวันนี้ (ยังอยู่ในลิสต์)', value: 'unschedule' }] : []),
+        { label: 'เอาออกจากลิสต์', value: 'remove', danger: true },
       ],
     })
     if (!action) return
@@ -815,7 +815,7 @@ export default function Itinerary() {
       await setInPlan(place!.id, false)
     }
     await reload()
-    offerUndo(action === 'remove' ? 'เอาออกจากแพลนแล้ว' : 'เอาออกจากวันแล้ว',
+    offerUndo(action === 'remove' ? 'เอาออกจากลิสต์แล้ว' : 'เอาออกจากวันแล้ว',
       [{ table: 'itinerary_stops', rows: [row] }],
       async () => { if (clearPlan) await setInPlan(place!.id, true); await reload() })
   }
@@ -888,8 +888,8 @@ export default function Itinerary() {
           <IconLayoutList size={18} />
         </span>
         <span className="flex-1 min-w-0 text-left">
-          <span className="block text-[14px] font-semibold leading-tight">All plans</span>
-          <span className="block text-[11px] text-white/85 mt-0.5">สถานที่ในแพลนทั้งหมด · {places.filter((p) => p.in_plan).length} ที่</span>
+          <span className="block text-[14px] font-semibold leading-tight">Places List</span>
+          <span className="block text-[11px] text-white/85 mt-0.5">สถานที่ในลิสต์ทั้งหมด · {places.filter((p) => p.in_plan).length} ที่</span>
         </span>
         <IconChevronRight size={18} className="shrink-0 text-white/90" />
       </button>

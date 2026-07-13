@@ -171,7 +171,7 @@ export function StopEditor({
       <div className="space-y-3">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <label className="text-[11px] text-ink-3">ดึงจากสถานที่ในแพลน</label>
+            <label className="text-[11px] text-ink-3">ดึงจากสถานที่ในลิสต์</label>
             {inPlan.length > 0 && (
               <div className="inline-flex p-0.5 rounded-full bg-surface-2 shrink-0">
                 {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food']] as const).map(([v, label]) => (
@@ -235,7 +235,7 @@ export function StopEditor({
               })}
             </div>
             {inPlan.length === 0 && (
-              <p className="text-[11px] text-ink-3 mt-1.5">ยังไม่มีสถานที่ในแพลน — แตะ "เลือกด่วนจาก Explore" เพื่อเพิ่มได้เลย</p>
+              <p className="text-[11px] text-ink-3 mt-1.5">ยังไม่มีสถานที่ในลิสต์ — แตะ "เลือกด่วนจาก Explore" เพื่อเพิ่มได้เลย</p>
             )}
           </div>
 

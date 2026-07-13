@@ -116,8 +116,8 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
       <div className="space-y-3">
         <p className="text-[12px] text-ink-3 -mt-1">
           {tripCities.size
-            ? `แสดงเฉพาะเมืองที่ทริปนี้จะไป (${cities.join(', ')}) — แตะเพื่อเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที`
-            : 'เลือกสถานที่จาก Explore — จะถูกเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที'}
+            ? `แสดงเฉพาะเมืองที่ทริปนี้จะไป (${cities.join(', ')}) — แตะเพื่อเพิ่มเข้าลิสต์และเซฟไว้ในหน้า Places/Food ทันที`
+            : 'เลือกสถานที่จาก Explore — จะถูกเพิ่มเข้าลิสต์และเซฟไว้ในหน้า Places/Food ทันที'}
         </p>
 
         <div className="relative">

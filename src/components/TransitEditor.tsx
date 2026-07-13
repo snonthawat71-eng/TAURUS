@@ -240,7 +240,7 @@ export function TransitEditor({
             {/* quick-fill this leg from an in-plan place's saved route(s) */}
             {rail && stationPlaces.length > 0 && (
               <div>
-                <div className={lbl}>ดึงสาย/สถานีจากสถานที่ในแพลน — แตะเพื่อเติม</div>
+                <div className={lbl}>ดึงสาย/สถานีจากสถานที่ในลิสต์ — แตะเพื่อเติม</div>
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-1 pb-0.5">
                   {stationPlaces.map((p) => {
                     const rs = routesOf(p)

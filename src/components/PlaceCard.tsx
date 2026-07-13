@@ -66,12 +66,12 @@ export function PlaceCard({
         )}
 
         {mode === 'edit' && (
-          <button onClick={onTogglePlan} aria-label="เพิ่มในแพลน"
+          <button onClick={onTogglePlan} aria-label="เพิ่มในลิสต์"
             className="absolute top-2 right-2 h-7 px-2.5 rounded-full inline-flex items-center gap-1 shadow-sm transition-colors text-[11px] font-medium z-20"
             style={place.in_plan
               ? { background: 'var(--color-brand)', color: '#fff' }
               : { background: 'rgba(255,255,255,.92)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
-            {place.in_plan ? <><IconCheck size={14} /> ในแพลน</> : <><IconPlus size={14} /> เพิ่ม</>}
+            {place.in_plan ? <><IconCheck size={14} /> ในลิสต์</> : <><IconPlus size={14} /> เพิ่ม</>}
           </button>
         )}
         {mode === 'pin' && (

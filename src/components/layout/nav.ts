@@ -14,7 +14,7 @@ export interface NavItem {
   section: 'PLAN' | 'OVERVIEW'
 }
 
-const ALL_PLANS: NavItem = { to: '/plans', label: 'All plans', short: 'All plans', icon: IconLayoutList, section: 'OVERVIEW' }
+const ALL_PLANS: NavItem = { to: '/plans', label: 'Places List', short: 'Places List', icon: IconLayoutList, section: 'OVERVIEW' }
 
 /** Nav items visible for a given permission. All plans moved INTO the
  *  Itinerary page (big button) — only places-only members still get it in the

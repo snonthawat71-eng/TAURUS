@@ -88,7 +88,7 @@ export default function AllPlans() {
   const header = (
     <div className="flex items-center gap-2 mb-4">
       <button onClick={goBack} className="btn-icon" aria-label="กลับ" title="กลับ"><IconArrowLeft size={16} /></button>
-      <h1 className="text-[16px] font-medium">All plans • รายการในแพลน</h1>
+      <h1 className="text-[16px] font-medium">Places List • รายการในลิสต์</h1>
     </div>
   )
 
@@ -97,8 +97,8 @@ export default function AllPlans() {
       <div>
         {header}
         <div className="card p-8 text-center">
-          <p className="text-[14px] font-medium">ยังไม่มีรายการในแพลน</p>
-          <p className="text-[12px] text-ink-2 mt-1.5">ไปที่หน้า Places หรือ Food & café แล้วกดปุ่ม + เพื่อเพิ่มเข้าแพลน</p>
+          <p className="text-[14px] font-medium">ยังไม่มีรายการในลิสต์</p>
+          <p className="text-[12px] text-ink-2 mt-1.5">ไปที่หน้า Places หรือ Food & café แล้วกดปุ่ม + เพื่อเพิ่มเข้าลิสต์</p>
         </div>
       </div>
     )

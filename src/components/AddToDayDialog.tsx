@@ -99,7 +99,7 @@ export function AddToDayDialog({ place, open, onClose }: {
         <button onClick={justPlan} disabled={!!busy}
           className="btn-primary w-full h-11 flex items-center justify-center gap-1.5 text-[13px] disabled:opacity-60">
           {busy === 'plan' ? <IconLoader2 size={16} className="animate-spin" /> : <IconCheck size={16} />}
-          ใส่ในแพลนเฉย ๆ (ยังไม่เลือกวัน)
+          ใส่ในลิสต์เฉย ๆ (ยังไม่เลือกวัน)
         </button>
 
         <div className="text-[11px] text-ink-3 pt-1.5">หรือเลือกวันที่จะไปเลย</div>
