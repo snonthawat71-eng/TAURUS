@@ -29,7 +29,10 @@ export function AddToDayDialog({ place, open, onClose }: {
   // else the first branch (same rule as the detail view).
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
   useEffect(() => {
-    if (open) setBranchIdx(branches.length && !hasOwnLocation ? 0 : null)
+    if (!open) return
+    // a branch picked earlier (e.g. when saving from Explore) is the default
+    if (place?.plan_branch != null && branches[place.plan_branch]) setBranchIdx(place.plan_branch)
+    else setBranchIdx(branches.length && !hasOwnLocation ? 0 : null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, place?.id])
 

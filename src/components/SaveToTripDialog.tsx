@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconCheck, IconLoader2, IconHeartFilled, IconX } from '@tabler/icons-react'
+import { IconCheck, IconLoader2, IconHeartFilled, IconX, IconBuildingStore, IconChevronLeft, IconMapPin } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -20,44 +20,105 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   const { user } = useAuth()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [done, setDone] = useState<Set<string>>(new Set())
+  // multi-branch step 2: the trip that was tapped, waiting for a branch choice
+  const [pendingTrip, setPendingTrip] = useState<string | null>(null)
 
   // any trip the user can reach — owned OR shared in (RLS blocks the write if the
   // share is view-only). Shared members no longer need a trip of their own.
   const myTrips = trips
 
+  const branches = place?.branches ?? []
+  const hasOwnLocation = !!(place && (place.map_url || place.station_name || place.station_line))
+
   useEffect(() => {
     if (!open) return
     setBusyId(null)
     setDone(new Set())
+    setPendingTrip(null)
     if (sourceExploreId) {
       exploreSavedInTrips(sourceExploreId, myTrips.map((t) => t.id)).then((ids) => setDone(new Set(ids)))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, sourceExploreId])
 
-  async function toggle(tripId: string) {
+  async function saveTo(tripId: string, planBranch: number | null) {
     if (!place) return
     setBusyId(tripId)
-    if (done.has(tripId)) {
-      // un-save: remove this place's copy from the chosen trip (explore-sourced only)
-      if (sourceExploreId) await removeExploreCopies(sourceExploreId, [tripId])
-      setDone((prev) => { const n = new Set(prev); n.delete(tripId); return n })
-    } else {
-      await copyPlaceToTrip(place, tripId, sourceExploreId)
-      if (sourceExploreId && user) logExploreEvent(sourceExploreId, user.id, 'save')
-      setDone((prev) => new Set(prev).add(tripId))
-    }
+    await copyPlaceToTrip(place, tripId, sourceExploreId, { planBranch })
+    if (sourceExploreId && user) logExploreEvent(sourceExploreId, user.id, 'save')
+    setDone((prev) => new Set(prev).add(tripId))
     setBusyId(null)
+    setPendingTrip(null)
     onChanged?.()
   }
 
+  async function toggle(tripId: string) {
+    if (!place) return
+    if (done.has(tripId)) {
+      // un-save: remove this place's copy from the chosen trip (explore-sourced only)
+      setBusyId(tripId)
+      if (sourceExploreId) await removeExploreCopies(sourceExploreId, [tripId])
+      setDone((prev) => { const n = new Set(prev); n.delete(tripId); return n })
+      setBusyId(null)
+      onChanged?.()
+      return
+    }
+    // multi-branch: ask WHICH branch before saving (step 2 in the same drawer)
+    if (branches.length > 0) { setPendingTrip(tripId); return }
+    await saveTo(tripId, null)
+  }
+
+  const pending = pendingTrip ? myTrips.find((t) => t.id === pendingTrip) : null
+
   return (
-    <Drawer open={open} onClose={onClose} title="เซฟสถานที่ไปทริปไหน">
+    <Drawer open={open} onClose={onClose} title={pending ? 'ไปสาขาไหน?' : 'เซฟสถานที่ไปทริปไหน'}>
       <div className="flex items-center gap-2 mb-3 text-[13px]">
         <IconHeartFilled size={15} className="text-brand" />
         <span className="font-medium truncate">{place?.name}</span>
+        {pending && (
+          <span className="chip !bg-brand-soft !text-brand-dark shrink-0 ml-auto">
+            {pending.flag || countryFlag(pending.country)} {pending.name}
+          </span>
+        )}
       </div>
-      {myTrips.length === 0 ? (
+
+      {/* step 2 — pick the branch this trip will go to */}
+      {pending ? (
+        <div className="space-y-1.5">
+          {hasOwnLocation && (
+            <button onClick={() => saveTo(pending.id, null)} disabled={!!busyId}
+              className="w-full flex items-center gap-2.5 card p-3 text-left enabled:hover:bg-surface-2/40">
+              <span className="size-8 rounded-[8px] grid place-items-center shrink-0"
+                style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)' }}><IconMapPin size={16} /></span>
+              <span className="text-[13.5px] font-medium flex-1 min-w-0 truncate">ที่ตั้งหลัก</span>
+              {busyId === pending.id ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
+                : <span className="btn-link text-[12px] shrink-0">เซฟสาขานี้</span>}
+            </button>
+          )}
+          {branches.map((b, i) => (
+            <button key={i} onClick={() => saveTo(pending.id, i)} disabled={!!busyId}
+              className="w-full flex items-center gap-2.5 card p-3 text-left enabled:hover:bg-surface-2/40">
+              <span className="size-8 rounded-[8px] grid place-items-center shrink-0"
+                style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)' }}><IconBuildingStore size={16} /></span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13.5px] font-medium truncate">{b.label || `สาขา ${i + 1}`}</div>
+                {(b.line || b.station) && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
+                    <span className="size-2 rounded-full shrink-0" style={{ background: b.color ?? '#888780' }} />
+                    <span className="truncate">{b.line}{b.station ? ` · ${b.station}` : ''}</span>
+                  </div>
+                )}
+              </div>
+              {busyId === pending.id ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
+                : <span className="btn-link text-[12px] shrink-0">เซฟสาขานี้</span>}
+            </button>
+          ))}
+          <button onClick={() => setPendingTrip(null)} disabled={!!busyId}
+            className="w-full flex items-center justify-center gap-1 h-10 text-[12px] text-ink-3 hover:text-ink-2">
+            <IconChevronLeft size={14} /> กลับไปเลือกทริป
+          </button>
+        </div>
+      ) : myTrips.length === 0 ? (
         <div className="card p-5 text-center text-[12px] text-ink-3">
           ยังไม่มีทริปให้เซฟ — สร้างทริป หรือให้เจ้าของแชร์ทริปเข้ามาก่อน
         </div>
