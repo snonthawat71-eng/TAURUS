@@ -12,7 +12,6 @@ import { TaurusMark } from '@/components/TaurusMark'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { AvatarStack } from '@/components/Avatar'
 import { PopMenu } from '@/components/PopMenu'
-import { TripEditor } from '@/components/TripEditor'
 import { ProfileEditor } from '@/components/ProfileEditor'
 import { ShareDialog } from '@/components/ShareDialog'
 import { formatDateRange, dayCount, tripCountdown } from '@/lib/format'
@@ -21,7 +20,7 @@ import { WeatherBadge } from '@/components/WeatherBadge'
 import { countryFlag } from '@/lib/countries'
 import { tripFlag, tripActiveCity } from '@/lib/segments'
 import { CITY_IMAGES, TRIP_COVER_IMAGES, tripCoverImage } from '@/lib/cityImages'
-import { createTrip, updateTrip, deleteTrip, duplicateTrip } from '@/lib/tripMutations'
+import { deleteTrip, duplicateTrip } from '@/lib/tripMutations'
 import { downloadItineraryPdf } from '@/lib/itineraryPdf'
 import type { Trip } from '@/lib/database.types'
 
@@ -121,7 +120,6 @@ export default function TripsDashboard() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [travelers, setTravelers] = useState<TravelerLite[]>([])
-  const [editor, setEditor] = useState<'new' | Trip | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -253,8 +251,9 @@ export default function TripsDashboard() {
                       <span className="text-[24px] leading-none">{flagOf(t)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <PopMenu items={[
-                          // draft trips (no dates) edit through the create wizard, like the "พร้อมเดินทางแล้ว" button
-                          { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => (t.start_date ? setEditor(t) : navigate(`/create?upgrade=${t.id}`)) },
+                          // edit runs through the same step wizard as create, prefilled
+                          // (drafts go through the upgrade flow so dates can be added)
+                          { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => navigate(t.start_date ? `/create?edit=${t.id}` : `/create?upgrade=${t.id}`) },
                           { label: 'ทำสำเนา', icon: busyId === t.id ? <IconLoader2 size={15} className="animate-spin" /> : <IconCopy size={15} />, onClick: () => duplicate(t) },
                           ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
                         ]} buttonClassName="!bg-transparent !text-white hover:!bg-white/25" />
@@ -338,27 +337,6 @@ export default function TripsDashboard() {
           <span>Profile</span>
         </button>
       </nav>
-
-      <TripEditor
-        open={editor !== null}
-        onClose={() => setEditor(null)}
-        initial={editor && editor !== 'new' ? editor : null}
-        onSave={async (fields) => {
-          if (editor === 'new' || !editor) {
-            if (!user) return
-            const { id } = await createTrip(user.id, fields)
-            await reload()
-            switchTrip(id)
-            navigate('/info')
-          } else {
-            await updateTrip(editor.id, fields)
-            await reload()
-          }
-        }}
-        onDelete={editor && editor !== 'new' && editor.owner_id === user?.id
-          ? async () => { await deleteTrip(editor.id); await reload() }
-          : undefined}
-      />
 
       <ProfileEditor open={profileOpen} onClose={() => setProfileOpen(false)} scope="global" />
       <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />

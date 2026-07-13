@@ -61,6 +61,10 @@ export default function CreateTrip() {
   // the existing trip (nothing planned so far is lost)
   const upgradeId = params.get('upgrade')
   const upgrading = trips.find((t) => t.id === upgradeId) ?? null
+  // "แก้ไขทริป" → same wizard again, everything prefilled; travelers are managed
+  // in the Info page so the people step is skipped
+  const editId = params.get('edit')
+  const editing = trips.find((t) => t.id === editId) ?? null
 
   const [phase, setPhase] = useState<Phase>('name')
   // draft = สร้างแบบไม่ระบุวัน/ผู้เดินทาง (ทำแพลนไว้ก่อน); Info stays locked
@@ -79,17 +83,25 @@ export default function CreateTrip() {
   const [created, setCreated] = useState<{ tripId: string; travelers: Traveler[] } | null>(null)
   const [sent, setSent] = useState<Set<string>>(new Set())
 
-  // prefill once from the draft trip being upgraded
+  // prefill once from the trip being upgraded (draft → real) or edited
   useMemo(() => {
-    if (!upgrading || seeded) return
+    const src = upgrading ?? editing
+    if (!src || seeded) return
     setSeeded(true)
-    setName(upgrading.name ?? '')
-    const fromSegs = upgrading.segments?.length
-      ? upgrading.segments.map((sg) => ({ country: (sg as { country?: string }).country ?? '', city: sg.city ?? '', flag: sg.flag ?? upgrading.flag ?? '🌍', currency: sg.currency ?? upgrading.currency ?? 'CNY', tz: sg.tz ?? upgrading.timezone ?? '', until: sg.until ?? null }))
-      : [{ country: upgrading.country ?? '', city: upgrading.cities?.[0] ?? '', flag: upgrading.flag ?? '🌍', currency: upgrading.currency ?? 'CNY', tz: upgrading.timezone ?? '', until: null }]
+    setName(src.name ?? '')
+    const fromSegs = src.segments?.length
+      ? src.segments.map((sg) => ({ country: (sg as { country?: string }).country ?? '', city: sg.city ?? '', flag: sg.flag ?? src.flag ?? '🌍', currency: sg.currency ?? src.currency ?? 'CNY', tz: sg.tz ?? src.timezone ?? '', until: sg.until ?? null }))
+      : (src.cities?.length ? src.cities : ['']).map((city): Seg => ({ country: src.country ?? '', city, flag: src.flag ?? '🌍', currency: src.currency ?? 'CNY', tz: src.timezone ?? '', until: null }))
     setSegs(fromSegs)
-    setPhase('dates') // ชื่อมีแล้ว — เริ่มที่วันเดินทางเลย
-  }, [upgrading, seeded])
+    setMulti(fromSegs.length > 1)
+    if (editing) {
+      setStart(editing.start_date ?? '')
+      setEnd(editing.end_date ?? '')
+      // start at step 1 with everything filled — user walks through and fixes
+    } else {
+      setPhase('dates') // ชื่อมีแล้ว — เริ่มที่วันเดินทางเลย
+    }
+  }, [upgrading, editing, seeded])
 
   const myName = profile?.nickname?.trim() || 'ฉัน'
   const seg = segs[cityIdx]
@@ -126,11 +138,14 @@ export default function CreateTrip() {
       if (cityIdx > 0) setCityIdx(cityIdx - 1)
       else setPhase('dates')
     } else if (phase === 'people') { setCityIdx(segs.length - 1); setPhase('city') }
-    else if (phase === 'confirm') setPhase(draft ? 'city' : 'people')
+    else if (phase === 'confirm') {
+      if (draft || editing) { setCityIdx(segs.length - 1); setPhase('city') }
+      else setPhase('people')
+    }
   }
 
   function toggleMulti() {
-    if (multi) { setMulti(false); patchSeg({ until: null }) }
+    if (multi) { setMulti(false); setSegs((ss) => ss.slice(0, 1)); setCityIdx(0); patchSeg({ until: null }, 0) }
     else { setMulti(true); if (!seg.until) patchSeg({ until: defaultUntil() }) } // prefill (ข้อ 4)
   }
   function addAnotherCity() {
@@ -144,7 +159,8 @@ export default function CreateTrip() {
     if (!segName(seg) || !seg.tz) { toast.error('เลือกประเทศและใส่ชื่อเมืองก่อน'); return }
     if (multi && cityIdx === 0) { addAnotherCity(); return }
     patchSeg({ until: null }) // last segment runs to the end of the trip
-    if (draft) { setPhase('confirm'); return } // ร่าง: ข้ามผู้เดินทางไปยืนยันเลย
+    // ร่าง/แก้ไขทริป: ข้ามผู้เดินทาง (จัดการในหน้า Info อยู่แล้ว) ไปยืนยันเลย
+    if (draft || editing) { setPhase('confirm'); return }
     setPeople((ps) => (ps.length ? ps : [{ nick: myName, full: '' }]))
     setPhase('people')
   }
@@ -175,6 +191,23 @@ export default function CreateTrip() {
         await reload()
         toast.success('สร้างทริปแบบร่างแล้ว — เริ่มเก็บสถานที่/วางแพลนได้เลย')
         navigate('/places')
+        return
+      }
+
+      // ── แก้ไขทริปเดิม: อัปเดตข้อมูล + เลื่อนวันที่ของแพลนรายวันตามลำดับ ──
+      if (editing) {
+        await updateTrip(editing.id, { ...base, start_date: start || null, end_date: end || null })
+        // จัดวันที่ให้วันที่มีอยู่ตามลำดับ (จุดแวะไม่หาย) แล้วสร้างวันที่ขาด
+        const { data: existDays } = await supabase.from('itinerary_days').select('id,position').eq('trip_id', editing.id).order('position')
+        for (let i = 0; i < tripDates.length; i++) {
+          const ex = existDays?.[i]
+          if (ex) await updateDay(ex.id, { day_date: tripDates[i] })
+          else await addDay(editing.id, i, tripDates[i])
+        }
+        switchTrip(editing.id)
+        await reload()
+        toast.success('บันทึกการแก้ไขทริปแล้ว')
+        navigate('/')
         return
       }
 
@@ -225,7 +258,7 @@ export default function CreateTrip() {
       setCreated({ tripId, travelers: (data ?? []) as Traveler[] })
       setPhase('share')
     } catch (e) {
-      toast.error('สร้างทริปไม่สำเร็จ — ลองใหม่อีกครั้ง')
+      toast.error(editing ? 'บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง' : 'สร้างทริปไม่สำเร็จ — ลองใหม่อีกครั้ง')
       console.error(e)
     } finally { setBusy(false) }
   }
@@ -414,7 +447,7 @@ export default function CreateTrip() {
 
         {phase === 'confirm' && (
           <>
-            <h1 className="text-[18px] font-medium text-center mt-1">ตรวจสอบก่อนสร้างทริป</h1>
+            <h1 className="text-[18px] font-medium text-center mt-1">{editing ? 'ตรวจสอบก่อนบันทึก' : 'ตรวจสอบก่อนสร้างทริป'}</h1>
             <div className="text-[15px] font-medium text-center mt-1.5 flex items-center justify-center gap-1.5">
               <span>{segs[0].flag}</span> {name.trim() || 'ทริปใหม่'}
             </div>
@@ -444,8 +477,8 @@ export default function CreateTrip() {
             </div>
             )}
 
-            {/* ② ผู้เดินทาง */}
-            {!draft && (<>
+            {/* ② ผู้เดินทาง — ตอนแก้ไขทริปจัดการในหน้า Info จึงไม่โชว์ */}
+            {!draft && !editing && (<>
             <div className="text-[11px] text-ink-3 mt-4 mb-1.5 flex items-center gap-1"><IconUsers size={12} /> ผู้เดินทาง · {people.length} คน</div>
             <div className="card p-2 space-y-0.5">
               {people.map((p, i) => (
@@ -531,7 +564,7 @@ export default function CreateTrip() {
         {phase === 'dates' && (
           <>
             <button onClick={() => { setDraft(false); if (start && end) setPhase('city') }} disabled={!start || !end} className="btn-primary w-full h-10 disabled:opacity-50">ถัดไป</button>
-            {!upgrading && (
+            {!upgrading && !editing && (
               <button onClick={() => { setDraft(true); setStart(''); setEnd(''); setMulti(false); setPhase('city') }}
                 className="w-full h-10 rounded-md text-[13px] font-medium inline-flex items-center justify-center gap-1.5"
                 style={{ border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-mid)', background: 'var(--color-brand-soft)' }}>
@@ -572,7 +605,7 @@ export default function CreateTrip() {
         {phase === 'confirm' && (
           <>
             <button onClick={createAll} disabled={busy} className="btn-primary w-full h-10 disabled:opacity-50 inline-flex items-center justify-center gap-1.5">
-              <IconCheck size={15} /> {busy ? 'กำลังบันทึก…' : draft ? 'สร้างทริปแบบร่าง' : upgrading ? 'บันทึก — พร้อมเดินทาง!' : 'ยืนยันสร้างทริป'}
+              <IconCheck size={15} /> {busy ? 'กำลังบันทึก…' : draft ? 'สร้างทริปแบบร่าง' : editing ? 'บันทึกการแก้ไข' : upgrading ? 'บันทึก — พร้อมเดินทาง!' : 'ยืนยันสร้างทริป'}
             </button>
             <button onClick={back} disabled={busy} className="w-full h-8 text-[12px] text-ink-3">กลับไปแก้ไข</button>
           </>
