@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react'
-import { IconWalk, IconDoorExit, IconPencil } from '@tabler/icons-react'
+import { IconWalk, IconDoorExit, IconPencil, IconCoin } from '@tabler/icons-react'
 import { modeMeta } from '@/lib/transitModes'
+import { useTrip } from '@/contexts/TripContext'
 import type { Transit, TransitLeg } from '@/lib/database.types'
 
 /**
@@ -40,7 +41,7 @@ function Row({ marker, color, line, boardIcon, children }: { marker: 'board' | '
   )
 }
 
-function BoardContent({ leg }: { leg: TransitLeg }) {
+function BoardContent({ leg, currency }: { leg: TransitLeg; currency?: string | null }) {
   const m = modeMeta(leg.mode)
   const MIcon = m.icon
   return (
@@ -55,6 +56,7 @@ function BoardContent({ leg }: { leg: TransitLeg }) {
           {leg.direction && `→ ${leg.direction}`}
           {leg.stops != null && ` · ${leg.stops} สถานี`}
           {leg.minutes != null && ` · ${leg.minutes} นาที`}
+          {leg.fare != null && ` · ≈${leg.fare} ${currency ?? ''}`}
         </span>
       </div>
     </>
@@ -62,9 +64,12 @@ function BoardContent({ leg }: { leg: TransitLeg }) {
 }
 
 export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () => void }) {
+  const { trip } = useTrip()
   const { legs, exit } = transit
   if (!legs?.length) return null
   const last = legs.length - 1
+  // estimated total when any leg carries a fare (trip currency)
+  const fareTotal = legs.reduce((sum, l) => sum + (l.fare ?? 0), 0)
 
   return (
     <div className="mt-2.5 rounded-[10px] bg-surface-2/40 p-3.5 relative" style={{ border: '0.5px solid var(--color-line)' }}>
@@ -78,7 +83,7 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
         return (
         <div key={i}>
           <Row marker="board" color={leg.color} line="solid" boardIcon={<MIcon size={10} />}>
-            <BoardContent leg={leg} />
+            <BoardContent leg={leg} currency={trip?.currency} />
           </Row>
           <Row marker="alight" color={leg.color} line={i < last ? 'dashed' : 'none'}>
             <div className="text-[13px] font-medium leading-tight pt-0.5">{leg.to}</div>
@@ -104,6 +109,11 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
         </div>
         )
       })}
+      {fareTotal > 0 && (
+        <div className="mt-2 pt-2 flex items-center gap-1.5 text-[11px] font-medium text-ink-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+          <IconCoin size={13} className="text-ink-3" /> ค่าเดินทางรวม ≈ {fareTotal} {trip?.currency ?? ''}
+        </div>
+      )}
     </div>
   )
 }
