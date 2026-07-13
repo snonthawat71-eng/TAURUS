@@ -1,7 +1,7 @@
 import { useLayoutEffect, useState } from 'react'
 import {
   IconTrash, IconTrain, IconHash, IconCalendarEvent, IconTicket, IconArmchair,
-  IconSofa, IconDoor, IconBoxMultiple, IconX, IconArrowNarrowRight,
+  IconSofa, IconDoor, IconBoxMultiple, IconX,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { ClearableField } from './ClearableField'
@@ -75,7 +75,7 @@ export function TrainEditor({
               className={['inline-flex items-center gap-1.5 px-4 h-8 rounded-full text-[12px] font-semibold transition-colors',
                 v.direction === d ? 'text-white' : 'text-ink-3'].join(' ')}
               style={v.direction === d ? { background: 'var(--color-brand)' } : undefined}>
-              {d === 'outbound' ? <IconTrain size={14} /> : <IconArrowNarrowRight size={14} className="rotate-180" />}
+              {d === 'outbound' ? <IconTrain size={14} /> : <IconTrain size={14} className="-scale-x-100" />}
               {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
             </button>
           ))}
