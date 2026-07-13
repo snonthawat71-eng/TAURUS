@@ -5,6 +5,7 @@ import { SignedImage } from './SignedImage'
 import { QuickExplorePicker, type QuickPick } from './QuickExplorePicker'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
+import { planMapUrl } from '@/lib/branches'
 import { nameFromMapUrl, resolveMapName, isMapLink } from '@/lib/geo'
 import type { StopInput } from '@/lib/mutations'
 
@@ -140,7 +141,7 @@ export function StopEditor({
     if (pickedId === id) { setPickedId(null); return } // tap again to deselect
     setPickedId(id)
     setPlace(p.name ?? '')
-    setMapUrl(p.map_url ?? '')
+    setMapUrl(planMapUrl(p) ?? '') // branch picked for the plan, else main
     setNote(p.note ?? '')
     setLinkMode('detail')
     setAutoFilled(false)

@@ -93,8 +93,18 @@ export async function updateExploreCopies(exploreId: string, fields: PlaceInput,
   return res
 }
 
-export async function setInPlan(id: string, in_plan: boolean) {
-  const res = await supabase.from('places').update({ in_plan }).eq('id', id)
+/** Flag a place in/out of the plan. `plan_branch` records which branch of a
+ *  multi-branch place was picked (index into branches, null = main location);
+ *  taking a place out of the plan clears it. Retries without the column when
+ *  plan_branch.sql hasn't been applied yet. */
+export async function setInPlan(id: string, in_plan: boolean, plan_branch?: number | null) {
+  const payload: Record<string, unknown> = { in_plan }
+  if (plan_branch !== undefined) payload.plan_branch = plan_branch
+  else if (!in_plan) payload.plan_branch = null
+  let res = await supabase.from('places').update(payload).eq('id', id)
+  if (res.error && 'plan_branch' in payload && /plan_branch|column/i.test(res.error.message)) {
+    res = await supabase.from('places').update({ in_plan }).eq('id', id)
+  }
   toastDbError(res.error)
   return res
 }

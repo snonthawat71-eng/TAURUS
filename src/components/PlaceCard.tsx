@@ -6,6 +6,7 @@ import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
+import { planMapUrl } from '@/lib/branches'
 import type { Place } from '@/lib/database.types'
 
 export interface Interested { name: string; color?: string }
@@ -116,7 +117,7 @@ export function PlaceCard({
         ) : null}
 
         <div className="flex items-center justify-between mt-3 pt-3 gap-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-          <button onClick={() => openMap(place.map_url)} disabled={!place.map_url}
+          <button onClick={() => openMap(planMapUrl(place))} disabled={!planMapUrl(place)}
             className="inline-flex items-center gap-1 text-[11px] text-ink-3 enabled:hover:text-brand-mid whitespace-nowrap shrink-0">
             <IconMapPin size={12} /> MAP
           </button>

@@ -40,9 +40,15 @@ export function PlaceDetail({
   const [lightbox, setLightbox] = useState<number | null>(null)
   const hasOwnLocation = !!(place && (place.map_url || place.station_name || place.station_line))
   useEffect(() => {
-    // default to the first branch only when the place has no location of its own
+    // planned place: default to the branch that was picked for the plan;
+    // otherwise first branch only when the place has no location of its own
+    if (place?.in_plan && place.plan_branch != null && place.branches?.[place.plan_branch]) {
+      setBranchIdx(place.plan_branch)
+      return
+    }
     setBranchIdx(place?.branches?.length && !hasOwnLocation ? 0 : null)
-  }, [place?.id, hasOwnLocation, place?.branches?.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [place?.id, hasOwnLocation, place?.branches?.length, place?.plan_branch, place?.in_plan])
 
   if (!place) return null
   const meta = catMeta(place.category)

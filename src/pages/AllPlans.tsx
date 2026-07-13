@@ -4,6 +4,7 @@ import { IconMapPin, IconBuildingMonument, IconToolsKitchen2, IconCake, IconBuil
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
+import { planBranch, planMapUrl } from '@/lib/branches'
 import { useBack } from '@/lib/useBack'
 import { SignedImage } from '@/components/SignedImage'
 import type { Place } from '@/lib/database.types'
@@ -20,6 +21,7 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
         {items.map((p) => {
           const meta = catMeta(p.category)
           const Icon = meta.icon
+          const branch = planBranch(p) // branch picked when added to the plan
           const to = p.group_type === 'food' ? `/places?tab=food&focus=${p.id}` : `/places?tab=place&focus=${p.id}`
           return (
             <div key={p.id} className="card p-3 flex items-center gap-3">
@@ -33,16 +35,16 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-[14px] font-medium truncate">{p.name}</span>
                     {(p.multi_branch || !!p.branches?.length) && (
-                      <span className="chip !py-0 !px-1.5 !text-[10px] inline-flex items-center gap-0.5 shrink-0"><IconBuildingStore size={11} /> หลายสาขา</span>
+                      <span className="chip !py-0 !px-1.5 !text-[10px] inline-flex items-center gap-0.5 shrink-0"><IconBuildingStore size={11} /> {branch?.label || 'หลายสาขา'}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
-                    <span className="size-2 rounded-full shrink-0" style={{ background: p.station_color ?? '#888780' }} />
-                    <span className="truncate">{p.station_line}{p.station_name ? ` · ${p.station_name}` : ''}</span>
+                    <span className="size-2 rounded-full shrink-0" style={{ background: (branch ? branch.color : p.station_color) ?? '#888780' }} />
+                    <span className="truncate">{branch ? branch.line : p.station_line}{(branch ? branch.station : p.station_name) ? ` · ${branch ? branch.station : p.station_name}` : ''}</span>
                   </div>
                 </div>
               </button>
-              <button onClick={() => openMap(p.map_url)} disabled={!p.map_url}
+              <button onClick={() => openMap(planMapUrl(p))} disabled={!planMapUrl(p)}
                 className="inline-flex items-center gap-1 text-[11px] text-ink-3 enabled:hover:text-brand-mid shrink-0">
                 <IconMapPin size={13} /> MAP
               </button>

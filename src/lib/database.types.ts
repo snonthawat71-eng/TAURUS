@@ -262,6 +262,9 @@ export interface Place {
   /** optional — present after branches.sql; just flags "has many branches" for a
    *  card label, without requiring per-branch detail */
   multi_branch?: boolean | null
+  /** optional — present after plan_branch.sql; which branch was picked when the
+   *  place was added to the plan (index into `branches`, null = main location) */
+  plan_branch?: number | null
   map_url: string | null
   note: string | null
   in_plan: boolean

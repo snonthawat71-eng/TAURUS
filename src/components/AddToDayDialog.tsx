@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { IconLoader2, IconCheck, IconMapPin } from '@tabler/icons-react'
+import { useEffect, useState } from 'react'
+import { IconLoader2, IconCheck, IconMapPin, IconBuildingStore } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { addStop } from '@/lib/mutations'
@@ -12,6 +12,8 @@ import type { Place } from '@/lib/database.types'
  * Pick which itinerary day to schedule a place on when adding it to the plan.
  * Choosing a day appends the place as a stop on that day (and flags it in_plan);
  * "ใส่ในแพลนเฉย ๆ" just flags it without scheduling a day.
+ * Multi-branch places first ask WHICH branch — the choice is stored in
+ * plan_branch so map links point at that branch, not the main location.
  */
 export function AddToDayDialog({ place, open, onClose }: {
   place: Place | null
@@ -21,24 +23,37 @@ export function AddToDayDialog({ place, open, onClose }: {
   const { trip, days, stops, reload } = useTrip()
   const [busy, setBusy] = useState<string | null>(null)
 
+  const branches = place?.branches ?? []
+  const hasOwnLocation = !!(place && (place.map_url || place.station_name || place.station_line))
+  // which branch to plan; null = main location. Default: main when it exists,
+  // else the first branch (same rule as the detail view).
+  const [branchIdx, setBranchIdx] = useState<number | null>(null)
+  useEffect(() => {
+    if (open) setBranchIdx(branches.length && !hasOwnLocation ? 0 : null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, place?.id])
+
+  const selBranch = branchIdx != null ? branches[branchIdx] : null
+  const branchNote = selBranch ? ` (${selBranch.label || `สาขา ${branchIdx! + 1}`})` : ''
+
   async function addToDay(dayId: string, dayNo: number) {
     if (!trip || !place) return
     setBusy(dayId)
     const pos = stops.filter((s) => s.day_id === dayId).length
     await addStop(trip.id, dayId, pos, {
-      place_name: place.name, map_url: place.map_url, note: place.note, link_mode: 'detail',
+      place_name: place.name, map_url: selBranch?.map_url || place.map_url, note: place.note, link_mode: 'detail',
     })
-    await setInPlan(place.id, true)
+    await setInPlan(place.id, true, branchIdx)
     await reload()
     setBusy(null)
-    toast.success(`เพิ่ม "${place.name}" ลง Day ${dayNo} แล้ว`)
+    toast.success(`เพิ่ม "${place.name}"${branchNote} ลง Day ${dayNo} แล้ว`)
     onClose()
   }
 
   async function justPlan() {
     if (!place) return
     setBusy('plan')
-    await setInPlan(place.id, true)
+    await setInPlan(place.id, true, branchIdx)
     await reload()
     setBusy(null)
     onClose()
@@ -51,6 +66,31 @@ export function AddToDayDialog({ place, open, onClose }: {
           <IconMapPin size={15} className="text-brand shrink-0" />
           <span className="font-medium truncate">{place?.name}</span>
         </div>
+
+        {/* multi-branch: ask which branch this plan means */}
+        {branches.length > 0 && (
+          <div className="mb-2">
+            <div className="text-[11px] text-ink-3 mb-1.5 flex items-center gap-1">
+              <IconBuildingStore size={12} /> ไปสาขาไหน?
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+              {hasOwnLocation && (
+                <button onClick={() => setBranchIdx(null)}
+                  className={['chip shrink-0', branchIdx === null ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+                  style={branchIdx === null ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+                  {branchIdx === null && <IconCheck size={12} />} ที่ตั้งหลัก
+                </button>
+              )}
+              {branches.map((b, i) => (
+                <button key={i} onClick={() => setBranchIdx(i)}
+                  className={['chip shrink-0', branchIdx === i ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+                  style={branchIdx === i ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+                  {branchIdx === i && <IconCheck size={12} />} {b.label || `สาขา ${i + 1}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {days.length === 0 ? (
           <div className="card p-5 text-center text-[12px] text-ink-3">
