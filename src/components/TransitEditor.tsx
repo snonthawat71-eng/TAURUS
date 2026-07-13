@@ -12,6 +12,7 @@ import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip } from '@/lib/metro'
 import { getTransitSuggestions, findLine, legBetween } from '@/lib/metro/suggest'
 import { modeMeta } from '@/lib/transitModes'
+import { confirmDialog } from '@/lib/confirm'
 import { ModePicker } from './ModePicker'
 import type { Transit, TransitLeg, ExploreRoute, Place } from '@/lib/database.types'
 
@@ -155,6 +156,13 @@ export function TransitEditor({
     setBusy(false)
     onClose()
   }
+  async function delRoute() {
+    if (!(await confirmDialog({ message: 'ลบเส้นทางการเดินทางนี้?', danger: true, confirmLabel: 'ลบ' }))) return
+    setBusy(true)
+    await onSave(null)
+    setBusy(false)
+    onClose()
+  }
 
   return (
     <Drawer open={open} onClose={onClose} title="เส้นทางการเดินทาง">
@@ -187,28 +195,76 @@ export function TransitEditor({
             <IconMap2 size={17} /> เลือกจากแผนที่รถไฟฟ้าเซินเจิ้น (คำนวณจุดเปลี่ยนสายให้)
           </button>
         )}
-        {/* ⚡ เติมเส้นทางอัตโนมัติ — moved up from the per-leg "ดึงสาย/สถานี" chips */}
+        {/* ⚡ เติมเส้นทางอัตโนมัติ — moved up from the per-leg "ดึงสาย/สถานี" chips.
+            Multi-branch places first ask: the branch picked for the list, or another. */}
         {(() => {
-          const options = stationPlaces.flatMap((p) => routesOf(p).map((r) => ({ place: p, r })))
-          if (!options.length) return null
+          interface Opt { label: string; sub?: string; color?: string | null; r: ExploreRoute }
+          const opts: Opt[] = []
+          let branchAsk: { listed: Opt; others: Opt[] } | null = null
+          for (const p of stationPlaces) {
+            const branches = (p.branches ?? []).filter((b) => b.line || b.station)
+            if (branches.length) {
+              const bOpts = branches.map((b, bi): Opt => ({
+                label: b.label || `สาขา ${bi + 1}`,
+                sub: [b.line, b.station].filter(Boolean).join(' · '),
+                color: b.color, r: { line: b.line, color: b.color, station: b.station },
+              }))
+              const mains = routesOf(p).map((r): Opt => ({
+                label: 'ที่ตั้งหลัก', sub: [r.line, r.station].filter(Boolean).join(' · '), color: r.color, r,
+              }))
+              const li = p.plan_branch != null && branches[p.plan_branch] ? p.plan_branch : null
+              if (li != null && p === matched) {
+                branchAsk = { listed: bOpts[li], others: [...bOpts.filter((_, bi) => bi !== li), ...mains] }
+              }
+              opts.push(...bOpts, ...mains)
+            } else {
+              opts.push(...routesOf(p).map((r): Opt => ({
+                label: p.name ?? '', sub: [r.line, r.station].filter(Boolean).join(' · '), color: r.color, r,
+              })))
+            }
+          }
+          if (!opts.length) return null
+          const single = opts.length === 1 && !branchAsk
+          const optRow = (o: Opt, key: number) => (
+            <button key={key} onClick={() => applyRoute(o.r)}
+              className="w-full flex items-center gap-2 px-2 h-9 rounded-md text-[12px] hover:bg-surface-2 text-left">
+              <span className="size-2.5 rounded-full shrink-0" style={{ background: o.color ?? '#888780' }} />
+              <span className="truncate font-medium">{o.label}</span>
+              {o.sub && <span className="ml-auto text-[10.5px] text-ink-3 truncate max-w-[150px] shrink-0">{o.sub}</span>}
+            </button>
+          )
           return (
             <div>
-              <button onClick={() => (options.length === 1 ? applyRoute(options[0].r) : setAutoPick((v) => !v))}
+              <button onClick={() => (single ? applyRoute(opts[0].r) : setAutoPick((v) => !v))}
                 className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
                 style={{ background: 'var(--color-surface)', color: 'var(--color-brand-mid)', border: '0.5px solid var(--color-brand-border)' }}>
-                <IconSparkles size={16} /> เติมเส้นทางอัตโนมัติจากสถานที่{options.length > 1 ? ` (${options.length} เส้นทาง)` : ''}
+                <IconSparkles size={16} /> เติมเส้นทางอัตโนมัติจากสถานที่{!single && !branchAsk ? ` (${opts.length} เส้นทาง)` : ''}
               </button>
               {autoPick && (
                 <div className="card p-2 mt-1.5 space-y-1">
-                  <div className={lbl}>เลือกเส้นทางที่บันทึกไว้ — เติมลงช่วงที่ {(openLeg ?? 0) + 1}</div>
-                  {options.map(({ place: p, r }, ri) => (
-                    <button key={ri} onClick={() => applyRoute(r)}
-                      className="w-full flex items-center gap-2 px-2 h-9 rounded-md text-[12px] hover:bg-surface-2 text-left">
-                      <span className="size-2.5 rounded-full shrink-0" style={{ background: r.color ?? '#888780' }} />
-                      <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || '(ไม่มีข้อมูล)'}</span>
-                      <span className="ml-auto text-[10.5px] text-ink-3 truncate max-w-[110px] shrink-0">{p.name}</span>
-                    </button>
-                  ))}
+                  {branchAsk ? (
+                    <>
+                      <div className={lbl}>ร้านนี้มีหลายสาขา — ไปสาขาที่ลิสต์ไว้มั้ย?</div>
+                      <button onClick={() => applyRoute(branchAsk!.listed.r)}
+                        className="w-full flex items-center gap-2 px-2 h-10 rounded-md text-[12.5px] text-left"
+                        style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-dark)' }}>
+                        <span className="size-2.5 rounded-full shrink-0" style={{ background: branchAsk.listed.color ?? '#888780' }} />
+                        <span className="truncate font-semibold">ไปสาขาที่ลิสต์ไว้ · {branchAsk.listed.label}</span>
+                        {branchAsk.listed.sub && <span className="ml-auto text-[10.5px] truncate max-w-[120px] shrink-0 opacity-75">{branchAsk.listed.sub}</span>}
+                      </button>
+                      {branchAsk.others.length > 0 && (
+                        <>
+                          <div className={`${lbl} pt-1`}>หรือสาขาอื่น</div>
+                          {branchAsk.others.map(optRow)}
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className={lbl}>เลือกเส้นทางที่บันทึกไว้ — เติมลงช่วงที่ {(openLeg ?? 0) + 1}</div>
+                      {opts.map(optRow)}
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -329,9 +385,10 @@ export function TransitEditor({
               </div>
             ) : (
               <button onClick={() => setFareOpen((s) => new Set(s).add(i))}
-                className="w-full h-8 rounded-[10px] text-[11.5px] font-medium inline-flex items-center justify-center gap-1.5 text-ink-3"
+                className="w-full h-8 rounded-[10px] text-[11.5px] font-medium inline-flex items-center gap-1.5 text-ink-3 px-3"
                 style={{ border: '1px dashed var(--color-line-2)' }}>
-                <IconCoin size={13} /> ＋ ราคาค่าเดินทางโดยประมาณ
+                <IconCoin size={13} /> ราคาค่าเดินทางโดยประมาณ
+                <IconPlus size={14} className="ml-auto shrink-0" />
               </button>
             )}
 
@@ -358,9 +415,10 @@ export function TransitEditor({
                 </div>
               ) : (
                 <button onClick={() => patchTransfer(i, { minutes: 2 })}
-                  className="w-full h-8 rounded-[10px] text-[11.5px] font-medium inline-flex items-center justify-center gap-1.5 text-ink-3"
+                  className="w-full h-8 rounded-[10px] text-[11.5px] font-medium inline-flex items-center gap-1.5 text-ink-3 px-3"
                   style={{ border: '1px dashed var(--color-line-2)' }}>
-                  <IconWalk size={13} /> ＋ มีเดินต่อก่อนช่วงถัดไป — กดถ้ามี
+                  <IconWalk size={13} /> มีเดินต่อก่อนช่วงถัดไป — กดถ้ามี
+                  <IconPlus size={14} className="ml-auto shrink-0" />
                 </button>
               )
             )}
@@ -384,6 +442,13 @@ export function TransitEditor({
         <button onClick={save} disabled={busy} className="btn-primary w-full h-10 disabled:opacity-50">
           {busy ? 'กำลังบันทึก...' : 'บันทึกเส้นทาง'}
         </button>
+        {/* ลบเส้นทางที่บันทึกไว้ — จงใจไม่เด่น (ตัวหนังสือแดงอ่อน) */}
+        {!!initial?.legs?.length && (
+          <button onClick={delRoute} disabled={busy}
+            className="w-full h-9 text-[12.5px] text-[#D85A30]/60 hover:text-[#D85A30]">
+            ลบการเดินทาง
+          </button>
+        )}
       </div>
 
       {net && mapOpen && (
