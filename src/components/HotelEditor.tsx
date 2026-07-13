@@ -80,7 +80,7 @@ export function HotelEditor({
     setMapUrl(initial?.map_url ?? '')
     setCheckin(toLocal(initial?.checkin))
     setCheckout(toLocal(initial?.checkout))
-    setRooms(initial?.rooms?.length ? initial.rooms.map((r) => ({ ...r })) : [{ name: 'Room 1', members: [] }])
+    setRooms(initial?.rooms?.length ? initial.rooms.map((r) => ({ ...r })) : [])
     setPhotoPath(initial?.photo_path ?? null)
     setLinkState('idle')
     setOpenCard(initial ? null : 'where')
