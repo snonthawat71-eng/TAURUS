@@ -92,6 +92,15 @@ export function AddToDayDialog({ place, open, onClose }: {
           </div>
         )}
 
+        {/* primary action — plan it right away; picking a day below is optional */}
+        <button onClick={justPlan} disabled={!!busy}
+          className="btn-primary w-full h-11 flex items-center justify-center gap-1.5 text-[13px] disabled:opacity-60">
+          {busy === 'plan' ? <IconLoader2 size={16} className="animate-spin" /> : <IconCheck size={16} />}
+          ใส่ในแพลนเฉย ๆ (ยังไม่เลือกวัน)
+        </button>
+
+        <div className="text-[11px] text-ink-3 pt-1.5">หรือเลือกวันที่จะไปเลย</div>
+
         {days.length === 0 ? (
           <div className="card p-5 text-center text-[12px] text-ink-3">
             ยังไม่มีวันในแผน — เพิ่มวันในหน้า Itinerary ก่อน แล้วค่อยเลือกวันได้
@@ -115,11 +124,6 @@ export function AddToDayDialog({ place, open, onClose }: {
           })
         )}
 
-        <button onClick={justPlan} disabled={!!busy}
-          className="w-full flex items-center justify-center gap-1.5 h-10 text-[12px] text-ink-3 hover:text-ink-2 disabled:opacity-60">
-          {busy === 'plan' ? <IconLoader2 size={15} className="animate-spin" /> : <IconCheck size={15} />}
-          ใส่ในแพลนเฉย ๆ (ยังไม่เลือกวัน)
-        </button>
       </div>
     </Drawer>
   )
