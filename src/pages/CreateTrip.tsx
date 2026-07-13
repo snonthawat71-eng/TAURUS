@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { supabase } from '@/lib/supabase'
 import { createTrip, updateTrip, addTraveler, claimTraveler } from '@/lib/tripMutations'
-import { addDay, updateDay } from '@/lib/mutations'
+import { updateDay } from '@/lib/mutations'
 import { CURRENCIES } from '@/lib/fx'
 import { TIMEZONES } from '@/lib/timezones'
 import { ORDER } from '@/lib/avatars'
@@ -197,12 +197,10 @@ export default function CreateTrip() {
       // ── แก้ไขทริปเดิม: อัปเดตข้อมูล + เลื่อนวันที่ของแพลนรายวันตามลำดับ ──
       if (editing) {
         await updateTrip(editing.id, { ...base, start_date: start || null, end_date: end || null })
-        // จัดวันที่ให้วันที่มีอยู่ตามลำดับ (จุดแวะไม่หาย) แล้วสร้างวันที่ขาด
+        // เลื่อนวันที่ให้วันที่มีอยู่ตามลำดับ (จุดแวะไม่หาย) — ไม่สร้างวันใหม่ให้เอง
         const { data: existDays } = await supabase.from('itinerary_days').select('id,position').eq('trip_id', editing.id).order('position')
-        for (let i = 0; i < tripDates.length; i++) {
-          const ex = existDays?.[i]
-          if (ex) await updateDay(ex.id, { day_date: tripDates[i] })
-          else await addDay(editing.id, i, tripDates[i])
+        for (let i = 0; i < (existDays?.length ?? 0) && i < tripDates.length; i++) {
+          await updateDay(existDays![i].id, { day_date: tripDates[i] })
         }
         switchTrip(editing.id)
         await reload()
@@ -214,12 +212,10 @@ export default function CreateTrip() {
       // ── อัปเกรดทริปแบบร่าง → ทริปจริง: อัปเดตทริปเดิม ของที่แพลนไว้อยู่ครบ ──
       if (upgrading) {
         await updateTrip(upgrading.id, { ...base, start_date: start || null, end_date: end || null })
-        // ใส่วันที่ให้วันที่มีอยู่ตามลำดับ (จุดแวะไม่หาย) แล้วค่อยสร้างวันที่ขาด
+        // ใส่วันที่ให้วันที่มีอยู่ตามลำดับ (จุดแวะไม่หาย) — ไม่สร้างวันใหม่ให้เอง
         const { data: existDays } = await supabase.from('itinerary_days').select('id,position').eq('trip_id', upgrading.id).order('position')
-        for (let i = 0; i < tripDates.length; i++) {
-          const ex = existDays?.[i]
-          if (ex) await updateDay(ex.id, { day_date: tripDates[i] })
-          else await addDay(upgrading.id, i, tripDates[i])
+        for (let i = 0; i < (existDays?.length ?? 0) && i < tripDates.length; i++) {
+          await updateDay(existDays![i].id, { day_date: tripDates[i] })
         }
         // ผู้เดินทาง: เพิ่มเฉพาะชื่อที่ยังไม่มี; ถ้าฉันยังไม่มีการ์ด ให้การ์ดใหม่ใบแรกเป็นของฉัน
         const { data: existTrav } = await supabase.from('travelers').select('*').eq('trip_id', upgrading.id).order('created_at')
@@ -247,7 +243,6 @@ export default function CreateTrip() {
         segments: segs.map((s) => ({ city: segName(s), country: s.country, flag: s.flag, currency: s.currency, tz: s.tz, until: s.until })),
         start_date: start || null, end_date: end || null,
       })
-      for (let i = 0; i < tripDates.length; i++) await addDay(tripId, i, tripDates[i])
       const ids: string[] = []
       for (let i = 0; i < people.length; i++) {
         ids.push(await addTraveler(tripId, { nickname: people[i].nick, full_name: people[i].full.trim() || null, avatar_color: ORDER[i % ORDER.length] }))
@@ -338,7 +333,7 @@ export default function CreateTrip() {
             </div>
             {days != null && (
               <div className="text-[11px] mt-2 flex items-center gap-1" style={{ color: '#1D9E75' }}>
-                <IconCheck size={12} /> รวม {days} วัน — สร้างแพลนรายวันให้อัตโนมัติ
+                <IconCheck size={12} /> รวม {days} วัน — ไปกด "เพิ่มวัน" วางแพลนเองได้ในหน้า Itinerary
               </div>
             )}
           </>
