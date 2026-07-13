@@ -120,14 +120,14 @@ export function FlightEditor({
             </div>
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
-                <input className="hairline rounded-[11px] bg-surface w-full h-[52px] text-center text-[22px] font-bold tracking-[0.08em] outline-none focus:border-brand uppercase placeholder:normal-case"
-                  value={v.dep_code ?? ''} onChange={(e) => setDepCode(e.target.value)} placeholder="BKK"
+                <input className="hairline rounded-[11px] bg-surface w-full h-[52px] text-center text-[22px] font-bold tracking-[0.08em] outline-none focus:border-brand uppercase placeholder:text-ink-3/50 placeholder:font-medium"
+                  value={v.dep_code ?? ''} onChange={(e) => setDepCode(e.target.value)} placeholder="XXX"
                   autoCapitalize="characters" maxLength={4} aria-label="รหัสสนามบินต้นทาง" />
               </div>
               <IconPlaneTilt size={18} className="text-brand shrink-0" />
               <div className="flex-1 min-w-0">
-                <input className="hairline rounded-[11px] bg-surface w-full h-[52px] text-center text-[22px] font-bold tracking-[0.08em] outline-none focus:border-brand uppercase placeholder:normal-case"
-                  value={v.arr_code ?? ''} onChange={(e) => setArrCode(e.target.value)} placeholder="PEK"
+                <input className="hairline rounded-[11px] bg-surface w-full h-[52px] text-center text-[22px] font-bold tracking-[0.08em] outline-none focus:border-brand uppercase placeholder:text-ink-3/50 placeholder:font-medium"
+                  value={v.arr_code ?? ''} onChange={(e) => setArrCode(e.target.value)} placeholder="XXX"
                   autoCapitalize="characters" maxLength={4} aria-label="รหัสสนามบินปลายทาง" />
               </div>
             </div>
