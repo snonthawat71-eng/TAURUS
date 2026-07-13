@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar, IconHeart, IconArrowsSort } from '@tabler/icons-react'
+import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar, IconHeart, IconArrowsSort, IconMapPin, IconToolsKitchen2 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { PlaceCard, type Interested, type CardMode } from './PlaceCard'
@@ -79,12 +79,18 @@ export function PlaceGrid({
   }, [interests])
   const wantCount = (p: Place) => wantCountByPlace.get(p.id) ?? 0
 
+  // While searching, look across BOTH tabs (Places + Food & café) — results are
+  // rendered in per-group sections so it's clear where each hit lives. The
+  // dimension/chip filters only apply to the normal (non-search) view.
+  const searching = query.trim() !== ''
+  const groupOfPlace = (p: Place): PlaceGroup => (p.group_type === 'food' ? 'food' : 'place')
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return places
-      .filter((p) => p.group_type === group)
+      .filter((p) => (searching ? true : p.group_type === group))
       .filter((p) => !q || (p.name ?? '').toLowerCase().includes(q) || (p.station_name ?? '').toLowerCase().includes(q) || (p.note ?? '').toLowerCase().includes(q))
-      .filter((p) => dim === 'none' || chip === 'all' || valueOf(p) === chip)
+      .filter((p) => searching || dim === 'none' || chip === 'all' || valueOf(p) === chip)
       // "อยากไป" mode: only places someone wants, ranked most-wanted first
       .filter((p) => !wantSort || wantCount(p) > 0)
       .sort((a, b) => {
@@ -94,7 +100,7 @@ export function PlaceGrid({
         return Number(a.in_plan) - Number(b.in_plan) // 'recent' = default smart order
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [places, group, query, chip, dim, wantSort, sortMode, wantCountByPlace])
+  }, [places, group, query, searching, chip, dim, wantSort, sortMode, wantCountByPlace])
 
   // chips reflect the selected dimension (none = no value chips)
   const chipList: CategoryTab[] = dim === 'none'
@@ -212,17 +218,17 @@ export function PlaceGrid({
         </div>
       )}
 
-      {/* Search */}
+      {/* Search — looks across BOTH tabs (Places + Food & café) */}
       <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
         <IconSearch size={16} className="text-ink-3" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ / ร้าน / สถานี"
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ / ร้าน / สถานี — ทุกแท็บ"
           className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-ink-3" />
         {query && <button onClick={() => setQuery('')} className="text-ink-3"><IconX size={15} /></button>}
       </div>
 
-      {/* Filter dimension + value chips */}
+      {/* Filter dimension + value chips (hidden while searching — search covers both tabs) */}
       <div className="flex items-center gap-1.5 mb-3">
-        <div className="relative shrink-0">
+        <div className="relative shrink-0" style={searching ? { display: 'none' } : undefined}>
           <button onClick={() => setDimMenu((v) => !v)}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium hairline bg-surface whitespace-nowrap">
             <IconAdjustmentsHorizontal size={14} /> {dimLabel} <IconChevronDown size={13} className="text-ink-3" />
@@ -269,7 +275,7 @@ export function PlaceGrid({
             wantSort ? 'bg-brand text-white' : 'hairline bg-surface text-ink-2'].join(' ')}>
           {wantSort ? <IconHeart size={14} fill="currentColor" /> : <IconHeart size={14} />} อยากไป
         </button>
-        <div ref={hscroll} className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0" style={chipList.length === 0 ? { display: 'none' } : undefined}>
+        <div ref={hscroll} className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0" style={chipList.length === 0 || searching ? { display: 'none' } : undefined}>
           {chipList.map((t) => (
             <button key={t.key} onClick={() => setChip(t.key)}
               className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
@@ -286,6 +292,36 @@ export function PlaceGrid({
           <p className="text-[13px] text-ink-2">{wantSort ? 'ยังไม่มีใครกด “อยากไป”' : query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</p>
           {canEdit && !query && !wantSort && <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-[13px] mt-1"><IconPlus size={15} /> {addLabel}</button>}
         </div>
+      ) : searching ? (
+        // search results grouped by tab so cross-tab hits are clearly labeled;
+        // the active tab's group comes first
+        (() => {
+          const order: PlaceGroup[] = group === 'place' ? ['place', 'food'] : ['food', 'place']
+          const groupMeta = {
+            place: { label: 'Places • สถานที่ท่องเที่ยว', Icon: IconMapPin },
+            food: { label: 'Food & café • อาหารการกิน', Icon: IconToolsKitchen2 },
+          } as const
+          const present = order.filter((g) => filtered.some((p) => groupOfPlace(p) === g))
+          if (present.length === 1 && present[0] === group) {
+            return <div className="grid grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
+          }
+          return (
+            <div className="space-y-6">
+              {present.map((g) => {
+                const list = filtered.filter((p) => groupOfPlace(p) === g)
+                const { label, Icon } = groupMeta[g]
+                return (
+                  <div key={g}>
+                    <div className="flex items-center gap-1.5 mb-2 text-[13px] font-medium text-ink-2">
+                      <Icon size={15} /> {label} <span className="text-ink-3 font-normal">{list.length}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">{list.map(renderCard)}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()
       ) : (dim === 'none' || chip !== 'all') ? (
         <div className="grid grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
       ) : (
@@ -306,7 +342,9 @@ export function PlaceGrid({
       )}
 
       <PlaceEditor
-        open={editor !== null} onClose={() => setEditor(null)} group={group} tripId={trip?.id ?? ''}
+        open={editor !== null} onClose={() => setEditor(null)}
+        // editing a cross-tab search hit: use ITS group so categories/menu match
+        group={editor && editor !== 'new' ? groupOfPlace(editor) : group} tripId={trip?.id ?? ''}
         initial={editor && editor !== 'new' ? editor : null}
         onSave={async (fields) => {
           if (editor === 'new' || !editor) await addPlace(trip!.id, fields)
