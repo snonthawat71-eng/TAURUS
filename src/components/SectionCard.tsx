@@ -5,7 +5,7 @@ import { IconCheck, IconChevronDown, IconChevronUp } from '@tabler/icons-react'
  *  (green ✓ + summary), folded-empty (dashed, muted). Tap the header to
  *  open/close — no explicit "แก้ไข" affordance needed. Used by the Explore
  *  editor and the trip Place editor so both forms stay identical. */
-export function SectionCard({ open, done, icon, title, sub, summary, onToggle, children }: {
+export function SectionCard({ open, done, icon, title, sub, summary, onToggle, children, showCheck = true }: {
   open: boolean
   done: boolean
   icon: ReactNode
@@ -14,6 +14,8 @@ export function SectionCard({ open, done, icon, title, sub, summary, onToggle, c
   summary?: string
   onToggle: () => void
   children?: ReactNode
+  /** false = the folded-done row keeps the section icon instead of the green ✓ */
+  showCheck?: boolean
 }) {
   if (open) {
     return (
@@ -36,9 +38,14 @@ export function SectionCard({ open, done, icon, title, sub, summary, onToggle, c
     return (
       <button type="button" onClick={onToggle}
         className="w-full rounded-[13px] bg-surface hairline flex items-center gap-2.5 px-3 py-2.5 text-left">
-        <span className="size-7 rounded-full grid place-items-center shrink-0" style={{ background: '#ECFDF3', color: '#16A34A' }}>
-          <IconCheck size={14} />
-        </span>
+        {showCheck ? (
+          <span className="size-7 rounded-full grid place-items-center shrink-0" style={{ background: '#ECFDF3', color: '#16A34A' }}>
+            <IconCheck size={14} />
+          </span>
+        ) : (
+          <span className="size-7 rounded-[8px] grid place-items-center shrink-0"
+            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)' }}>{icon}</span>
+        )}
         <span className="flex-1 min-w-0">
           <span className="block text-[13px] font-semibold text-ink">{title}</span>
           {summary && <span className="block text-[11.5px] text-ink-2 truncate">{summary}</span>}

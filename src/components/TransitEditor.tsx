@@ -231,7 +231,7 @@ export function TransitEditor({
           return (
           <div key={i} className="space-y-2">
             {/* ── ช่วงที่ N — fold-when-done card, same as the place editor ── */}
-            <SectionCard open={openLeg === i} done={legDone} onToggle={() => setOpenLeg((c) => (c === i ? null : i))}
+            <SectionCard open={openLeg === i} done={legDone} showCheck={false} onToggle={() => setOpenLeg((c) => (c === i ? null : i))}
               icon={<ModeIcon size={15} />} title={`ช่วงที่ ${i + 1}${legDone ? ` · ${mm.label}` : ''}`}
               sub="เดินทางด้วยอะไร ขึ้นที่ไหน ลงที่ไหน" summary={summary}>
               <div className="space-y-2.5">
@@ -335,8 +335,10 @@ export function TransitEditor({
               </button>
             )}
 
-            {/* ── มีเดินต่อก่อนช่วงถัดไป — slim dashed row; tap to reveal the inputs ── */}
-            {i < legs.length - 1 && (
+            {/* ── มีเดินต่อก่อนช่วงถัดไป — slim dashed row right under the fare;
+                shown for every leg (on the last one it covers the walk to the
+                next leg you're about to add / to the destination) ── */}
+            {(
               leg.transferAfter ? (
                 <div className="rounded-[10px] bg-surface hairline px-3 py-2">
                   <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-ink-2">

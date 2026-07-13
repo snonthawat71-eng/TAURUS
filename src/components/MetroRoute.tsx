@@ -97,10 +97,10 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
               ) : null
             })()}
           </Row>
-          {i < last && (
+          {(i < last || leg.transferAfter) && (
             <Row marker="walk" color={leg.color} line="dashed">
               <div className="text-[11px] text-ink-3 pt-0.5">
-                เปลี่ยนต่อ · เดิน
+                {i < last ? 'เปลี่ยนต่อ · เดิน' : 'เดินต่อ'}
                 {leg.transferAfter?.walkMeters != null && ` ${leg.transferAfter.walkMeters}m`}
                 {leg.transferAfter?.minutes != null && ` · ~${leg.transferAfter.minutes} นาที`}
               </div>
