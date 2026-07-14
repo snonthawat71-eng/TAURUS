@@ -48,7 +48,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   onClose: () => void
   onChanged?: () => void
 }) {
-  const { trips } = useTrip()
+  const { trips, trip: currentTrip, reload } = useTrip()
   const { user } = useAuth()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [done, setDone] = useState<Set<string>>(new Set())
@@ -113,6 +113,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
     setDone((prev) => new Set(prev).add(tripId))
     setBusyId(null)
     onChanged?.()
+    if (tripId === currentTrip?.id) void reload() // Location/Itinerary ของทริปที่เปิดอยู่เห็นผลทันที
     // done — fold the drawer away and confirm with a toast
     onClose()
     toast.success(mode === 'list' ? 'เซฟลงลิสต์แล้ว' : mode === 'plan' ? 'เซฟลงแพลนแล้ว' : 'เซฟลงแพลน + ใส่ลงวันแล้ว')
@@ -136,6 +137,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
       setDone((prev) => { const n = new Set(prev); n.delete(id); return n })
       setBusyId(null)
       onChanged?.()
+      if (id === currentTrip?.id) void reload() // เอาออกแล้วหน้า Location ต้องหายทันที
       return
     }
     setTripId(id)
