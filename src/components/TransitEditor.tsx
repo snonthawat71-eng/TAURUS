@@ -253,12 +253,12 @@ export function TransitEditor({
                 <div className="card p-2 mt-1.5 space-y-1">
                   {branchAsk ? (
                     <>
-                      <div className={lbl}>ร้านนี้มีหลายสาขา — ไปสาขาที่ลิสต์ไว้มั้ย?</div>
+                      <div className={lbl}>ร้านนี้มีหลายสาขา — ไปสาขาที่เลือกไว้ในแพลนมั้ย?</div>
                       <button onClick={() => applyRoute(branchAsk!.listed.r)}
                         className="w-full flex items-center gap-2 px-2 h-10 rounded-md text-[12.5px] text-left"
                         style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-dark)' }}>
                         <span className="size-2.5 rounded-full shrink-0" style={{ background: branchAsk.listed.color ?? '#888780' }} />
-                        <span className="truncate font-semibold">ไปสาขาที่ลิสต์ไว้ · {branchAsk.listed.label}</span>
+                        <span className="truncate font-semibold">ไปสาขาที่เลือกไว้ · {branchAsk.listed.label}</span>
                         {branchAsk.listed.sub && <span className="ml-auto text-[10.5px] truncate max-w-[120px] shrink-0 opacity-75">{branchAsk.listed.sub}</span>}
                       </button>
                       {branchAsk.others.length > 0 && (

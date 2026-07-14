@@ -70,8 +70,8 @@ export function suggestForDay(
   return [...near, ...scored.map((x) => ({ p: x.p }))].slice(0, 5)
 }
 
-/** "💡 ในลิสต์ที่อยู่ใกล้แพลนวันนี้" — a horizontal strip under a day's stops
- *  offering one-tap adds from the Places List. Hidden per session via ซ่อน. */
+/** "💡 Suggestion" — a horizontal strip under a day's stops offering one-tap
+ *  adds from the in-plan places (All Location). Hidden per session via ซ่อน. */
 export function DaySuggestions({ items, onAdd, onOpenDetail }: {
   items: DaySuggestion[]
   onAdd: (p: Place) => void

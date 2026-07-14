@@ -190,7 +190,7 @@ export function PlaceDetail({
               style={place.in_plan
                 ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }
                 : { background: 'var(--color-brand)', color: '#fff' }}>
-              {place.in_plan ? <><IconCheck size={15} /> อยู่ในลิสต์แล้ว</> : <><IconPlus size={15} /> เพิ่มในลิสต์</>}
+              {place.in_plan ? <><IconCheck size={15} /> อยู่ในแพลนแล้ว</> : <><IconPlus size={15} /> เพิ่มในแพลน</>}
             </button>
           ) : onPin ? (
             <button onClick={onPin} className="h-10 rounded-md text-[13px] font-medium flex items-center justify-center gap-1.5 whitespace-nowrap px-2"
