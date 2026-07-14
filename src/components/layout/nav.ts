@@ -27,5 +27,5 @@ export function visibleNav(perm: string): NavItem[] {
 export const NAV_ITEMS: NavItem[] = [
   { to: '/info', label: 'Personal Information', short: 'Info', icon: IconInfoCircle, section: 'PLAN' },
   { to: '/itinerary', label: 'Itinerary', short: 'Itinerary', icon: IconCalendarEvent, count: 'itinerary', section: 'PLAN' },
-  { to: '/places', label: 'Places & Food', short: 'Location', icon: IconMapPin, count: 'placesfood', section: 'PLAN' },
+  { to: '/places', label: 'Location', short: 'Location', icon: IconMapPin, count: 'placesfood', section: 'PLAN' },
 ]

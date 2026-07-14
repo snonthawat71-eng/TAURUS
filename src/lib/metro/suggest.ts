@@ -1,6 +1,7 @@
 // Autocomplete suggestions for the manual TransitEditor / ExploreEditor: line
 // names, station names and per-line station numbers, sourced from the built-in
-// networks (Osaka Metro + Hong Kong MTR + Shanghai Metro). These power the
+// networks (Osaka, Hong Kong, Shanghai, Shenzhen, Taipei + Taoyuan Airport
+// MRT). These power the
 // Combobox dropdowns so users can pick from known data without retyping — while
 // still being free to type any custom value (including stations not listed).
 //
@@ -12,6 +13,7 @@ import { OSAKA } from './osaka'
 import { HK_NETWORK } from './hkNetwork'
 import { SHANGHAI } from './shanghai'
 import { SHENZHEN } from './shenzhen'
+import { TAIPEI } from './taipei'
 import type { Trip } from '@/lib/database.types'
 
 export interface StationSuggest { name: string; num?: string }
@@ -31,6 +33,7 @@ const NETWORKS: RawNetwork[] = [
   { match: HK_MATCH, lines: HK_NETWORK.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHANGHAI.match, lines: SHANGHAI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHENZHEN.match, lines: SHENZHEN.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
+  { match: TAIPEI.match, lines: TAIPEI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
 ]
 
 /** Collect line/station suggestions only for the network(s) matching the given text. */
