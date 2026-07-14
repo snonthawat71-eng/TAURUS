@@ -8,6 +8,7 @@ import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import { getSignedUrl } from '@/lib/files'
+import { stationCode } from '@/lib/metro/suggest'
 
 const isPdfRef = (ref: string) => /\.pdf($|\?)/i.test(ref)
 /** Open a stored menu file (Cloudinary URL as-is, private path via signed URL). */
@@ -93,8 +94,15 @@ export function PlaceDetail({
             )}
             {(lineText || stationText) && (
               <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1">
-                <span className="size-2 rounded-full" style={{ background: lineColor ?? '#888780' }} />
-                {lineText}{stationText ? ` · ${stationText}` : ''}
+                <span className="size-2 rounded-full shrink-0" style={{ background: lineColor ?? '#888780' }} />
+                {(() => {
+                  const code = stationCode(lineText, stationText)
+                  return code ? (
+                    <span className="shrink-0 rounded-[5px] px-1 py-px text-[10px] font-semibold text-white tabular-nums"
+                      style={{ background: lineColor ?? '#888780' }}>{code}</span>
+                  ) : null
+                })()}
+                <span>{lineText}{stationText ? ` · ${stationText}` : ''}</span>
               </div>
             )}
           </div>

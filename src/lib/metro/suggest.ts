@@ -55,6 +55,21 @@ export function getTransitSuggestions(trip: Trip | null | undefined): TransitSug
   return suggestionsFromText([trip.country ?? '', ...(trip.cities ?? []), trip.name ?? ''].join(' '))
 }
 
+/** Look up the per-line station code (e.g. "BR09", "M16") for a line+station
+ *  pair, scanning every built-in network. Returns null when unknown — networks
+ *  without codes (HK/Shanghai/Shenzhen), or a custom value the user typed. */
+export function stationCode(line: string | null | undefined, station: string | null | undefined): string | null {
+  if (!line || !station) return null
+  const ln = line.trim().toLowerCase()
+  const sn = station.trim().toLowerCase()
+  for (const n of NETWORKS) {
+    const l = n.lines.find((x) => x.name.toLowerCase() === ln)
+    const s = l?.stations.find((x) => x.name.toLowerCase() === sn && x.num)
+    if (s?.num) return s.num
+  }
+  return null
+}
+
 /** Find a suggested line by its (case-insensitive) name. */
 export function findLine(sug: TransitSuggest, name: string): LineSuggest | undefined {
   const n = name.trim().toLowerCase()

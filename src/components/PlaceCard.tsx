@@ -7,6 +7,7 @@ import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import { planMapUrl } from '@/lib/branches'
+import { stationCode } from '@/lib/metro/suggest'
 import type { Place } from '@/lib/database.types'
 
 export interface Interested { name: string; color?: string }
@@ -87,6 +88,13 @@ export function PlaceCard({
       <div className="p-3.5 flex-1 flex flex-col">
         <div className="flex items-center gap-1.5 text-[11px] text-ink-3">
           <span className="size-2 rounded-full shrink-0" style={{ background: place.station_color ?? '#888780' }} />
+          {(() => {
+            const code = stationCode(place.station_line, place.station_name)
+            return code ? (
+              <span className="shrink-0 rounded-[5px] px-1 py-px text-[9.5px] font-semibold text-white tabular-nums"
+                style={{ background: place.station_color ?? '#888780' }}>{code}</span>
+            ) : null
+          })()}
           <span className="truncate flex-1">{place.station_line}{place.station_name ? ` · ${place.station_name}` : ''}</span>
           {mode === 'edit' && (
             <PopMenu size={24} items={[

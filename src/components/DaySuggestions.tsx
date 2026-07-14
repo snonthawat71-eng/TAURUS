@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { IconBulb, IconPlus, IconChevronDown, IconX } from '@tabler/icons-react'
 import { catMeta } from '@/lib/placeMeta'
 import { planBranch } from '@/lib/branches'
+import { stationCode } from '@/lib/metro/suggest'
 import { haversineM, fmtDistance } from '@/lib/placeGeo'
 import type { LatLng } from '@/lib/geo'
 import type { ItineraryStop, Place } from '@/lib/database.types'
@@ -110,7 +111,9 @@ export function StopSuggestions({ items, onAdd, onOpenDetail, onDismiss }: {
                     {st.line && (
                       <span className="rounded-[5px] px-1.5 py-px font-semibold text-white shrink-0" style={{ background: st.color || 'var(--color-brand)' }}>{st.line}</span>
                     )}
-                    <span className="truncate">{st.station || p.city || ''}</span>
+                    <span className="truncate">
+                      {(() => { const c = stationCode(st.line, st.station); return c ? `${c} ` : '' })()}{st.station || p.city || ''}
+                    </span>
                   </div>
                 </button>
                 <button onClick={() => onAdd(p)}
