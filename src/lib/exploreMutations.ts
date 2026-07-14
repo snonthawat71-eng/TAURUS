@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { ExplorePlace, Place, Profile } from './database.types'
+import type { ExplorePlace, ExploreSuggestion, SuggestionKind, Place, Profile } from './database.types'
 
 export type ExploreInput = Partial<Omit<ExplorePlace, 'id' | 'created_by' | 'created_at'>>
 
@@ -73,6 +73,56 @@ export async function updateExplore(id: string, input: ExploreInput) {
   let res = await supabase.from('explore_places').update(payload).eq('id', id)
   if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('explore_places').update(s).eq('id', id) }
   return res
+}
+
+// ── Community suggestions / reports (supabase/explore_suggestions.sql) ──────
+// Non-owners propose an added route/branch, a general edit, or a report; the
+// owner reviews and either accepts (merged into the item) or dismisses.
+
+export async function addSuggestion(input: {
+  exploreId: string; userId: string; authorName: string; authorColor?: string | null
+  kind: SuggestionKind; payload?: Record<string, unknown> | null; note?: string | null
+}) {
+  return supabase.from('explore_suggestions').insert({
+    id: crypto.randomUUID(), explore_id: input.exploreId, user_id: input.userId,
+    author_name: input.authorName, author_color: input.authorColor ?? null,
+    kind: input.kind, payload: input.payload ?? null, note: input.note ?? null, status: 'pending',
+  })
+}
+
+/** Pending suggestions on one item (owner-only under RLS). Missing table → []. */
+export async function listSuggestions(exploreId: string): Promise<ExploreSuggestion[]> {
+  const { data, error } = await supabase.from('explore_suggestions')
+    .select('*').eq('explore_id', exploreId).eq('status', 'pending').order('created_at', { ascending: false })
+  if (error) return []
+  return (data ?? []) as ExploreSuggestion[]
+}
+
+export async function resolveSuggestion(id: string, status: 'accepted' | 'dismissed') {
+  return supabase.from('explore_suggestions').update({ status, resolved_at: new Date().toISOString() }).eq('id', id)
+}
+
+/** Turn an accepted suggestion into the fields to merge into its item. Returns
+ *  null when there's nothing to apply (a report, or an empty edit). */
+export function suggestionToInput(e: ExplorePlace, s: ExploreSuggestion): ExploreInput | null {
+  const p = (s.payload ?? {}) as Record<string, string | null | undefined>
+  if (s.kind === 'route') {
+    return { routes: [...(e.routes ?? []), { line: p.line ?? null, color: p.color ?? null, station: p.station ?? null }] }
+  }
+  if (s.kind === 'branch') {
+    return {
+      branches: [...(e.branches ?? []), { label: p.label ?? null, map_url: p.map_url ?? null, line: p.line ?? null, color: p.color ?? null, station: p.station ?? null }],
+      multi_branch: true,
+    }
+  }
+  if (s.kind === 'edit') {
+    const out: ExploreInput = {}
+    if (p.name) out.name = p.name
+    if (p.note != null && p.note !== '') out.note = p.note
+    if (p.photo_url) out.photo_url = p.photo_url
+    return Object.keys(out).length ? out : null
+  }
+  return null // 'report' has nothing to merge
 }
 
 export async function deleteExplore(id: string) {
@@ -152,12 +202,14 @@ export async function setVote(exploreId: string, userId: string, vote: 1 | -1, c
 
 export interface ExploreNotif {
   id: string
-  kind: 'like' | 'comment'
+  kind: 'like' | 'comment' | 'suggestion'
   exploreId: string
   placeName: string
   who: string
   whoColor?: string | null
   body?: string
+  /** for suggestion notifs — which kind of suggestion (route/branch/edit/report) */
+  sugKind?: SuggestionKind
   at: string
 }
 
@@ -173,16 +225,21 @@ export async function getExploreNotifs(userId: string): Promise<ExploreNotif[]> 
   const nameById = new Map(items.map((i) => [i.id as string, (i.name as string) ?? '']))
   const ids = items.map((i) => i.id as string)
 
-  const [cRes, vRes] = await Promise.all([
+  const [cRes, vRes, sRes] = await Promise.all([
     supabase.from('explore_comments')
       .select('id,explore_id,user_id,author_name,author_color,body,created_at')
       .in('explore_id', ids).neq('user_id', userId).order('created_at', { ascending: false }),
     supabase.from('explore_votes')
       .select('explore_id,user_id,created_at')
       .in('explore_id', ids).eq('vote', 1).neq('user_id', userId),
+    // pending suggestions on my items — tolerate a missing table (migration not run)
+    supabase.from('explore_suggestions')
+      .select('id,explore_id,author_name,author_color,kind,note,created_at')
+      .in('explore_id', ids).eq('status', 'pending').order('created_at', { ascending: false }),
   ])
   const comments = cRes.data ?? []
   const votes = vRes.data ?? []
+  const suggestions = sRes.error ? [] : (sRes.data ?? [])
 
   // resolve voter display names from profiles (votes don't store a name)
   const voterIds = [...new Set(votes.map((v) => v.user_id).filter(Boolean) as string[])]
@@ -198,6 +255,14 @@ export async function getExploreNotifs(userId: string): Promise<ExploreNotif[]> 
       id: `c:${c.id}`, kind: 'comment', exploreId: c.explore_id as string,
       placeName: nameById.get(c.explore_id as string) ?? '', who: c.author_name || 'ใครบางคน',
       whoColor: c.author_color as string | null, body: c.body as string, at: c.created_at as string,
+    })
+  }
+  for (const s of suggestions) {
+    out.push({
+      id: `s:${s.id}`, kind: 'suggestion', exploreId: s.explore_id as string,
+      placeName: nameById.get(s.explore_id as string) ?? '', who: (s.author_name as string) || 'ใครบางคน',
+      whoColor: s.author_color as string | null, body: (s.note as string) || undefined,
+      sugKind: s.kind as SuggestionKind, at: s.created_at as string,
     })
   }
   for (const v of votes) {

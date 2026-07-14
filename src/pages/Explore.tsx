@@ -10,6 +10,7 @@ import { ExploreEditor } from '@/components/ExploreEditor'
 import { ExploreNotifications } from '@/components/ExploreNotifications'
 import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
+import { ExploreSuggestDialog } from '@/components/ExploreSuggestDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, logExploreEvent, type VoteStat, type PopStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopiesDeep, updateExploreCopies, type PlaceInput } from '@/lib/placeMutations'
 import { toast } from '@/lib/toast'
@@ -32,6 +33,7 @@ export default function Explore() {
   const [editor, setEditor] = useState<ExplorePlace | 'new' | null>(null)
   const [fav, setFav] = useState<Place | null>(null)
   const [detail, setDetail] = useState<ExplorePlace | null>(null)
+  const [suggest, setSuggest] = useState<ExplorePlace | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [stats, setStats] = useState<Map<string, VoteStat>>(new Map())
   const [pop, setPop] = useState<Map<string, PopStat>>(new Map())
@@ -176,6 +178,7 @@ export default function Explore() {
                 onOpen={() => openDetail(e)}
                 onFav={() => toggleFav(e)}
                 onEdit={() => setEditor(e)}
+                onSuggest={() => setSuggest(e)}
                 onDelete={async () => { if (await confirmDialog({ message: 'ลบรายการนี้ออกจาก Explore?', danger: true, confirmLabel: 'ลบ' })) { await deleteExplore(e.id); load() } }} />
             ))}
           </div>
@@ -198,10 +201,14 @@ export default function Explore() {
 
       <ExploreDetail e={detail} open={!!detail} saved={detail ? savedSet.has(detail.id) : false}
         onClose={() => { setDetail(null); refreshStats() }} onFav={() => detail && toggleFav(detail)}
-        onOpenPlace={(p) => openDetail(p)} />
+        onOpenPlace={(p) => openDetail(p)}
+        onSuggest={() => { if (detail) { setSuggest(detail); setDetail(null) } }}
+        onItemChanged={reloadItems} />
 
       <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
         onClose={() => setFav(null)} onChanged={refreshSaved} />
+
+      <ExploreSuggestDialog place={suggest} open={!!suggest} onClose={() => setSuggest(null)} />
     </div>
   )
 }

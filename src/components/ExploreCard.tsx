@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore, IconZoomScan } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore, IconZoomScan, IconHandStop } from '@tabler/icons-react'
 import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { StarRating } from './StarRating'
@@ -9,7 +9,7 @@ import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
 import type { VoteStat, PopStat } from '@/lib/exploreMutations'
 
-export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDelete, onEdit, onOpen }: {
+export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDelete, onEdit, onOpen, onSuggest }: {
   e: ExplorePlace
   isOwner: boolean
   saved: boolean
@@ -20,6 +20,8 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
   onDelete: () => void
   onEdit: () => void
   onOpen: () => void
+  /** non-owners: raise a hand to help edit / report (omitted for my own items) */
+  onSuggest?: () => void
 }) {
   // photo viewer — index into the gallery (cover + extra photos); null = closed
   const [lightbox, setLightbox] = useState<number | null>(null)
@@ -106,7 +108,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
           {e.note && <p className="text-[12px] text-ink-2 mt-2 line-clamp-2">{e.note}</p>}
 
           {/* popularity stats — pinned to the bottom (kept clear of the corner buttons) */}
-          <div className={['flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-3', isOwner ? 'pr-20' : ''].join(' ')}>
+          <div className={['flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-3', isOwner ? 'pr-20' : onSuggest ? 'pr-11' : ''].join(' ')}>
             <span className="inline-flex items-center gap-1" title="ยอดคลิก"><IconEye size={13} /> {pop?.views ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดเซฟ"><IconHeart size={13} /> {pop?.saves ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดไลก์"><IconThumbUp size={13} /> {pop?.likes ?? 0}</span>
@@ -121,7 +123,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
         style={{ background: saved ? 'var(--color-brand)' : 'rgba(255,255,255,.95)', color: saved ? '#fff' : 'var(--color-brand)' }}>
         {saved ? <IconHeartFilled size={19} /> : <IconHeart size={19} />}
       </button>
-      {isOwner && (
+      {isOwner ? (
         <div className="absolute bottom-2.5 right-2.5 flex gap-1.5 z-20">
           <button onClick={(ev) => { ev.stopPropagation(); onEdit() }} aria-label="แก้ไข"
             className="size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line text-ink-2">
@@ -132,6 +134,11 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
             <IconTrash size={15} />
           </button>
         </div>
+      ) : onSuggest && (
+        <button onClick={(ev) => { ev.stopPropagation(); onSuggest() }} aria-label="ช่วยแก้ / รายงาน" title="ช่วยแก้ / รายงาน"
+          className="absolute bottom-2.5 right-2.5 size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line text-ink-2 z-20">
+          <IconHandStop size={15} />
+        </button>
       )}
       {saved && <div className="absolute inset-0 rounded-[12px] pointer-events-none z-10" style={{ background: 'rgba(120,118,110,0.16)' }} />}
       {lightbox !== null && (

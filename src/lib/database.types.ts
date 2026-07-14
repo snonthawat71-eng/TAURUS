@@ -360,6 +360,26 @@ export interface ExploreComment {
   created_at: string
 }
 
+/** A community suggestion/report on someone else's Explore item
+ *  (explore_suggestions table — supabase/explore_suggestions.sql). Owner reviews
+ *  then accepts (merged into the item) or dismisses. */
+export type SuggestionKind = 'route' | 'branch' | 'edit' | 'report'
+export type SuggestionStatus = 'pending' | 'accepted' | 'dismissed'
+export interface ExploreSuggestion {
+  id: string
+  explore_id: string
+  user_id: string | null
+  author_name: string | null
+  author_color: string | null
+  kind: SuggestionKind
+  /** structured data per kind (route/branch fields, edited fields, report reason) */
+  payload: Record<string, unknown> | null
+  note: string | null
+  status: SuggestionStatus
+  created_at: string
+  resolved_at?: string | null
+}
+
 /** Recommend (1) / not-recommend (-1) vote on an Explore item (explore_votes table) */
 export interface ExploreVote {
   explore_id: string

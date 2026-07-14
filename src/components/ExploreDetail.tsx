@@ -3,6 +3,7 @@ import {
   IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
   IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
   IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconPhoto, IconChevronDown,
+  IconHandStop, IconRoute, IconPencil, IconFlag, IconCheck, IconX,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { PhotoCarousel } from './PhotoCarousel'
@@ -14,10 +15,27 @@ import { modeMeta } from '@/lib/transitModes'
 import { openMap } from '@/lib/maps'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
-import { listComments, addComment, deleteComment, getVotes, setVote, ratingFrom } from '@/lib/exploreMutations'
+import { listComments, addComment, deleteComment, getVotes, setVote, ratingFrom, listSuggestions, resolveSuggestion, suggestionToInput, updateExplore } from '@/lib/exploreMutations'
 import { supabase } from '@/lib/supabase'
+import { toast } from '@/lib/toast'
 import { SignedImage } from './SignedImage'
-import type { ExplorePlace, ExploreComment } from '@/lib/database.types'
+import type { ExplorePlace, ExploreComment, ExploreSuggestion, SuggestionKind } from '@/lib/database.types'
+
+const SUG_META: Record<SuggestionKind, { label: string; icon: typeof IconRoute }> = {
+  route: { label: 'เพิ่มเส้นทาง', icon: IconRoute },
+  branch: { label: 'เพิ่มสาขา', icon: IconBuildingStore },
+  edit: { label: 'แก้ข้อมูล', icon: IconPencil },
+  report: { label: 'รายงาน', icon: IconFlag },
+}
+/** one-line summary of a suggestion's payload for the owner's review row */
+function sugSummary(s: ExploreSuggestion): string {
+  const p = (s.payload ?? {}) as Record<string, string | null | undefined>
+  if (s.kind === 'route') return [p.line, p.station].filter(Boolean).join(' · ') || '(เส้นทางใหม่)'
+  if (s.kind === 'branch') return p.label || p.map_url || '(สาขาใหม่)'
+  if (s.kind === 'edit') return [p.name && `ชื่อ: ${p.name}`, p.photo_url && 'เปลี่ยนรูป'].filter(Boolean).join(' · ') || 'แก้ข้อมูล'
+  const reasons: Record<string, string> = { wrong: 'ข้อมูลผิด', closed: 'ปิดถาวร', duplicate: 'ซ้ำกับที่อื่น', other: 'อื่น ๆ' }
+  return reasons[(p.reason as string) ?? 'other'] ?? 'รายงาน'
+}
 
 function timeAgo(iso: string) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
@@ -62,7 +80,7 @@ function NearbyCard({ p, onOpen }: { p: ExplorePlace; onOpen?: (p: ExplorePlace)
   )
 }
 
-export function ExploreDetail({ e, open, saved, onClose, onFav, onOpenPlace }: {
+export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPlace, onSuggest, onItemChanged }: {
   e: ExplorePlace | null
   open: boolean
   saved: boolean
@@ -70,9 +88,20 @@ export function ExploreDetail({ e, open, saved, onClose, onFav, onOpenPlace }: {
   onFav: () => void
   /** tap a nearby suggestion → open that place's detail instead */
   onOpenPlace?: (p: ExplorePlace) => void
+  /** non-owner "raise a hand to help edit / report" */
+  onSuggest?: () => void
+  /** owner accepted a suggestion → tell the page to reload its list */
+  onItemChanged?: () => void
 }) {
   const { user } = useAuth()
   const { profile } = useTrip()
+  // owner-accepted edits are re-fetched into `override` so the detail updates
+  // immediately without waiting for the parent list to reload.
+  const [override, setOverride] = useState<ExplorePlace | null>(null)
+  const e = override ?? eProp
+  const isOwner = !!user && !!e && e.created_by === user.id
+  const [suggestions, setSuggestions] = useState<ExploreSuggestion[]>([])
+  const [busySug, setBusySug] = useState<string | null>(null)
   const [comments, setComments] = useState<ExploreComment[]>([])
   const [votes, setVotes] = useState({ up: 0, down: 0, mine: 0 })
   const [text, setText] = useState('')
@@ -125,7 +154,31 @@ export function ExploreDetail({ e, open, saved, onClose, onFav, onOpenPlace }: {
     const [cRes, v] = await Promise.all([listComments(e.id), getVotes(e.id, user?.id)])
     setComments((cRes.data ?? []) as ExploreComment[])
     setVotes(v)
+    if (isOwner) setSuggestions(await listSuggestions(e.id))
     setLoading(false)
+  }
+
+  // reset the owner-edit override (and pending list) when the item itself changes
+  useEffect(() => { setOverride(null); setSuggestions([]) }, [eProp?.id])
+
+  async function applySug(s: ExploreSuggestion) {
+    if (!e) return
+    setBusySug(s.id)
+    const input = suggestionToInput(e, s)
+    if (input) await updateExplore(e.id, input)
+    await resolveSuggestion(s.id, 'accepted')
+    const { data } = await supabase.from('explore_places').select('*').eq('id', e.id).maybeSingle()
+    if (data) setOverride(data as ExplorePlace)
+    setSuggestions((xs) => xs.filter((x) => x.id !== s.id))
+    setBusySug(null)
+    onItemChanged?.()
+    toast.success(input ? 'นำไปใช้แล้ว — อัปเดตให้เรียบร้อย' : 'รับเรื่องแล้ว')
+  }
+  async function dismissSug(s: ExploreSuggestion) {
+    setBusySug(s.id)
+    await resolveSuggestion(s.id, 'dismissed')
+    setSuggestions((xs) => xs.filter((x) => x.id !== s.id))
+    setBusySug(null)
   }
 
   useEffect(() => {
@@ -366,6 +419,56 @@ export function ExploreDetail({ e, open, saved, onClose, onFav, onOpenPlace }: {
           {votes.mine === -1 ? <IconThumbDownFilled size={17} /> : <IconThumbDown size={17} />} ไม่แนะนำ · {votes.down}
         </button>
       </div>
+
+      {/* non-owner: raise a hand to help edit / report */}
+      {!isOwner && user && onSuggest && (
+        <button onClick={onSuggest}
+          className="w-full flex items-center justify-center gap-1.5 h-10 rounded-[10px] text-[12.5px] font-medium mt-2"
+          style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
+          <IconHandStop size={15} /> เห็นข้อมูลไม่ตรง? ช่วยแก้ / รายงาน
+        </button>
+      )}
+
+      {/* owner: review pending suggestions from others */}
+      {isOwner && suggestions.length > 0 && (
+        <div className="mt-5">
+          <div className="text-[13px] font-medium mb-2 flex items-center gap-1.5">
+            <IconHandStop size={15} className="text-brand" /> ข้อเสนอแก้ไข ({suggestions.length})
+          </div>
+          <div className="space-y-2">
+            {suggestions.map((s) => {
+              const M = SUG_META[s.kind]
+              const SIcon = M.icon
+              const busy = busySug === s.id
+              return (
+                <div key={s.id} className="card p-3" style={{ border: '0.5px solid var(--color-brand-border)' }}>
+                  <div className="flex items-center gap-2">
+                    <Avatar name={s.author_name} color={s.author_color} size={24} ring={false} />
+                    <span className="text-[12px] font-medium truncate flex-1">{s.author_name ?? 'ใครบางคน'}</span>
+                    <span className="chip !py-0.5 !text-[10.5px] shrink-0"><SIcon size={11} /> {M.label}</span>
+                  </div>
+                  <div className="text-[12.5px] text-ink mt-1.5">{sugSummary(s)}</div>
+                  {s.note && <div className="text-[12px] text-ink-3 mt-0.5 whitespace-pre-wrap">“{s.note}”</div>}
+                  <div className="flex gap-2 mt-2.5">
+                    {s.kind !== 'report' && (
+                      <button onClick={() => applySug(s)} disabled={busy}
+                        className="flex-1 inline-flex items-center justify-center gap-1 h-9 rounded-[9px] text-[12.5px] font-medium disabled:opacity-50"
+                        style={{ background: 'var(--color-brand)', color: '#fff' }}>
+                        {busy ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />} นำไปใช้
+                      </button>
+                    )}
+                    <button onClick={() => dismissSug(s)} disabled={busy}
+                      className={['inline-flex items-center justify-center gap-1 h-9 rounded-[9px] text-[12.5px] font-medium disabled:opacity-50', s.kind === 'report' ? 'flex-1' : ''].join(' ')}
+                      style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-2)', paddingInline: s.kind === 'report' ? undefined : 14 }}>
+                      <IconX size={14} /> {s.kind === 'report' ? 'รับทราบ / ปิด' : 'ปิด'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* สถานที่ใกล้เคียง — same-city suggestions; >2 fold with a faint peek */}
       {nearby.length > 0 && (
