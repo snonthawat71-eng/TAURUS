@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconLoader2, IconCheck, IconMapPin, IconBuildingStore, IconBookmark, IconPlus, IconCalendarPlus } from '@tabler/icons-react'
+import { IconLoader2, IconCheck, IconMapPin, IconBuildingStore, IconPlus, IconCalendarPlus } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { addStop } from '@/lib/mutations'
@@ -96,24 +96,9 @@ export function AddToDayDialog({ place, open, onClose }: {
           </div>
         )}
 
-        {/* ── choice 1: keep it in the plan without picking a day yet ── */}
-        <button onClick={justPlan} disabled={!!busy}
-          className="w-full flex items-center gap-3 rounded-[12px] p-3 text-left disabled:opacity-60"
-          style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
-          <span className="size-9 rounded-full grid place-items-center shrink-0 text-white" style={{ background: 'var(--color-brand)' }}>
-            {busy === 'plan' ? <IconLoader2 size={18} className="animate-spin" /> : <IconBookmark size={18} />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[13.5px] font-semibold" style={{ color: 'var(--color-brand-dark)' }}>เพิ่มลงแพลน</div>
-            <div className="text-[11.5px] text-ink-3">แบบไม่ระบุวัน</div>
-          </div>
-        </button>
-
-        {/* ── or: choice 2 — schedule it on a specific day ── */}
-        <div className="flex items-center gap-2 pt-0.5">
-          <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
-          <span className="text-[11px] text-ink-3 flex items-center gap-1"><IconCalendarPlus size={12} /> หรือเลือกวันที่จะไปเลย</span>
-          <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
+        {/* ── choice 1: schedule it on a specific day (moved up, primary) ── */}
+        <div className="text-[12px] font-medium text-ink-2 flex items-center gap-1.5">
+          <IconCalendarPlus size={14} className="text-brand" /> เพิ่มลงวัน
         </div>
 
         {days.length === 0 ? (
@@ -145,6 +130,23 @@ export function AddToDayDialog({ place, open, onClose }: {
             })}
           </div>
         )}
+
+        {/* ── or: choice 2 — keep it in the plan without picking a day yet ── */}
+        <div className="flex items-center gap-2 pt-0.5">
+          <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
+          <span className="text-[11px] text-ink-3">หรือ</span>
+          <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
+        </div>
+
+        <button onClick={justPlan} disabled={!!busy}
+          className="w-full rounded-[12px] py-3 flex flex-col items-center justify-center disabled:opacity-60"
+          style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
+          <span className="text-[15px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-brand-dark)' }}>
+            {busy === 'plan' && <IconLoader2 size={16} className="animate-spin" />}
+            เพิ่มลงแพลน
+          </span>
+          <span className="text-[11.5px] text-ink-3 mt-0.5">แบบไม่ระบุวัน</span>
+        </button>
       </div>
     </Drawer>
   )
