@@ -127,7 +127,7 @@ export default function JoinTrip() {
         {/* privacy choice */}
         <div className="mt-5">
           <div className="text-[12px] font-medium text-ink-2 flex items-center gap-1.5 mb-2">
-            <IconLock size={14} /> เอกสารส่วนตัวของคุณ (พาสปอร์ต · QR · ตั๋ว)
+            <IconLock size={14} /> เอกสารสำคัญของคุณ
           </div>
           {([['private', 'ส่วนตัว', 'เห็นได้เฉพาะคุณกับเจ้าของทริป (แนะนำ)'], ['trip', 'ทุกคนในทริปเห็นได้', 'สมาชิกทุกคนเปิดเอกสาร/QR ของคุณได้']] as const).map(([v, t, d]) => (
             <button key={v} onClick={() => setPrivacy(v)} className="w-full flex gap-2.5 rounded-[12px] p-3 mb-2 text-left"
