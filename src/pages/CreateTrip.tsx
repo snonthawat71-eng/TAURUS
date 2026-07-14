@@ -39,7 +39,8 @@ interface Seg { country: string; city: string; flag: string; currency: string; t
 const blankSeg = (): Seg => ({ country: '', city: '', flag: '🌍', currency: 'CNY', tz: '', until: null })
 const segName = (s: Seg) => s.city.trim() || s.country.trim()
 
-interface Person { nick: string; full: string }
+interface Person { nick: string; first: string; last: string }
+const fullOf = (p: Person) => [p.first.trim(), p.last.trim()].filter(Boolean).join(' ')
 
 type Phase = 'name' | 'dates' | 'city' | 'people' | 'confirm' | 'share'
 
@@ -78,7 +79,8 @@ export default function CreateTrip() {
   const [multi, setMulti] = useState(false)
   const [people, setPeople] = useState<Person[]>([])
   const [newName, setNewName] = useState('')
-  const [newFull, setNewFull] = useState('')
+  const [newFirst, setNewFirst] = useState('')
+  const [newLast, setNewLast] = useState('')
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ tripId: string; travelers: Traveler[] } | null>(null)
   const [sent, setSent] = useState<Set<string>>(new Set())
@@ -161,16 +163,16 @@ export default function CreateTrip() {
     patchSeg({ until: null }) // last segment runs to the end of the trip
     // ร่าง/แก้ไขทริป: ข้ามผู้เดินทาง (จัดการในหน้า Info อยู่แล้ว) ไปยืนยันเลย
     if (draft || editing) { setPhase('confirm'); return }
-    setPeople((ps) => (ps.length ? ps : [{ nick: myName, full: '' }]))
+    setPeople((ps) => (ps.length ? ps : [{ nick: myName, first: '', last: '' }]))
     setPhase('people')
   }
 
   function addPerson() {
-    if (!newName.trim() || !newFull.trim()) return
-    setPeople((ps) => [...ps, { nick: newName.trim(), full: newFull.trim() }])
-    setNewName(''); setNewFull('')
+    if (!newName.trim() || !newFirst.trim() || !newLast.trim()) return
+    setPeople((ps) => [...ps, { nick: newName.trim(), first: newFirst.trim(), last: newLast.trim() }])
+    setNewName(''); setNewFirst(''); setNewLast('')
   }
-  const peopleComplete = people.length > 0 && people.every((p) => p.nick.trim() && p.full.trim())
+  const peopleComplete = people.length > 0 && people.every((p) => p.nick.trim() && p.first.trim() && p.last.trim())
 
   async function createAll() {
     if (!user || busy) return
@@ -225,7 +227,7 @@ export default function CreateTrip() {
         for (let i = 0; i < people.length; i++) {
           const nick = people[i].nick.trim()
           if (!nick || have.has(nick.toLowerCase())) continue
-          const id = await addTraveler(upgrading.id, { nickname: nick, full_name: people[i].full.trim() || null, avatar_color: ORDER[(startIdx + i) % ORDER.length] })
+          const id = await addTraveler(upgrading.id, { nickname: nick, full_name: fullOf(people[i]) || null, avatar_color: ORDER[(startIdx + i) % ORDER.length] })
           if (!firstNewId) firstNewId = id
         }
         const mineAlready = (existTrav ?? []).some((t) => t.user_id === user.id)
@@ -245,7 +247,7 @@ export default function CreateTrip() {
       })
       const ids: string[] = []
       for (let i = 0; i < people.length; i++) {
-        ids.push(await addTraveler(tripId, { nickname: people[i].nick, full_name: people[i].full.trim() || null, avatar_color: ORDER[i % ORDER.length] }))
+        ids.push(await addTraveler(tripId, { nickname: people[i].nick, full_name: fullOf(people[i]) || null, avatar_color: ORDER[i % ORDER.length] }))
       }
       await claimTraveler(ids[0], user.id)
       const { data } = await supabase.from('travelers').select('*').eq('trip_id', tripId).order('created_at')
@@ -406,32 +408,37 @@ export default function CreateTrip() {
             {/* รายชื่อแบบลิสต์แนวตั้ง + ช่องชื่อจริง-นามสกุลต่อคน (ข้อ 5) */}
             <div className="space-y-2 mt-5">
               {people.map((p, i) => (
-                <div key={i} className="card flex items-center gap-2.5 p-2.5">
-                  <Avatar name={p.nick} color={ORDER[i % ORDER.length]} size={32} ring={false} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-medium flex items-center gap-1.5">
+                <div key={i} className="card p-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={p.nick} color={ORDER[i % ORDER.length]} size={32} ring={false} />
+                    <div className="flex-1 min-w-0 text-[13px] font-medium flex items-center gap-1.5">
                       <span className="truncate">{p.nick}</span>
                       {i === 0 && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>}
                     </div>
-                    <input className="w-full min-w-0 bg-transparent outline-none text-[12px] text-ink-2 mt-0.5 placeholder:text-[#D85A30]/70"
-                      value={p.full} placeholder="ชื่อจริง-นามสกุล *"
-                      onChange={(e) => setPeople((ps) => ps.map((x, idx) => (idx === i ? { ...x, full: e.target.value } : x)))} />
+                    {i > 0 && (
+                      <button onClick={() => setPeople((ps) => ps.filter((_, idx) => idx !== i))}
+                        className="shrink-0 text-ink-3 hover:text-[#D85A30]" aria-label={`ลบ ${p.nick}`}><IconX size={15} /></button>
+                    )}
                   </div>
-                  {i > 0 && (
-                    <button onClick={() => setPeople((ps) => ps.filter((_, idx) => idx !== i))}
-                      className="shrink-0 text-ink-3 hover:text-[#D85A30]" aria-label={`ลบ ${p.nick}`}><IconX size={15} /></button>
-                  )}
+                  {/* ชื่อจริง / นามสกุล แยกช่อง อ่านง่าย */}
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <input className={field} value={p.first} placeholder="ชื่อจริง *"
+                      onChange={(e) => setPeople((ps) => ps.map((x, idx) => (idx === i ? { ...x, first: e.target.value } : x)))} />
+                    <input className={field} value={p.last} placeholder="นามสกุล *"
+                      onChange={(e) => setPeople((ps) => ps.map((x, idx) => (idx === i ? { ...x, last: e.target.value } : x)))} />
+                  </div>
                 </div>
               ))}
             </div>
-            {/* ฟอร์มเพิ่มคน — ชื่อเล่น + ชื่อจริง-นามสกุล บังคับทั้งคู่ */}
+            {/* ฟอร์มเพิ่มคน — ชื่อเล่น + ชื่อจริง + นามสกุล บังคับทั้งหมด */}
             <div className="card p-2.5 space-y-2 mt-3">
+              <input className={field} value={newName} placeholder="ชื่อเล่น *" onChange={(e) => setNewName(e.target.value)} />
               <div className="grid grid-cols-2 gap-2">
-                <input className={field} value={newName} placeholder="ชื่อเล่น *" onChange={(e) => setNewName(e.target.value)} />
-                <input className={field} value={newFull} placeholder="ชื่อจริง-นามสกุล *" onChange={(e) => setNewFull(e.target.value)}
+                <input className={field} value={newFirst} placeholder="ชื่อจริง *" onChange={(e) => setNewFirst(e.target.value)} />
+                <input className={field} value={newLast} placeholder="นามสกุล *" onChange={(e) => setNewLast(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') addPerson() }} />
               </div>
-              <button onClick={addPerson} disabled={!newName.trim() || !newFull.trim()}
+              <button onClick={addPerson} disabled={!newName.trim() || !newFirst.trim() || !newLast.trim()}
                 className="w-full h-9 rounded-md text-[13px] font-medium inline-flex items-center justify-center gap-1 disabled:opacity-40"
                 style={{ border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-mid)', background: 'var(--color-brand-soft)' }}>
                 <IconPlus size={14} /> เพิ่มผู้เดินทาง
@@ -484,7 +491,7 @@ export default function CreateTrip() {
                       <span className="truncate">{p.nick}</span>
                       {i === 0 && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>}
                     </div>
-                    {p.full.trim() && <div className="text-[11px] text-ink-3 truncate">{p.full.trim()}</div>}
+                    {fullOf(p) && <div className="text-[11px] text-ink-3 truncate">{fullOf(p)}</div>}
                   </div>
                 </div>
               ))}
