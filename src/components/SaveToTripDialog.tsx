@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { copyPlaceToTrip, exploreSavedInTrips, removeExploreCopies } from '@/lib/placeMutations'
 import { addStop } from '@/lib/mutations'
 import { logExploreEvent } from '@/lib/exploreMutations'
+import { toast } from '@/lib/toast'
 import { countryFlag } from '@/lib/countries'
 import { formatDateRange, formatLongDate } from '@/lib/format'
 import type { ItineraryDay, Place } from '@/lib/database.types'
@@ -111,11 +112,10 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
     if (sourceExploreId && user) logExploreEvent(sourceExploreId, user.id, 'save')
     setDone((prev) => new Set(prev).add(tripId))
     setBusyId(null)
-    setTripId(null)
-    setBranch(undefined)
-    setWantPlan(false)
-    setDays(null)
     onChanged?.()
+    // done — fold the drawer away and confirm with a toast
+    onClose()
+    toast.success(mode === 'list' ? 'เซฟลงลิสต์แล้ว' : mode === 'plan' ? 'เซฟลงแพลนแล้ว' : 'เซฟลงแพลน + ใส่ลงวันแล้ว')
   }
 
   /** "เซฟลงแพลน" → fetch the target trip's days, then ask which day (or none). */
