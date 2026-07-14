@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react'
-import { IconLogout } from '@tabler/icons-react'
+import { IconLogout, IconCheck } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
-import { AVATAR_COLORS, travelerColor, toHexColor } from '@/lib/avatars'
+import { AVATAR_COLORS, toHexColor } from '@/lib/avatars'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { updateProfile, updateTraveler } from '@/lib/tripMutations'
+import { updateProfile, updateTraveler, claimTraveler } from '@/lib/tripMutations'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 
 /**
  * `scope` decides what this profile drawer does:
  * - 'global' (trips dashboard): edits only my default identity (name + colour).
- * - 'trip'   (inside a trip): also lets me say which traveler in THIS trip is me.
+ * - 'trip'   (inside a trip): also syncs the traveler card that represents me.
+ *
+ * Who I am in a trip is NOT asked here — it's already decided when I create the
+ * trip (my first card is claimed) or accept an invite (the card for that token).
+ * We resolve it from `traveler.user_id === me` and, for older trips that predate
+ * claiming, heal it by linking the card whose name matches my profile.
  */
 export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean; onClose: () => void; scope?: 'global' | 'trip' }) {
   const { profile, travelers, reload } = useTrip()
@@ -27,19 +32,22 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
     setColor(toHexColor(profile?.avatar_color))
   }, [open, profile])
 
-  function pickTraveler(name: string, c: string) { setNickname(name); setColor(toHexColor(c)) }
+  // my traveler card in THIS trip — the one claimed by my user_id (authoritative)
+  const myTraveler = scope === 'trip' && user ? travelers.find((t) => t.user_id === user.id) : undefined
 
   async function save() {
     if (!user) return
     setBusy(true)
     await updateProfile(user.id, { nickname, avatar_color: color })
-    // In a trip, also sync the traveler that represents me here (match by old or
-    // new name). On the dashboard this is just my default identity — no trip.
+    // In a trip, also update the card that represents me. Prefer the claimed
+    // card; if none (legacy trip), claim the one matching my saved name first.
     if (scope === 'trip') {
-      const oldName = profile?.nickname?.trim().toLowerCase()
-      const newName = nickname.trim().toLowerCase()
-      const me = travelers.find((t) => t.nickname?.trim().toLowerCase() === oldName)
-        ?? travelers.find((t) => t.nickname?.trim().toLowerCase() === newName)
+      let me = travelers.find((t) => t.user_id === user.id)
+      if (!me) {
+        const savedName = (profile?.nickname ?? '').trim().toLowerCase()
+        const byName = savedName ? travelers.find((t) => t.nickname?.trim().toLowerCase() === savedName) : undefined
+        if (byName) { await claimTraveler(byName.id, user.id); me = byName }
+      }
       if (me) await updateTraveler(me.id, { nickname, avatar_color: color })
     }
     setBusy(false)
@@ -47,12 +55,10 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
     onClose()
   }
 
-  const match = travelers.find((t) => t.nickname && t.nickname.toLowerCase() === nickname.trim().toLowerCase())
-
   return (
     <Drawer open={open} onClose={onClose} title="โปรไฟล์ของฉัน">
-      <div className="flex flex-col items-center gap-3 mb-4">
-        <Avatar name={nickname || '?'} color={color} size={64} ring={false} />
+      <div className="flex flex-col items-center gap-3 mb-5">
+        <Avatar name={nickname || '?'} color={color} size={72} ring={false} />
         {/* single colour wheel — pick any colour */}
         <label className="flex items-center gap-2 cursor-pointer rounded-full pl-1.5 pr-3 h-9 bg-surface-2 text-[12px] font-medium text-ink-2"
           title="เลือกสีจากวงล้อสี">
@@ -65,35 +71,29 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
         </label>
       </div>
 
-      {scope === 'trip' && travelers.length > 0 && (
-        <div className="mb-4">
-          <div className="text-[11px] text-ink-3 mb-1.5">คุณคือผู้เดินทางคนไหน (เฉพาะทริปนี้)</div>
-          <div className="flex flex-wrap gap-1.5">
-            {travelers.map((t, i) => {
-              const c = travelerColor(t, i)
-              const on = match?.id === t.id
-              return (
-                <button key={t.id} onClick={() => pickTraveler(t.nickname ?? '', c)}
-                  className={['chip', on ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
-                  style={on ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
-                  <Avatar name={t.nickname} color={c} size={16} ring={false} /> {t.nickname}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       <div className="space-y-3">
         <div>
           <label className="text-[11px] text-ink-3">ชื่อที่แสดง</label>
           <input className={field} value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="เช่น Elf" />
-          <p className="text-[11px] text-ink-3 mt-1">
-            {scope === 'global'
-              ? 'ชื่อและสีเริ่มต้นของคุณ — ไปเลือกว่าคุณคือผู้เดินทางคนไหนได้ในแต่ละทริป'
-              : match ? `✓ เชื่อมกับผู้เดินทาง "${match.nickname}" — แก้ชื่อ/สีที่นี่ ผู้เดินทางจะอัปเดตตาม` : 'เลือกหรือพิมพ์ให้ตรงกับผู้เดินทางของคุณ เพื่อให้งบ/การแชร์อ้างอิงถูกคน'}
-          </p>
+          {scope === 'global' && (
+            <p className="text-[11px] text-ink-3 mt-1">ชื่อและสีเริ่มต้นของคุณ — ใช้เป็นค่าเริ่มต้นในทุกทริป</p>
+          )}
         </div>
+
+        {/* who I am in this trip — auto-detected, shown for reassurance (not a picker) */}
+        {scope === 'trip' && myTraveler && (
+          <div className="flex items-center gap-2.5 rounded-[10px] px-3 py-2.5"
+            style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
+            <Avatar name={nickname || myTraveler.nickname || '?'} color={color} size={30} ring={false} />
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-medium flex items-center gap-1" style={{ color: 'var(--color-brand-dark)' }}>
+                <IconCheck size={13} /> การ์ดของคุณในทริปนี้
+              </div>
+              <div className="text-[11px] text-ink-3 mt-0.5">แก้ชื่อ/สีที่นี่ การ์ดผู้เดินทางจะอัปเดตตามให้เอง</div>
+            </div>
+          </div>
+        )}
+
         <div className="text-[11px] text-ink-3">อีเมล: {user?.email}</div>
         <button onClick={save} disabled={busy || !nickname} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
         <button onClick={signOut} className="w-full h-10 flex items-center justify-center gap-1.5 text-[13px] text-[#D85A30]" style={{ borderTop: '0.5px solid var(--color-line)', marginTop: 4, paddingTop: 12 }}>
