@@ -83,7 +83,7 @@ export function DaySuggestions({ items, onAdd, onOpenDetail }: {
     <div className="rounded-[10px] p-2.5" style={{ background: 'linear-gradient(180deg, #f2f8ff, var(--color-surface))', border: '0.5px solid var(--color-brand-border)' }}>
       <div className="flex items-center gap-1.5">
         <IconBulb size={14} className="text-brand-mid shrink-0" />
-        <span className="text-[11.5px] font-semibold text-brand-mid">ในลิสต์ที่อยู่ใกล้แพลนวันนี้</span>
+        <span className="text-[11.5px] font-semibold text-brand-mid">Suggestion</span>
         <button onClick={() => setHidden(true)} className="ml-auto text-[10.5px] text-ink-3 hover:text-ink-2 shrink-0">ซ่อน</button>
       </div>
       <div className="flex gap-2 mt-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
