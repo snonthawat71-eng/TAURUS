@@ -14,6 +14,7 @@ import {
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { MetroRoute } from '@/components/MetroRoute'
+import { DaySuggestions, suggestForDay } from '@/components/DaySuggestions'
 import { StopEditor } from '@/components/StopEditor'
 import { DayEditor } from '@/components/DayEditor'
 import { TransitEditor } from '@/components/TransitEditor'
@@ -25,6 +26,7 @@ import { offerUndo } from '@/lib/undo'
 import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
 import { setInPlan, toggleInterest } from '@/lib/placeMutations'
+import { planMapUrl } from '@/lib/branches'
 import { useWeather, tripCityCandidates, type DayWeather } from '@/lib/weather'
 import { tripTz } from '@/lib/segments'
 import { WeatherBadge } from '@/components/WeatherBadge'
@@ -231,7 +233,7 @@ function BackupFold({ backups, canEdit, label, onPromote, onEditStop, onDeleteSt
 }
 
 function DayCard({
-  day, index, stops, backups, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste, onMoveToBackup, onPromoteBackup,
+  day, index, stops, backups, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, suggestions, onAddSuggestion, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste, onMoveToBackup, onPromoteBackup,
 }: {
   day: ItineraryDay
   index: number
@@ -243,6 +245,8 @@ function DayCard({
   nextStopId: string | null
   wx: DayWeather | null | undefined
   isPast: boolean
+  suggestions: Place[]
+  onAddSuggestion: (p: Place) => void
   onToggleCollapse: () => void
   onToggleDone: (s: ItineraryStop) => void
   onOpenDetail: (p: Place) => void
@@ -357,6 +361,11 @@ function DayCard({
                   onPromote={onPromoteBackup} onEditStop={onEditStop} onDeleteStop={onDeleteStop} />
               )}
             </SortableContext>
+
+            {/* 💡 in-list places near today's plan — one-tap add, right under the stops */}
+            {suggestions.length > 0 && (
+              <DaySuggestions places={suggestions} onAdd={onAddSuggestion} onOpenDetail={onOpenDetail} />
+            )}
 
             {canEdit && <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>}
           </div>
@@ -486,6 +495,24 @@ export default function Itinerary() {
     }
     return map
   }, [localStops, localDays])
+
+  // every place name already scheduled somewhere (any day, incl. backups) — the
+  // suggestion strip only offers in-list places that aren't on the plan yet
+  const scheduledNames = useMemo(() => {
+    const set = new Set<string>()
+    for (const s of localStops) if (s.place_name) set.add(s.place_name.trim().toLowerCase())
+    return set
+  }, [localStops])
+
+  // one-tap add from the 💡 strip — appends to the end of the day's schedule
+  async function addSuggested(dayId: string, p: Place) {
+    if (!trip) return
+    const mains = mainsOf(dayId)
+    const pos = mains.length ? Math.max(...mains.map((s) => s.position)) + 1 : 0
+    await addStop(trip.id, dayId, pos, { place_name: p.name, map_url: planMapUrl(p) })
+    await reload()
+    toast.success(`เพิ่ม "${p.name}" เข้าวันแล้ว`)
+  }
 
   // "Focus the next stop": today's day (in the trip's timezone) → its first stop
   // that isn't checked off yet. That stop gets the "ต่อไป" highlight + auto-scroll.
@@ -957,6 +984,8 @@ export default function Itinerary() {
                 // "deviate from the default" (default = collapsed), so entry = expanded.
                 collapsed={activeFilter ? false : isPast ? !collapsed.has(day.id) : collapsed.has(day.id)}
                 nextStopId={nextStopId}
+                suggestions={canEdit ? suggestForDay(stopsByDay.get(day.id) ?? [], places, scheduledNames) : []}
+                onAddSuggestion={(p) => addSuggested(day.id, p)}
                 onToggleCollapse={() => toggleCollapse(day.id)}
                 onToggleDone={toggleDone}
                 onOpenDetail={setDetailPlace}
