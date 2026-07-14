@@ -592,6 +592,10 @@ export default function TripInfo() {
               {/* nickname line (pr-7 leaves room for the top-right share icon) */}
               <div className="text-[14px] font-medium leading-tight flex items-center gap-1.5 pr-7">
                 <span className="truncate">{t.nickname}</span>
+                {isMineCard && (
+                  <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold shrink-0"
+                    style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>
+                )}
                 {!t.user_id && !!user && !iClaimed && (
                   <span role="button" tabIndex={0}
                     onClick={(e) => { e.stopPropagation(); claimCard(t) }}
