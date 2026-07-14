@@ -78,9 +78,6 @@ export default function CreateTrip() {
   const [cityIdx, setCityIdx] = useState(0)
   const [multi, setMulti] = useState(false)
   const [people, setPeople] = useState<Person[]>([])
-  const [newName, setNewName] = useState('')
-  const [newFirst, setNewFirst] = useState('')
-  const [newLast, setNewLast] = useState('')
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ tripId: string; travelers: Traveler[] } | null>(null)
   const [sent, setSent] = useState<Set<string>>(new Set())
@@ -167,11 +164,8 @@ export default function CreateTrip() {
     setPhase('people')
   }
 
-  function addPerson() {
-    if (!newName.trim() || !newFirst.trim() || !newLast.trim()) return
-    setPeople((ps) => [...ps, { nick: newName.trim(), first: newFirst.trim(), last: newLast.trim() }])
-    setNewName(''); setNewFirst(''); setNewLast('')
-  }
+  // เริ่มด้วยตัวเองคนเดียว — คนที่ 2 เป็นต้นไปกดปุ่มเพิ่มการ์ดว่างมากรอกเอง
+  const addBlankPerson = () => setPeople((ps) => [...ps, { nick: '', first: '', last: '' }])
   const peopleComplete = people.length > 0 && people.every((p) => p.nick.trim() && p.first.trim() && p.last.trim())
 
   async function createAll() {
@@ -410,14 +404,19 @@ export default function CreateTrip() {
               {people.map((p, i) => (
                 <div key={i} className="card p-2.5">
                   <div className="flex items-center gap-2.5">
-                    <Avatar name={p.nick} color={ORDER[i % ORDER.length]} size={32} ring={false} />
-                    <div className="flex-1 min-w-0 text-[13px] font-medium flex items-center gap-1.5">
-                      <span className="truncate">{p.nick}</span>
-                      {i === 0 && <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>}
-                    </div>
+                    <Avatar name={p.nick || '?'} color={ORDER[i % ORDER.length]} size={32} ring={false} />
+                    {i === 0 ? (
+                      <div className="flex-1 min-w-0 text-[13px] font-medium flex items-center gap-1.5">
+                        <span className="truncate">{p.nick}</span>
+                        <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>
+                      </div>
+                    ) : (
+                      <input className={field + ' !h-9'} value={p.nick} placeholder="ชื่อเล่น *" autoFocus
+                        onChange={(e) => setPeople((ps) => ps.map((x, idx) => (idx === i ? { ...x, nick: e.target.value } : x)))} />
+                    )}
                     {i > 0 && (
                       <button onClick={() => setPeople((ps) => ps.filter((_, idx) => idx !== i))}
-                        className="shrink-0 text-ink-3 hover:text-[#D85A30]" aria-label={`ลบ ${p.nick}`}><IconX size={15} /></button>
+                        className="shrink-0 text-ink-3 hover:text-[#D85A30]" aria-label={`ลบ ${p.nick || 'ผู้เดินทาง'}`}><IconX size={15} /></button>
                     )}
                   </div>
                   {/* ชื่อจริง / นามสกุล แยกช่อง อ่านง่าย */}
@@ -430,20 +429,12 @@ export default function CreateTrip() {
                 </div>
               ))}
             </div>
-            {/* ฟอร์มเพิ่มคน — ชื่อเล่น + ชื่อจริง + นามสกุล บังคับทั้งหมด */}
-            <div className="card p-2.5 space-y-2 mt-3">
-              <input className={field} value={newName} placeholder="ชื่อเล่น *" onChange={(e) => setNewName(e.target.value)} />
-              <div className="grid grid-cols-2 gap-2">
-                <input className={field} value={newFirst} placeholder="ชื่อจริง *" onChange={(e) => setNewFirst(e.target.value)} />
-                <input className={field} value={newLast} placeholder="นามสกุล *" onChange={(e) => setNewLast(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') addPerson() }} />
-              </div>
-              <button onClick={addPerson} disabled={!newName.trim() || !newFirst.trim() || !newLast.trim()}
-                className="w-full h-9 rounded-md text-[13px] font-medium inline-flex items-center justify-center gap-1 disabled:opacity-40"
-                style={{ border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-mid)', background: 'var(--color-brand-soft)' }}>
-                <IconPlus size={14} /> เพิ่มผู้เดินทาง
-              </button>
-            </div>
+            {/* คนที่ 2 เป็นต้นไป — กดปุ่มเพิ่มการ์ดว่างมากรอกเอง */}
+            <button onClick={addBlankPerson}
+              className="w-full h-10 rounded-md text-[13px] font-medium inline-flex items-center justify-center gap-1.5 mt-3"
+              style={{ border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-mid)', background: 'var(--color-brand-soft)' }}>
+              <IconPlus size={15} /> เพิ่มผู้เดินทาง
+            </button>
           </>
         )}
 
