@@ -21,7 +21,7 @@ const norm = (s: string) => s.trim().toLowerCase()
 export interface DaySuggestion { p: Place; distM?: number }
 
 /** How far away a suggestion may be and still count as "ใกล้" (meters). */
-const MAX_NEAR_M = 5000
+const MAX_NEAR_M = 3000
 
 /** In-plan places near ONE stop, nearest first: real link-derived distance
  *  when both sides have coordinates (within 5 km — known-far is dropped even
