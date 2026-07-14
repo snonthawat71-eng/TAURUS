@@ -277,6 +277,9 @@ export interface Place {
    *  its frame, stored as "x y scale" (see src/lib/photoFocus.ts) */
   photo_focus?: string | null
   city?: string | null
+  /** client-only hint (not a `places` column): the source Explore item's
+   *  country, carried so the save dialog can match a place to trips by place. */
+  country?: string | null
   /** optional — present after supabase/place_geo.sql; map pin location. Filled
    *  from map_url / geocoding / manual pick (see src/lib/geo.ts) */
   lat?: number | null

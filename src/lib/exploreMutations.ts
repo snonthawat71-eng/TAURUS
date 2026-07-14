@@ -300,6 +300,6 @@ export function exploreAsPlace(e: ExplorePlace): Place {
     menu_paths: e.menu_paths ?? null,
     map_url: e.map_url, note: e.note, in_plan: false, photo_path: null, photo_url: e.photo_url,
     photo_focus: e.photo_focus ?? null, photos: e.photos ?? null,
-    city: e.city, created_at: e.created_at,
+    city: e.city, country: e.country ?? null, created_at: e.created_at,
   }
 }

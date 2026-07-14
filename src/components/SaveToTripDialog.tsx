@@ -14,7 +14,21 @@ import { logExploreEvent } from '@/lib/exploreMutations'
 import { toast } from '@/lib/toast'
 import { countryFlag } from '@/lib/countries'
 import { formatDateRange, formatLongDate } from '@/lib/format'
-import type { ItineraryDay, Place } from '@/lib/database.types'
+import type { ItineraryDay, Place, Trip } from '@/lib/database.types'
+
+const norm = (s?: string | null) => (s ?? '').trim().toLowerCase()
+
+/** The place's location keywords (city + country) and a trip's (country +
+ *  every city segment) match when any pair is equal or one contains the other —
+ *  lenient enough for "Taipei" vs "New Taipei", strict enough to keep a Japan
+ *  place out of a Taiwan trip. */
+function tripMatchesPlace(t: Trip, placeTokens: string[]): boolean {
+  const tripTokens = [
+    t.country, ...(t.cities ?? []),
+    ...(t.segments ?? []).flatMap((s) => [s.city, (s as { country?: string | null }).country]),
+  ].map(norm).filter(Boolean)
+  return placeTokens.some((p) => tripTokens.some((tt) => tt === p || tt.includes(p) || p.includes(tt)))
+}
 
 /** Step header — ✓ for done, filled number for current, dashed for upcoming.
  *  Steps that don't apply (no branches / list-only save) are never in the list. */
@@ -62,6 +76,14 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   // any trip the user can reach — owned OR shared in (RLS blocks the write if the
   // share is view-only). Shared members no longer need a trip of their own.
   const myTrips = trips
+
+  // Only offer trips whose city/country matches this place — you can't save a
+  // Taipei spot into a Tokyo trip. Trips it's already saved in stay listed so
+  // un-saving still works. No location on the place → can't filter, show all.
+  const placeTokens = [place?.city, place?.country].map(norm).filter(Boolean)
+  const shownTrips = placeTokens.length === 0
+    ? myTrips
+    : myTrips.filter((t) => tripMatchesPlace(t, placeTokens) || done.has(t.id))
 
   const branches = place?.branches ?? []
   const hasBranches = branches.length > 0
@@ -189,16 +211,18 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
 
       <Stepper steps={steps} cur={curStep} />
 
-      {/* ── ขั้น 1: เซฟไปทริปไหน ── */}
+      {/* ── ขั้น 1: เซฟไปทริปไหน (เฉพาะทริปที่เมืองตรงกับสถานที่) ── */}
       {screen === 'trip' && (
-        myTrips.length === 0 ? (
+        shownTrips.length === 0 ? (
           <div className="card p-5 text-center text-[12px] text-ink-3">
-            ยังไม่มีทริปให้เซฟ — สร้างทริป หรือให้เจ้าของแชร์ทริปเข้ามาก่อน
+            {myTrips.length === 0
+              ? 'ยังไม่มีทริปให้เซฟ — สร้างทริป หรือให้เจ้าของแชร์ทริปเข้ามาก่อน'
+              : `ยังไม่มีทริปสำหรับ${place?.city ? ` "${place.city}"` : 'เมืองนี้'} — สร้างทริปเมืองนี้ก่อนแล้วค่อยเซฟได้`}
           </div>
         ) : (
           <div className="space-y-1.5">
             <div className="text-[13.5px] font-semibold mb-2">เซฟไปทริปไหน?</div>
-            {myTrips.map((t) => {
+            {shownTrips.map((t) => {
               const saved = done.has(t.id)
               const removable = saved && !!sourceExploreId // can only un-save explore-sourced copies
               return (
