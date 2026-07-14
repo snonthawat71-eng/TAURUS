@@ -60,8 +60,9 @@ export function suggestForStop(
   return [...near, ...scored.map((x) => ({ p: x.p }))].slice(0, 5)
 }
 
-/** Slim colored bar at the bottom of a stop card — "มีที่ในแพลนใกล้ที่นี่ N ที่".
- *  Tap to expand into one-tap add cards, or ไม่สนใจ to dismiss for this stop. */
+/** Full-width colored strip across a stop card's bottom edge — "มีที่ในแพลน
+ *  ใกล้ที่นี่ N ที่". Tap to expand into one-tap add cards, or ไม่สนใจ to
+ *  dismiss for this stop. Rendered flush (the card clips the corners). */
 export function StopSuggestions({ items, onAdd, onOpenDetail, onDismiss }: {
   items: DaySuggestion[]
   onAdd: (p: Place) => void
@@ -71,9 +72,8 @@ export function StopSuggestions({ items, onAdd, onOpenDetail, onDismiss }: {
   const [open, setOpen] = useState(false)
   if (!items.length) return null
   return (
-    <div className="mt-2.5 rounded-[9px] overflow-hidden"
-      style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
-      <div className="flex items-center gap-1 pl-2.5 pr-1.5 h-8">
+    <div style={{ background: 'var(--color-brand-soft)', borderTop: '0.5px solid var(--color-brand-border)' }}>
+      <div className="flex items-center gap-1 pl-3 pr-2 h-9">
         <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 flex-1 min-w-0 text-left" aria-expanded={open}>
           <IconBulb size={13} className="text-brand-mid shrink-0" />
           <span className="text-[11px] font-semibold text-brand-mid truncate">มีที่ในแพลนใกล้ที่นี่ {items.length} ที่</span>
@@ -86,7 +86,7 @@ export function StopSuggestions({ items, onAdd, onOpenDetail, onDismiss }: {
         </button>
       </div>
       {open && (
-        <div className="flex gap-2 px-2.5 pb-2.5 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex gap-2 px-3 pb-3 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
           {items.map(({ p, distM }) => {
             const st = planStation(p)
             const M = catMeta(p.category)

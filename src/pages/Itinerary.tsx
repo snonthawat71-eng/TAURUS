@@ -70,11 +70,13 @@ function SortableStop({
 
   return (
     <div ref={setNodeRef} id={`stop-${stop.id}`} style={style}>
-      {/* PLACE CARD — one to-do-style card per stop */}
-      <div className="flex gap-2.5 rounded-[10px] p-3" style={{
+      {/* PLACE CARD — one to-do-style card per stop; the 💡 bar is a full-width
+          footer strip flush with the card's bottom edge */}
+      <div className="rounded-[10px] overflow-hidden" style={{
         background: isNext ? 'var(--color-brand-soft)' : 'var(--color-surface)',
         border: `0.5px solid ${isNext ? 'var(--color-brand-border)' : 'var(--color-line)'}`,
       }}>
+      <div className="flex gap-2.5 p-3">
       {/* grip + check-in + time, top-aligned so the time sits on the SAME line as
           the place name's first line */}
       <div className="flex items-start gap-1.5 shrink-0">
@@ -152,11 +154,12 @@ function SortableStop({
         )}
         {/* TRANSIT SUB-CARD — the route to this stop nests inside its place card */}
         {!done && stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
-        {/* 💡 nearby-in-plan bar — slim strip at the card's bottom, per stop */}
-        {!done && canEdit && suggestions.length > 0 && (
-          <StopSuggestions items={suggestions} onAdd={onAddSuggestion} onOpenDetail={onOpenDetail} onDismiss={onDismissSug} />
-        )}
       </div>
+      </div>
+      {/* 💡 nearby-in-plan — full-width strip across the card's bottom */}
+      {!done && canEdit && suggestions.length > 0 && (
+        <StopSuggestions items={suggestions} onAdd={onAddSuggestion} onOpenDetail={onOpenDetail} onDismiss={onDismissSug} />
+      )}
       </div>
     </div>
   )
