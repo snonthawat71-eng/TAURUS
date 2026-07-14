@@ -45,7 +45,7 @@ export function suggestForDay(dayStops: ItineraryStop[], places: Place[], schedu
         : p.city && cities.has(norm(p.city)) ? 1 : 0
     if (score > 0) scored.push({ p, score })
   }
-  return scored.sort((a, b) => b.score - a.score).slice(0, 10).map((x) => x.p)
+  return scored.sort((a, b) => b.score - a.score).slice(0, 5).map((x) => x.p)
 }
 
 /** "💡 ในลิสต์ที่อยู่ใกล้แพลนวันนี้" — a horizontal strip under a day's stops
