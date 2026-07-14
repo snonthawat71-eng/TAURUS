@@ -189,8 +189,8 @@ export default function CreateTrip() {
         const { id: tripId } = await createTrip(user.id, { ...base, start_date: null, end_date: null })
         switchTrip(tripId)
         await reload()
-        toast.success('สร้างทริปแบบร่างแล้ว — เริ่มเก็บสถานที่/วางแพลนได้เลย')
-        navigate('/places')
+        toast.success('สร้างทริปแบบร่างแล้ว — เปิดทริปจากหน้าแรกเพื่อเริ่มวางแพลนได้เลย')
+        navigate('/')
         return
       }
 
@@ -607,8 +607,8 @@ export default function CreateTrip() {
         )}
         {phase === 'share' && (
           <>
-            <button onClick={async () => { await reload(); navigate('/info') }} className="btn-primary w-full h-10">ไปที่ทริป</button>
-            <div className="text-center text-[11px] text-ink-3">แชร์ทีหลังได้ในหน้า Info</div>
+            <button onClick={async () => { await reload(); navigate('/') }} className="btn-primary w-full h-10">เสร็จสิ้น · ไปหน้าแรก</button>
+            <div className="text-center text-[11px] text-ink-3">แชร์เพิ่มทีหลังได้ในหน้า Info</div>
           </>
         )}
       </div>
