@@ -9,8 +9,8 @@ import { HKMapViewer } from './HKMapViewer'
 import { ShanghaiMapViewer } from './ShanghaiMapViewer'
 import { ShenzhenMapViewer } from './ShenzhenMapViewer'
 import { useTrip } from '@/contexts/TripContext'
-import { getNetworkForTrip } from '@/lib/metro'
-import { getTransitSuggestions, findLine, legBetween } from '@/lib/metro/suggest'
+import { getNetworkForTrip, getNetworkForText } from '@/lib/metro'
+import { suggestionsFromText, findLine, legBetween } from '@/lib/metro/suggest'
 import { modeMeta } from '@/lib/transitModes'
 import { confirmDialog } from '@/lib/confirm'
 import { ModePicker } from './ModePicker'
@@ -57,8 +57,6 @@ export function TransitEditor({
   onSave: (transit: Transit | null) => Promise<void>
 }) {
   const { trip, places } = useTrip()
-  const net = getNetworkForTrip(trip)
-  const sug = useMemo(() => getTransitSuggestions(trip), [trip])
   // station/line of THIS stop's place (if it matches one in the plan); fall back
   // to all in-plan places only when this stop isn't linked to a known place.
   const withStation = places.filter((p) => p.in_plan && (p.station_line || p.station_name || p.routes?.length))
@@ -66,10 +64,21 @@ export function TransitEditor({
     ? withStation.find((p) => (p.name ?? '').trim().toLowerCase() === placeName.trim().toLowerCase())
     : undefined
   const stationPlaces = matched ? [matched] : (placeName ? [] : withStation)
+  // The stop's place tells us which CITY this route is in — scope the metro maps
+  // and line/station suggestions to that city, so a multi-city trip (e.g.
+  // Hongkong–Shenzhen) doesn't offer every network at once. Falls back to the
+  // trip-wide match when the place has no city / the city has no built-in network.
+  const placeCity = (placeName
+    ? places.find((p) => (p.name ?? '').trim().toLowerCase() === placeName.trim().toLowerCase())?.city
+    : null)?.trim() ?? ''
+  const cityScoped = !!placeCity && suggestionsFromText(placeCity).lines.length > 0
   const tripHay = [trip?.country ?? '', ...(trip?.cities ?? []), trip?.name ?? ''].join(' ')
-  const hk = isHongKong(tripHay)
-  const sh = isShanghai(tripHay)
-  const sz = isShenzhen(tripHay)
+  const hay = cityScoped ? placeCity : tripHay
+  const net = cityScoped ? getNetworkForText(placeCity) : getNetworkForTrip(trip)
+  const sug = useMemo(() => suggestionsFromText(hay), [hay])
+  const hk = isHongKong(hay)
+  const sh = isShanghai(hay)
+  const sz = isShenzhen(hay)
   const [legs, setLegs] = useState<TransitLeg[]>([])
   const [busy, setBusy] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
