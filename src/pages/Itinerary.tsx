@@ -14,7 +14,9 @@ import {
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { MetroRoute } from '@/components/MetroRoute'
-import { DaySuggestions, suggestForDay } from '@/components/DaySuggestions'
+import { DaySuggestions, suggestForDay, type DaySuggestion } from '@/components/DaySuggestions'
+import { coordsForPlace } from '@/lib/placeGeo'
+import type { LatLng } from '@/lib/geo'
 import { StopEditor } from '@/components/StopEditor'
 import { DayEditor } from '@/components/DayEditor'
 import { TransitEditor } from '@/components/TransitEditor'
@@ -245,7 +247,7 @@ function DayCard({
   nextStopId: string | null
   wx: DayWeather | null | undefined
   isPast: boolean
-  suggestions: Place[]
+  suggestions: DaySuggestion[]
   onAddSuggestion: (p: Place) => void
   onToggleCollapse: () => void
   onToggleDone: (s: ItineraryStop) => void
@@ -364,7 +366,7 @@ function DayCard({
 
             {/* 💡 in-list places near today's plan — one-tap add, right under the stops */}
             {suggestions.length > 0 && (
-              <DaySuggestions places={suggestions} onAdd={onAddSuggestion} onOpenDetail={onOpenDetail} />
+              <DaySuggestions items={suggestions} onAdd={onAddSuggestion} onOpenDetail={onOpenDetail} />
             )}
 
             {canEdit && <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>}
@@ -503,6 +505,28 @@ export default function Itinerary() {
     for (const s of localStops) if (s.place_name) set.add(s.place_name.trim().toLowerCase())
     return set
   }, [localStops])
+
+  // Coordinates for in-list + scheduled places, pulled from their map links
+  // (short links resolve once via /api/resolve-map and cache). Fills lat/lng on
+  // the rows as a side effect, so this gets cheaper on every visit. Drives the
+  // real-distance ranking of the 💡 suggestion strip.
+  const [coordsMap, setCoordsMap] = useState<Map<string, LatLng | null>>(new Map())
+  useEffect(() => {
+    if (!canEdit) return
+    const wanted = places.filter((p) =>
+      (p.in_plan || (p.name && scheduledNames.has(p.name.trim().toLowerCase()))) && !coordsMap.has(p.id))
+    if (!wanted.length) return
+    let cancelled = false
+    ;(async () => {
+      for (const p of wanted) {
+        const c = await coordsForPlace(p)
+        if (cancelled) return
+        setCoordsMap((prev) => { const n = new Map(prev); n.set(p.id, c); return n })
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [places, scheduledNames, canEdit])
 
   // one-tap add from the 💡 strip — appends to the end of the day's schedule
   async function addSuggested(dayId: string, p: Place) {
@@ -984,7 +1008,7 @@ export default function Itinerary() {
                 // "deviate from the default" (default = collapsed), so entry = expanded.
                 collapsed={activeFilter ? false : isPast ? !collapsed.has(day.id) : collapsed.has(day.id)}
                 nextStopId={nextStopId}
-                suggestions={canEdit ? suggestForDay(stopsByDay.get(day.id) ?? [], places, scheduledNames) : []}
+                suggestions={canEdit ? suggestForDay(stopsByDay.get(day.id) ?? [], places, scheduledNames, coordsMap) : []}
                 onAddSuggestion={(p) => addSuggested(day.id, p)}
                 onToggleCollapse={() => toggleCollapse(day.id)}
                 onToggleDone={toggleDone}

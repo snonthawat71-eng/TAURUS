@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { IconBulb, IconPlus } from '@tabler/icons-react'
 import { catMeta } from '@/lib/placeMeta'
 import { planBranch } from '@/lib/branches'
+import { haversineM, fmtDistance } from '@/lib/placeGeo'
+import type { LatLng } from '@/lib/geo'
 import type { ItineraryStop, Place } from '@/lib/database.types'
 
 /** line/station/color the plan actually uses for a place (chosen branch first) */
@@ -16,47 +18,67 @@ function planStation(p: Place) {
 
 const norm = (s: string) => s.trim().toLowerCase()
 
-/** In-list places worth adding to this day, ranked by closeness to the stops
- *  already in it: same station (3) → same line (2) → same city (1). Places with
- *  no relation to the day are left out; a day with no located stops shows nothing. */
-export function suggestForDay(dayStops: ItineraryStop[], places: Place[], scheduledNames: Set<string>): Place[] {
+export interface DaySuggestion { p: Place; distM?: number }
+
+/** How far away a suggestion may be and still count as "ใกล้" (meters). */
+const MAX_NEAR_M = 3000
+
+/** In-list places worth adding to this day, ranked by REAL distance when both
+ *  sides have coordinates (pulled from their map links): nearest first, within
+ *  3 km. Places whose links didn't yield coords fall back to same station →
+ *  same line. Known-far places (> 3 km) are dropped even on the same line. */
+export function suggestForDay(
+  dayStops: ItineraryStop[], places: Place[], scheduledNames: Set<string>,
+  coords?: Map<string, LatLng | null>,
+): DaySuggestion[] {
   const byName = new Map<string, Place>()
   for (const p of places) if (p.name) byName.set(norm(p.name), p)
 
   const stations = new Set<string>()
   const lines = new Set<string>()
-  const cities = new Set<string>()
+  const dayCoords: LatLng[] = []
   for (const s of dayStops) {
     const p = s.place_name ? byName.get(norm(s.place_name)) : undefined
     if (!p) continue
     const st = planStation(p)
     if (st.station) stations.add(norm(st.station))
     if (st.line) lines.add(norm(st.line))
-    if (p.city) cities.add(norm(p.city))
+    const c = coords?.get(p.id)
+    if (c) dayCoords.push(c)
   }
-  if (!stations.size && !lines.size && !cities.size) return []
+  if (!stations.size && !lines.size && !dayCoords.length) return []
 
+  const near: { p: Place; distM: number }[] = []
   const scored: { p: Place; score: number }[] = []
   for (const p of places) {
     if (!p.in_plan || !p.name || scheduledNames.has(norm(p.name))) continue
+    const c = coords?.get(p.id)
+    if (c && dayCoords.length) {
+      // both sides located → real distance decides (and rules out far places)
+      const d = Math.min(...dayCoords.map((dc) => haversineM(c, dc)))
+      if (d <= MAX_NEAR_M) near.push({ p, distM: d })
+      continue
+    }
+    // no coordinates → best-effort by transit data (city alone is too noisy)
     const st = planStation(p)
-    const score = st.station && stations.has(norm(st.station)) ? 3
-      : st.line && lines.has(norm(st.line)) ? 2
-        : p.city && cities.has(norm(p.city)) ? 1 : 0
+    const score = st.station && stations.has(norm(st.station)) ? 2
+      : st.line && lines.has(norm(st.line)) ? 1 : 0
     if (score > 0) scored.push({ p, score })
   }
-  return scored.sort((a, b) => b.score - a.score).slice(0, 5).map((x) => x.p)
+  near.sort((a, b) => a.distM - b.distM)
+  scored.sort((a, b) => b.score - a.score)
+  return [...near, ...scored.map((x) => ({ p: x.p }))].slice(0, 5)
 }
 
 /** "💡 ในลิสต์ที่อยู่ใกล้แพลนวันนี้" — a horizontal strip under a day's stops
  *  offering one-tap adds from the Places List. Hidden per session via ซ่อน. */
-export function DaySuggestions({ places, onAdd, onOpenDetail }: {
-  places: Place[]
+export function DaySuggestions({ items, onAdd, onOpenDetail }: {
+  items: DaySuggestion[]
   onAdd: (p: Place) => void
   onOpenDetail: (p: Place) => void
 }) {
   const [hidden, setHidden] = useState(false)
-  if (!places.length || hidden) return null
+  if (!items.length || hidden) return null
   return (
     <div className="rounded-[10px] p-2.5" style={{ background: 'linear-gradient(180deg, #f2f8ff, var(--color-surface))', border: '0.5px solid var(--color-brand-border)' }}>
       <div className="flex items-center gap-1.5">
@@ -65,7 +87,7 @@ export function DaySuggestions({ places, onAdd, onOpenDetail }: {
         <button onClick={() => setHidden(true)} className="ml-auto text-[10.5px] text-ink-3 hover:text-ink-2 shrink-0">ซ่อน</button>
       </div>
       <div className="flex gap-2 mt-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-        {places.map((p) => {
+        {items.map(({ p, distM }) => {
           const st = planStation(p)
           const M = catMeta(p.category)
           const CatIcon = M.icon
@@ -79,6 +101,12 @@ export function DaySuggestions({ places, onAdd, onOpenDetail }: {
                   <span className="text-[11.5px] font-semibold truncate">{p.name}</span>
                 </div>
                 <div className="mt-1 flex items-center gap-1 text-[9.5px] text-ink-3 min-h-[16px]">
+                  {distM != null && (
+                    <span className="rounded-[5px] px-1.5 py-px font-semibold shrink-0"
+                      style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)', border: '0.5px solid var(--color-brand-border)' }}>
+                      ≈{fmtDistance(distM)}
+                    </span>
+                  )}
                   {st.line && (
                     <span className="rounded-[5px] px-1.5 py-px font-semibold text-white shrink-0" style={{ background: st.color || 'var(--color-brand)' }}>{st.line}</span>
                   )}
