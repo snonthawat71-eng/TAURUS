@@ -67,12 +67,22 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const [currentTripId, setCurrentTripId] = useState<string | null>(
     () => localStorage.getItem(STORAGE_KEY),
   )
+  // Always-current mirror of currentTripId. `load` reads this instead of the
+  // state value it closed over, so a `reload()` fired right after switchTrip()
+  // (e.g. from the create-trip wizard) targets the trip that is now current —
+  // not the stale one captured when the callback was created.
+  const currentTripIdRef = useRef(currentTripId)
+  useEffect(() => { currentTripIdRef.current = currentTripId }, [currentTripId])
   const [data, setData] = useState<TripState>(empty)
   // user id we've already run the one-time bootstrap (profile upsert + invites) for
   const bootstrappedFor = useRef<string | null>(null)
 
   const switchTrip = useCallback((id: string) => {
     localStorage.setItem(STORAGE_KEY, id)
+    // Update the ref synchronously (the [currentTripId] effect only runs after
+    // the next commit) so a reload() called in the same tick — as the create
+    // wizard does right after switching — already targets the new trip.
+    currentTripIdRef.current = id
     setCurrentTripId(id)
   }, [])
 
@@ -86,7 +96,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const hydrateOffline = useCallback((): boolean => {
     const cachedTrips = readJSON<Trip[]>(SNAP_TRIPS)
     if (cachedTrips?.length) setTrips(cachedTrips)
-    const id = currentTripId ?? cachedTrips?.[0]?.id ?? null
+    const id = currentTripIdRef.current ?? cachedTrips?.[0]?.id ?? null
     const snap = id ? readJSON<TripState>(snapKey(id)) : null
     if (!snap) return false
     setData(snap)
@@ -96,7 +106,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       toast.info('ออฟไลน์อยู่ — แสดงข้อมูลล่าสุดที่บันทึกไว้ในเครื่อง')
     }
     return true
-  }, [currentTripId])
+  }, [])
 
   const load = useCallback(async () => {
     if (!user) return
@@ -145,7 +155,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       // Fetch the trips list and (when we already know the current trip — i.e. on
       // every reload, not just the first load) its data concurrently, so a button
       // press doesn't wait for the trips list before the trip data even starts.
-      const knownId = currentTripId
+      const knownId = currentTripIdRef.current
       const tripsP = supabase.from('trips').select('*').order('created_at', { ascending: true })
       const batchP = knownId ? fetchTripData(knownId) : null
 
@@ -157,9 +167,9 @@ export function TripProvider({ children }: { children: ReactNode }) {
       writeJSON(SNAP_TRIPS, allTrips)
 
       // Pick the current trip (saved, else first). No trip yet → empty state.
-      const current = allTrips.find((t) => t.id === currentTripId) ?? allTrips[0]
+      const current = allTrips.find((t) => t.id === currentTripIdRef.current) ?? allTrips[0]
       if (!current) { setData(empty); return }
-      if (current.id !== currentTripId) {
+      if (current.id !== currentTripIdRef.current) {
         localStorage.setItem(STORAGE_KEY, current.id)
         setCurrentTripId(current.id)
       }
