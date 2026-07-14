@@ -14,7 +14,8 @@ import {
   listMyExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace,
   allVoteStats, allPopularity, logExploreEvent, type VoteStat, type PopStat,
 } from '@/lib/exploreMutations'
-import { savedExploreIds, removeExploreCopies } from '@/lib/placeMutations'
+import { savedExploreIds, removeExploreCopiesDeep } from '@/lib/placeMutations'
+import { toast } from '@/lib/toast'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { filterExplore, initialExploreFilter, type ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace, Place } from '@/lib/database.types'
@@ -23,7 +24,7 @@ import type { ExplorePlace, Place } from '@/lib/database.types'
  *  engagement stats and quick edit / delete. Lives at /explore/mine. */
 export default function ExploreManage() {
   const { user } = useAuth()
-  const { trips } = useTrip()
+  const { trips, trip: currentTrip, reload: reloadTrip } = useTrip()
   const goBack = useBack('/explore')
   const [items, setItems] = useState<ExplorePlace[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,9 +80,18 @@ export default function ExploreManage() {
     setDetail(e)
     if (user) logExploreEvent(e.id, user.id, 'view')
   }
-  function toggleFav(e: ExplorePlace) {
-    if (savedSet.has(e.id)) removeExploreCopies(e.id, myTripIds).then(refreshSaved)
-    else setFav(exploreAsPlace(e))
+  async function toggleFav(e: ExplorePlace) {
+    if (savedSet.has(e.id)) {
+      // un-save from every trip + delete the itinerary stops made from it
+      if (!(await confirmDialog({
+        message: `เอา "${e.name}" ออกจากทริปที่เซฟไว้? ถ้ามีจุดแวะของที่นี่ใน Itinerary จะถูกลบไปด้วย`,
+        danger: true, confirmLabel: 'เอาออก',
+      }))) return
+      const { stopsRemoved } = await removeExploreCopiesDeep(e.id, myTripIds)
+      refreshSaved()
+      if (currentTrip && myTripIds.includes(currentTrip.id)) void reloadTrip()
+      toast.success(stopsRemoved > 0 ? `เอาออกแล้ว · ลบจุดแวะใน Itinerary ${stopsRemoved} จุดด้วย` : 'เอาออกจากทริปแล้ว')
+    } else setFav(exploreAsPlace(e))
   }
 
   // headline totals across all of my shared places

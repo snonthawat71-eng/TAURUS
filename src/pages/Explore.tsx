@@ -11,7 +11,8 @@ import { ExploreNotifications } from '@/components/ExploreNotifications'
 import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, logExploreEvent, type VoteStat, type PopStat } from '@/lib/exploreMutations'
-import { savedExploreIds, removeExploreCopies, updateExploreCopies, type PlaceInput } from '@/lib/placeMutations'
+import { savedExploreIds, removeExploreCopiesDeep, updateExploreCopies, type PlaceInput } from '@/lib/placeMutations'
+import { toast } from '@/lib/toast'
 import { confirmDialog } from '@/lib/confirm'
 import { useBack } from '@/lib/useBack'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -20,7 +21,7 @@ import type { ExplorePlace, Place } from '@/lib/database.types'
 
 export default function Explore() {
   const { user } = useAuth()
-  const { trips } = useTrip()
+  const { trips, trip: currentTrip, reload: reloadTrip } = useTrip()
   const navigate = useNavigate()
   const goBack = useBack('/')
   const [items, setItems] = useState<ExplorePlace[]>([])
@@ -63,9 +64,18 @@ export default function Explore() {
     if (user) logExploreEvent(e.id, user.id, 'view')
   }
 
-  function toggleFav(e: ExplorePlace) {
-    if (savedSet.has(e.id)) { removeExploreCopies(e.id, myTripIds).then(refreshSaved) }
-    else setFav(exploreAsPlace(e))
+  async function toggleFav(e: ExplorePlace) {
+    if (savedSet.has(e.id)) {
+      // un-save from every trip + delete the itinerary stops made from it
+      if (!(await confirmDialog({
+        message: `เอา "${e.name}" ออกจากทริปที่เซฟไว้? ถ้ามีจุดแวะของที่นี่ใน Itinerary จะถูกลบไปด้วย`,
+        danger: true, confirmLabel: 'เอาออก',
+      }))) return
+      const { stopsRemoved } = await removeExploreCopiesDeep(e.id, myTripIds)
+      refreshSaved()
+      if (currentTrip && myTripIds.includes(currentTrip.id)) void reloadTrip()
+      toast.success(stopsRemoved > 0 ? `เอาออกแล้ว · ลบจุดแวะใน Itinerary ${stopsRemoved} จุดด้วย` : 'เอาออกจากทริปแล้ว')
+    } else setFav(exploreAsPlace(e))
   }
 
   const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])

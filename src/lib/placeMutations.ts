@@ -82,6 +82,24 @@ export async function removeExploreCopies(exploreId: string, tripIds: string[]) 
   return supabase.from('places').delete().eq('source_explore_id', exploreId).in('trip_id', tripIds)
 }
 
+/** Un-save an Explore item from my trips AND delete any itinerary stops that
+ *  were created from those copies (matched by place name within the same
+ *  trip). Returns how many stops went with it, for the confirmation toast. */
+export async function removeExploreCopiesDeep(exploreId: string, tripIds: string[]) {
+  if (!tripIds.length) return { stopsRemoved: 0 }
+  const { data } = await supabase.from('places')
+    .select('name').eq('source_explore_id', exploreId).in('trip_id', tripIds)
+  const names = [...new Set((data ?? []).map((r) => (r.name as string | null) ?? '').filter(Boolean))]
+  let stopsRemoved = 0
+  if (names.length) {
+    const del = await supabase.from('itinerary_stops').delete()
+      .in('trip_id', tripIds).in('place_name', names).select('id')
+    stopsRemoved = del.data?.length ?? 0
+  }
+  await supabase.from('places').delete().eq('source_explore_id', exploreId).in('trip_id', tripIds)
+  return { stopsRemoved }
+}
+
 /**
  * Propagate an Explore edit to every saved copy in the given trips, so a place
  * the user saved stays in sync when its Explore source is edited. RLS limits

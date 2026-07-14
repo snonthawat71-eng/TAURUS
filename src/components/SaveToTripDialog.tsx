@@ -7,7 +7,8 @@ import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { copyPlaceToTrip, exploreSavedInTrips, removeExploreCopies } from '@/lib/placeMutations'
+import { copyPlaceToTrip, exploreSavedInTrips, removeExploreCopiesDeep } from '@/lib/placeMutations'
+import { confirmDialog } from '@/lib/confirm'
 import { addStop } from '@/lib/mutations'
 import { logExploreEvent } from '@/lib/exploreMutations'
 import { toast } from '@/lib/toast'
@@ -131,13 +132,19 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   async function tapTrip(id: string) {
     if (!place) return
     if (done.has(id)) {
-      // un-save: remove this place's copy from the chosen trip (explore-sourced only)
+      // un-save: remove this place's copy from the chosen trip + its itinerary stops
+      if (!(await confirmDialog({
+        message: `เอา "${place.name}" ออกจากทริปนี้? ถ้ามีจุดแวะของที่นี่ใน Itinerary จะถูกลบไปด้วย`,
+        danger: true, confirmLabel: 'เอาออก',
+      }))) return
       setBusyId(id)
-      if (sourceExploreId) await removeExploreCopies(sourceExploreId, [id])
+      let stops = 0
+      if (sourceExploreId) stops = (await removeExploreCopiesDeep(sourceExploreId, [id])).stopsRemoved
       setDone((prev) => { const n = new Set(prev); n.delete(id); return n })
       setBusyId(null)
       onChanged?.()
       if (id === currentTrip?.id) void reload() // เอาออกแล้วหน้า Location ต้องหายทันที
+      toast.success(stops > 0 ? `เอาออกแล้ว · ลบจุดแวะใน Itinerary ${stops} จุดด้วย` : 'เอาออกจากทริปแล้ว')
       return
     }
     setTripId(id)
