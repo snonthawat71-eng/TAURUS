@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconBulb, IconPlus } from '@tabler/icons-react'
+import { IconBulb, IconPlus, IconChevronDown, IconX } from '@tabler/icons-react'
 import { catMeta } from '@/lib/placeMeta'
 import { planBranch } from '@/lib/branches'
 import { haversineM, fmtDistance } from '@/lib/placeGeo'
@@ -23,46 +23,36 @@ export interface DaySuggestion { p: Place; distM?: number }
 /** How far away a suggestion may be and still count as "ใกล้" (meters). */
 const MAX_NEAR_M = 5000
 
-/** In-list places worth adding to this day, ranked by REAL distance when both
- *  sides have coordinates (pulled from their map links): nearest first, within
- *  3 km. Places whose links didn't yield coords fall back to same station →
- *  same line. Known-far places (> 3 km) are dropped even on the same line. */
-export function suggestForDay(
-  dayStops: ItineraryStop[], places: Place[], scheduledNames: Set<string>,
+/** In-plan places near ONE stop, nearest first: real link-derived distance
+ *  when both sides have coordinates (within 5 km — known-far is dropped even
+ *  on the same line), station/line match as the no-coords fallback. */
+export function suggestForStop(
+  stop: ItineraryStop, places: Place[], scheduledNames: Set<string>,
   coords?: Map<string, LatLng | null>,
 ): DaySuggestion[] {
+  if (!stop.place_name) return []
   const byName = new Map<string, Place>()
   for (const p of places) if (p.name) byName.set(norm(p.name), p)
+  const anchor = byName.get(norm(stop.place_name))
+  if (!anchor) return []
 
-  const stations = new Set<string>()
-  const lines = new Set<string>()
-  const dayCoords: LatLng[] = []
-  for (const s of dayStops) {
-    const p = s.place_name ? byName.get(norm(s.place_name)) : undefined
-    if (!p) continue
-    const st = planStation(p)
-    if (st.station) stations.add(norm(st.station))
-    if (st.line) lines.add(norm(st.line))
-    const c = coords?.get(p.id)
-    if (c) dayCoords.push(c)
-  }
-  if (!stations.size && !lines.size && !dayCoords.length) return []
+  const aSt = planStation(anchor)
+  const aC = coords?.get(anchor.id) ?? null
+  if (!aC && !aSt.station && !aSt.line) return []
 
   const near: { p: Place; distM: number }[] = []
   const scored: { p: Place; score: number }[] = []
   for (const p of places) {
-    if (!p.in_plan || !p.name || scheduledNames.has(norm(p.name))) continue
+    if (p.id === anchor.id || !p.in_plan || !p.name || scheduledNames.has(norm(p.name))) continue
     const c = coords?.get(p.id)
-    if (c && dayCoords.length) {
-      // both sides located → real distance decides (and rules out far places)
-      const d = Math.min(...dayCoords.map((dc) => haversineM(c, dc)))
+    if (aC && c) {
+      const d = haversineM(aC, c)
       if (d <= MAX_NEAR_M) near.push({ p, distM: d })
       continue
     }
-    // no coordinates → best-effort by transit data (city alone is too noisy)
     const st = planStation(p)
-    const score = st.station && stations.has(norm(st.station)) ? 2
-      : st.line && lines.has(norm(st.line)) ? 1 : 0
+    const score = aSt.station && st.station && norm(st.station) === norm(aSt.station) ? 2
+      : aSt.line && st.line && norm(st.line) === norm(aSt.line) ? 1 : 0
     if (score > 0) scored.push({ p, score })
   }
   near.sort((a, b) => a.distM - b.distM)
@@ -70,58 +60,69 @@ export function suggestForDay(
   return [...near, ...scored.map((x) => ({ p: x.p }))].slice(0, 5)
 }
 
-/** "💡 Suggestion" — a horizontal strip under a day's stops offering one-tap
- *  adds from the in-plan places (All Location). Hidden per session via ซ่อน. */
-export function DaySuggestions({ items, onAdd, onOpenDetail }: {
+/** Slim colored bar at the bottom of a stop card — "มีที่ในแพลนใกล้ที่นี่ N ที่".
+ *  Tap to expand into one-tap add cards, or ไม่สนใจ to dismiss for this stop. */
+export function StopSuggestions({ items, onAdd, onOpenDetail, onDismiss }: {
   items: DaySuggestion[]
   onAdd: (p: Place) => void
   onOpenDetail: (p: Place) => void
+  onDismiss: () => void
 }) {
-  const [hidden, setHidden] = useState(false)
-  if (!items.length || hidden) return null
+  const [open, setOpen] = useState(false)
+  if (!items.length) return null
   return (
-    <div className="rounded-[10px] p-2.5" style={{ background: 'linear-gradient(180deg, #f2f8ff, var(--color-surface))', border: '0.5px solid var(--color-brand-border)' }}>
-      <div className="flex items-center gap-1.5">
-        <IconBulb size={14} className="text-brand-mid shrink-0" />
-        <span className="text-[11.5px] font-semibold text-brand-mid">Suggestion</span>
-        <button onClick={() => setHidden(true)} className="ml-auto text-[10.5px] text-ink-3 hover:text-ink-2 shrink-0">ซ่อน</button>
+    <div className="mt-2.5 rounded-[9px] overflow-hidden"
+      style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
+      <div className="flex items-center gap-1 pl-2.5 pr-1.5 h-8">
+        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 flex-1 min-w-0 text-left" aria-expanded={open}>
+          <IconBulb size={13} className="text-brand-mid shrink-0" />
+          <span className="text-[11px] font-semibold text-brand-mid truncate">มีที่ในแพลนใกล้ที่นี่ {items.length} ที่</span>
+          <IconChevronDown size={13} className={`text-brand-mid shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        <button onClick={onDismiss}
+          className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-ink-3 hover:text-ink-2 px-1.5 h-6 rounded-md"
+          aria-label="ไม่สนใจคำแนะนำของจุดนี้">
+          <IconX size={11} /> ไม่สนใจ
+        </button>
       </div>
-      <div className="flex gap-2 mt-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-        {items.map(({ p, distM }) => {
-          const st = planStation(p)
-          const M = catMeta(p.category)
-          const CatIcon = M.icon
-          return (
-            <div key={p.id} className="w-[160px] shrink-0 rounded-[11px] bg-surface p-2.5" style={{ border: '0.5px solid var(--color-line)' }}>
-              <button onClick={() => onOpenDetail(p)} className="w-full text-left">
-                <div className="flex items-center gap-1.5">
-                  <span className="size-5 rounded-[6px] grid place-items-center shrink-0" style={{ background: M.bg, color: M.fg }}>
-                    <CatIcon size={12} />
-                  </span>
-                  <span className="text-[11.5px] font-semibold truncate">{p.name}</span>
-                </div>
-                <div className="mt-1 flex items-center gap-1 text-[9.5px] text-ink-3 min-h-[16px]">
-                  {distM != null && (
-                    <span className="rounded-[5px] px-1.5 py-px font-semibold shrink-0"
-                      style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)', border: '0.5px solid var(--color-brand-border)' }}>
-                      ≈{fmtDistance(distM)}
+      {open && (
+        <div className="flex gap-2 px-2.5 pb-2.5 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+          {items.map(({ p, distM }) => {
+            const st = planStation(p)
+            const M = catMeta(p.category)
+            const CatIcon = M.icon
+            return (
+              <div key={p.id} className="w-[160px] shrink-0 rounded-[10px] bg-surface p-2.5" style={{ border: '0.5px solid var(--color-line)' }}>
+                <button onClick={() => onOpenDetail(p)} className="w-full text-left">
+                  <div className="flex items-center gap-1.5">
+                    <span className="size-5 rounded-[6px] grid place-items-center shrink-0" style={{ background: M.bg, color: M.fg }}>
+                      <CatIcon size={12} />
                     </span>
-                  )}
-                  {st.line && (
-                    <span className="rounded-[5px] px-1.5 py-px font-semibold text-white shrink-0" style={{ background: st.color || 'var(--color-brand)' }}>{st.line}</span>
-                  )}
-                  <span className="truncate">{st.station || p.city || ''}</span>
-                </div>
-              </button>
-              <button onClick={() => onAdd(p)}
-                className="mt-2 w-full h-7 rounded-[8px] text-[10.5px] font-semibold flex items-center justify-center gap-1"
-                style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)', border: '0.5px solid var(--color-brand-border)' }}>
-                <IconPlus size={12} /> เพิ่มเข้าวันนี้
-              </button>
-            </div>
-          )
-        })}
-      </div>
+                    <span className="text-[11.5px] font-semibold truncate">{p.name}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1 text-[9.5px] text-ink-3 min-h-[16px]">
+                    {distM != null && (
+                      <span className="rounded-[5px] px-1.5 py-px font-semibold shrink-0"
+                        style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)', border: '0.5px solid var(--color-brand-border)' }}>
+                        ≈{fmtDistance(distM)}
+                      </span>
+                    )}
+                    {st.line && (
+                      <span className="rounded-[5px] px-1.5 py-px font-semibold text-white shrink-0" style={{ background: st.color || 'var(--color-brand)' }}>{st.line}</span>
+                    )}
+                    <span className="truncate">{st.station || p.city || ''}</span>
+                  </div>
+                </button>
+                <button onClick={() => onAdd(p)}
+                  className="mt-2 w-full h-7 rounded-[8px] text-[10.5px] font-semibold flex items-center justify-center gap-1 bg-surface"
+                  style={{ color: 'var(--color-brand-mid)', border: '0.5px solid var(--color-brand-border)' }}>
+                  <IconPlus size={12} /> เพิ่มเข้าวันนี้
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

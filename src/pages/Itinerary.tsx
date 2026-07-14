@@ -14,7 +14,7 @@ import {
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { MetroRoute } from '@/components/MetroRoute'
-import { DaySuggestions, suggestForDay, type DaySuggestion } from '@/components/DaySuggestions'
+import { StopSuggestions, suggestForStop, type DaySuggestion } from '@/components/DaySuggestions'
 import { coordsForPlace } from '@/lib/placeGeo'
 import type { LatLng } from '@/lib/geo'
 import { StopEditor } from '@/components/StopEditor'
@@ -40,12 +40,15 @@ import {
 import type { ItineraryDay, ItineraryStop, Place } from '@/lib/database.types'
 
 function SortableStop({
-  stop, matchedPlace, canEdit, isNext, onToggleDone, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute, onCopy, onMoveBackup,
+  stop, matchedPlace, canEdit, isNext, suggestions, onAddSuggestion, onDismissSug, onToggleDone, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute, onCopy, onMoveBackup,
 }: {
   stop: ItineraryStop
   matchedPlace: Place | null
   canEdit: boolean
   isNext: boolean
+  suggestions: DaySuggestion[]
+  onAddSuggestion: (p: Place) => void
+  onDismissSug: () => void
   onToggleDone: () => void
   onOpenDetail: (p: Place) => void
   onEdit: () => void
@@ -149,6 +152,10 @@ function SortableStop({
         )}
         {/* TRANSIT SUB-CARD — the route to this stop nests inside its place card */}
         {!done && stop.transit && <MetroRoute transit={stop.transit} onEdit={canEdit ? onEditRoute : undefined} />}
+        {/* 💡 nearby-in-plan bar — slim strip at the card's bottom, per stop */}
+        {!done && canEdit && suggestions.length > 0 && (
+          <StopSuggestions items={suggestions} onAdd={onAddSuggestion} onOpenDetail={onOpenDetail} onDismiss={onDismissSug} />
+        )}
       </div>
       </div>
     </div>
@@ -235,7 +242,7 @@ function BackupFold({ backups, canEdit, label, onPromote, onEditStop, onDeleteSt
 }
 
 function DayCard({
-  day, index, stops, backups, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, suggestions, onAddSuggestion, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste, onMoveToBackup, onPromoteBackup,
+  day, index, stops, backups, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, suggestionsFor, onAddSuggestion, onDismissSug, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste, onMoveToBackup, onPromoteBackup,
 }: {
   day: ItineraryDay
   index: number
@@ -247,8 +254,9 @@ function DayCard({
   nextStopId: string | null
   wx: DayWeather | null | undefined
   isPast: boolean
-  suggestions: DaySuggestion[]
+  suggestionsFor: (s: ItineraryStop) => DaySuggestion[]
   onAddSuggestion: (p: Place) => void
+  onDismissSug: (stopId: string) => void
   onToggleCollapse: () => void
   onToggleDone: (s: ItineraryStop) => void
   onOpenDetail: (p: Place) => void
@@ -330,7 +338,7 @@ function DayCard({
               <div className={canEdit ? '' : 'space-y-2.5'}>
                 {stops.flatMap((s, i) => {
                   const nodes = [
-                    <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} onCopy={() => onCopyStop(s)} onMoveBackup={() => onMoveToBackup(s)} />,
+                    <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} suggestions={suggestionsFor(s)} onAddSuggestion={onAddSuggestion} onDismissSug={() => onDismissSug(s.id)} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} onCopy={() => onCopyStop(s)} onMoveBackup={() => onMoveToBackup(s)} />,
                   ]
                   // 🎯 แผนสำรองของช่วงเวลานี้ — พับไว้ใต้จุดหลักที่เวลาตรงกัน
                   const mine = backupsForStop.get(s.id)
@@ -363,11 +371,6 @@ function DayCard({
                   onPromote={onPromoteBackup} onEditStop={onEditStop} onDeleteStop={onDeleteStop} />
               )}
             </SortableContext>
-
-            {/* 💡 in-list places near today's plan — one-tap add, right under the stops */}
-            {suggestions.length > 0 && (
-              <DaySuggestions items={suggestions} onAdd={onAddSuggestion} onOpenDetail={onOpenDetail} />
-            )}
 
             {canEdit && <button onClick={onAddStop} className="btn-link flex items-center gap-1.5 pt-1"><IconPlus size={15} /> เพิ่มกิจกรรม</button>}
           </div>
@@ -527,6 +530,22 @@ export default function Itinerary() {
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places, scheduledNames, canEdit])
+
+  // stops whose 💡 bar was dismissed via "ไม่สนใจ" — remembered per trip
+  const sugHideKey = trip?.id ? `taurus:itin:sug-hide:${trip.id}` : null
+  const [sugHidden, setSugHidden] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!sugHideKey) { setSugHidden(new Set()); return }
+    try { setSugHidden(new Set(JSON.parse(localStorage.getItem(sugHideKey) ?? '[]') as string[])) }
+    catch { setSugHidden(new Set()) }
+  }, [sugHideKey])
+  function dismissSug(stopId: string) {
+    setSugHidden((prev) => {
+      const n = new Set(prev).add(stopId)
+      if (sugHideKey) { try { localStorage.setItem(sugHideKey, JSON.stringify([...n])) } catch { /* ignore */ } }
+      return n
+    })
+  }
 
   // one-tap add from the 💡 strip — appends to the end of the day's schedule
   async function addSuggested(dayId: string, p: Place) {
@@ -1008,8 +1027,9 @@ export default function Itinerary() {
                 // "deviate from the default" (default = collapsed), so entry = expanded.
                 collapsed={activeFilter ? false : isPast ? !collapsed.has(day.id) : collapsed.has(day.id)}
                 nextStopId={nextStopId}
-                suggestions={canEdit ? suggestForDay(stopsByDay.get(day.id) ?? [], places, scheduledNames, coordsMap) : []}
+                suggestionsFor={(s) => (canEdit && !sugHidden.has(s.id) ? suggestForStop(s, places, scheduledNames, coordsMap) : [])}
                 onAddSuggestion={(p) => addSuggested(day.id, p)}
+                onDismissSug={dismissSug}
                 onToggleCollapse={() => toggleCollapse(day.id)}
                 onToggleDone={toggleDone}
                 onOpenDetail={setDetailPlace}
