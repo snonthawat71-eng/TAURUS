@@ -76,7 +76,7 @@ export function StopSuggestions({ items, onAdd, onOpenDetail, onDismiss }: {
       <div className="flex items-center gap-1 pl-3 pr-2 h-9">
         <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 flex-1 min-w-0 text-left" aria-expanded={open}>
           <IconBulb size={13} className="text-brand-mid shrink-0" />
-          <span className="text-[11px] font-semibold text-brand-mid truncate">มีที่ในแพลนใกล้ที่นี่ {items.length} ที่</span>
+          <span className="text-[11px] font-semibold text-brand-mid truncate">Suggestion ({items.length})</span>
           <IconChevronDown size={13} className={`text-brand-mid shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
         <button onClick={onDismiss}
