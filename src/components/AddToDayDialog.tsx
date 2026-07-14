@@ -104,8 +104,8 @@ export function AddToDayDialog({ place, open, onClose }: {
             {busy === 'plan' ? <IconLoader2 size={18} className="animate-spin" /> : <IconBookmark size={18} />}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="text-[13.5px] font-semibold" style={{ color: 'var(--color-brand-dark)' }}>ใส่ในแพลนไว้ก่อน</div>
-            <div className="text-[11.5px] text-ink-3">ยังไม่เลือกวัน — ค่อยจัดลงวันทีหลังได้</div>
+            <div className="text-[13.5px] font-semibold" style={{ color: 'var(--color-brand-dark)' }}>เพิ่มลงแพลน</div>
+            <div className="text-[11.5px] text-ink-3">แบบไม่ระบุวัน</div>
           </div>
         </button>
 
