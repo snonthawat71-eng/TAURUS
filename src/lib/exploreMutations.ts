@@ -107,7 +107,7 @@ export async function resolveSuggestion(id: string, status: 'accepted' | 'dismis
 export function suggestionToInput(e: ExplorePlace, s: ExploreSuggestion): ExploreInput | null {
   const p = (s.payload ?? {}) as Record<string, string | null | undefined>
   if (s.kind === 'route') {
-    return { routes: [...(e.routes ?? []), { line: p.line ?? null, color: p.color ?? null, station: p.station ?? null }] }
+    return { routes: [...(e.routes ?? []), { line: p.line ?? null, color: p.color ?? null, station: p.station ?? null, mode: p.mode ?? undefined }] }
   }
   if (s.kind === 'branch') {
     return {
