@@ -90,12 +90,9 @@ export function PlaceCard({
           <span className="size-2 rounded-full shrink-0" style={{ background: place.station_color ?? '#888780' }} />
           {(() => {
             const code = stationCode(place.station_line, place.station_name)
-            return code ? (
-              <span className="shrink-0 rounded-[5px] px-1 py-px text-[9.5px] font-semibold text-white tabular-nums"
-                style={{ background: place.station_color ?? '#888780' }}>{code}</span>
-            ) : null
+            const station = place.station_name ? `${code ? `${code} ` : ''}${place.station_name}` : ''
+            return <span className="truncate flex-1">{place.station_line}{station ? ` · ${station}` : ''}</span>
           })()}
-          <span className="truncate flex-1">{place.station_line}{place.station_name ? ` · ${place.station_name}` : ''}</span>
           {mode === 'edit' && (
             <PopMenu size={24} items={[
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },

@@ -97,12 +97,9 @@ export function PlaceDetail({
                 <span className="size-2 rounded-full shrink-0" style={{ background: lineColor ?? '#888780' }} />
                 {(() => {
                   const code = stationCode(lineText, stationText)
-                  return code ? (
-                    <span className="shrink-0 rounded-[5px] px-1 py-px text-[10px] font-semibold text-white tabular-nums"
-                      style={{ background: lineColor ?? '#888780' }}>{code}</span>
-                  ) : null
+                  const station = stationText ? `${code ? `${code} ` : ''}${stationText}` : ''
+                  return <span>{lineText}{station ? ` · ${station}` : ''}</span>
                 })()}
-                <span>{lineText}{stationText ? ` · ${stationText}` : ''}</span>
               </div>
             )}
           </div>
