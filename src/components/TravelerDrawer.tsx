@@ -88,7 +88,7 @@ export function TravelerDrawer({
   return (
     <Drawer open={open} onClose={onClose} title="ข้อมูลผู้เดินทาง">
       <div className="flex items-center gap-3">
-        <Avatar name={traveler.nickname} color={color} size={42} ring={false} />
+        <Avatar name={traveler.nickname} color={color} photo={traveler.avatar_url} photoFocus={traveler.avatar_focus} size={42} ring={false} />
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-medium">{traveler.nickname}</div>
           {traveler.full_name && <div className="text-[12px] text-ink-3 truncate">{traveler.full_name}</div>}

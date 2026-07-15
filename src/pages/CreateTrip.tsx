@@ -528,7 +528,7 @@ export default function CreateTrip() {
             <div className="space-y-2 mt-5">
               {created.travelers.map((t, i) => (
                 <div key={t.id} className="card flex items-center gap-2.5 p-2.5">
-                  <Avatar name={t.nickname} color={t.avatar_color ?? ORDER[i % ORDER.length]} size={30} ring={false} />
+                  <Avatar name={t.nickname} color={t.avatar_color ?? ORDER[i % ORDER.length]} photo={t.avatar_url} photoFocus={t.avatar_focus} size={30} ring={false} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium truncate">{t.nickname}</div>
                     <div className="text-[10.5px] text-ink-3 truncate">{t.user_id === user?.id ? 'เจ้าของทริป' : t.full_name || ''}</div>

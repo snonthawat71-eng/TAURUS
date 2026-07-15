@@ -246,7 +246,7 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
             )}
             {replyTo === c.id && (
               <div className="flex items-start gap-2 mt-2">
-                <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} size={26} ring={false} />
+                <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={26} ring={false} />
                 <div className="flex-1 min-w-0">
                   <textarea value={replyText} onChange={(ev) => setReplyText(ev.target.value)} rows={2} autoFocus
                     placeholder={`ตอบกลับ ${c.author_name ?? ''}…`}
@@ -509,7 +509,7 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
         <div className="text-[13px] font-medium mb-2">ความคิดเห็น {comments.length > 0 && `(${comments.length})`}</div>
 
         <div className="flex items-start gap-2 mb-3">
-          <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} size={30} ring={false} />
+          <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={30} ring={false} />
           <div className="flex-1 min-w-0">
             <textarea value={text} onChange={(ev) => setText(ev.target.value)} rows={2}
               placeholder="เขียนความคิดเห็น…"

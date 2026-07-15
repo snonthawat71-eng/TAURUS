@@ -35,12 +35,12 @@ export default function Budget() {
   const [equiv, setEquiv] = useState<string | null>(null)
 
   const person = useMemo(() => {
-    const m = new Map<string, { name: string; color?: string }>()
-    travelers.forEach((t, i) => m.set(t.id, { name: t.nickname ?? 'ผู้เดินทาง', color: t.avatar_color ?? AV[i % 4] }))
-    memberProfiles.forEach((p) => { if (!m.has(p.id)) m.set(p.id, { name: p.nickname ?? 'ผู้ใช้', color: p.avatar_color ?? undefined }) })
+    const m = new Map<string, { name: string; color?: string; photo?: string | null; photoFocus?: string | null }>()
+    travelers.forEach((t, i) => m.set(t.id, { name: t.nickname ?? 'ผู้เดินทาง', color: t.avatar_color ?? AV[i % 4], photo: t.avatar_url, photoFocus: t.avatar_focus }))
+    memberProfiles.forEach((p) => { if (!m.has(p.id)) m.set(p.id, { name: p.nickname ?? 'ผู้ใช้', color: p.avatar_color ?? undefined, photo: p.avatar_url, photoFocus: p.avatar_focus }) })
     return m
   }, [travelers, memberProfiles])
-  const personOf = (id: string) => person.get(id) ?? { name: 'ผู้ใช้', color: undefined }
+  const personOf = (id: string) => person.get(id) ?? { name: 'ผู้ใช้', color: undefined, photo: null, photoFocus: null }
 
   const total = expenses.reduce((s, e) => s + (e.total ?? 0), 0)
   const distinctSplit = new Set<string>()
@@ -108,7 +108,7 @@ export default function Budget() {
               <div className="min-w-0 flex-1">
                 <div className="text-[14px] font-medium truncate">{e.name}</div>
                 <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
-                  {payer && <><Avatar name={payer.name} color={payer.color} size={16} ring={false} /> <span>จ่ายโดย {payer.name}</span></>}
+                  {payer && <><Avatar name={payer.name} color={payer.color} photo={payer.photo} photoFocus={payer.photoFocus} size={16} ring={false} /> <span>จ่ายโดย {payer.name}</span></>}
                   <span>· หาร {n} คน</span>
                 </div>
               </div>
@@ -138,10 +138,10 @@ export default function Budget() {
               const to = personOf(s.toId)
               return (
                 <div key={i} className="flex items-center gap-2 text-[13px]">
-                  <Avatar name={from.name} color={from.color} size={20} ring={false} />
+                  <Avatar name={from.name} color={from.color} photo={from.photo} photoFocus={from.photoFocus} size={20} ring={false} />
                   <span className="font-medium">{from.name}</span>
                   <span className="text-ink-3">ต้องจ่ายให้</span>
-                  <Avatar name={to.name} color={to.color} size={20} ring={false} />
+                  <Avatar name={to.name} color={to.color} photo={to.photo} photoFocus={to.photoFocus} size={20} ring={false} />
                   <span className="font-medium">{to.name}</span>
                   <span className="ml-auto booking-id tabular-nums">{baht(s.amount)}</span>
                 </div>

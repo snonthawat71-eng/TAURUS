@@ -61,7 +61,7 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
           <div className="space-y-1.5">
             {memberProfiles.map((m) => (
               <div key={m.id} className="flex items-center gap-2.5 card p-2.5">
-                <Avatar name={m.nickname} color={m.avatar_color} size={28} ring={false} />
+                <Avatar name={m.nickname} color={m.avatar_color} photo={m.avatar_url} photoFocus={m.avatar_focus} size={28} ring={false} />
                 <span className="text-[13px] flex-1 truncate">{m.nickname ?? 'ผู้ใช้'}</span>
                 {trip?.owner_id === m.id ? (
                   <span className="chip !bg-brand-soft !text-brand-dark"><IconCrown size={12} /> เจ้าของ</span>
