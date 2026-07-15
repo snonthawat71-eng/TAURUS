@@ -13,6 +13,9 @@ export function Drawer({
   const startY = useRef<number | null>(null)
   const [dy, setDy] = useState(0)
   const [dragging, setDragging] = useState(false)
+  // Track the visual viewport so the sheet lifts above the on-screen keyboard
+  // instead of hiding its lower fields (inputs, search) behind it.
+  const [vv, setVv] = useState<{ top: number; height: number } | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -25,6 +28,17 @@ export function Drawer({
       document.body.style.overflow = ''
     }
   }, [open, onClose])
+
+  useEffect(() => {
+    if (!open) return
+    const view = window.visualViewport
+    if (!view) return
+    const update = () => setVv({ top: view.offsetTop, height: view.height })
+    update()
+    view.addEventListener('resize', update)
+    view.addEventListener('scroll', update)
+    return () => { view.removeEventListener('resize', update); view.removeEventListener('scroll', update); setVv(null) }
+  }, [open])
 
   if (!open) return null
 
@@ -48,12 +62,16 @@ export function Drawer({
 
   // Portal to <body> so no ancestor transform/backdrop-filter can clip or offset it.
   return createPortal(
-    <div className="fixed inset-0 z-[100] overflow-y-auto">
+    <div className="fixed inset-0 z-[100]">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative min-h-full flex items-end justify-center sm:items-center p-0 sm:p-6">
-        <div
-          className="relative bg-surface w-full sm:max-w-[440px] rounded-t-[20px] sm:rounded-[18px] max-h-[90dvh] overflow-y-auto shadow-2xl animate-[slideup_.2s_ease]"
-          style={{ transform: dy ? `translateY(${dy}px)` : undefined, transition: dragging ? 'none' : 'transform .2s ease' }}>
+      {/* This scroll area is pinned to the VISIBLE viewport (above the keyboard
+          when one is open), so the bottom sheet's lower fields stay reachable. */}
+      <div className="absolute left-0 right-0 overflow-y-auto"
+        style={{ top: vv?.top ?? 0, height: vv ? vv.height : '100%' }}>
+        <div className="relative min-h-full flex items-end justify-center sm:items-center p-0 sm:p-6">
+          <div
+            className="relative bg-surface w-full sm:max-w-[440px] rounded-t-[20px] sm:rounded-[18px] max-h-[90dvh] overflow-y-auto shadow-2xl animate-[slideup_.2s_ease]"
+            style={{ maxHeight: vv ? `min(90dvh, ${vv.height}px)` : undefined, transform: dy ? `translateY(${dy}px)` : undefined, transition: dragging ? 'none' : 'transform .2s ease' }}>
           {/* drag handle (mobile) — swipe down here to close (only this zone) */}
           <div className="sm:hidden flex justify-center pt-3 pb-2.5 cursor-grab touch-none"
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
@@ -65,6 +83,7 @@ export function Drawer({
           </button>
           {title && <div className="px-5 pt-4 text-[16px] font-medium pr-12">{title}</div>}
           <div className="p-5 pt-3">{children}</div>
+          </div>
         </div>
       </div>
     </div>,
