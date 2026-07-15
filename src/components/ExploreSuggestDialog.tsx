@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  IconLoader2, IconRoute, IconBuildingStore, IconPencil, IconFlag, IconSend, IconHandStop,
+  IconLoader2, IconRoute, IconBuildingStore, IconPencil, IconFlag, IconSend, IconMessageReport,
   IconCheck, IconLink, IconUpload, IconX,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
@@ -175,7 +175,7 @@ export function ExploreSuggestDialog({ place, open, onClose, onSubmitted }: {
   return (
     <Drawer open={open} onClose={onClose} title="ช่วยแก้ / รายงาน">
       <div className="flex items-center gap-2 mb-3 text-[13px]">
-        <IconHandStop size={15} className="text-brand shrink-0" />
+        <IconMessageReport size={15} className="text-brand shrink-0" />
         <span className="font-medium truncate">{place?.name}</span>
       </div>
 

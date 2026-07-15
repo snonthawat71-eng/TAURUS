@@ -3,7 +3,7 @@ import {
   IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
   IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
   IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconPhoto, IconChevronDown,
-  IconHandStop, IconRoute, IconPencil, IconFlag, IconCheck, IconX,
+  IconMessageReport, IconRoute, IconPencil, IconFlag, IconCheck, IconX,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { PhotoCarousel } from './PhotoCarousel'
@@ -425,7 +425,7 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
         <button onClick={onSuggest}
           className="w-full flex items-center justify-center gap-1.5 h-10 rounded-[10px] text-[12.5px] font-medium mt-2"
           style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
-          <IconHandStop size={15} /> เห็นข้อมูลไม่ตรง? ช่วยแก้ / รายงาน
+          <IconMessageReport size={15} /> เห็นข้อมูลไม่ตรง? ช่วยแก้ / รายงาน
         </button>
       )}
 
@@ -433,7 +433,7 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
       {isOwner && suggestions.length > 0 && (
         <div className="mt-5">
           <div className="text-[13px] font-medium mb-2 flex items-center gap-1.5">
-            <IconHandStop size={15} className="text-brand" /> ข้อเสนอแก้ไข ({suggestions.length})
+            <IconMessageReport size={15} className="text-brand" /> ข้อเสนอแก้ไข ({suggestions.length})
           </div>
           <div className="space-y-2">
             {suggestions.map((s) => {

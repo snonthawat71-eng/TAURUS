@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { IconBell, IconHeartFilled, IconMessageCircle, IconHandStop } from '@tabler/icons-react'
+import { IconBell, IconHeartFilled, IconMessageCircle, IconMessageReport } from '@tabler/icons-react'
 import { getExploreNotifs, type ExploreNotif } from '@/lib/exploreMutations'
 import type { SuggestionKind } from '@/lib/database.types'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -106,7 +106,7 @@ export function ExploreNotifications({ userId, onOpenItem }: {
                     {n.kind === 'like'
                       ? <IconHeartFilled size={14} className="text-[#EF4444]" />
                       : n.kind === 'suggestion'
-                        ? <IconHandStop size={14} style={{ color: '#16A34A' }} />
+                        ? <IconMessageReport size={14} style={{ color: '#16A34A' }} />
                         : <IconMessageCircle size={14} className="text-brand" />}
                   </span>
                   <div className="min-w-0 flex-1">

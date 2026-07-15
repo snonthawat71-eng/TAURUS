@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore, IconZoomScan, IconHandStop } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore, IconZoomScan, IconMessageReport } from '@tabler/icons-react'
 import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { StarRating } from './StarRating'
@@ -137,7 +137,7 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
       ) : onSuggest && (
         <button onClick={(ev) => { ev.stopPropagation(); onSuggest() }} aria-label="ช่วยแก้ / รายงาน" title="ช่วยแก้ / รายงาน"
           className="absolute bottom-2.5 right-2.5 size-8 rounded-full grid place-items-center bg-surface-2 hover:bg-line text-ink-2 z-20">
-          <IconHandStop size={15} />
+          <IconMessageReport size={15} />
         </button>
       )}
       {saved && <div className="absolute inset-0 rounded-[12px] pointer-events-none z-10" style={{ background: 'rgba(120,118,110,0.16)' }} />}
