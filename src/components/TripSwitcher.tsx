@@ -36,7 +36,7 @@ export function TripSwitcher({ variant }: { variant: 'sidebar' | 'topbar' }) {
             {trip && <span className="chip !bg-brand-soft !text-brand-dark !py-0.5">{dayCount(trip.start_date, trip.end_date)} วัน</span>}
           </div>
           <div className="mt-2.5">
-            <AvatarStack people={travelers.map((t, i) => ({ name: t.nickname, color: ['av1', 'av2', 'av3', 'av4'][i % 4] }))} size={22} />
+            <AvatarStack people={travelers.map((t, i) => ({ name: t.nickname, color: ['av1', 'av2', 'av3', 'av4'][i % 4], photo: t.avatar_url }))} size={22} />
           </div>
         </button>
       ) : (

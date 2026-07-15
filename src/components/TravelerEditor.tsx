@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { IconTrash } from '@tabler/icons-react'
+import { IconTrash, IconCamera, IconLoader2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
 import { toHexColor } from '@/lib/avatars'
+import { uploadPublicImage } from '@/lib/files'
 import { confirmDialog } from '@/lib/confirm'
 import type { Traveler } from '@/lib/database.types'
 
@@ -15,13 +16,15 @@ export function TravelerEditor({
   onClose: () => void
   initial: Traveler | null
   defaultColor: string
-  onSave: (fields: { nickname: string; full_name: string; avatar_color: string }) => Promise<void>
+  onSave: (fields: { nickname: string; full_name: string; avatar_color: string; avatar_url: string | null }) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
   const [nickname, setNickname] = useState('')
   const [first, setFirst] = useState('')
   const [last, setLast] = useState('')
   const [color, setColor] = useState(toHexColor('av1')) // free-form hex
+  const [photo, setPhoto] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -32,15 +35,26 @@ export function TravelerEditor({
       setFirst(parts[0] ?? '')
       setLast(parts.slice(1).join(' '))
       setColor(toHexColor(initial?.avatar_color ?? defaultColor))
+      setPhoto(initial?.avatar_url ?? null)
     }
   }, [open, initial, defaultColor])
+
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    const { url } = await uploadPublicImage(file)
+    if (url) setPhoto(url)
+    setUploading(false)
+  }
 
   async function save() {
     const nick = nickname.trim()
     if (!nick) return
     setBusy(true)
     const fullName = [first.trim(), last.trim()].filter(Boolean).join(' ')
-    await onSave({ nickname: nick, full_name: fullName, avatar_color: color })
+    await onSave({ nickname: nick, full_name: fullName, avatar_color: color, avatar_url: photo })
     setBusy(false)
     onClose()
   }
@@ -56,17 +70,32 @@ export function TravelerEditor({
   return (
     <Drawer open={open} onClose={onClose} title={initial ? 'แก้ไขผู้เดินทาง' : 'เพิ่มผู้เดินทาง'}>
       <div className="flex flex-col items-center gap-3 mb-4">
-        <Avatar name={nickname || '?'} color={color} size={64} ring={false} />
-        {/* single colour wheel — pick any colour */}
-        <label className="flex items-center gap-2 cursor-pointer rounded-full pl-1.5 pr-3 h-9 bg-surface-2 text-[12px] font-medium text-ink-2"
-          title="เลือกสีจากวงล้อสี">
-          <span className="size-7 rounded-full grid place-items-center relative overflow-hidden shrink-0"
-            style={{ background: 'conic-gradient(red, orange, yellow, lime, aqua, blue, magenta, red)' }}>
-            <span className="size-4 rounded-full" style={{ background: color, boxShadow: '0 0 0 2px #fff' }} />
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
+        {/* tap the avatar to upload a photo (falls back to initials + colour) */}
+        <label htmlFor="trav-photo-input" className="relative cursor-pointer" title="ใส่รูปโปรไฟล์">
+          <Avatar name={nickname || '?'} color={color} photo={photo} size={72} ring={false} />
+          <span className="absolute -bottom-0.5 -right-0.5 size-6 rounded-full grid place-items-center text-white"
+            style={{ background: 'var(--color-brand)', border: '2px solid var(--color-surface)' }}>
+            {uploading ? <IconLoader2 size={12} className="animate-spin" /> : <IconCamera size={12} />}
           </span>
-          เลือกสีเอง
         </label>
+        <input id="trav-photo-input" type="file" accept="image/*" hidden onChange={onPickPhoto} />
+        <div className="flex items-center gap-2">
+          {/* single colour wheel — pick any colour */}
+          <label className="flex items-center gap-2 cursor-pointer rounded-full pl-1.5 pr-3 h-9 bg-surface-2 text-[12px] font-medium text-ink-2"
+            title="เลือกสีจากวงล้อสี">
+            <span className="size-7 rounded-full grid place-items-center relative overflow-hidden shrink-0"
+              style={{ background: 'conic-gradient(red, orange, yellow, lime, aqua, blue, magenta, red)' }}>
+              <span className="size-4 rounded-full" style={{ background: color, boxShadow: '0 0 0 2px #fff' }} />
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
+            </span>
+            เลือกสีเอง
+          </label>
+          {photo && (
+            <button onClick={() => setPhoto(null)} className="inline-flex items-center gap-1 text-[12px] text-[#D85A30] h-9 px-2">
+              <IconTrash size={13} /> ลบรูป
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3">

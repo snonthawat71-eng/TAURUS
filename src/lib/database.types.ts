@@ -8,6 +8,8 @@ export interface Profile {
   nickname: string | null
   full_name: string | null
   avatar_color: AvatarColor | string | null
+  /** optional — present after supabase/avatars.sql; a public profile photo URL */
+  avatar_url?: string | null
   created_at: string
 }
 
@@ -56,6 +58,8 @@ export interface Traveler {
   passport_last4: string | null
   /** optional — only present after the avatar_color migration is run */
   avatar_color?: string | null
+  /** optional — present after supabase/avatars.sql; a public profile photo URL */
+  avatar_url?: string | null
   /** optional — present after supabase/privacy.sql: the account this card belongs to */
   user_id?: string | null
   /** optional — 'trip' (everyone) | 'private' (card owner + trip owner); default private */

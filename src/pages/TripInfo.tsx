@@ -587,7 +587,7 @@ export default function TripInfo() {
             </span>
           )}
           <div className="flex items-center gap-2.5">
-            <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
+            <Avatar name={t.nickname} color={travelerColor(t, i)} photo={t.avatar_url} size={34} ring={false} />
             <div className="min-w-0 flex-1">
               {/* nickname line (pr-7 leaves room for the top-right share icon) */}
               <div className="text-[14px] font-medium leading-tight flex items-center gap-1.5 pr-7">
@@ -848,7 +848,7 @@ export default function TripInfo() {
             // if this traveler is "me", keep my profile name/colour in sync
             if (user && profile?.nickname && travelerEdit.nickname
               && travelerEdit.nickname.trim().toLowerCase() === profile.nickname.trim().toLowerCase()) {
-              await updateProfile(user.id, { nickname: fields.nickname, avatar_color: fields.avatar_color })
+              await updateProfile(user.id, { nickname: fields.nickname, avatar_color: fields.avatar_color, avatar_url: fields.avatar_url })
             }
           }
           await reload()
