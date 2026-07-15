@@ -19,14 +19,18 @@ export function TravelerEditor({
   onDelete?: () => Promise<void>
 }) {
   const [nickname, setNickname] = useState('')
-  const [fullName, setFullName] = useState('')
+  const [first, setFirst] = useState('')
+  const [last, setLast] = useState('')
   const [color, setColor] = useState(toHexColor('av1')) // free-form hex
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (open) {
       setNickname(initial?.nickname ?? '')
-      setFullName(initial?.full_name ?? '')
+      // split the stored full name back into first / last (first word = ชื่อจริง)
+      const parts = (initial?.full_name ?? '').trim().split(/\s+/).filter(Boolean)
+      setFirst(parts[0] ?? '')
+      setLast(parts.slice(1).join(' '))
       setColor(toHexColor(initial?.avatar_color ?? defaultColor))
     }
   }, [open, initial, defaultColor])
@@ -35,7 +39,8 @@ export function TravelerEditor({
     const nick = nickname.trim()
     if (!nick) return
     setBusy(true)
-    await onSave({ nickname: nick, full_name: fullName.trim(), avatar_color: color })
+    const fullName = [first.trim(), last.trim()].filter(Boolean).join(' ')
+    await onSave({ nickname: nick, full_name: fullName, avatar_color: color })
     setBusy(false)
     onClose()
   }
@@ -69,9 +74,16 @@ export function TravelerEditor({
           <label className="text-[11px] text-ink-3">ชื่อเล่น</label>
           <input className={field} value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="เช่น Elf" />
         </div>
-        <div>
-          <label className="text-[11px] text-ink-3">ชื่อ-นามสกุล</label>
-          <input className={field} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="เช่น Nuttaporn Saengthong" />
+        {/* ชื่อจริง / นามสกุล แยกช่อง — ให้ตรงกับหน้าสร้างทริป */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[11px] text-ink-3">ชื่อจริง</label>
+            <input className={field} value={first} onChange={(e) => setFirst(e.target.value)} placeholder="เช่น Nuttaporn" />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-3">นามสกุล</label>
+            <input className={field} value={last} onChange={(e) => setLast(e.target.value)} placeholder="เช่น Saengthong" />
+          </div>
         </div>
         <button onClick={save} disabled={busy || !nickname.trim()} className="btn-primary w-full h-10 disabled:opacity-50">
           {busy ? 'กำลังบันทึก...' : 'บันทึก'}
