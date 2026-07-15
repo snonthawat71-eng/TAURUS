@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   IconLoader2, IconRoute, IconBuildingStore, IconPencil, IconFlag, IconSend, IconHandStop,
-  IconCheck, IconLink,
+  IconCheck, IconLink, IconUpload, IconX,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Combobox, type ComboOption } from './Combobox'
@@ -13,6 +13,8 @@ import { addSuggestion } from '@/lib/exploreMutations'
 import { suggestionsFromText, findLine } from '@/lib/metro/suggest'
 import { modeMeta } from '@/lib/transitModes'
 import { nameFromMapUrl, resolveMapName, isMapLink } from '@/lib/geo'
+import { uploadPublicImage } from '@/lib/files'
+import { optimizeImageUrl } from '@/lib/cloudinary'
 import { toast } from '@/lib/toast'
 import type { ExplorePlace, ExploreRoute, PlaceBranch, SuggestionKind } from '@/lib/database.types'
 
@@ -60,6 +62,16 @@ export function ExploreSuggestDialog({ place, open, onClose, onSubmitted }: {
   const [note, setNote] = useState('')
   const [autoFilled, setAutoFilled] = useState(false)
   const [linkState, setLinkState] = useState<'idle' | 'busy' | 'ok' | 'fail'>('idle')
+  const [uploading, setUploading] = useState(false)
+
+  async function uploadFiles(files: FileList | File[]) {
+    const file = Array.from(files)[0]
+    if (!file || uploading) return
+    setUploading(true)
+    const { url } = await uploadPublicImage(file)
+    if (url) setPhotoUrl(url); else toast.error('อัปโหลดรูปไม่สำเร็จ — ลองใหม่')
+    setUploading(false)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -237,8 +249,29 @@ export function ExploreSuggestDialog({ place, open, onClose, onSubmitted }: {
               <input className={field} value={name} onChange={(e) => { setName(e.target.value); setAutoFilled(false) }} placeholder={place?.name ?? 'ชื่อสถานที่'} />
             </div>
             <div>
-              <div className={lbl}>ลิงก์รูปที่ถูกต้อง (ถ้ามี)</div>
-              <input className={field} value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="วาง URL รูป" inputMode="url" />
+              <div className={lbl}>รูปที่ถูกต้อง (ถ้ามี)</div>
+              {photoUrl ? (
+                <div className="relative w-24 h-24 rounded-[10px] overflow-hidden bg-surface-2 hairline">
+                  <img src={optimizeImageUrl(photoUrl, 300) ?? photoUrl} alt="" className="w-full h-full object-cover" />
+                  <button onClick={() => setPhotoUrl('')} aria-label="ลบรูป"
+                    className="absolute top-1 right-1 size-5 rounded-full bg-black/55 text-white grid place-items-center"><IconX size={11} /></button>
+                </div>
+              ) : (
+                <label htmlFor="sug-photo-input" aria-disabled={uploading}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files) }}
+                  className="block rounded-[12px] text-center py-5 px-3 cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]"
+                  style={{ border: '1.5px dashed var(--color-line-2)', background: 'var(--color-canvas)' }}>
+                  <span className="mx-auto mb-2 size-10 rounded-full bg-surface-2 grid place-items-center text-ink-2">
+                    {uploading ? <IconLoader2 size={18} className="animate-spin" /> : <IconUpload size={18} />}
+                  </span>
+                  <span className="block text-[13px] font-semibold text-ink">ลากรูปมาวาง หรือแตะเพื่อเลือก</span>
+                  <span className="block text-[11px] text-ink-3 mt-0.5">PNG · JPG · WebP</span>
+                </label>
+              )}
+              <input id="sug-photo-input" type="file" accept="image/*" hidden
+                onChange={(e) => { if (e.target.files?.length) uploadFiles(e.target.files); e.target.value = '' }} />
+              <input className={`${field} mt-2`} value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="หรือวาง URL รูป" inputMode="url" />
             </div>
           </div>
         )}
