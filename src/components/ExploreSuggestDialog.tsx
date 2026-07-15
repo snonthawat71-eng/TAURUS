@@ -155,6 +155,7 @@ export function ExploreSuggestDialog({ place, open, onClose, onSubmitted }: {
     const authorName = profile?.nickname ?? user.email?.split('@')[0] ?? 'ผู้ใช้'
     const res = await addSuggestion({
       exploreId: place.id, userId: user.id, authorName, authorColor: profile?.avatar_color ?? null,
+      authorPhoto: profile?.avatar_url ?? null, authorFocus: profile?.avatar_focus ?? null,
       kind, payload, note: note.trim() || null,
     })
     setBusy(false)

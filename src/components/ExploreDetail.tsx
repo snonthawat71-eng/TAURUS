@@ -201,7 +201,7 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
     if (!e || !user || !body.trim()) return
     setSending(true)
     const name = profile?.nickname ?? user.email?.split('@')[0] ?? 'ผู้ใช้'
-    await addComment(e.id, user.id, body.trim(), name, profile?.avatar_color ?? null, parentId ?? null)
+    await addComment(e.id, user.id, body.trim(), name, profile?.avatar_color ?? null, parentId ?? null, profile?.avatar_url ?? null, profile?.avatar_focus ?? null)
     setText('')
     setReplyText('')
     setReplyTo(null)
@@ -226,7 +226,7 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
     return childrenOf(parentId).map((c) => (
       <div key={c.id} className={depth > 0 ? 'pl-7' : ''}>
         <div className="flex items-start gap-2">
-          <Avatar name={c.author_name} color={c.author_color} size={depth > 0 ? 26 : 30} ring={false} />
+          <Avatar name={c.author_name} color={c.author_color} photo={c.author_photo} photoFocus={c.author_focus} size={depth > 0 ? 26 : 30} ring={false} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="text-[12px] font-medium truncate">{c.author_name ?? 'ผู้ใช้'}</span>
@@ -443,7 +443,7 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
               return (
                 <div key={s.id} className="card p-3" style={{ border: '0.5px solid var(--color-brand-border)' }}>
                   <div className="flex items-center gap-2">
-                    <Avatar name={s.author_name} color={s.author_color} size={24} ring={false} />
+                    <Avatar name={s.author_name} color={s.author_color} photo={s.author_photo} photoFocus={s.author_focus} size={24} ring={false} />
                     <span className="text-[12px] font-medium truncate flex-1">{s.author_name ?? 'ใครบางคน'}</span>
                     <span className="chip !py-0.5 !text-[10.5px] shrink-0"><SIcon size={11} /> {M.label}</span>
                   </div>

@@ -81,13 +81,22 @@ export async function updateExplore(id: string, input: ExploreInput) {
 
 export async function addSuggestion(input: {
   exploreId: string; userId: string; authorName: string; authorColor?: string | null
+  authorPhoto?: string | null; authorFocus?: string | null
   kind: SuggestionKind; payload?: Record<string, unknown> | null; note?: string | null
 }) {
-  return supabase.from('explore_suggestions').insert({
+  const row: Record<string, unknown> = {
     id: crypto.randomUUID(), explore_id: input.exploreId, user_id: input.userId,
     author_name: input.authorName, author_color: input.authorColor ?? null,
+    author_photo: input.authorPhoto ?? null, author_focus: input.authorFocus ?? null,
     kind: input.kind, payload: input.payload ?? null, note: input.note ?? null, status: 'pending',
-  })
+  }
+  let res = await supabase.from('explore_suggestions').insert(row)
+  // author_photo/author_focus are optional (supabase/avatars.sql) — retry without
+  if (res.error && (res.error.message.includes('author_photo') || res.error.message.includes('author_focus'))) {
+    const { author_photo, author_focus, ...rest } = row // eslint-disable-line @typescript-eslint/no-unused-vars
+    res = await supabase.from('explore_suggestions').insert(rest)
+  }
+  return res
 }
 
 /** Pending suggestions on one item (owner-only under RLS). Missing table → []. */
@@ -138,16 +147,21 @@ export async function listComments(exploreId: string) {
 export async function addComment(
   exploreId: string, userId: string, body: string, authorName: string,
   authorColor?: string | null, parentId?: string | null,
+  authorPhoto?: string | null, authorFocus?: string | null,
 ) {
   const payload: Record<string, unknown> = {
     id: crypto.randomUUID(), explore_id: exploreId, user_id: userId,
     author_name: authorName, author_color: authorColor ?? null, body, parent_id: parentId ?? null,
+    author_photo: authorPhoto ?? null, author_focus: authorFocus ?? null,
   }
   let res = await supabase.from('explore_comments').insert(payload)
-  // `parent_id` is added later (explore.sql) — retry without it if the column is missing
-  if (res.error && res.error.message.includes('parent_id')) {
-    const { parent_id, ...rest } = payload // eslint-disable-line @typescript-eslint/no-unused-vars
-    res = await supabase.from('explore_comments').insert(rest)
+  // parent_id (explore.sql) + author_photo/author_focus (avatars.sql) are added
+  // later — strip whichever the schema reports as missing, then retry.
+  if (res.error) {
+    const copy = { ...payload }; const msg = res.error.message; let changed = false
+    if (msg.includes('parent_id')) { delete copy.parent_id; changed = true }
+    if (msg.includes('author_photo') || msg.includes('author_focus')) { delete copy.author_photo; delete copy.author_focus; changed = true }
+    if (changed) res = await supabase.from('explore_comments').insert(copy)
   }
   return res
 }

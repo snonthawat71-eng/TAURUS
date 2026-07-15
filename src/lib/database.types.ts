@@ -362,6 +362,9 @@ export interface ExploreComment {
   user_id: string | null
   author_name: string | null
   author_color: string | null
+  /** optional — present after supabase/avatars.sql; author's photo + crop */
+  author_photo?: string | null
+  author_focus?: string | null
   body: string
   /** optional — present after explore.sql adds replies (a comment replying to another) */
   parent_id?: string | null
@@ -379,6 +382,9 @@ export interface ExploreSuggestion {
   user_id: string | null
   author_name: string | null
   author_color: string | null
+  /** optional — present after supabase/avatars.sql; author's photo + crop */
+  author_photo?: string | null
+  author_focus?: string | null
   kind: SuggestionKind
   /** structured data per kind (route/branch fields, edited fields, report reason) */
   payload: Record<string, unknown> | null

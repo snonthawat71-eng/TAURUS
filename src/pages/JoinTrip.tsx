@@ -1,10 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
-import { IconCheck, IconLock, IconUsers, IconPlaneTilt, IconBrandGoogle, IconMail } from '@tabler/icons-react'
+import { IconCheck, IconLock, IconUsers, IconPlaneTilt, IconBrandGoogle, IconMail, IconCamera, IconLoader2 } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { TaurusMark } from '@/components/TaurusMark'
 import { Avatar } from '@/components/Avatar'
+import { PhotoCropper } from '@/components/PhotoCropper'
+import { uploadPublicImage } from '@/lib/files'
+import { updateProfile } from '@/lib/tripMutations'
 import { toast } from '@/lib/toast'
 import { promptDialog } from '@/lib/confirm'
 
@@ -34,6 +37,21 @@ export default function JoinTrip() {
   const [privacy, setPrivacy] = useState<'private' | 'trip'>('private')
   const [busy, setBusy] = useState(false)
   const [notMe, setNotMe] = useState(false)
+  // optional profile photo to set on first join (like the other editors)
+  const [photo, setPhoto] = useState<string | null>(null)
+  const [focus, setFocus] = useState<string | null>(null)
+  const [cropping, setCropping] = useState(false)
+  const [uploading, setUploading] = useState(false)
+
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    const { url } = await uploadPublicImage(file)
+    if (url) { setPhoto(url); setFocus(null); setCropping(true) }
+    setUploading(false)
+  }
 
   useEffect(() => {
     if (!token || !isSupabaseConfigured) { setInfo('bad'); return }
@@ -50,6 +68,11 @@ export default function JoinTrip() {
     try {
       const { data, error } = await supabase.rpc('accept_invite', { tok: token, privacy_choice: privacy })
       if (error) { toast.error(error.message || 'เข้าร่วมไม่สำเร็จ'); return }
+      // save the chosen profile photo onto my (now-claimed) card + account
+      if (photo && session?.user?.id && info !== 'bad' && info) {
+        await supabase.from('travelers').update({ avatar_url: photo, avatar_focus: focus }).eq('id', info.traveler_id)
+        await updateProfile(session.user.id, { avatar_url: photo, avatar_focus: focus })
+      }
       try {
         localStorage.removeItem(PENDING_INVITE_KEY)
         localStorage.setItem('trip:currentId', String(data)) // = TripContext STORAGE_KEY
@@ -115,12 +138,37 @@ export default function JoinTrip() {
           <div className="card relative p-3">
             <div className="text-[11.5px] text-ink-3 text-center">{thDate(info.start_date)} – {thDate(info.end_date)}</div>
             <div className="mt-2.5 rounded-[12px] p-3 flex items-center gap-3" style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
-              <Avatar name={info.nickname} color="av2" size={38} ring={false} />
-              <div>
+              {session ? (
+                <label htmlFor="join-photo-input" className="relative cursor-pointer shrink-0" title="ใส่รูปโปรไฟล์">
+                  <Avatar name={info.nickname} color="av2" photo={photo} photoFocus={focus} size={44} ring={false} />
+                  <span className="absolute -bottom-0.5 -right-0.5 size-5 rounded-full grid place-items-center text-white"
+                    style={{ background: 'var(--color-brand)', border: '2px solid var(--color-brand-soft)' }}>
+                    {uploading ? <IconLoader2 size={11} className="animate-spin" /> : <IconCamera size={11} />}
+                  </span>
+                </label>
+              ) : (
+                <Avatar name={info.nickname} color="av2" size={38} ring={false} />
+              )}
+              <input id="join-photo-input" type="file" accept="image/*" hidden onChange={onPickPhoto} />
+              <div className="min-w-0 flex-1">
                 <div className="text-[10.5px]" style={{ color: 'var(--color-brand-dark)' }}>การ์ดของคุณในทริปนี้</div>
-                <div className="text-[15px] font-medium">{info.nickname}</div>
+                <div className="text-[15px] font-medium truncate">{info.nickname}</div>
+                {session && (
+                  <div className="text-[10.5px] text-ink-3 mt-0.5">
+                    {photo
+                      ? <>แตะรูปเพื่อเปลี่ยน · <button onClick={() => setCropping(true)} className="text-brand-mid font-medium">ครอป</button></>
+                      : 'แตะรูปเพื่อเพิ่มรูปโปรไฟล์'}
+                  </div>
+                )}
               </div>
             </div>
+            {cropping && photo && session && (
+              <div className="mt-2 rounded-[12px] p-3" style={{ border: '0.5px solid var(--color-line)', background: 'var(--color-surface)' }}>
+                <div className="text-[11px] text-ink-3 text-center mb-2">ลากเพื่อจัดตำแหน่ง · เลื่อนแถบเพื่อซูม</div>
+                <PhotoCropper url={photo} focus={focus} onChange={setFocus} aspect="1 / 1" round />
+                <button onClick={() => setCropping(false)} className="mx-auto mt-2 btn-icon !w-auto px-3 gap-1.5 text-[12px]"><IconCheck size={14} /> เสร็จ</button>
+              </div>
+            )}
           </div>
         </div>
 
