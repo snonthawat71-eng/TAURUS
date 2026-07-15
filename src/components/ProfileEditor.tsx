@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { IconLogout, IconCheck, IconCamera, IconLoader2, IconTrash } from '@tabler/icons-react'
+import { IconLogout, IconCheck, IconCamera, IconLoader2, IconTrash, IconCrop } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
+import { PhotoCropper } from './PhotoCropper'
 import { AVATAR_COLORS, toHexColor } from '@/lib/avatars'
 import { uploadPublicImage } from '@/lib/files'
 import { useTrip } from '@/contexts/TripContext'
@@ -26,6 +27,8 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
   const [nickname, setNickname] = useState('')
   const [color, setColor] = useState(AVATAR_COLORS.av3.bg) // free-form hex
   const [photo, setPhoto] = useState<string | null>(null)
+  const [focus, setFocus] = useState<string | null>(null)
+  const [cropping, setCropping] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -34,6 +37,8 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
     setNickname(profile?.nickname ?? '')
     setColor(toHexColor(profile?.avatar_color))
     setPhoto(profile?.avatar_url ?? null)
+    setFocus(profile?.avatar_focus ?? null)
+    setCropping(false)
   }, [open, profile])
 
   async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -42,9 +47,10 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
     if (!file) return
     setUploading(true)
     const { url } = await uploadPublicImage(file)
-    if (url) setPhoto(url)
+    if (url) { setPhoto(url); setFocus(null); setCropping(true) } // new image → crop it right away
     setUploading(false)
   }
+  function removePhoto() { setPhoto(null); setFocus(null); setCropping(false) }
 
   // my traveler card in THIS trip — the one claimed by my user_id (authoritative)
   const myTraveler = scope === 'trip' && user ? travelers.find((t) => t.user_id === user.id) : undefined
@@ -52,7 +58,7 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
   async function save() {
     if (!user) return
     setBusy(true)
-    await updateProfile(user.id, { nickname, avatar_color: color, avatar_url: photo })
+    await updateProfile(user.id, { nickname, avatar_color: color, avatar_url: photo, avatar_focus: photo ? focus : null })
     // In a trip, also update the card that represents me. Prefer the claimed
     // card; if none (legacy trip), claim the one matching my saved name first.
     if (scope === 'trip') {
@@ -62,7 +68,7 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
         const byName = savedName ? travelers.find((t) => t.nickname?.trim().toLowerCase() === savedName) : undefined
         if (byName) { await claimTraveler(byName.id, user.id); me = byName }
       }
-      if (me) await updateTraveler(me.id, { nickname, avatar_color: color, avatar_url: photo })
+      if (me) await updateTraveler(me.id, { nickname, avatar_color: color, avatar_url: photo, avatar_focus: photo ? focus : null })
     }
     setBusy(false)
     await reload()
@@ -72,32 +78,48 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
   return (
     <Drawer open={open} onClose={onClose} title="โปรไฟล์ของฉัน">
       <div className="flex flex-col items-center gap-3 mb-5">
-        {/* tap the avatar to upload a photo (falls back to initials + colour) */}
-        <label htmlFor="profile-photo-input" className="relative cursor-pointer" title="ใส่รูปโปรไฟล์">
-          <Avatar name={nickname || '?'} color={color} photo={photo} size={72} ring={false} />
-          <span className="absolute -bottom-0.5 -right-0.5 size-6 rounded-full grid place-items-center text-white"
-            style={{ background: 'var(--color-brand)', border: '2px solid var(--color-surface)' }}>
-            {uploading ? <IconLoader2 size={12} className="animate-spin" /> : <IconCamera size={12} />}
-          </span>
-        </label>
-        <input id="profile-photo-input" type="file" accept="image/*" hidden onChange={onPickPhoto} />
-        <div className="flex items-center gap-2">
-          {/* single colour wheel — pick any colour */}
-          <label className="flex items-center gap-2 cursor-pointer rounded-full pl-1.5 pr-3 h-9 bg-surface-2 text-[12px] font-medium text-ink-2"
-            title="เลือกสีจากวงล้อสี">
-            <span className="size-7 rounded-full grid place-items-center relative overflow-hidden shrink-0"
-              style={{ background: 'conic-gradient(red, orange, yellow, lime, aqua, blue, magenta, red)' }}>
-              <span className="size-4 rounded-full" style={{ background: color, boxShadow: '0 0 0 2px #fff' }} />
-              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
-            </span>
-            เลือกสีเอง
-          </label>
-          {photo && (
-            <button onClick={() => setPhoto(null)} className="inline-flex items-center gap-1 text-[12px] text-[#D85A30] h-9 px-2">
-              <IconTrash size={13} /> ลบรูป
-            </button>
-          )}
-        </div>
+        {cropping && photo ? (
+          <div className="w-full">
+            <div className="text-[11px] text-ink-3 text-center mb-2">ลากเพื่อจัดตำแหน่ง · เลื่อนแถบเพื่อซูม</div>
+            <PhotoCropper url={photo} focus={focus} onChange={setFocus} aspect="1 / 1" round />
+            <button onClick={() => setCropping(false)}
+              className="mx-auto mt-2 btn-icon !w-auto px-3 gap-1.5 text-[12px]"><IconCheck size={14} /> เสร็จ</button>
+          </div>
+        ) : (
+          <>
+            {/* tap the avatar to upload a photo (falls back to initials + colour) */}
+            <label htmlFor="profile-photo-input" className="relative cursor-pointer" title="ใส่รูปโปรไฟล์">
+              <Avatar name={nickname || '?'} color={color} photo={photo} photoFocus={focus} size={72} ring={false} />
+              <span className="absolute -bottom-0.5 -right-0.5 size-6 rounded-full grid place-items-center text-white"
+                style={{ background: 'var(--color-brand)', border: '2px solid var(--color-surface)' }}>
+                {uploading ? <IconLoader2 size={12} className="animate-spin" /> : <IconCamera size={12} />}
+              </span>
+            </label>
+            <input id="profile-photo-input" type="file" accept="image/*" hidden onChange={onPickPhoto} />
+            <div className="flex items-center gap-2">
+              {/* single colour wheel — pick any colour */}
+              <label className="flex items-center gap-2 cursor-pointer rounded-full pl-1.5 pr-3 h-9 bg-surface-2 text-[12px] font-medium text-ink-2"
+                title="เลือกสีจากวงล้อสี">
+                <span className="size-7 rounded-full grid place-items-center relative overflow-hidden shrink-0"
+                  style={{ background: 'conic-gradient(red, orange, yellow, lime, aqua, blue, magenta, red)' }}>
+                  <span className="size-4 rounded-full" style={{ background: color, boxShadow: '0 0 0 2px #fff' }} />
+                  <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                </span>
+                เลือกสีเอง
+              </label>
+              {photo && (
+                <button onClick={() => setCropping(true)} className="inline-flex items-center gap-1 text-[12px] text-brand-mid h-9 px-2">
+                  <IconCrop size={13} /> ครอป
+                </button>
+              )}
+              {photo && (
+                <button onClick={removePhoto} className="inline-flex items-center gap-1 text-[12px] text-[#D85A30] h-9 px-2">
+                  <IconTrash size={13} /> ลบรูป
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -113,7 +135,7 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
         {scope === 'trip' && myTraveler && (
           <div className="flex items-center gap-2.5 rounded-[10px] px-3 py-2.5"
             style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
-            <Avatar name={nickname || myTraveler.nickname || '?'} color={color} photo={photo} size={30} ring={false} />
+            <Avatar name={nickname || myTraveler.nickname || '?'} color={color} photo={photo} photoFocus={focus} size={30} ring={false} />
             <div className="min-w-0 flex-1">
               <div className="text-[12px] font-medium flex items-center gap-1" style={{ color: 'var(--color-brand-dark)' }}>
                 <IconCheck size={13} /> การ์ดของคุณในทริปนี้

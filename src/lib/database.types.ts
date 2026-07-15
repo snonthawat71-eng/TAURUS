@@ -10,6 +10,8 @@ export interface Profile {
   avatar_color: AvatarColor | string | null
   /** optional — present after supabase/avatars.sql; a public profile photo URL */
   avatar_url?: string | null
+  /** optional — avatar crop "x y scale" (see src/lib/photoFocus.ts) */
+  avatar_focus?: string | null
   created_at: string
 }
 
@@ -60,6 +62,8 @@ export interface Traveler {
   avatar_color?: string | null
   /** optional — present after supabase/avatars.sql; a public profile photo URL */
   avatar_url?: string | null
+  /** optional — avatar crop "x y scale" (see src/lib/photoFocus.ts) */
+  avatar_focus?: string | null
   /** optional — present after supabase/privacy.sql: the account this card belongs to */
   user_id?: string | null
   /** optional — 'trip' (everyone) | 'private' (card owner + trip owner); default private */

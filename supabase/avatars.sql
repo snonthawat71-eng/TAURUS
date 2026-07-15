@@ -6,3 +6,6 @@
 -- ============================================================
 alter table travelers add column if not exists avatar_url text;
 alter table profiles  add column if not exists avatar_url text;
+-- การครอปรูป avatar เก็บเป็น "x y scale" (จุดโฟกัส % + ซูม) เหมือน places.photo_focus
+alter table travelers add column if not exists avatar_focus text;
+alter table profiles  add column if not exists avatar_focus text;

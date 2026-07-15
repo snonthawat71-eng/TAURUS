@@ -10,12 +10,16 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
  * card's crop ratio so what you see here is what shows on the card/detail.
  * Emits the stored focus string ("x y scale", or null for the default crop).
  */
-export function PhotoCropper({ url, path, focus, fallback, onChange }: {
+export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '16 / 10', round = false }: {
   url?: string | null
   path?: string | null
   focus: string | null
   fallback?: ReactNode
   onChange: (focus: string | null) => void
+  /** crop-frame aspect ratio (CSS aspect-ratio value). Use '1 / 1' for avatars. */
+  aspect?: string
+  /** show a circular frame (avatars) instead of a rounded rectangle */
+  round?: boolean
 }) {
   const frameRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ px: number; py: number; fx: number; fy: number } | null>(null)
@@ -45,7 +49,8 @@ export function PhotoCropper({ url, path, focus, fallback, onChange }: {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onTouchMove={(e) => e.stopPropagation()} // don't let the Drawer swipe-to-close steal the drag
-        className="relative w-full aspect-[16/10] rounded-lg overflow-hidden bg-surface-2 cursor-grab active:cursor-grabbing touch-none select-none">
+        style={{ aspectRatio: aspect, ...(round ? { maxWidth: 220, marginInline: 'auto' } : {}) }}
+        className={['relative w-full overflow-hidden bg-surface-2 cursor-grab active:cursor-grabbing touch-none select-none', round ? 'rounded-full' : 'rounded-lg'].join(' ')}>
         <SignedImage url={url} path={path} focus={focus} className="w-full h-full object-cover pointer-events-none" width={800} fallback={fallback} />
         <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-black/55 text-white pointer-events-none">
           <IconArrowsMove size={12} /> ลากเพื่อจัดตำแหน่ง
