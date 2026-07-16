@@ -102,17 +102,17 @@ export default function Profile() {
 
   return (
     <div className="min-h-dvh bg-canvas">
-      {/* header blends into the hero gradient below (same start colour) */}
-      <header className="sticky top-0 z-20 flex items-center gap-2 px-4 h-14 text-white" style={{ background: '#0270FB' }}>
-        <button onClick={() => navigate(-1)} className="btn-icon !border-0 !text-white hover:!bg-white/15" aria-label="กลับ"><IconArrowLeft size={18} /></button>
-        <span className="text-[15px] font-medium">โปรไฟล์ของฉัน</span>
+      {/* glassmorphism header — floats over the hero, back button only */}
+      <header className="fixed top-0 inset-x-0 z-30 flex items-center px-2 h-14"
+        style={{ background: 'rgba(2,112,251,.28)', backdropFilter: 'blur(14px) saturate(1.4)', WebkitBackdropFilter: 'blur(14px) saturate(1.4)' }}>
+        <button onClick={() => navigate(-1)} className="p-2.5 text-white" aria-label="กลับ"><IconArrowLeft size={22} /></button>
       </header>
 
       {/* ── gradient hero — full-bleed, centered identity ── */}
       <div className="text-white" style={{ background: 'linear-gradient(150deg, #0270FB 0%, #135FD6 55%, #0A3D91 100%)' }}>
-        <div className="max-w-[560px] mx-auto px-4 sm:px-6 pt-7 pb-14 text-center">
-          <div className="inline-block"><Avatar name={profile?.nickname || '?'} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={88} ring={false} /></div>
-          <div className="text-[26px] font-bold leading-tight mt-2.5">{profile?.nickname || 'นักเดินทาง'}</div>
+        <div className="max-w-[560px] mx-auto px-4 sm:px-6 pt-[72px] pb-14 text-center">
+          <div className="inline-block"><Avatar name={profile?.nickname || '?'} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={120} ring={false} /></div>
+          <div className="text-[31px] font-extrabold leading-tight mt-3">{profile?.nickname || 'นักเดินทาง'}</div>
           {profile?.full_name && <div className="text-[12px] text-white/75 mt-0.5">{profile.full_name}</div>}
           <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 mt-2.5 text-[11px] font-semibold" style={{ background: '#fff', color: lt.tier.color }}>
             <LIcon size={12} /> {lt.tier.label}
