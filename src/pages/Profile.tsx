@@ -68,13 +68,24 @@ export default function Profile() {
     return () => { active = false; clearTimeout(t); supabase.removeChannel(ch) }
   }, [user?.id])
 
-  // Pull-to-overscroll at the top must reveal the hero's navy, not white —
-  // paint the document background while this page is mounted.
+  // The very top of the screen (status-bar area + pull-down overscroll) shows
+  // the BODY background — paint it navy (and the browser theme colour) while
+  // this page is mounted so no white ever peeks above the hero.
   useEffect(() => {
-    const el = document.documentElement
-    const prev = el.style.background
-    el.style.background = 'linear-gradient(180deg, #0A2A6B 0%, #0A2A6B 40%, var(--color-canvas) 40%)'
-    return () => { el.style.background = prev }
+    const html = document.documentElement
+    const prevHtml = html.style.background
+    const prevBody = document.body.style.background
+    const grad = 'linear-gradient(180deg, #0A2A6B 0%, #0A2A6B 55%, var(--color-canvas) 55%)'
+    html.style.background = grad
+    document.body.style.background = grad
+    const meta = document.querySelector('meta[name="theme-color"]')
+    const prevTheme = meta?.getAttribute('content') ?? null
+    meta?.setAttribute('content', '#0A2A6B')
+    return () => {
+      html.style.background = prevHtml
+      document.body.style.background = prevBody
+      if (prevTheme) meta?.setAttribute('content', prevTheme)
+    }
   }, [])
 
   const yearNum = new Date().getFullYear()
