@@ -8,6 +8,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import TripsDashboard from '@/pages/TripsDashboard'
 import Explore from '@/pages/Explore'
 import ExploreManage from '@/pages/ExploreManage'
+import Profile from '@/pages/Profile'
 import TripInfo from '@/pages/TripInfo'
 import Itinerary from '@/pages/Itinerary'
 import PlacesFood from '@/pages/PlacesFood'
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="/join/:token" element={<JoinTrip />} />
           <Route path="/explore" element={<Explore />} />
           <Route path="/explore/mine" element={<ExploreManage />} />
+          <Route path="/profile" element={<Profile />} />
           <Route element={<AppShell />}>
             <Route path="/info" element={<TripInfo />} />
             <Route path="/itinerary" element={<Itinerary />} />

@@ -4,7 +4,7 @@ import type { Flight, Train, HotelRoom, Trip } from './database.types'
 
 // Columns added by supabase/extra_columns.sql — the app still works before the
 // migration is run by stripping any column the API reports as unknown.
-const OPTIONAL_COLS = ['avatar_color', 'avatar_url', 'avatar_focus', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone', 'direction', 'dep_tz', 'arr_tz', 'gate', 'car', 'seat_no', 'label', 'from_station', 'to_station', 'is_main', 'used', 'kind', 'note', 'iccid', 'link', 'privacy', 'user_id', 'segments']
+const OPTIONAL_COLS = ['avatar_color', 'avatar_url', 'avatar_focus', 'year_goal', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone', 'direction', 'dep_tz', 'arr_tz', 'gate', 'car', 'seat_no', 'label', 'from_station', 'to_station', 'is_main', 'used', 'kind', 'note', 'iccid', 'link', 'privacy', 'user_id', 'segments']
 
 function stripMentioned(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
@@ -147,7 +147,7 @@ export async function revokeAccess(trip_id: string, opts: { user_id?: string; em
 
 // ---------- Profile (the logged-in user) ----------
 
-export async function updateProfile(id: string, fields: { nickname?: string | null; full_name?: string | null; avatar_color?: string | null; avatar_url?: string | null; avatar_focus?: string | null }) {
+export async function updateProfile(id: string, fields: { nickname?: string | null; full_name?: string | null; avatar_color?: string | null; avatar_url?: string | null; avatar_focus?: string | null; year_goal?: Record<string, number> | null }) {
   let res = await supabase.from('profiles').update(fields).eq('id', id)
   // avatar_url is optional (supabase/avatars.sql) — retry without it if unknown
   if (res.error) {

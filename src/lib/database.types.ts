@@ -12,6 +12,9 @@ export interface Profile {
   avatar_url?: string | null
   /** optional — avatar crop "x y scale" (see src/lib/photoFocus.ts) */
   avatar_focus?: string | null
+  /** optional — present after supabase/profile_page.sql; yearly trip goal per
+   *  year, e.g. { "2026": 8 } — the target slot count for the travel bar */
+  year_goal?: Record<string, number> | null
   created_at: string
 }
 

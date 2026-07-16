@@ -1,34 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { IconShare2, IconUserCircle, IconHome, IconWorldSearch } from '@tabler/icons-react'
 import { NAV_ITEMS } from './nav'
 import { TripSwitcher } from '@/components/TripSwitcher'
 import { ShareDialog } from '@/components/ShareDialog'
-import { ProfileEditor } from '@/components/ProfileEditor'
 import { FxWidget } from '@/components/FxWidget'
-import { useTrip } from '@/contexts/TripContext'
-import { useAuth } from '@/contexts/AuthContext'
 
 export function TopBar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { trip, travelers, profile: myProfile, myPermission } = useTrip()
-  const { user } = useAuth()
   const [share, setShare] = useState(false)
-  const [profile, setProfile] = useState(false)
-
-  // First time entering a trip that was shared with me (I'm not the owner): pop
-  // the "which traveler am I" picker. Shown once per trip, and skipped if my name
-  // already matches a traveler here. Remembered in localStorage.
-  useEffect(() => {
-    if (!user || !trip || myPermission !== 'edit' || !travelers.length) return
-    const key = `taurus:claimed:${user.id}:${trip.id}`
-    if (localStorage.getItem(key)) return
-    const myName = myProfile?.nickname?.trim().toLowerCase()
-    const linked = !!myName && travelers.some((t) => t.nickname?.trim().toLowerCase() === myName)
-    if (!linked) setProfile(true)
-    localStorage.setItem(key, '1')
-  }, [user, trip?.id, myPermission, travelers, myProfile]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const current = NAV_ITEMS.find((n) => pathname.startsWith(n.to))
   const title = current?.label ?? 'TAURUS'
@@ -58,13 +39,12 @@ export function TopBar() {
           <IconShare2 size={16} />
         </button>
         {/* โปรไฟล์ของฉัน — ขวาสุด */}
-        <button onClick={() => setProfile(true)} className="btn-icon" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
+        <button onClick={() => navigate('/profile')} className="btn-icon" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
           <IconUserCircle size={16} />
         </button>
       </div>
 
       <ShareDialog open={share} onClose={() => setShare(false)} />
-      <ProfileEditor open={profile} onClose={() => setProfile(false)} />
     </header>
   )
 }

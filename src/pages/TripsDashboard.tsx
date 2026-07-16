@@ -12,7 +12,6 @@ import { TaurusMark } from '@/components/TaurusMark'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { AvatarStack } from '@/components/Avatar'
 import { PopMenu } from '@/components/PopMenu'
-import { ProfileEditor } from '@/components/ProfileEditor'
 import { ShareDialog } from '@/components/ShareDialog'
 import { formatDateRange, dayCount, tripCountdown } from '@/lib/format'
 import { useWeather, tripCityCandidates } from '@/lib/weather'
@@ -120,7 +119,6 @@ export default function TripsDashboard() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [travelers, setTravelers] = useState<TravelerLite[]>([])
-  const [profileOpen, setProfileOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
@@ -132,15 +130,6 @@ export default function TripsDashboard() {
       .then(({ data }) => setTravelers((data ?? []) as TravelerLite[]))
   }, [trips])
 
-  // First time on the web: pop the profile setup so the user picks a name/colour
-  // straight away. Shown once per account (remembered in localStorage).
-  useEffect(() => {
-    if (!user || loading) return
-    const key = `taurus:onboarded:profile:${user.id}`
-    if (localStorage.getItem(key)) return
-    setProfileOpen(true)
-    localStorage.setItem(key, '1')
-  }, [user, loading])
 
   const byTrip = useMemo(() => {
     const m = new Map<string, TravelerLite[]>()
@@ -332,13 +321,12 @@ export default function TripsDashboard() {
           <span className="dot"><IconCompass size={24} stroke={1.9} /></span>
           <span>Explore</span>
         </button>
-        <button className="bottom-nav-item" aria-label="Profile" onClick={() => setProfileOpen(true)}>
+        <button className="bottom-nav-item" aria-label="Profile" onClick={() => navigate('/profile')}>
           <IconUser size={25} stroke={1.9} />
           <span>Profile</span>
         </button>
       </nav>
 
-      <ProfileEditor open={profileOpen} onClose={() => setProfileOpen(false)} scope="global" />
       <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   )
