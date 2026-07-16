@@ -102,11 +102,19 @@ export default function Profile() {
 
   return (
     <div className="min-h-dvh bg-canvas">
-      {/* glassmorphism header — floats over the hero, back button only */}
-      <header className="fixed top-0 inset-x-0 z-30 flex items-center px-2 h-14"
-        style={{ background: 'rgba(2,112,251,.28)', backdropFilter: 'blur(14px) saturate(1.4)', WebkitBackdropFilter: 'blur(14px) saturate(1.4)' }}>
-        <button onClick={() => navigate(-1)} className="p-2.5 text-white" aria-label="กลับ"><IconArrowLeft size={22} /></button>
-      </header>
+      {/* glassmorphism header — a white haze that blurs and fades downward
+          (no solid bar); only the back arrow receives taps */}
+      <header className="fixed top-0 inset-x-0 z-30 h-20 pointer-events-none"
+        style={{
+          background: 'linear-gradient(to bottom, rgba(255,255,255,.62) 0%, rgba(255,255,255,.28) 45%, rgba(255,255,255,0) 100%)',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          maskImage: 'linear-gradient(to bottom, black 35%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 35%, transparent 100%)',
+        }} />
+      <button onClick={() => navigate(-1)} className="fixed top-2 left-2 z-40 p-2.5 text-white" aria-label="กลับ"
+        style={{ filter: 'drop-shadow(0 1px 3px rgba(0,40,90,.45))' }}>
+        <IconArrowLeft size={23} />
+      </button>
 
       {/* ── gradient hero — full-bleed, centered identity ── */}
       <div className="text-white" style={{ background: 'linear-gradient(150deg, #0270FB 0%, #135FD6 55%, #0A3D91 100%)' }}>
@@ -128,7 +136,9 @@ export default function Profile() {
               <div className="flex items-center">
                 {Array.from({ length: view.slots }).map((_, i) => {
                   const trip = view.thisYear[i]
-                  const done = !!(trip?.end_date && trip.end_date < today)
+                  // finished = past its end date; trips with no end date (e.g.
+                  // drafts) count as finished once their start date has passed
+                  const done = !!trip && !!(trip.end_date ? trip.end_date < today : trip.start_date && trip.start_date < today)
                   const active = !!trip && !done
                   return (
                     <div key={i} className="flex items-center flex-1 last:flex-none">
