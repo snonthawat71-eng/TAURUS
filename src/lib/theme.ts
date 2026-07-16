@@ -7,7 +7,8 @@ const KEY = 'taurus:theme'
 
 export function themePref(): ThemePref {
   const v = localStorage.getItem(KEY)
-  return v === 'light' || v === 'dark' ? v : 'system'
+  // default = light; 'system' only when the user explicitly picks ตามเครื่อง
+  return v === 'dark' || v === 'system' ? v : 'light'
 }
 
 export function isDarkNow(): boolean {
