@@ -73,17 +73,22 @@ export default function Profile() {
   // this page is mounted so no white ever peeks above the hero.
   useEffect(() => {
     const html = document.documentElement
-    const prevHtml = html.style.background
-    const prevBody = document.body.style.background
+    const body = document.body
+    const prevHtml = html.style.cssText
+    const prevBody = body.style.cssText
     const grad = 'linear-gradient(180deg, #0A2A6B 0%, #0A2A6B 55%, var(--color-canvas) 55%)'
+    // Safari colours the status-bar zone from background-COLOR (a gradient is a
+    // background-image and gets ignored there) — set both, colour last.
     html.style.background = grad
-    document.body.style.background = grad
+    html.style.backgroundColor = '#0A2A6B'
+    body.style.background = grad
+    body.style.backgroundColor = '#0A2A6B'
     const meta = document.querySelector('meta[name="theme-color"]')
     const prevTheme = meta?.getAttribute('content') ?? null
     meta?.setAttribute('content', '#0A2A6B')
     return () => {
-      html.style.background = prevHtml
-      document.body.style.background = prevBody
+      html.style.cssText = prevHtml
+      body.style.cssText = prevBody
       if (prevTheme) meta?.setAttribute('content', prevTheme)
     }
   }, [])
@@ -243,7 +248,7 @@ export default function Profile() {
               {notifs.map((n) => {
                 const ic = notifIcon(n)
                 return (
-                  <button key={n.id} onClick={() => navigate('/explore/mine')}
+                  <button key={n.id} onClick={() => navigate(`/explore/mine?item=${n.exploreId}`)}
                     className="w-full flex items-start gap-2.5 px-4 py-3 text-left hover:bg-surface-2/40" style={{ borderTop: '0.5px solid var(--color-line)' }}>
                     <span className="size-8 rounded-full grid place-items-center shrink-0 mt-0.5" style={{ background: ic.bg }}>{ic.el}</span>
                     <div className="min-w-0 flex-1">

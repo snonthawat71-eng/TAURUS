@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCircle, IconMapPin } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
@@ -62,6 +63,18 @@ export default function ExploreManage() {
 
   useEffect(() => { load(); refreshStats() }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // deep-link from a notification (?item=<id>): open that item's detail once loaded
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    if (loading) return
+    const id = searchParams.get('item')
+    if (!id) return
+    const it = items.find((e) => e.id === id)
+    if (it) openDetail(it)
+    setSearchParams({}, { replace: true }) // consume the param so back/refresh behaves
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, items])
 
   // live engagement updates on my items
   useEffect(() => {
