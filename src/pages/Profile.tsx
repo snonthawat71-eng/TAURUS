@@ -93,7 +93,7 @@ export default function Profile() {
     return { cities: cityKeys.size, thisYear, goal, slots, upcoming, daysTo }
   }, [trips, profile?.year_goal, yearNum, today])
 
-  const lt = loyaltyTier(stats?.shared ?? 0)
+  const lt = loyaltyTier(stats?.shared ?? 0, (stats?.saves ?? 0) + (stats?.likes ?? 0))
   const LIcon = LOYALTY_ICON[lt.tier.icon]
 
   function openTrip(id: string) { switchTrip(id); navigate('/info') }
