@@ -68,31 +68,6 @@ export default function Profile() {
     return () => { active = false; clearTimeout(t); supabase.removeChannel(ch) }
   }, [user?.id])
 
-  // The very top of the screen (status-bar area + pull-down overscroll) shows
-  // the BODY background — paint it navy (and the browser theme colour) while
-  // this page is mounted so no white ever peeks above the hero.
-  useEffect(() => {
-    const html = document.documentElement
-    const body = document.body
-    const prevHtml = html.style.cssText
-    const prevBody = body.style.cssText
-    const grad = 'linear-gradient(180deg, #0A2A6B 0%, #0A2A6B 55%, var(--color-canvas) 55%)'
-    // Safari colours the status-bar zone from background-COLOR (a gradient is a
-    // background-image and gets ignored there) — set both, colour last.
-    html.style.background = grad
-    html.style.backgroundColor = '#0A2A6B'
-    body.style.background = grad
-    body.style.backgroundColor = '#0A2A6B'
-    const meta = document.querySelector('meta[name="theme-color"]')
-    const prevTheme = meta?.getAttribute('content') ?? null
-    meta?.setAttribute('content', '#0A2A6B')
-    return () => {
-      html.style.cssText = prevHtml
-      body.style.cssText = prevBody
-      if (prevTheme) meta?.setAttribute('content', prevTheme)
-    }
-  }, [])
-
   const yearNum = new Date().getFullYear()
   const today = new Date().toISOString().slice(0, 10)
 

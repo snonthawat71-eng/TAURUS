@@ -20,6 +20,35 @@ import Budget from '@/pages/Budget'
 import CreateTrip from '@/pages/CreateTrip'
 import JoinTrip, { PENDING_INVITE_KEY } from '@/pages/JoinTrip'
 
+// The profile page paints the whole top of the screen navy (status-bar zone,
+// pull-down overscroll, browser theme colour). Driven off the route — asserted
+// on EVERY navigation — so the navy can never leak onto other pages.
+function ProfileChrome() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (pathname === '/profile') {
+      const grad = 'linear-gradient(180deg, #0A2A6B 0%, #0A2A6B 55%, var(--color-canvas) 55%)'
+      // Safari colours the status-bar zone from background-COLOR (gradients are
+      // background-images and get ignored there) — set both.
+      html.style.background = grad
+      html.style.backgroundColor = '#0A2A6B'
+      body.style.background = grad
+      body.style.backgroundColor = '#0A2A6B'
+      meta?.setAttribute('content', '#0A2A6B')
+    } else {
+      html.style.background = ''
+      html.style.backgroundColor = ''
+      body.style.background = ''
+      body.style.backgroundColor = ''
+      meta?.setAttribute('content', '#0270FB')
+    }
+  }, [pathname])
+  return null
+}
+
 // After the OAuth redirect (which always lands on "/"), resume a pending
 // invite so the user comes straight back to the welcome page to confirm.
 function PendingInviteRedirect() {
@@ -65,6 +94,7 @@ export default function App() {
     <TripProvider>
       <BrowserRouter>
         <PendingInviteRedirect />
+        <ProfileChrome />
         <Routes>
           <Route path="/" element={<TripsDashboard />} />
           <Route path="/create" element={<CreateTrip />} />
