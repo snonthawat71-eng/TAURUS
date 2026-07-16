@@ -105,7 +105,6 @@ export default function Profile() {
       <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center gap-2 px-4 h-14" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
         <button onClick={() => navigate(-1)} className="btn-icon !border-0" aria-label="กลับ"><IconArrowLeft size={18} /></button>
         <span className="text-[15px] font-medium">โปรไฟล์ของฉัน</span>
-        <button onClick={() => setSettings(true)} className="btn-icon !border-0 ml-auto" aria-label="ตั้งค่าโปรไฟล์" title="ตั้งค่าโปรไฟล์"><IconSettings size={18} /></button>
       </header>
 
       <main className="max-w-[560px] mx-auto px-4 sm:px-6 py-5 space-y-4">
@@ -113,9 +112,7 @@ export default function Profile() {
         <div className="rounded-[18px] p-4 text-white relative overflow-hidden"
           style={{ background: 'linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-mid) 100%)' }}>
           <div className="flex items-center gap-3.5">
-            <span className="rounded-full shrink-0" style={{ boxShadow: '0 0 0 3px rgba(255,255,255,.35)' }}>
-              <Avatar name={profile?.nickname || '?'} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={82} ring={false} />
-            </span>
+            <Avatar name={profile?.nickname || '?'} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={82} ring={false} />
             <div className="min-w-0 flex-1">
               <div className="text-[24px] font-bold leading-none truncate">{profile?.nickname || 'นักเดินทาง'}</div>
               {profile?.full_name && <div className="text-[12px] text-white/70 mt-1 truncate">{profile.full_name}</div>}
