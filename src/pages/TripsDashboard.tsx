@@ -6,6 +6,7 @@ import {
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { useUnreadNotifs } from '@/lib/useUnreadNotifs'
 import { supabase } from '@/lib/supabase'
 import { confirmDialog } from '@/lib/confirm'
 import { TaurusMark } from '@/components/TaurusMark'
@@ -117,6 +118,7 @@ function CoverImage({ url, frost = false }: { url?: string; frost?: boolean }) {
 export default function TripsDashboard() {
   const { trips, loading, switchTrip, reload } = useTrip()
   const { user, signOut } = useAuth()
+  const unread = useUnreadNotifs(user?.id)
   const navigate = useNavigate()
   const [travelers, setTravelers] = useState<TravelerLite[]>([])
   const [shareOpen, setShareOpen] = useState(false)
@@ -321,7 +323,8 @@ export default function TripsDashboard() {
           <span className="dot"><IconCompass size={24} stroke={1.9} /></span>
           <span>Explore</span>
         </button>
-        <button className="bottom-nav-item" aria-label="Profile" onClick={() => navigate('/profile')}>
+        <button className="bottom-nav-item relative" aria-label="Profile" onClick={() => navigate('/profile')}>
+          {unread && <span className="absolute top-1 right-[26%] size-2 rounded-full bg-[#EF4444]" style={{ boxShadow: '0 0 0 2px var(--color-surface)' }} />}
           <IconUser size={25} stroke={1.9} />
           <span>Profile</span>
         </button>
