@@ -47,7 +47,32 @@
   --radius-lg: 12px;
 }
 
-/* Dark mode tokens kept for later (spec mentions possible future dark mode) */
+/* ── Dark mode: override the design tokens under html[data-theme='dark'].
+   Every component reads colours through these vars, so the whole app flips.
+   Applied by src/lib/theme.ts (+ an inline script in index.html pre-paint). */
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-brand: #3d8dff;
+  --color-brand-dark: #cfe2ff; /* text on dark-blue chips */
+  --color-brand-mid: #74a9ff; /* links, text buttons */
+  --color-brand-soft: #16283f; /* chip / active bg */
+  --color-brand-border: #27466f;
+
+  --color-surface: #171c26; /* cards, top bar */
+  --color-surface-2: #222937; /* secondary, chips */
+  --color-canvas: #0f131b; /* page background */
+
+  --color-ink: #e8ecf3;
+  --color-ink-2: #a8b2c3;
+  --color-ink-3: #6e7a8c;
+
+  --color-line: #273041;
+  --color-line-2: #3a465c;
+
+  --color-booking: #7db4e8;
+  --color-booking-bg: #13293f;
+}
 
 @layer base {
   html {

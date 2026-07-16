@@ -7,8 +7,10 @@ import { Toaster } from '@/components/Toaster'
 import { ConfirmHost } from '@/components/ConfirmHost'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { registerPWA } from '@/lib/pwa'
+import { initTheme } from '@/lib/theme'
 
 registerPWA()
+initTheme()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

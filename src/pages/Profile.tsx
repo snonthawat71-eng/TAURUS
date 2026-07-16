@@ -109,7 +109,7 @@ export default function Profile() {
     // from ONE background — this container's — so a navy-top / canvas-bottom
     // gradient gives navy on pull-down and white on pull-up past the end.
     <div className="fixed inset-0 overflow-y-auto"
-      style={{ background: 'linear-gradient(180deg, #0A2A6B 0%, #0A2A6B 30%, #f6f8fb 70%, #f6f8fb 100%)', WebkitOverflowScrolling: 'touch' }}>
+      style={{ background: 'linear-gradient(180deg, #0A2A6B 0%, #0A2A6B 30%, var(--color-canvas) 70%, var(--color-canvas) 100%)', WebkitOverflowScrolling: 'touch' }}>
       {/* no header — just a floating back arrow */}
       <button onClick={() => navigate(-1)} className="fixed z-40 p-2.5 text-white" aria-label="กลับ"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 6px)', left: 8, filter: 'drop-shadow(0 1px 3px rgba(0,40,90,.45))' }}>
@@ -181,13 +181,13 @@ export default function Profile() {
         {/* ── stats row — floats up over the hero's bottom edge ── */}
         <div className="flex items-stretch gap-3 -mt-9 relative z-10">
           <div className="flex-1 rounded-[12px] p-3 text-center"
-            style={{ background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '0.5px solid rgba(255,255,255,.8)', boxShadow: '0 4px 14px rgba(10,40,90,.10)' }}>
+            style={{ background: 'color-mix(in srgb, var(--color-surface) 82%, transparent)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '0.5px solid var(--color-line)', boxShadow: '0 4px 14px rgba(10,40,90,.10)' }}>
             <IconPlaneTilt size={18} className="mx-auto text-brand" />
             <div className="text-[22px] font-bold leading-none mt-1.5 tabular-nums">{trips.length}</div>
             <div className="text-[10.5px] text-ink-3 mt-1">ทริป</div>
           </div>
           <div className="flex-1 rounded-[12px] p-3 text-center"
-            style={{ background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '0.5px solid rgba(255,255,255,.8)', boxShadow: '0 4px 14px rgba(10,40,90,.10)' }}>
+            style={{ background: 'color-mix(in srgb, var(--color-surface) 82%, transparent)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '0.5px solid var(--color-line)', boxShadow: '0 4px 14px rgba(10,40,90,.10)' }}>
             <IconBuildingCommunity size={18} className="mx-auto text-brand" />
             <div className="text-[22px] font-bold leading-none mt-1.5 tabular-nums">{view.cities}</div>
             <div className="text-[10.5px] text-ink-3 mt-1">เมือง</div>

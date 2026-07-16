@@ -6,6 +6,14 @@
     <link rel="apple-touch-icon" href="/taurus-01.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0270FB" />
+    <!-- apply the saved theme before first paint — no white flash in dark mode -->
+    <script>
+      try {
+        var t = localStorage.getItem('taurus:theme') || 'system'
+        var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+      } catch (e) {}
+    </script>
     <title>TAURUS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { IconLogout, IconCheck, IconCamera, IconLoader2, IconTrash, IconCrop, IconTargetArrow } from '@tabler/icons-react'
+import { IconLogout, IconCheck, IconCamera, IconLoader2, IconTrash, IconCrop, IconTargetArrow, IconSun, IconMoon, IconDeviceMobile } from '@tabler/icons-react'
+import { themePref, setThemePref, type ThemePref } from '@/lib/theme'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
 import { PhotoCropper } from './PhotoCropper'
@@ -29,6 +30,7 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
   const [photo, setPhoto] = useState<string | null>(null)
   const [focus, setFocus] = useState<string | null>(null)
   const [goal, setGoal] = useState(0)
+  const [theme, setTheme] = useState<ThemePref>(themePref())
   const [cropping, setCropping] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -139,6 +141,25 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
               className="hairline rounded-md text-[15px] font-semibold text-center h-10 w-16 bg-surface outline-none focus:border-brand" />
             <button onClick={() => setGoal((g) => Math.min(30, g + 1))} className="size-9 rounded-full bg-surface hairline text-[18px] font-medium leading-none">+</button>
             <span className="text-[12px] text-ink-3">ทริป</span>
+          </div>
+        </div>
+
+        {/* theme — applies instantly, no save needed */}
+        <div>
+          <label className={lbl}>ธีมของแอป</label>
+          <div className="grid grid-cols-3 gap-2 mt-1">
+            {([['light', 'สว่าง', IconSun], ['dark', 'มืด', IconMoon], ['system', 'ตามเครื่อง', IconDeviceMobile]] as const).map(([v, label, Icon]) => {
+              const on = theme === v
+              return (
+                <button key={v} onClick={() => { setTheme(v); setThemePref(v) }}
+                  className="h-10 rounded-md text-[12px] font-medium inline-flex items-center justify-center gap-1.5 transition-colors"
+                  style={on
+                    ? { background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-dark)' }
+                    : { background: 'var(--color-surface)', border: '0.5px solid var(--color-line)', color: 'var(--color-ink-2)' }}>
+                  <Icon size={14} /> {label}
+                </button>
+              )
+            })}
           </div>
         </div>
 

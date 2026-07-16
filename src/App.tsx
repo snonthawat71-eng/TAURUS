@@ -19,6 +19,7 @@ import Budget from '@/pages/Budget'
 // import TripMap from '@/pages/TripMap'
 import CreateTrip from '@/pages/CreateTrip'
 import JoinTrip, { PENDING_INVITE_KEY } from '@/pages/JoinTrip'
+import { canvasColor } from '@/lib/theme'
 
 // The profile page paints the whole top of the screen navy (status-bar zone,
 // pull-down overscroll, browser theme colour). Driven off the route — asserted
@@ -41,11 +42,12 @@ function ProfileChrome() {
     } else {
       // Explicit colours (not just clearing) — Safari re-samples the status-bar
       // tint more reliably when the value actually changes to a concrete colour.
+      const canvas = canvasColor() // follows light/dark theme
       html.style.background = 'var(--color-canvas)'
-      html.style.backgroundColor = '#f6f8fb'
+      html.style.backgroundColor = canvas
       body.style.background = 'var(--color-canvas)'
-      body.style.backgroundColor = '#f6f8fb'
-      meta?.setAttribute('content', '#f6f8fb')
+      body.style.backgroundColor = canvas
+      meta?.setAttribute('content', canvas)
     }
   }, [pathname])
   return null
