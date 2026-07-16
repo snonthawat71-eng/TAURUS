@@ -68,6 +68,15 @@ export default function Profile() {
     return () => { active = false; clearTimeout(t); supabase.removeChannel(ch) }
   }, [user?.id])
 
+  // Pull-to-overscroll at the top must reveal the hero's navy, not white —
+  // paint the document background while this page is mounted.
+  useEffect(() => {
+    const el = document.documentElement
+    const prev = el.style.background
+    el.style.background = 'linear-gradient(180deg, #0A2A6B 0%, #0A2A6B 40%, var(--color-canvas) 40%)'
+    return () => { el.style.background = prev }
+  }, [])
+
   const yearNum = new Date().getFullYear()
   const today = new Date().toISOString().slice(0, 10)
 
@@ -102,23 +111,19 @@ export default function Profile() {
 
   return (
     <div className="min-h-dvh bg-canvas">
-      {/* glassmorphism header — a white haze that blurs and fades downward
-          (no solid bar); only the back arrow receives taps */}
-      <header className="fixed top-0 inset-x-0 z-30 h-20 pointer-events-none"
-        style={{
-          background: 'linear-gradient(to bottom, rgba(255,255,255,.62) 0%, rgba(255,255,255,.28) 45%, rgba(255,255,255,0) 100%)',
-          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-          maskImage: 'linear-gradient(to bottom, black 35%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, black 35%, transparent 100%)',
-        }} />
-      <button onClick={() => navigate(-1)} className="fixed top-2 left-2 z-40 p-2.5 text-white" aria-label="กลับ"
-        style={{ filter: 'drop-shadow(0 1px 3px rgba(0,40,90,.45))' }}>
+      {/* no header — just a floating back arrow */}
+      <button onClick={() => navigate(-1)} className="fixed z-40 p-2.5 text-white" aria-label="กลับ"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 6px)', left: 8, filter: 'drop-shadow(0 1px 3px rgba(0,40,90,.45))' }}>
         <IconArrowLeft size={23} />
       </button>
 
-      {/* ── gradient hero — full-bleed, centered identity ── */}
-      <div className="text-white" style={{ background: 'linear-gradient(150deg, #0270FB 0%, #135FD6 55%, #0A3D91 100%)' }}>
-        <div className="max-w-[560px] mx-auto px-4 sm:px-6 pt-[72px] pb-14 text-center">
+      {/* ── hero — sky gradient like the reference photo: deep navy up top,
+          softening into a white haze that melts into the page background ── */}
+      <div className="text-white" style={{
+        background: 'linear-gradient(180deg, #0A2A6B 0%, #0F53C7 38%, #4485E4 66%, #C7DCF6 88%, var(--color-canvas) 100%)',
+        paddingTop: 'env(safe-area-inset-top)',
+      }}>
+        <div className="max-w-[560px] mx-auto px-4 sm:px-6 pt-16 pb-14 text-center">
           <div className="inline-block"><Avatar name={profile?.nickname || '?'} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={120} ring={false} /></div>
           <div className="text-[31px] font-extrabold leading-tight mt-3">{profile?.nickname || 'นักเดินทาง'}</div>
           {profile?.full_name && <div className="text-[12px] text-white/75 mt-0.5">{profile.full_name}</div>}
@@ -128,7 +133,8 @@ export default function Profile() {
 
           {/* year travel bar — goal slots, real trips fill in, finished get ✓ */}
           {view.slots > 0 ? (
-            <div className="mt-4 rounded-[12px] bg-white/12 px-3 py-3 text-left">
+            <div className="mt-4 rounded-[14px] px-3 py-3 text-left"
+              style={{ background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '0.5px solid rgba(255,255,255,.35)' }}>
               <div className="flex items-center justify-between text-[10.5px] text-white/80 mb-2">
                 <span className="inline-flex items-center gap-1"><IconTargetArrow size={12} /> เป้าหมายปี {yearNum + 543}</span>
                 <span>{view.thisYear.length}/{view.slots} ทริป</span>
@@ -172,12 +178,14 @@ export default function Profile() {
       <main className="max-w-[560px] mx-auto px-4 sm:px-6 pb-5 space-y-4">
         {/* ── stats row — floats up over the hero's bottom edge ── */}
         <div className="flex items-stretch gap-3 -mt-9 relative z-10">
-          <div className="flex-1 rounded-[12px] bg-surface p-3 text-center" style={{ boxShadow: '0 4px 14px rgba(10,40,90,.10)' }}>
+          <div className="flex-1 rounded-[12px] p-3 text-center"
+            style={{ background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '0.5px solid rgba(255,255,255,.8)', boxShadow: '0 4px 14px rgba(10,40,90,.10)' }}>
             <IconPlaneTilt size={18} className="mx-auto text-brand" />
             <div className="text-[22px] font-bold leading-none mt-1.5 tabular-nums">{trips.length}</div>
             <div className="text-[10.5px] text-ink-3 mt-1">ทริป</div>
           </div>
-          <div className="flex-1 rounded-[12px] bg-surface p-3 text-center" style={{ boxShadow: '0 4px 14px rgba(10,40,90,.10)' }}>
+          <div className="flex-1 rounded-[12px] p-3 text-center"
+            style={{ background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '0.5px solid rgba(255,255,255,.8)', boxShadow: '0 4px 14px rgba(10,40,90,.10)' }}>
             <IconBuildingCommunity size={18} className="mx-auto text-brand" />
             <div className="text-[22px] font-bold leading-none mt-1.5 tabular-nums">{view.cities}</div>
             <div className="text-[10.5px] text-ink-3 mt-1">เมือง</div>
