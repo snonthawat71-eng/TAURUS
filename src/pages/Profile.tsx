@@ -112,6 +112,9 @@ export default function Profile() {
         <IconArrowLeft size={23} />
       </button>
 
+      {/* opaque page surface — keeps the container's overscroll gradient from
+          showing through gaps while scrolling */}
+      <div className="min-h-full bg-canvas">
       {/* ── hero — sky gradient like the reference photo: deep navy up top,
           softening into a white haze that melts into the page background ── */}
       <div className="text-white" style={{
@@ -248,6 +251,7 @@ export default function Profile() {
           )}
         </div>
       </main>
+      </div>
 
       <ProfileEditor open={settings} onClose={() => setSettings(false)} scope="global" />
     </div>
