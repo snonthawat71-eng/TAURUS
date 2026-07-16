@@ -102,29 +102,25 @@ export default function Profile() {
 
   return (
     <div className="min-h-dvh bg-canvas">
-      <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center gap-2 px-4 h-14" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-        <button onClick={() => navigate(-1)} className="btn-icon !border-0" aria-label="กลับ"><IconArrowLeft size={18} /></button>
+      {/* header blends into the hero gradient below (same start colour) */}
+      <header className="sticky top-0 z-20 flex items-center gap-2 px-4 h-14 text-white" style={{ background: '#0270FB' }}>
+        <button onClick={() => navigate(-1)} className="btn-icon !border-0 !text-white hover:!bg-white/15" aria-label="กลับ"><IconArrowLeft size={18} /></button>
         <span className="text-[15px] font-medium">โปรไฟล์ของฉัน</span>
       </header>
 
-      <main className="max-w-[560px] mx-auto px-4 sm:px-6 py-5 space-y-4">
-        {/* ── passport header ── */}
-        <div className="rounded-[18px] p-4 text-white relative overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-mid) 100%)' }}>
-          <div className="flex items-center gap-3.5">
-            <Avatar name={profile?.nickname || '?'} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={82} ring={false} />
-            <div className="min-w-0 flex-1">
-              <div className="text-[24px] font-bold leading-none truncate">{profile?.nickname || 'นักเดินทาง'}</div>
-              {profile?.full_name && <div className="text-[12px] text-white/70 mt-1 truncate">{profile.full_name}</div>}
-              <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 mt-2 text-[11px] font-semibold" style={{ background: '#fff', color: lt.tier.color }}>
-                <LIcon size={12} /> {lt.tier.label}
-              </span>
-            </div>
-          </div>
+      {/* ── gradient hero — full-bleed, centered identity ── */}
+      <div className="text-white" style={{ background: 'linear-gradient(150deg, #0270FB 0%, #135FD6 55%, #0A3D91 100%)' }}>
+        <div className="max-w-[560px] mx-auto px-4 sm:px-6 pt-7 pb-14 text-center">
+          <div className="inline-block"><Avatar name={profile?.nickname || '?'} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={88} ring={false} /></div>
+          <div className="text-[26px] font-bold leading-tight mt-2.5">{profile?.nickname || 'นักเดินทาง'}</div>
+          {profile?.full_name && <div className="text-[12px] text-white/75 mt-0.5">{profile.full_name}</div>}
+          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 mt-2.5 text-[11px] font-semibold" style={{ background: '#fff', color: lt.tier.color }}>
+            <LIcon size={12} /> {lt.tier.label}
+          </span>
 
           {/* year travel bar — goal slots, real trips fill in, finished get ✓ */}
           {view.slots > 0 ? (
-            <div className="mt-4 rounded-[12px] bg-white/12 px-3 py-3">
+            <div className="mt-4 rounded-[12px] bg-white/12 px-3 py-3 text-left">
               <div className="flex items-center justify-between text-[10.5px] text-white/80 mb-2">
                 <span className="inline-flex items-center gap-1"><IconTargetArrow size={12} /> เป้าหมายปี {yearNum + 543}</span>
                 <span>{view.thisYear.length}/{view.slots} ทริป</span>
@@ -161,22 +157,24 @@ export default function Profile() {
             </button>
           )}
         </div>
+      </div>
 
-        {/* ── stats row ── */}
-        <div className="flex items-stretch gap-3">
-          <div className="card flex-1 p-3 text-center">
+      <main className="max-w-[560px] mx-auto px-4 sm:px-6 pb-5 space-y-4">
+        {/* ── stats row — floats up over the hero's bottom edge ── */}
+        <div className="flex items-stretch gap-3 -mt-9 relative z-10">
+          <div className="flex-1 rounded-[12px] bg-surface p-3 text-center" style={{ boxShadow: '0 4px 14px rgba(10,40,90,.10)' }}>
             <IconPlaneTilt size={18} className="mx-auto text-brand" />
             <div className="text-[22px] font-bold leading-none mt-1.5 tabular-nums">{trips.length}</div>
             <div className="text-[10.5px] text-ink-3 mt-1">ทริป</div>
           </div>
-          <div className="card flex-1 p-3 text-center">
+          <div className="flex-1 rounded-[12px] bg-surface p-3 text-center" style={{ boxShadow: '0 4px 14px rgba(10,40,90,.10)' }}>
             <IconBuildingCommunity size={18} className="mx-auto text-brand" />
             <div className="text-[22px] font-bold leading-none mt-1.5 tabular-nums">{view.cities}</div>
             <div className="text-[10.5px] text-ink-3 mt-1">เมือง</div>
           </div>
           {view.upcoming ? (
             <button onClick={() => openTrip(view.upcoming!.id)} className="flex-[1.4] rounded-[12px] p-3 text-left text-white relative overflow-hidden"
-              style={{ background: 'linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-mid) 100%)' }}>
+              style={{ background: 'linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-mid) 100%)', boxShadow: '0 4px 14px rgba(10,40,90,.14)' }}>
               <div className="flex items-center gap-1 text-[10px] font-semibold text-white/85"><IconPlaneTilt size={12} /> ทริปถัดไป</div>
               <div className="text-[11px] font-medium truncate mt-0.5">{view.upcoming.flag || countryFlag(view.upcoming.country)} {view.upcoming.name}</div>
               <div className="flex items-baseline gap-1 mt-1">
