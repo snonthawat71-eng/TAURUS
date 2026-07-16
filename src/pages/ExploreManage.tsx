@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCircle, IconMapPin } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
@@ -7,13 +7,12 @@ import { useBack } from '@/lib/useBack'
 import { confirmDialog } from '@/lib/confirm'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { ExploreCard } from '@/components/ExploreCard'
-import { ExploreDetail } from '@/components/ExploreDetail'
 import { ExploreEditor } from '@/components/ExploreEditor'
 import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import {
   listMyExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace,
-  allVoteStats, allPopularity, logExploreEvent, type VoteStat, type PopStat,
+  allVoteStats, allPopularity, type VoteStat, type PopStat,
 } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopiesDeep } from '@/lib/placeMutations'
 import { toast } from '@/lib/toast'
@@ -27,11 +26,11 @@ export default function ExploreManage() {
   const { user } = useAuth()
   const { trips, trip: currentTrip, reload: reloadTrip } = useTrip()
   const goBack = useBack('/explore')
+  const navigate = useNavigate()
   const [items, setItems] = useState<ExplorePlace[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [editor, setEditor] = useState<ExplorePlace | 'new' | null>(null)
-  const [detail, setDetail] = useState<ExplorePlace | null>(null)
   const [fav, setFav] = useState<Place | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [stats, setStats] = useState<Map<string, VoteStat>>(new Map())
@@ -64,18 +63,6 @@ export default function ExploreManage() {
   useEffect(() => { load(); refreshStats() }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // deep-link from a notification (?item=<id>): open that item's detail once loaded
-  const [searchParams, setSearchParams] = useSearchParams()
-  useEffect(() => {
-    if (loading) return
-    const id = searchParams.get('item')
-    if (!id) return
-    const it = items.find((e) => e.id === id)
-    if (it) openDetail(it)
-    setSearchParams({}, { replace: true }) // consume the param so back/refresh behaves
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, items])
-
   // live engagement updates on my items
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -90,8 +77,7 @@ export default function ExploreManage() {
   }, [])
 
   function openDetail(e: ExplorePlace) {
-    setDetail(e)
-    if (user) logExploreEvent(e.id, user.id, 'view')
+    navigate(`/explore/p/${e.id}`)
   }
   async function toggleFav(e: ExplorePlace) {
     if (savedSet.has(e.id)) {
@@ -179,9 +165,6 @@ export default function ExploreManage() {
           load()
         }} />
 
-      <ExploreDetail e={detail} open={!!detail} saved={detail ? savedSet.has(detail.id) : false}
-        onClose={() => { setDetail(null); refreshStats() }} onFav={() => detail && toggleFav(detail)}
-        onOpenPlace={(p) => openDetail(p)} onItemChanged={reloadItems} />
 
       <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
         onClose={() => setFav(null)} onChanged={refreshSaved} />

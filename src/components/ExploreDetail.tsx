@@ -21,14 +21,14 @@ import { toast } from '@/lib/toast'
 import { SignedImage } from './SignedImage'
 import type { ExplorePlace, ExploreComment, ExploreSuggestion, SuggestionKind } from '@/lib/database.types'
 
-const SUG_META: Record<SuggestionKind, { label: string; icon: typeof IconRoute }> = {
+export const SUG_META: Record<SuggestionKind, { label: string; icon: typeof IconRoute }> = {
   route: { label: 'เพิ่มเส้นทาง', icon: IconRoute },
   branch: { label: 'เพิ่มสาขา', icon: IconBuildingStore },
   edit: { label: 'แก้ข้อมูล', icon: IconPencil },
   report: { label: 'รายงาน', icon: IconFlag },
 }
 /** one-line summary of a suggestion's payload for the owner's review row */
-function sugSummary(s: ExploreSuggestion): string {
+export function sugSummary(s: ExploreSuggestion): string {
   const p = (s.payload ?? {}) as Record<string, string | null | undefined>
   if (s.kind === 'route') return [p.line, p.station].filter(Boolean).join(' · ') || '(เส้นทางใหม่)'
   if (s.kind === 'branch') return p.label || p.map_url || '(สาขาใหม่)'
@@ -37,7 +37,7 @@ function sugSummary(s: ExploreSuggestion): string {
   return reasons[(p.reason as string) ?? 'other'] ?? 'รายงาน'
 }
 
-function timeAgo(iso: string) {
+export function timeAgo(iso: string) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
   if (s < 60) return 'เมื่อสักครู่'
   if (s < 3600) return `${Math.floor(s / 60)} นาทีที่แล้ว`
@@ -47,7 +47,7 @@ function timeAgo(iso: string) {
 }
 
 /** All-plans-style row card for a nearby suggestion. */
-function NearbyCard({ p, onOpen }: { p: ExplorePlace; onOpen?: (p: ExplorePlace) => void }) {
+export function NearbyCard({ p, onOpen }: { p: ExplorePlace; onOpen?: (p: ExplorePlace) => void }) {
   const m = catMeta(p.category)
   const Ic = m.icon
   return (

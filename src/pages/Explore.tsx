@@ -5,13 +5,12 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { ExploreCard } from '@/components/ExploreCard'
-import { ExploreDetail } from '@/components/ExploreDetail'
 import { ExploreEditor } from '@/components/ExploreEditor'
 import { ExploreNotifications } from '@/components/ExploreNotifications'
 import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { ExploreSuggestDialog } from '@/components/ExploreSuggestDialog'
-import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, logExploreEvent, type VoteStat, type PopStat } from '@/lib/exploreMutations'
+import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, type VoteStat, type PopStat } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopiesDeep, updateExploreCopies, type PlaceInput } from '@/lib/placeMutations'
 import { toast } from '@/lib/toast'
 import { confirmDialog } from '@/lib/confirm'
@@ -32,7 +31,6 @@ export default function Explore() {
   const setF = (patch: Partial<ExploreFilterState>) => setFilter((s) => ({ ...s, ...patch }))
   const [editor, setEditor] = useState<ExplorePlace | 'new' | null>(null)
   const [fav, setFav] = useState<Place | null>(null)
-  const [detail, setDetail] = useState<ExplorePlace | null>(null)
   const [suggest, setSuggest] = useState<ExplorePlace | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [stats, setStats] = useState<Map<string, VoteStat>>(new Map())
@@ -60,10 +58,9 @@ export default function Explore() {
     setRefreshing(false)
   }
 
-  // open detail + count the click toward popularity
+  // open the full detail page (view is counted there)
   function openDetail(e: ExplorePlace) {
-    setDetail(e)
-    if (user) logExploreEvent(e.id, user.id, 'view')
+    navigate(`/explore/p/${e.id}`)
   }
 
   async function toggleFav(e: ExplorePlace) {
@@ -140,7 +137,7 @@ export default function Explore() {
         <button onClick={goBack} className="btn-icon !border-0 justify-self-start" aria-label="กลับ"><IconArrowLeft size={18} /></button>
         <TaurusLogo height={42} />
         <div className="flex items-center gap-1 justify-self-end">
-          {user && <ExploreNotifications userId={user.id} onOpenItem={(id) => { const it = items.find((e) => e.id === id); if (it) setDetail(it) }} />}
+          {user && <ExploreNotifications userId={user.id} onOpenItem={(id) => navigate(`/explore/p/${id}`)} />}
           <button onClick={() => navigate('/explore/mine')} className="btn-icon !border-0" aria-label="จัดการสถานที่ของฉัน" title="สถานที่ที่ฉันแชร์"><IconMapPin size={18} /></button>
           <button onClick={() => setEditor('new')} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] font-medium"><IconPlus size={15} /><span className="max-sm:hidden">เพิ่มสถานที่</span></button>
         </div>
@@ -198,12 +195,6 @@ export default function Explore() {
           // quiet reload (no full-page spinner) so the scroll position is kept
           reloadItems()
         }} />
-
-      <ExploreDetail e={detail} open={!!detail} saved={detail ? savedSet.has(detail.id) : false}
-        onClose={() => { setDetail(null); refreshStats() }} onFav={() => detail && toggleFav(detail)}
-        onOpenPlace={(p) => openDetail(p)}
-        onSuggest={() => { if (detail) { setSuggest(detail); setDetail(null) } }}
-        onItemChanged={reloadItems} />
 
       <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
         onClose={() => setFav(null)} onChanged={refreshSaved} />

@@ -234,7 +234,7 @@ export default function Profile() {
                     onClick={() => {
                       if (user) markNotifRead(user.id, n.id) // เปิดดู = อ่านแล้ว — รีเฟรชแล้วไม่ขึ้นอีก
                       setNotifs((xs) => xs.filter((x) => x.id !== n.id))
-                      navigate(`/explore/mine?item=${n.exploreId}`)
+                      navigate(`/explore/p/${n.exploreId}`)
                     }}
                     className="w-full flex items-start gap-2.5 px-4 py-3 text-left hover:bg-surface-2/40" style={{ borderTop: '0.5px solid var(--color-line)' }}>
                     <span className="size-8 rounded-full grid place-items-center shrink-0 mt-0.5" style={{ background: ic.bg }}>{ic.el}</span>
