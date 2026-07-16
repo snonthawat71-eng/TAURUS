@@ -39,11 +39,13 @@ function ProfileChrome() {
       body.style.backgroundColor = '#0A2A6B'
       meta?.setAttribute('content', '#0A2A6B')
     } else {
-      html.style.background = ''
-      html.style.backgroundColor = ''
-      body.style.background = ''
-      body.style.backgroundColor = ''
-      meta?.setAttribute('content', '#0270FB')
+      // Explicit colours (not just clearing) — Safari re-samples the status-bar
+      // tint more reliably when the value actually changes to a concrete colour.
+      html.style.background = 'var(--color-canvas)'
+      html.style.backgroundColor = '#f6f8fb'
+      body.style.background = 'var(--color-canvas)'
+      body.style.backgroundColor = '#f6f8fb'
+      meta?.setAttribute('content', '#f6f8fb')
     }
   }, [pathname])
   return null
