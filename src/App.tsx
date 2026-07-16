@@ -38,6 +38,9 @@ function ProfileChrome() {
       html.style.backgroundColor = '#0A2A6B'
       body.style.background = grad
       body.style.backgroundColor = '#0A2A6B'
+      // no rubber-banding here: the bottom bounce would show the navy that the
+      // top needs (iOS paints both edges from one colour)
+      html.style.overscrollBehaviorY = 'none'
       meta?.setAttribute('content', '#0A2A6B')
     } else {
       // Explicit colours (not just clearing) — Safari re-samples the status-bar
@@ -47,6 +50,7 @@ function ProfileChrome() {
       html.style.backgroundColor = canvas
       body.style.background = 'var(--color-canvas)'
       body.style.backgroundColor = canvas
+      html.style.overscrollBehaviorY = '' // back to the global 'contain'
       meta?.setAttribute('content', canvas)
     }
   }, [pathname])
