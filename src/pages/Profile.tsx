@@ -101,7 +101,11 @@ export default function Profile() {
       : { bg: 'var(--color-brand-soft)', el: <IconMessageCircle size={15} className="text-brand" /> }
 
   return (
-    <div className="min-h-dvh bg-canvas">
+    // Inner scroller (document itself never scrolls): iOS paints overscroll
+    // from ONE background — this container's — so a navy-top / canvas-bottom
+    // gradient gives navy on pull-down and white on pull-up past the end.
+    <div className="fixed inset-0 overflow-y-auto"
+      style={{ background: 'linear-gradient(180deg, #0A2A6B 0%, #0A2A6B 30%, #f6f8fb 70%, #f6f8fb 100%)', WebkitOverflowScrolling: 'touch' }}>
       {/* no header — just a floating back arrow */}
       <button onClick={() => navigate(-1)} className="fixed z-40 p-2.5 text-white" aria-label="กลับ"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 6px)', left: 8, filter: 'drop-shadow(0 1px 3px rgba(0,40,90,.45))' }}>
