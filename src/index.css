@@ -104,6 +104,17 @@ html[data-theme='dark'] {
 }
 
 @layer components {
+  /* show one element per theme (e.g. the light/white logo variants) */
+  .theme-dark-only {
+    display: none;
+  }
+  html[data-theme='dark'] .theme-dark-only {
+    display: inline-block;
+  }
+  html[data-theme='dark'] .theme-light-only {
+    display: none;
+  }
+
   /* 0.5px hairline border (spec: 0.5px solid) */
   .hairline {
     border: 0.5px solid var(--color-line);

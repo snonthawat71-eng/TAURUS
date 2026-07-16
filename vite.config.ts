@@ -13,7 +13,7 @@ export default defineConfig({
       // 'prompt': a new build waits until the user taps "อัปเดต" (see src/lib/pwa.ts),
       // so an update never interrupts what they're doing.
       registerType: 'prompt',
-      includeAssets: ['taurus-01.svg', 'taurus-02.svg', 'taurus-04.svg'],
+      includeAssets: ['taurus-01.svg', 'taurus-02.svg', 'taurus-04.svg', 'taurus-04-white.svg'],
       manifest: {
         name: 'TAURUS',
         short_name: 'TAURUS',
