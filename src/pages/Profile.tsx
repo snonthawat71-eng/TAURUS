@@ -10,6 +10,7 @@ import { useTrip } from '@/contexts/TripContext'
 import { Avatar } from '@/components/Avatar'
 import { ProfileEditor } from '@/components/ProfileEditor'
 import { listMyExplore, allPopularity, getExploreNotifs, type ExploreNotif } from '@/lib/exploreMutations'
+import { readNotifIds, markNotifRead } from '@/lib/notifRead'
 import { loyaltyTier } from '@/lib/loyalty'
 import { countryFlag } from '@/lib/countries'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -51,11 +52,14 @@ export default function Profile() {
     return () => { active = false }
   }, [user?.id])
 
-  // notifications feed (Explore) + realtime refresh
+  // notifications feed (Explore) + realtime refresh — opened ones are read
+  // and stay hidden from then on
   useEffect(() => {
     if (!user) return
     let active = true
-    const load = () => getExploreNotifs(user.id).then((l) => { if (active) setNotifs(l) })
+    const load = () => getExploreNotifs(user.id).then((l) => {
+      if (active) setNotifs(l.filter((n) => !readNotifIds(user.id).has(n.id)))
+    })
     load()
     if (!isSupabaseConfigured) return () => { active = false }
     let t: ReturnType<typeof setTimeout>
@@ -230,7 +234,12 @@ export default function Profile() {
               {notifs.map((n) => {
                 const ic = notifIcon(n)
                 return (
-                  <button key={n.id} onClick={() => navigate(`/explore/mine?item=${n.exploreId}`)}
+                  <button key={n.id}
+                    onClick={() => {
+                      if (user) markNotifRead(user.id, n.id) // เปิดดู = อ่านแล้ว — รีเฟรชแล้วไม่ขึ้นอีก
+                      setNotifs((xs) => xs.filter((x) => x.id !== n.id))
+                      navigate(`/explore/mine?item=${n.exploreId}`)
+                    }}
                     className="w-full flex items-start gap-2.5 px-4 py-3 text-left hover:bg-surface-2/40" style={{ borderTop: '0.5px solid var(--color-line)' }}>
                     <span className="size-8 rounded-full grid place-items-center shrink-0 mt-0.5" style={{ background: ic.bg }}>{ic.el}</span>
                     <div className="min-w-0 flex-1">

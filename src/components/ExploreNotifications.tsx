@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IconBell, IconHeartFilled, IconMessageCircle, IconMessageReport } from '@tabler/icons-react'
 import { getExploreNotifs, type ExploreNotif } from '@/lib/exploreMutations'
+import { readNotifIds, markNotifRead } from '@/lib/notifRead'
 import type { SuggestionKind } from '@/lib/database.types'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
@@ -35,7 +36,7 @@ export function ExploreNotifications({ userId, onOpenItem }: {
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const refresh = useCallback(async () => {
-    const list = await getExploreNotifs(userId)
+    const list = (await getExploreNotifs(userId)).filter((n) => !readNotifIds(userId).has(n.id))
     setNotifs(list)
     return list
   }, [userId])
@@ -98,7 +99,12 @@ export function ExploreNotifications({ userId, onOpenItem }: {
             ) : (
               notifs.map((n) => (
                 <button key={n.id}
-                  onClick={() => { setOpen(false); onOpenItem?.(n.exploreId) }}
+                  onClick={() => {
+                    markNotifRead(userId, n.id) // เปิดดู = อ่านแล้ว
+                    setNotifs((xs) => xs.filter((x) => x.id !== n.id))
+                    setOpen(false)
+                    onOpenItem?.(n.exploreId)
+                  }}
                   className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-surface-2"
                   style={{ borderTop: '0.5px solid var(--color-line)' }}>
                   <span className="size-7 rounded-full grid place-items-center shrink-0 mt-0.5"
