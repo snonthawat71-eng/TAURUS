@@ -86,13 +86,14 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
             <div className="flex flex-col gap-1 text-[12px] text-ink-3 mt-2">
               {routes.slice(0, 2).map((r, i) => {
                 const MIcon = modeMeta('mode' in r ? r.mode : undefined).icon
-                // official station number (e.g. Taipei "O09") — bold, line-coloured
+                // official station number (e.g. Taipei "O09") — plain, right
+                // before the station name
                 const code = stationCode(r.line, r.station)
+                const station = [code, r.station].filter(Boolean).join(' ')
                 return (
                   <span key={i} className="flex items-center gap-1.5 min-w-0">
                     <span className="inline-flex items-center justify-center size-4 rounded-full shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={10} /></span>
-                    {code && <span className="font-bold shrink-0" style={{ color: r.color ?? 'var(--color-ink-2)' }}>{code}</span>}
-                    <span className="truncate">{[r.line, r.station].filter(Boolean).join(' · ') || modeMeta('mode' in r ? r.mode : undefined).label}</span>
+                    <span className="truncate">{[r.line, station].filter(Boolean).join(' · ') || modeMeta('mode' in r ? r.mode : undefined).label}</span>
                   </span>
                 )
               })}
