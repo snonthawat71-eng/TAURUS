@@ -15,6 +15,7 @@ import { ExploreSuggestDialog } from '@/components/ExploreSuggestDialog'
 import { SUG_META, sugSummary, timeAgo, NearbyCard } from '@/components/ExploreDetail'
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
+import { stationCode } from '@/lib/metro/suggest'
 import { optimizeImageUrl } from '@/lib/cloudinary'
 import { openMap } from '@/lib/maps'
 import { useAuth } from '@/contexts/AuthContext'
@@ -321,9 +322,11 @@ export default function ExplorePlaceDetail() {
           {routeList[0] && (() => {
             const m0 = modeMeta('mode' in routeList[0] ? (routeList[0].mode as string | undefined) : undefined)
             const M0 = m0.icon
+            const code0 = stationCode(routeList[0].line, routeList[0].station) ?? splitStationCode(routeList[0].station).code
             return (
               <div className="flex items-center gap-1.5 text-[12px] font-medium mt-1.5 opacity-95 min-w-0">
                 <M0 size={14} className="shrink-0" />
+                {code0 && <span className="font-extrabold shrink-0">{code0}</span>}
                 <span className="truncate">{[routeList[0].line, routeList[0].station].filter(Boolean).join(' · ')}</span>
               </div>
             )
@@ -406,7 +409,11 @@ export default function ExplorePlaceDetail() {
                 {routeList.map((r, i) => {
                   const m = modeMeta('mode' in r ? (r.mode as string | undefined) : undefined)
                   const MIcon = m.icon
-                  const { code, name: stationName } = splitStationCode(r.station)
+                  // official per-line code from the built-in networks (Taipei
+                  // etc.) first; a code typed into the station label as fallback
+                  const parsed = splitStationCode(r.station)
+                  const code = stationCode(r.line, r.station) ?? parsed.code
+                  const stationName = parsed.name
                   return (
                     <div key={i} className="flex items-center gap-3">
                       <span className="size-9 rounded-full grid place-items-center shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={17} /></span>
