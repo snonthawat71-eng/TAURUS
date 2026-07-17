@@ -23,9 +23,21 @@ export function Drawer({
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
+    // Back the whole screen with the sheet's surface colour while it's open. On
+    // iOS (esp. installed PWA) the keyboard's translucent toolbar overlays a
+    // strip the web viewport doesn't cover; without this it shows the webview
+    // background (dark/blue page) instead of a seamless white under the sheet.
+    const html = document.documentElement
+    const body = document.body
+    const prevHtmlBg = html.style.backgroundColor
+    const prevBodyBg = body.style.backgroundColor
+    html.style.backgroundColor = 'var(--color-surface)'
+    body.style.backgroundColor = 'var(--color-surface)'
     return () => {
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
+      html.style.backgroundColor = prevHtmlBg
+      body.style.backgroundColor = prevBodyBg
     }
   }, [open, onClose])
 
