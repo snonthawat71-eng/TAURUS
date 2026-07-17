@@ -236,23 +236,24 @@ export default function ExplorePlaceDetail() {
 
   return (
     <div className="min-h-dvh bg-canvas pb-[calc(env(safe-area-inset-bottom)+80px)]">
-      {/* ── immersive hero cover — photo fills ~80% of the screen, full-bleed to
-          the very top (no white strip), fading into the page below ── */}
-      <div className="relative h-[80dvh] min-h-[440px] bg-surface-2">
+      {/* ── immersive hero cover — full-bleed to the very top, dissolving into
+          the tab bar below (which sits over the fading image) ── */}
+      <div className="relative h-[540px] bg-surface-2">
         {gallery.length > 0
           ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={900} focus={e.photo_focus} onExpand={(i) => setLightbox(i)}
               fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>} />
           : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>}
-        {/* dark gradient with a LONG dissolve into the canvas below */}
+        {/* dark gradient with a LONG dissolve — reaches canvas right where the
+            tab bar overlaps, so the image fades softly into the tabs */}
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, var(--color-canvas) 6%, rgba(6,20,40,.82) 34%, rgba(6,20,40,.05) 66%, rgba(0,0,0,.25) 100%)' }} />
+          style={{ background: 'linear-gradient(to top, var(--color-canvas) 2%, rgba(6,20,40,.20) 16%, rgba(6,20,40,.80) 40%, rgba(6,20,40,.04) 72%, rgba(0,0,0,.22) 100%)' }} />
         <button onClick={() => navigate(-1)} aria-label="กลับ"
           className="absolute z-10 size-9 rounded-full grid place-items-center text-white"
           style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12, background: 'rgba(255,255,255,.22)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
           <IconArrowLeft size={19} />
         </button>
-        {/* overlaid identity + 3-stat strip */}
-        <div className="absolute left-4 right-4 bottom-5 text-white pointer-events-none">
+        {/* overlaid identity + 3-stat strip — sits above the fade→tabs zone */}
+        <div className="absolute left-4 right-4 bottom-[86px] text-white pointer-events-none">
           {e.country && (
             <span className="inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: '#fff', color: 'var(--color-brand-dark)' }}>{e.country}</span>
           )}
@@ -295,8 +296,10 @@ export default function ExplorePlaceDetail() {
         </div>
       </div>
 
-      {/* ── tabs ── */}
-      <div className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex px-2" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
+      {/* ── tabs — pulled up over the hero's dissolving bottom (frosted glass),
+          sticky to the top once you scroll ── */}
+      <div className="sticky top-0 z-20 flex px-2 -mt-16 backdrop-blur-md"
+        style={{ backgroundColor: 'color-mix(in srgb, var(--color-canvas) 68%, transparent)', borderBottom: '0.5px solid var(--color-line)' }}>
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className="flex-1 relative py-3 text-[13px] font-semibold transition-colors"
