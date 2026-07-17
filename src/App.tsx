@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { TaurusMark } from '@/components/TaurusMark'
@@ -21,6 +21,24 @@ import Budget from '@/pages/Budget'
 import CreateTrip from '@/pages/CreateTrip'
 import JoinTrip, { PENDING_INVITE_KEY } from '@/pages/JoinTrip'
 import { canvasColor } from '@/lib/theme'
+
+// Take scroll fully into our own hands: the browser's automatic restoration on
+// back/forward fires at its own (async) time and fights the app's scrolling,
+// which shows up as a visible double-jump when swiping back. With 'manual' the
+// browser never touches scroll — ScrollManager below decides instead.
+if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'
+
+// Every route change lands at the top, synchronously before first paint
+// (useLayoutEffect) so there's no flash of the old position. Exception:
+// /explore restores its own saved list position (see pages/Explore.tsx).
+function ScrollManager() {
+  const { pathname } = useLocation()
+  useLayoutEffect(() => {
+    if (pathname === '/explore') return
+    window.scrollTo(0, 0)
+  }, [pathname])
+  return null
+}
 
 // The profile page paints the whole top of the screen navy (status-bar zone,
 // pull-down overscroll, browser theme colour). Driven off the route — asserted
@@ -114,6 +132,7 @@ export default function App() {
       <BrowserRouter>
         <PendingInviteRedirect />
         <ProfileChrome />
+        <ScrollManager />
         <Routes>
           <Route path="/" element={<TripsDashboard />} />
           <Route path="/create" element={<CreateTrip />} />

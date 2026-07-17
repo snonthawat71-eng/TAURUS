@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconPlus, IconArrowLeft, IconWorldSearch, IconRefresh, IconMapPin } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -108,15 +108,17 @@ export default function Explore() {
     setItems(list)
     setLoading(false)
   }
+  // returning from a place detail: the cached list is already rendered this
+  // very frame, so jump to the saved position synchronously BEFORE the first
+  // paint — no flash at the top, no late correction (the browser's own
+  // restoration is disabled globally; see ScrollManager in App.tsx)
+  useLayoutEffect(() => {
+    if (cachedItems) window.scrollTo(0, cachedScroll)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
-    if (cachedItems) {
-      // returning from a place detail — keep the cached list on screen, refresh
-      // it quietly, and restore the scroll position after the DOM is painted
-      reloadItems()
-      requestAnimationFrame(() => window.scrollTo(0, cachedScroll))
-    } else {
-      load()
-    }
+    if (cachedItems) reloadItems() // quiet refresh — keeps what's on screen
+    else load()
     refreshStats()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
