@@ -283,16 +283,15 @@ export default function ExplorePlaceDetail() {
           ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={900} focus={e.photo_focus} onExpand={(i) => setLightbox(i)}
               fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>} />
           : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>}
-        {/* dark gradient with a LONG dissolve — reaches canvas right where the
-            tab bar overlaps, so the image fades softly into the tabs */}
+        {/* dark gradient that dissolves the photo FULLY into the canvas before
+            the tab zone, so the image melts into white (or dark in dark mode) */}
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, var(--color-canvas) 2%, rgba(6,20,40,.20) 16%, rgba(6,20,40,.80) 40%, rgba(6,20,40,.04) 72%, rgba(0,0,0,.22) 100%)' }} />
-        {/* blur just the bottom strip of the photo (the fade→tabs zone), blur
-            intensifying downward */}
-        <div className="absolute inset-x-0 bottom-0 h-[120px] pointer-events-none"
-          style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-            maskImage: 'linear-gradient(to bottom, transparent 0%, #000 78%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 78%)' }} />
+          style={{ background: 'linear-gradient(to top, var(--color-canvas) 15%, rgba(6,20,40,.24) 30%, rgba(6,20,40,.80) 48%, rgba(6,20,40,.04) 74%, rgba(0,0,0,.22) 100%)' }} />
+        {/* blur the bottom strip as it fades away, so the photo dissolves softly */}
+        <div className="absolute inset-x-0 bottom-0 h-[170px] pointer-events-none"
+          style={{ backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)',
+            maskImage: 'linear-gradient(to bottom, transparent 0%, #000 60%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 60%)' }} />
         <button onClick={() => navigate(-1)} aria-label="กลับ"
           className="absolute z-10 size-9 rounded-full grid place-items-center text-white"
           style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12, background: 'rgba(255,255,255,.22)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
@@ -342,10 +341,10 @@ export default function ExplorePlaceDetail() {
         </div>
       </div>
 
-      {/* ── tabs — pulled up over the hero's dissolving bottom (frosted glass),
-          sticky to the top once you scroll ── */}
-      <div className="sticky top-0 z-20 flex px-2 -mt-16 backdrop-blur-md"
-        style={{ backgroundColor: 'color-mix(in srgb, var(--color-canvas) 68%, transparent)', borderBottom: '0.5px solid var(--color-line)' }}>
+      {/* ── tabs — glassmorphism over the hero's dissolved bottom, sticky once
+          you scroll ── */}
+      <div className="sticky top-0 z-20 flex px-2 -mt-14 backdrop-blur-xl"
+        style={{ backgroundColor: 'color-mix(in srgb, var(--color-canvas) 55%, transparent)', borderBottom: '0.5px solid color-mix(in srgb, var(--color-line) 60%, transparent)', boxShadow: '0 1px 0 rgba(255,255,255,.35) inset' }}>
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className="flex-1 relative py-3 text-[13px] font-semibold transition-colors"
@@ -356,7 +355,7 @@ export default function ExplorePlaceDetail() {
         ))}
       </div>
 
-      <main className="max-w-[600px] mx-auto px-4 sm:px-6 py-4">
+      <main className="relative z-10 bg-canvas max-w-[600px] mx-auto px-4 sm:px-6 py-4">
         {/* ══ INFO ══ */}
         {tab === 'info' && (
           <div className="space-y-4">
