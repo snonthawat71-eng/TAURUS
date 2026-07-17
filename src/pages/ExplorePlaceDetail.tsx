@@ -55,6 +55,17 @@ function sampleTopColor(url: string): Promise<string | null> {
   })
 }
 
+/** Pull a station code like "R05" / "BL12" / "A-1" out of a free-typed station
+ *  label ("R05 Xinyi Anhe", "Xinyi Anhe (R05)", …). Returns the code and the
+ *  label with the code removed. */
+function splitStationCode(station: string | null | undefined): { code: string | null; name: string } {
+  const s = (station ?? '').trim()
+  const m = s.match(/(?:^|[\s(（])([A-Z]{1,3}[- ]?\d{1,3})(?=[)）\s]|$)/)
+  if (!m) return { code: null, name: s }
+  const name = s.replace(m[1], ' ').replace(/[()（）]/g, ' ').replace(/\s+/g, ' ').trim()
+  return { code: m[1].replace(/[- ]/, ''), name }
+}
+
 export default function ExplorePlaceDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -395,12 +406,15 @@ export default function ExplorePlaceDetail() {
                 {routeList.map((r, i) => {
                   const m = modeMeta('mode' in r ? (r.mode as string | undefined) : undefined)
                   const MIcon = m.icon
+                  const { code, name: stationName } = splitStationCode(r.station)
                   return (
                     <div key={i} className="flex items-center gap-3">
-                      <span className="size-10 rounded-full grid place-items-center shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={19} /></span>
+                      <span className="size-9 rounded-full grid place-items-center shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={17} /></span>
                       <div className="min-w-0">
-                        <div className="text-[14.5px] font-semibold truncate">{[r.line, r.station].filter(Boolean).join(' · ') || m.label}</div>
-                        <div className="text-[11.5px] text-ink-3 mt-0.5">{m.label}</div>
+                        {/* station code — big, line-coloured, its own line */}
+                        {code && <div className="text-[19px] font-extrabold leading-none tracking-wide" style={{ color: r.color ?? 'var(--color-ink)' }}>{code}</div>}
+                        <div className={['text-[13px] font-semibold truncate', code ? 'mt-1' : ''].join(' ')}>{r.line || m.label}</div>
+                        {stationName && <div className="text-[11.5px] text-ink-3 mt-0.5 truncate">{stationName}</div>}
                       </div>
                     </div>
                   )
