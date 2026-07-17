@@ -30,7 +30,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toast'
 import type { ExplorePlace, ExploreComment, ExploreSuggestion, Place } from '@/lib/database.types'
 
-type Tab = 'info' | 'reviews' | 'nearby' | 'comments'
+type Tab = 'info' | 'nearby' | 'reviews'
 
 /** Average colour of an image's top strip (× 0.8 to match the hero's top
  *  darkening) — used to paint the status-bar zone so it blends with the photo.
@@ -269,9 +269,8 @@ export default function ExplorePlaceDetail() {
 
   const TABS: { key: Tab; label: string; n?: number }[] = [
     { key: 'info', label: 'ข้อมูล' },
-    { key: 'reviews', label: 'รีวิว' },
     { key: 'nearby', label: 'ใกล้เคียง', n: nearby.length || undefined },
-    { key: 'comments', label: 'คุย', n: comments.length || undefined },
+    { key: 'reviews', label: 'รีวิว', n: comments.length || undefined },
   ]
 
   return (
@@ -319,7 +318,7 @@ export default function ExplorePlaceDetail() {
             <div className="flex-1 flex items-center min-w-0">
               <div className="min-w-0">
                 <div className="flex items-center gap-1 leading-none">
-                  <StarRating rating={rating} size={13} />
+                  <StarRating rating={rating} size={13} empty={votes.up + votes.down === 0} />
                   {votes.up + votes.down > 0 && <span className="text-[12px] font-bold">{rating.toFixed(1)}</span>}
                 </div>
                 <div className="text-[9.5px] mt-1.5 text-white/75">คะแนน</div>
@@ -491,8 +490,8 @@ export default function ExplorePlaceDetail() {
           <div>
             <div className="card p-4 flex items-center gap-4">
               <div className="text-center shrink-0">
-                <div className="text-[34px] font-extrabold leading-none tabular-nums">{rating.toFixed(1)}</div>
-                <StarRating rating={rating} size={15} />
+                <div className="text-[34px] font-extrabold leading-none tabular-nums" style={votes.up + votes.down === 0 ? { color: 'var(--color-ink-3)' } : undefined}>{votes.up + votes.down === 0 ? '–' : rating.toFixed(1)}</div>
+                <StarRating rating={rating} size={15} empty={votes.up + votes.down === 0} />
                 <div className="text-[11px] text-ink-3 mt-1">{votes.up + votes.down > 0 ? `${votes.up + votes.down} รีวิว` : 'ยังไม่มีรีวิว'}</div>
               </div>
               <div className="flex-1 min-w-0 space-y-1.5">
@@ -511,6 +510,26 @@ export default function ExplorePlaceDetail() {
                 {votes.mine === -1 ? <IconThumbDownFilled size={17} /> : <IconThumbDown size={17} />} ไม่แนะนำ · {votes.down}
               </button>
             </div>
+
+            {/* ── discussion / comments (same topic as reviews) ── */}
+            <div className="mt-7 pt-5" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+              <div className="text-[13px] font-semibold text-ink-2 mb-3">พูดคุย {comments.length > 0 && <span className="text-ink-3 font-normal">· {comments.length}</span>}</div>
+              <div className="flex items-start gap-2 mb-4">
+                <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={30} ring={false} />
+                <div className="flex-1 min-w-0">
+                  <textarea value={text} onChange={(ev) => setText(ev.target.value)} rows={2} placeholder="เขียนความคิดเห็น…"
+                    className="w-full resize-none rounded-[10px] bg-surface-2 px-3 py-2 text-[13px] outline-none focus:ring-1 focus:ring-brand" />
+                  <div className="flex justify-end mt-1.5">
+                    <button onClick={() => send(text)} disabled={sending || !text.trim()} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-brand text-white text-[12px] font-medium disabled:opacity-40">
+                      {sending ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />} ส่ง
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {comments.length === 0
+                ? <div className="py-8 text-center text-[12px] text-ink-3">ยังไม่มีความคิดเห็น — มาเป็นคนแรกกัน</div>
+                : <div className="space-y-3">{renderThread(null, 0)}</div>}
+            </div>
           </div>
         )}
 
@@ -526,26 +545,6 @@ export default function ExplorePlaceDetail() {
             )
         )}
 
-        {/* ══ COMMENTS ══ */}
-        {tab === 'comments' && (
-          <div>
-            <div className="flex items-start gap-2 mb-4">
-              <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={30} ring={false} />
-              <div className="flex-1 min-w-0">
-                <textarea value={text} onChange={(ev) => setText(ev.target.value)} rows={2} placeholder="เขียนความคิดเห็น…"
-                  className="w-full resize-none rounded-[10px] bg-surface-2 px-3 py-2 text-[13px] outline-none focus:ring-1 focus:ring-brand" />
-                <div className="flex justify-end mt-1.5">
-                  <button onClick={() => send(text)} disabled={sending || !text.trim()} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-brand text-white text-[12px] font-medium disabled:opacity-40">
-                    {sending ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />} ส่ง
-                  </button>
-                </div>
-              </div>
-            </div>
-            {comments.length === 0
-              ? <div className="py-10 text-center text-[12px] text-ink-3">ยังไม่มีความคิดเห็น — มาเป็นคนแรกกัน</div>
-              : <div className="space-y-3">{renderThread(null, 0)}</div>}
-          </div>
-        )}
       </main>
 
       {/* ── sticky bottom action bar ── */}

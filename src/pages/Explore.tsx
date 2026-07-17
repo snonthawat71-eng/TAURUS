@@ -19,15 +19,22 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { filterExplore, initialExploreFilter, type ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
+// Kept across route unmount (opening a place detail unmounts this page) so
+// coming back shows the same list at the same scroll position instead of
+// reloading from the top. Lives for the SPA session only.
+let cachedItems: ExplorePlace[] | null = null
+let cachedFilter: ExploreFilterState | null = null
+let cachedScroll = 0
+
 export default function Explore() {
   const { user } = useAuth()
   const { trips, trip: currentTrip, reload: reloadTrip } = useTrip()
   const navigate = useNavigate()
   const goBack = useBack('/')
-  const [items, setItems] = useState<ExplorePlace[]>([])
-  const [loading, setLoading] = useState(true)
+  const [items, setItems] = useState<ExplorePlace[]>(cachedItems ?? [])
+  const [loading, setLoading] = useState(!cachedItems)
   const [error, setError] = useState(false)
-  const [filter, setFilter] = useState<ExploreFilterState>(initialExploreFilter)
+  const [filter, setFilter] = useState<ExploreFilterState>(cachedFilter ?? initialExploreFilter)
   const setF = (patch: Partial<ExploreFilterState>) => setFilter((s) => ({ ...s, ...patch }))
   const [editor, setEditor] = useState<ExplorePlace | 'new' | null>(null)
   const [fav, setFav] = useState<Place | null>(null)
@@ -48,7 +55,9 @@ export default function Explore() {
   async function reloadItems() {
     const { data, error } = await listExplore()
     setError(!!error)
-    setItems((data ?? []) as ExplorePlace[])
+    const list = (data ?? []) as ExplorePlace[]
+    cachedItems = list
+    setItems(list)
   }
 
   // manual refresh — for when realtime isn't actually delivering updates
@@ -58,8 +67,11 @@ export default function Explore() {
     setRefreshing(false)
   }
 
-  // open the full detail page (view is counted there)
+  // open the full detail page (view is counted there). Stash the list scroll
+  // position + active filter so returning lands exactly where we left off.
   function openDetail(e: ExplorePlace) {
+    cachedScroll = window.scrollY
+    cachedFilter = filter
     navigate(`/explore/p/${e.id}`)
   }
 
@@ -91,10 +103,22 @@ export default function Explore() {
     setLoading(true)
     const { data, error } = await listExplore()
     setError(!!error)
-    setItems((data ?? []) as ExplorePlace[])
+    const list = (data ?? []) as ExplorePlace[]
+    cachedItems = list
+    setItems(list)
     setLoading(false)
   }
-  useEffect(() => { load(); refreshStats() }, [])
+  useEffect(() => {
+    if (cachedItems) {
+      // returning from a place detail — keep the cached list on screen, refresh
+      // it quietly, and restore the scroll position after the DOM is painted
+      reloadItems()
+      requestAnimationFrame(() => window.scrollTo(0, cachedScroll))
+    } else {
+      load()
+    }
+    refreshStats()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-check what's saved whenever the page is shown again — covers deleting a
