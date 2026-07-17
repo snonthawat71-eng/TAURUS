@@ -287,7 +287,7 @@ export default function ExplorePlaceDetail() {
         {/* smooth bottom-up darkening (no hard band) behind the text, dissolving
             into the canvas before the tab zone */}
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, var(--color-canvas) 8%, rgba(6,20,40,.62) 26%, rgba(6,20,40,.4) 44%, rgba(6,20,40,.14) 66%, transparent 90%)' }} />
+          style={{ background: 'linear-gradient(to top, var(--color-canvas) 4%, rgba(6,20,40,.55) 24%, rgba(6,20,40,.36) 46%, rgba(6,20,40,.13) 68%, transparent 92%)' }} />
         {/* blur the whole lower section (behind the stats + tabs) so the photo
             dissolves softly; text painted on top stays sharp */}
         <div className="absolute inset-x-0 bottom-0 h-[190px] pointer-events-none"
@@ -357,11 +357,13 @@ export default function ExplorePlaceDetail() {
         ))}
       </div>
 
-      <main className="relative z-10 max-w-[600px] mx-auto px-4 sm:px-6 pt-5 pb-4">
-        {/* the blurred hero photo shows through this short top strip, then the
-            canvas backdrop takes over right where the first card begins — so the
-            photo dissolves down past the tabs to the travel card, not above it */}
-        <div className="absolute inset-x-0 top-5 bottom-0 bg-canvas -z-10" />
+      <main className="relative z-10 max-w-[600px] mx-auto px-4 sm:px-6 pt-6 pb-4">
+        {/* the blurred hero photo shows through the top of <main>; this backdrop
+            fades IN (transparent → canvas) instead of a hard edge, so the grey
+            blurred photo dissolves smoothly into the page background with no
+            visible seam, then stays solid canvas behind every card below */}
+        <div className="absolute inset-x-0 top-0 bottom-0 -z-10"
+          style={{ background: 'linear-gradient(to bottom, transparent 0, var(--color-canvas) 68px)' }} />
         {/* ══ INFO ══ */}
         {tab === 'info' && (
           <div className="space-y-4">
