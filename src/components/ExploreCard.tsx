@@ -104,15 +104,15 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, onFav, onDelete, 
               <div className="flex items-center gap-2 mt-2 min-w-0">
                 {/* line-coloured roundel — station code split onto two tight lines
                     (letters over number) so it always fits inside the circle */}
-                <span className="size-10 rounded-full grid place-items-center shrink-0 text-white leading-none" style={{ background: r.color ?? '#888780' }}>
+                <span className="size-8 rounded-full grid place-items-center shrink-0 text-white leading-none" style={{ background: r.color ?? '#888780' }}>
                   {code
                     ? (() => {
                         const mm = code.match(/^([A-Za-z]+)\s*(\d.*)$/)
                         return mm
-                          ? <span className="flex flex-col items-center leading-[1.02]"><span className="text-[9px] font-extrabold tracking-tight">{mm[1]}</span><span className="text-[12.5px] font-extrabold tracking-tight">{mm[2]}</span></span>
-                          : <span className="text-[10px] font-extrabold">{code}</span>
+                          ? <span className="flex flex-col items-center leading-[1.0]"><span className="text-[7.5px] font-extrabold tracking-tight">{mm[1]}</span><span className="text-[10.5px] font-extrabold tracking-tight">{mm[2]}</span></span>
+                          : <span className="text-[9px] font-extrabold">{code}</span>
                       })()
-                    : <MIcon size={17} />}
+                    : <MIcon size={15} />}
                 </span>
                 <div className="min-w-0 flex-1 leading-tight">
                   <div className="text-[12.5px] font-medium text-ink-2 truncate">{stationName || m.label}</div>
