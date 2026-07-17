@@ -236,28 +236,41 @@ export default function ExplorePlaceDetail() {
 
   return (
     <div className="min-h-dvh bg-canvas pb-[calc(env(safe-area-inset-bottom)+80px)]">
-      {/* ── hero cover ── */}
-      <div className="relative h-[300px] bg-surface-2">
+      {/* ── immersive hero cover — photo fills, fades into the page below ── */}
+      <div className="relative h-[420px] bg-surface-2">
         {gallery.length > 0
           ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={900} focus={e.photo_focus} onExpand={(i) => setLightbox(i)}
-              fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={56} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>} />
-          : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={56} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>}
-        {/* gradient + overlaid identity */}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to top, rgba(4,20,45,.85) 0%, rgba(4,20,45,.1) 45%, rgba(0,0,0,.25) 100%)' }} />
+              fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>} />
+          : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>}
+        {/* dark gradient that dissolves into the canvas at the very bottom */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, var(--color-canvas) 1%, rgba(6,20,40,.8) 24%, rgba(6,20,40,.06) 60%, rgba(0,0,0,.25) 100%)' }} />
         <button onClick={() => navigate(-1)} aria-label="กลับ"
-          className="absolute z-10 size-9 rounded-full grid place-items-center bg-white/90 text-ink shadow"
-          style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12 }}><IconArrowLeft size={19} /></button>
-        <button onClick={toggleSave} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟ'}
-          className="absolute z-10 size-9 rounded-full grid place-items-center shadow"
-          style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', right: 12, background: saved ? 'var(--color-brand)' : 'rgba(255,255,255,.92)', color: saved ? '#fff' : 'var(--color-brand)' }}>
-          {saved ? <IconHeartFilled size={19} /> : <IconHeart size={19} />}
+          className="absolute z-10 size-9 rounded-full grid place-items-center text-white"
+          style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12, background: 'rgba(255,255,255,.22)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+          <IconArrowLeft size={19} />
         </button>
+        {/* overlaid identity + 3-stat strip */}
         <div className="absolute left-4 right-4 bottom-4 text-white pointer-events-none">
           <span className="inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: '#fff', color: meta.fg }}>{meta.label}</span>
-          <h1 className="text-[23px] font-extrabold leading-tight mt-2" style={{ textShadow: '0 1px 8px rgba(0,0,0,.4)' }}>{e.name}</h1>
-          <div className="flex items-center gap-2 mt-1.5 text-[12px] font-medium">
-            <span className="inline-flex items-center gap-1"><StarRating rating={rating} size={13} /> {votes.up + votes.down > 0 ? rating.toFixed(1) : 'ยังไม่มีรีวิว'}</span>
-            {routeList[0] && <><span className="opacity-60">·</span><span className="truncate">{[routeList[0].line, routeList[0].station].filter(Boolean).join(' · ')}</span></>}
+          <h1 className="text-[25px] font-extrabold leading-tight mt-2" style={{ textShadow: '0 1px 10px rgba(0,0,0,.45)' }}>{e.name}</h1>
+          {routeList[0] && (
+            <div className="text-[12px] font-medium mt-1.5 truncate opacity-95">🚇 {[routeList[0].line, routeList[0].station].filter(Boolean).join(' · ')}</div>
+          )}
+          <div className="flex items-stretch mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,.28)' }}>
+            {([
+              ['คะแนน', votes.up + votes.down > 0 ? rating.toFixed(1) : '—'],
+              ['เมือง', e.city || '—'],
+              ['หมวด', meta.label],
+            ] as const).map(([l, v], i) => (
+              <div key={l} className="flex-1 flex items-center">
+                {i > 0 && <span className="w-px h-6 mr-3" style={{ background: 'rgba(255,255,255,.28)' }} />}
+                <div className="min-w-0">
+                  <div className="text-[15px] font-extrabold leading-none truncate">{v}</div>
+                  <div className="text-[9.5px] mt-1 text-white/75">{l}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -318,10 +331,8 @@ export default function ExplorePlaceDetail() {
                 })}
                 {routeList.length === 0 && <div className="text-[12px] text-ink-3">ยังไม่มีข้อมูลการเดินทาง</div>}
               </div>
-              {mapUrl && (
-                <button onClick={() => openMap(mapUrl)} className="inline-flex items-center gap-1 text-[12px] font-medium text-brand-mid mt-3">
-                  <IconMapPin size={14} /> {sel ? `เปิดแผนที่ (${sel.label || `สาขา ${branchIdx! + 1}`})` : 'เปิดแผนที่'}
-                </button>
+              {sel && mapUrl && (
+                <div className="text-[11px] text-ink-3 mt-2.5">แตะ "แผนที่" ด้านล่างเพื่อเปิดสาขา {sel.label || `สาขา ${branchIdx! + 1}`}</div>
               )}
             </div>
 
