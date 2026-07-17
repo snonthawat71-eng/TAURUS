@@ -278,15 +278,18 @@ export default function ExplorePlaceDetail() {
 
       {/* ── immersive hero cover — full-bleed to the very top, dissolving into
           the tab bar below (which sits over the fading image) ── */}
-      <div className="relative h-[460px] bg-surface-2">
+      <div className="relative h-[600px] bg-surface-2">
         {gallery.length > 0
           ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={900} focus={e.photo_focus} priority onExpand={(i) => setLightbox(i)}
               fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>} />
           : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>}
         {/* smooth bottom-up darkening (no hard band) behind the text, dissolving
             into the canvas before the tab zone */}
+        {/* px stops anchored to the BOTTOM edge — the darken/blur zone hugs the
+            text block no matter how tall the hero is, so growing the hero only
+            adds clear photo at the top */}
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, var(--color-canvas) 4%, rgba(6,20,40,.55) 24%, rgba(6,20,40,.36) 46%, rgba(6,20,40,.13) 68%, transparent 92%)' }} />
+          style={{ background: 'linear-gradient(to top, var(--color-canvas) 18px, rgba(6,20,40,.55) 110px, rgba(6,20,40,.36) 212px, rgba(6,20,40,.13) 313px, transparent 424px)' }} />
         {/* blur the whole lower section (behind the stats + tabs) so the photo
             dissolves softly; text painted on top stays sharp */}
         <div className="absolute inset-x-0 bottom-0 h-[190px] pointer-events-none"
