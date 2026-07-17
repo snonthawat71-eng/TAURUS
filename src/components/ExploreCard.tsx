@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore, IconZoomScan, IconMessageReport } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconMessageCircle, IconBuildingStore, IconZoomScan, IconMessageReport } from '@tabler/icons-react'
 import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
@@ -121,7 +121,6 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, onFav, onDelete, 
           <div className={['flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-3', isOwner ? 'pr-20' : onSuggest ? 'pr-11' : ''].join(' ')}>
             <span className="inline-flex items-center gap-1" title="ยอดคลิก"><IconEye size={13} /> {pop?.views ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดเซฟ"><IconHeart size={13} /> {pop?.saves ?? 0}</span>
-            <span className="inline-flex items-center gap-1" title="ยอดไลก์"><IconThumbUp size={13} /> {pop?.likes ?? 0}</span>
             <span className="inline-flex items-center gap-1" title="ยอดคอมเมนต์"><IconMessageCircle size={13} /> {pop?.comments ?? 0}</span>
           </div>
         </div>
