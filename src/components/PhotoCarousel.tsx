@@ -13,7 +13,7 @@ import type { PhotoRef } from './Lightbox'
  * - `overlay` renders above the photos (badges, corner buttons).
  */
 export function PhotoCarousel({
-  photos, alt, width, focus, fallback, onExpand, overlay, priority,
+  photos, alt, width, focus, fallback, onExpand, overlay, priority, indicator = 'dots',
 }: {
   photos: PhotoRef[]
   alt?: string
@@ -24,6 +24,10 @@ export function PhotoCarousel({
   overlay?: ReactNode
   /** eager-load the first slide (above-the-fold hero) */
   priority?: boolean
+  /** how to show there are multiple photos: pagination dots (default), or a
+   *  "1 / N" counter pill in the top-right (better on tall immersive heroes
+   *  where centre-bottom dots collide with overlaid text) */
+  indicator?: 'dots' | 'count'
 }) {
   const [active, setActive] = useState(0)
   const scroller = useRef<HTMLDivElement>(null)
@@ -73,7 +77,14 @@ export function PhotoCarousel({
         </>
       )}
 
-      {photos.length > 1 && (
+      {photos.length > 1 && indicator === 'count' && (
+        <div className="absolute z-20 rounded-full bg-black/45 text-white text-[11px] font-semibold px-2 py-1 leading-none backdrop-blur-sm tabular-nums pointer-events-none"
+          style={{ top: 'calc(env(safe-area-inset-top,0px) + 12px)', right: 12 }}>
+          {active + 1} / {photos.length}
+        </div>
+      )}
+
+      {photos.length > 1 && indicator === 'dots' && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
           {photos.map((_, i) => (
             <button key={i} aria-label={`รูปที่ ${i + 1}`} onClick={(e) => { e.stopPropagation(); jump(i) }}
