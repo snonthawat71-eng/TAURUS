@@ -13,7 +13,7 @@ import type { PhotoRef } from './Lightbox'
  * - `overlay` renders above the photos (badges, corner buttons).
  */
 export function PhotoCarousel({
-  photos, alt, width, focus, fallback, onExpand, overlay,
+  photos, alt, width, focus, fallback, onExpand, overlay, priority,
 }: {
   photos: PhotoRef[]
   alt?: string
@@ -22,6 +22,8 @@ export function PhotoCarousel({
   fallback?: ReactNode
   onExpand?: (index: number) => void
   overlay?: ReactNode
+  /** eager-load the first slide (above-the-fold hero) */
+  priority?: boolean
 }) {
   const [active, setActive] = useState(0)
   const scroller = useRef<HTMLDivElement>(null)
@@ -49,7 +51,7 @@ export function PhotoCarousel({
             onClick={onExpand ? (e) => { e.stopPropagation(); onExpand(i) } : undefined}
             style={onExpand ? { cursor: 'zoom-in' } : undefined}>
             <SignedImage url={p.url} path={p.path} alt={alt} width={width}
-              focus={i === 0 ? focus : null}
+              focus={i === 0 ? focus : null} eager={priority && i === 0}
               className="w-full h-full object-cover pointer-events-none" fallback={fallback} />
           </div>
         ))}

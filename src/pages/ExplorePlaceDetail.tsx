@@ -15,6 +15,7 @@ import { ExploreSuggestDialog } from '@/components/ExploreSuggestDialog'
 import { SUG_META, sugSummary, timeAgo, NearbyCard } from '@/components/ExploreDetail'
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
+import { optimizeImageUrl } from '@/lib/cloudinary'
 import { openMap } from '@/lib/maps'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
@@ -42,12 +43,11 @@ function sampleTopColor(url: string): Promise<string | null> {
       try {
         const c = document.createElement('canvas'); c.width = 8; c.height = 3
         const ctx = c.getContext('2d')!
-        ctx.drawImage(img, 0, 0, img.naturalWidth, Math.max(1, img.naturalHeight * 0.08), 0, 0, 8, 3)
+        ctx.drawImage(img, 0, 0, img.naturalWidth, Math.max(1, img.naturalHeight * 0.06), 0, 0, 8, 3)
         const d = ctx.getImageData(0, 0, 8, 3).data
         let r = 0, g = 0, b = 0, n = 0
         for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++ }
-        const k = 0.8 / n
-        resolve(`rgb(${Math.round(r * k)}, ${Math.round(g * k)}, ${Math.round(b * k)})`)
+        resolve(`rgb(${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(b / n)})`)
       } catch { resolve(null) }
     }
     img.onerror = () => resolve(null)
@@ -111,7 +111,8 @@ export default function ExplorePlaceDetail() {
     const cover = e?.photo_url
     if (!cover) return
     let active = true
-    sampleTopColor(cover).then((col) => {
+    // sample from a tiny optimised copy so it doesn't re-download the full image
+    sampleTopColor(optimizeImageUrl(cover, 64) ?? cover).then((col) => {
       if (!active || !col) return
       document.documentElement.style.backgroundColor = col
       document.body.style.backgroundColor = col
@@ -278,27 +279,27 @@ export default function ExplorePlaceDetail() {
 
       {/* ── immersive hero cover — full-bleed to the very top, dissolving into
           the tab bar below (which sits over the fading image) ── */}
-      <div className="relative h-[540px] bg-surface-2">
+      <div className="relative h-[460px] bg-surface-2">
         {gallery.length > 0
-          ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={900} focus={e.photo_focus} onExpand={(i) => setLightbox(i)}
+          ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={900} focus={e.photo_focus} priority onExpand={(i) => setLightbox(i)}
               fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>} />
           : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>}
-        {/* dark gradient that dissolves the photo FULLY into the canvas before
-            the tab zone, so the image melts into white (or dark in dark mode) */}
+        {/* smooth bottom-up darkening (no hard band) behind the text, dissolving
+            into the canvas before the tab zone */}
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, var(--color-canvas) 15%, rgba(6,20,40,.24) 30%, rgba(6,20,40,.80) 48%, rgba(6,20,40,.04) 74%, rgba(0,0,0,.22) 100%)' }} />
+          style={{ background: 'linear-gradient(to top, var(--color-canvas) 16%, rgba(6,20,40,.62) 31%, rgba(6,20,40,.36) 50%, rgba(6,20,40,.13) 70%, transparent 94%)' }} />
         {/* blur the bottom strip as it fades away, so the photo dissolves softly */}
-        <div className="absolute inset-x-0 bottom-0 h-[170px] pointer-events-none"
-          style={{ backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)',
-            maskImage: 'linear-gradient(to bottom, transparent 0%, #000 60%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 60%)' }} />
+        <div className="absolute inset-x-0 bottom-0 h-[92px] pointer-events-none"
+          style={{ backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
+            maskImage: 'linear-gradient(to bottom, transparent 0%, #000 58%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 58%)' }} />
         <button onClick={() => navigate(-1)} aria-label="กลับ"
           className="absolute z-10 size-9 rounded-full grid place-items-center text-white"
           style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12, background: 'rgba(255,255,255,.22)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
           <IconArrowLeft size={19} />
         </button>
-        {/* overlaid identity + 3-stat strip — sits above the blurred fade→tabs zone */}
-        <div className="absolute left-4 right-4 bottom-[124px] text-white pointer-events-none">
+        {/* overlaid identity + 3-stat strip — sits just above the tab bar */}
+        <div className="absolute left-4 right-4 bottom-[100px] text-white pointer-events-none">
           {e.country && (
             <span className="inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: '#fff', color: 'var(--color-brand-dark)' }}>{e.country}</span>
           )}
