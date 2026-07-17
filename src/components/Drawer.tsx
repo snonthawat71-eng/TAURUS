@@ -42,6 +42,12 @@ export function Drawer({
 
   if (!open) return null
 
+  // Height of the on-screen keyboard: the gap between the visible viewport's
+  // bottom and the (unchanged) layout viewport bottom. We paint a solid surface
+  // panel over it so the translucent keyboard toolbar shows white — a seamless
+  // continuation of the sheet — instead of the darkened page bleeding through.
+  const kbGap = vv ? Math.max(0, window.innerHeight - (vv.top + vv.height)) : 0
+
   // swipe-down-to-close — ONLY from the grab handle, so scrolling/typing in the
   // form never drags the sheet closed.
   function onTouchStart(e: React.TouchEvent) {
@@ -64,6 +70,9 @@ export function Drawer({
   return createPortal(
     <div className="fixed inset-0 z-[100]">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
+      {/* Solid fill behind the on-screen keyboard, so its translucent toolbar
+          reads as white (an extension of the sheet), not the darkened page. */}
+      {kbGap > 1 && <div className="fixed left-0 right-0 bottom-0 bg-surface" style={{ height: kbGap }} />}
       {/* This scroll area is pinned to the VISIBLE viewport (above the keyboard
           when one is open), so the bottom sheet's lower fields stay reachable. */}
       <div className="absolute left-0 right-0 overflow-y-auto"
