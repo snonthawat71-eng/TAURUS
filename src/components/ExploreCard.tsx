@@ -104,23 +104,40 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, onFav, onDelete, 
                 </span>
               )
             }
+            const cleanStation = (r: (typeof routes)[number]) => {
+              const code = stationCode(r.line, r.station)
+              const raw = (r.station ?? '').trim()
+              return code && raw.toUpperCase().startsWith(code.toUpperCase())
+                ? raw.slice(code.length).replace(/^[\s·.-]+/, '')
+                : raw
+            }
             const r0 = routes[0]
             const m0 = modeMeta('mode' in r0 ? r0.mode : undefined)
-            const code0 = stationCode(r0.line, r0.station)
-            const raw = (r0.station ?? '').trim()
-            const stationName = code0 && raw.toUpperCase().startsWith(code0.toUpperCase())
-              ? raw.slice(code0.length).replace(/^[\s·.-]+/, '')
-              : raw
-            return (
-              <div className="flex items-center gap-2 mt-2 min-w-0">
-                {roundel(r0, 0)}
-                <div className="min-w-0 flex-1 leading-tight">
-                  <div className="text-[12.5px] font-medium text-ink-2 truncate">{stationName || m0.label}</div>
-                  {r0.line && <div className="text-[10.5px] text-ink-3 truncate">{r0.line}</div>}
+            // single line: roundel + station name, line name small & grey beside
+            if (routes.length === 1) {
+              return (
+                <div className="flex items-center gap-2 mt-2 min-w-0">
+                  {roundel(r0, 0)}
+                  <div className="min-w-0 flex-1 leading-tight">
+                    <div className="text-[12.5px] font-medium text-ink-2 truncate">{cleanStation(r0) || m0.label}</div>
+                    {r0.line && <div className="text-[10.5px] text-ink-3 truncate">{r0.line}</div>}
+                  </div>
                 </div>
-                {routes.length > 1 && (
-                  <div className="flex items-center gap-1.5 shrink-0">{routes.slice(1).map((r, i) => roundel(r, i + 1))}</div>
-                )}
+              )
+            }
+            // multiple lines: all roundels together in a row + the station name
+            // trailing; the line names then list in order underneath
+            return (
+              <div className="mt-2 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                  {routes.map((r, i) => roundel(r, i))}
+                  {cleanStation(r0) && <span className="text-[12.5px] font-medium text-ink-2 truncate ml-1">{cleanStation(r0)}</span>}
+                </div>
+                <div className="mt-1.5 flex flex-col gap-px">
+                  {routes.map((r, i) => (
+                    <span key={i} className="text-[10.5px] text-ink-3 truncate">{r.line || modeMeta('mode' in r ? r.mode : undefined).label}</span>
+                  ))}
+                </div>
               </div>
             )
           })()}
