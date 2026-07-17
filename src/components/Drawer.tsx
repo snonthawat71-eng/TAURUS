@@ -25,18 +25,41 @@ export function Drawer({
     setDy(0)
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    // Paint the document root the sheet's surface colour while open. If the
-    // layout viewport shrinks for the keyboard (installed iOS PWA), the strip
-    // it leaves behind is outside every fixed element and falls back to the
-    // root background — this keeps that strip white instead of the page behind.
+
+    // iOS composites the on-screen keyboard over a snapshot of the WHOLE page,
+    // so a long page behind the sheet keeps showing through the keyboard's
+    // translucent toolbar no matter how the sheet is painted. Fix the root
+    // cause: while the sheet is open, clip the page to exactly the viewport
+    // (position:fixed body) and paint the root the surface colour — so nothing
+    // renders below the fold and the strip the keyboard overlays is plain white.
     const html = document.documentElement
-    const prevHtmlBg = html.style.backgroundColor
+    const body = document.body
+    const scrollY = window.scrollY
+    const prev = {
+      htmlBg: html.style.backgroundColor, bodyBg: body.style.backgroundColor,
+      htmlH: html.style.height, position: body.style.position,
+      top: body.style.top, width: body.style.width,
+      overflow: body.style.overflow, height: body.style.height,
+    }
     html.style.backgroundColor = 'var(--color-surface)'
+    body.style.backgroundColor = 'var(--color-surface)'
+    html.style.height = '100%'
+    body.style.height = '100%'
+    body.style.overflow = 'hidden'
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.width = '100%'
     return () => {
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-      html.style.backgroundColor = prevHtmlBg
+      html.style.backgroundColor = prev.htmlBg
+      body.style.backgroundColor = prev.bodyBg
+      html.style.height = prev.htmlH
+      body.style.height = prev.height
+      body.style.overflow = prev.overflow
+      body.style.position = prev.position
+      body.style.top = prev.top
+      body.style.width = prev.width
+      window.scrollTo(0, scrollY)
     }
   }, [open, onClose])
 
