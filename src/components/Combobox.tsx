@@ -48,28 +48,23 @@ export function Combobox({
   }, [open])
 
   // The dropdown renders inline below the input; on mobile the on-screen
-  // keyboard slides up ~a frame after focus and can cover it. Align the list's
-  // BOTTOM to the visible viewport (block:'end') so the whole panel lifts fully
-  // above the keyboard — otherwise its lower half strands behind the keyboard's
-  // translucent toolbar and shows through as the page instead of solid white.
-  // Re-run whenever the visual viewport resizes (the keyboard finishing its
-  // animation) and settles a moment later.
+  // keyboard slides up ~a frame after focus and can cover it. Scroll the list
+  // into view on open, and again whenever the visual viewport resizes (the
+  // keyboard finishing its animation), so the Drawer's scroll area lifts the
+  // options above the keyboard instead of stranding them behind it.
   useEffect(() => {
     if (!open) return
-    const reveal = () => listRef.current?.scrollIntoView({ block: 'end' })
-    const t1 = setTimeout(reveal, 120)
-    const t2 = setTimeout(reveal, 350)
+    const reveal = () => listRef.current?.scrollIntoView({ block: 'nearest' })
+    const t = setTimeout(reveal, 120)
     const vv = window.visualViewport
     vv?.addEventListener('resize', reveal)
-    return () => { clearTimeout(t1); clearTimeout(t2); vv?.removeEventListener('resize', reveal) }
+    return () => { clearTimeout(t); vv?.removeEventListener('resize', reveal) }
   }, [open])
 
   function choose(v: string) {
     onChange(v)
     onPick?.(v)
     setOpen(false)
-    // drop focus so the on-screen keyboard dismisses after picking a suggestion
-    inputRef.current?.blur()
   }
 
   return (
@@ -100,9 +95,7 @@ export function Combobox({
           ref={listRef}
           // keep inner scrolling contained so it doesn't drag the sheet/page
           onTouchMove={(e) => e.stopPropagation()}
-          // explicit opaque fill (+ scroll-margin so block:'end' leaves a small
-          // gap above the keyboard, not flush against it)
-          style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', backgroundColor: 'var(--color-surface)', scrollMarginBottom: 12 }}
+          style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
           className="mt-1 max-h-56 overflow-auto rounded-md bg-surface shadow-lg hairline py-1 relative z-20">
           {(() => {
             // only show group headers/dividers when more than one group is present
