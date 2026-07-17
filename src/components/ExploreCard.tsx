@@ -84,44 +84,28 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, onFav, onDelete, 
             )}
           </div>
 
-          {routes.length > 0 && (() => {
-            // Show only the primary station in full (B2): a line-coloured code
-            // chip + the station name, with the long line name tucked small &
-            // grey underneath (A3). Any other stations collapse to a "+N" pill —
-            // the code+colour already identify the line, so the line name never
-            // needs to fight for width on the card.
-            const r = routes[0]
-            const m = modeMeta('mode' in r ? r.mode : undefined)
-            const MIcon = m.icon
-            const code = stationCode(r.line, r.station)
-            const raw = (r.station ?? '').trim()
-            // don't print the code twice if it's already typed into the label
-            const stationName = code && raw.toUpperCase().startsWith(code.toUpperCase())
-              ? raw.slice(code.length).replace(/^[\s·.-]+/, '')
-              : raw
-            const extra = routes.length - 1
-            return (
-              <div className="flex items-center gap-2 mt-2 min-w-0">
-                {/* line-coloured roundel — station code split onto two tight lines
-                    (letters over number) so it always fits inside the circle */}
-                <span className="size-8 rounded-full grid place-items-center shrink-0 text-white leading-none" style={{ background: r.color ?? '#888780' }}>
-                  {code
-                    ? (() => {
-                        const mm = code.match(/^([A-Za-z]+)\s*(\d.*)$/)
-                        return mm
-                          ? <span className="flex flex-col items-center leading-[1.0]"><span className="text-[7.5px] font-extrabold tracking-tight">{mm[1]}</span><span className="text-[10.5px] font-extrabold tracking-tight">{mm[2]}</span></span>
-                          : <span className="text-[9px] font-extrabold">{code}</span>
-                      })()
-                    : <MIcon size={15} />}
-                </span>
-                <div className="min-w-0 flex-1 leading-tight">
-                  <div className="text-[12.5px] font-medium text-ink-2 truncate">{stationName || m.label}</div>
-                  {r.line && <div className="text-[10.5px] text-ink-3 truncate">{r.line}</div>}
-                </div>
-                {extra > 0 && <span className="text-[11px] font-semibold text-ink-3 bg-surface-2 px-1.5 py-[3px] rounded-md leading-none shrink-0">+{extra}</span>}
-              </div>
-            )
-          })()}
+          {/* B1: a row of line-coloured station roundels — one per route. The
+              code+colour identify each line, so no long names fight for width. */}
+          {routes.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap mt-2">
+              {routes.map((r, i) => {
+                const m = modeMeta('mode' in r ? r.mode : undefined)
+                const MIcon = m.icon
+                const code = stationCode(r.line, r.station)
+                const mm = code?.match(/^([A-Za-z]+)\s*(\d.*)$/)
+                return (
+                  <span key={i} title={[r.line, r.station].filter(Boolean).join(' · ') || m.label}
+                    className="w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-white leading-none" style={{ background: r.color ?? '#888780' }}>
+                    {code
+                      ? (mm
+                          ? <span className="flex flex-col items-center leading-[1.0]"><span className="text-[9px] font-extrabold tracking-tight">{mm[1]}</span><span className="text-[12.5px] font-extrabold tracking-tight">{mm[2]}</span></span>
+                          : <span className="text-[10px] font-extrabold">{code}</span>)
+                      : <MIcon size={15} />}
+                  </span>
+                )
+              })}
+            </div>
+          )}
 
           {e.note && <p className="text-[12px] text-ink-2 mt-2 line-clamp-2">{e.note}</p>}
 
