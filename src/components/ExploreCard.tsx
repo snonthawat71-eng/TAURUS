@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconThumbUp, IconMessageCircle, IconBuildingStore, IconZoomScan, IconMessageReport } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconBuildingStore, IconZoomScan, IconMessageReport } from '@tabler/icons-react'
 import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
-import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
 import { stationCode } from '@/lib/metro/suggest'
@@ -10,7 +9,7 @@ import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
 import type { VoteStat, PopStat } from '@/lib/exploreMutations'
 
-export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDelete, onEdit, onOpen, onSuggest }: {
+export function ExploreCard({ e, isOwner, saved, popular, onFav, onDelete, onEdit, onOpen, onSuggest }: {
   e: ExplorePlace
   isOwner: boolean
   saved: boolean
@@ -75,11 +74,14 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
             )}
           </div>
           <div className="text-[15px] font-medium leading-snug line-clamp-2 mt-1.5">{e.name}</div>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <StarRating rating={stat?.rating ?? 0} size={13} />
-            {stat && stat.count > 0
-              ? <span className="text-[11px] text-ink-3">{stat.rating.toFixed(1)} ({stat.count})</span>
-              : <span className="text-[11px] text-ink-3">ยังไม่มีรีวิว</span>}
+          {/* city + open-in-maps link (moved up to replace the old rating row) */}
+          <div className="flex items-center gap-2 flex-wrap mt-1.5">
+            {e.city && <span className="chip !py-0.5">{e.city}</span>}
+            {e.map_url && (
+              <button onClick={(ev) => { ev.stopPropagation(); openMap(e.map_url) }} className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:text-brand-mid">
+                <IconMapPin size={12} /> MAP
+              </button>
+            )}
           </div>
 
           {routes.length > 0 && (() => {
@@ -99,37 +101,21 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
               : raw
             const extra = routes.length - 1
             return (
-              <div className="flex items-center gap-2 mt-2 min-w-0">
-                {code
-                  ? <span className="text-[11px] font-extrabold text-white px-1.5 py-[3px] rounded-md leading-none shrink-0" style={{ background: r.color ?? '#888780' }}>{code}</span>
-                  : <span className="inline-flex items-center justify-center size-5 rounded-full shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={11} /></span>}
-                <div className="min-w-0 flex-1 leading-tight">
+              <div className="flex items-stretch gap-2 mt-2 min-w-0">
+                {/* line-coloured code badge — stretches tall as the two text lines */}
+                <span className="flex items-center justify-center rounded-lg px-1.5 min-w-[36px] shrink-0 text-white font-extrabold text-[12.5px] leading-none tracking-wide" style={{ background: r.color ?? '#888780' }}>
+                  {code || <MIcon size={16} />}
+                </span>
+                <div className="min-w-0 flex-1 self-center leading-tight">
                   <div className="text-[12.5px] font-medium text-ink-2 truncate">{stationName || m.label}</div>
                   {r.line && <div className="text-[10.5px] text-ink-3 truncate">{r.line}</div>}
                 </div>
-                {extra > 0 && <span className="text-[11px] font-semibold text-ink-3 bg-surface-2 px-1.5 py-[3px] rounded-md leading-none shrink-0">+{extra} สถานี</span>}
+                {extra > 0 && <span className="self-center text-[11px] font-semibold text-ink-3 bg-surface-2 px-1.5 py-[3px] rounded-md leading-none shrink-0">+{extra}</span>}
               </div>
             )
           })()}
 
-          <div className="flex items-center gap-2 flex-wrap mt-2">
-            {e.city && <span className="chip !py-0.5">{e.city}</span>}
-            {e.map_url && (
-              <button onClick={(ev) => { ev.stopPropagation(); openMap(e.map_url) }} className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:text-brand-mid">
-                <IconMapPin size={12} /> MAP
-              </button>
-            )}
-          </div>
-
           {e.note && <p className="text-[12px] text-ink-2 mt-2 line-clamp-2">{e.note}</p>}
-
-          {/* popularity stats — pinned to the bottom (kept clear of the corner buttons) */}
-          <div className={['flex items-center gap-3.5 text-[11px] text-ink-3 mt-auto pt-3', isOwner ? 'pr-20' : onSuggest ? 'pr-11' : ''].join(' ')}>
-            <span className="inline-flex items-center gap-1" title="ยอดคลิก"><IconEye size={13} /> {pop?.views ?? 0}</span>
-            <span className="inline-flex items-center gap-1" title="ยอดเซฟ"><IconHeart size={13} /> {pop?.saves ?? 0}</span>
-            <span className="inline-flex items-center gap-1" title="ยอดไลก์"><IconThumbUp size={13} /> {pop?.likes ?? 0}</span>
-            <span className="inline-flex items-center gap-1" title="ยอดคอมเมนต์"><IconMessageCircle size={13} /> {pop?.comments ?? 0}</span>
-          </div>
         </div>
       </div>
 
