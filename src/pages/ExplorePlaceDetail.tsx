@@ -237,40 +237,59 @@ export default function ExplorePlaceDetail() {
   return (
     <div className="min-h-dvh bg-canvas pb-[calc(env(safe-area-inset-bottom)+80px)]">
       {/* ── immersive hero cover — photo fills, fades into the page below ── */}
-      <div className="relative h-[420px] bg-surface-2">
+      <div className="relative h-[470px] bg-surface-2">
         {gallery.length > 0
           ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={900} focus={e.photo_focus} onExpand={(i) => setLightbox(i)}
               fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>} />
           : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>}
-        {/* dark gradient that dissolves into the canvas at the very bottom */}
+        {/* dark gradient with a LONG dissolve into the canvas below */}
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, var(--color-canvas) 1%, rgba(6,20,40,.8) 24%, rgba(6,20,40,.06) 60%, rgba(0,0,0,.25) 100%)' }} />
+          style={{ background: 'linear-gradient(to top, var(--color-canvas) 6%, rgba(6,20,40,.82) 34%, rgba(6,20,40,.05) 66%, rgba(0,0,0,.25) 100%)' }} />
         <button onClick={() => navigate(-1)} aria-label="กลับ"
           className="absolute z-10 size-9 rounded-full grid place-items-center text-white"
           style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12, background: 'rgba(255,255,255,.22)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
           <IconArrowLeft size={19} />
         </button>
         {/* overlaid identity + 3-stat strip */}
-        <div className="absolute left-4 right-4 bottom-4 text-white pointer-events-none">
-          <span className="inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: '#fff', color: meta.fg }}>{meta.label}</span>
-          <h1 className="text-[25px] font-extrabold leading-tight mt-2" style={{ textShadow: '0 1px 10px rgba(0,0,0,.45)' }}>{e.name}</h1>
-          {routeList[0] && (
-            <div className="text-[12px] font-medium mt-1.5 truncate opacity-95">🚇 {[routeList[0].line, routeList[0].station].filter(Boolean).join(' · ')}</div>
+        <div className="absolute left-4 right-4 bottom-5 text-white pointer-events-none">
+          {e.country && (
+            <span className="inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: '#fff', color: 'var(--color-brand-dark)' }}>{e.country}</span>
           )}
-          <div className="flex items-stretch mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,.28)' }}>
-            {([
-              ['คะแนน', votes.up + votes.down > 0 ? rating.toFixed(1) : '—'],
-              ['เมือง', e.city || '—'],
-              ['หมวด', meta.label],
-            ] as const).map(([l, v], i) => (
-              <div key={l} className="flex-1 flex items-center">
-                {i > 0 && <span className="w-px h-6 mr-3" style={{ background: 'rgba(255,255,255,.28)' }} />}
-                <div className="min-w-0">
-                  <div className="text-[15px] font-extrabold leading-none truncate">{v}</div>
-                  <div className="text-[9.5px] mt-1 text-white/75">{l}</div>
-                </div>
+          <h1 className="text-[25px] font-extrabold leading-tight mt-2" style={{ textShadow: '0 1px 10px rgba(0,0,0,.45)' }}>{e.name}</h1>
+          {routeList[0] && (() => {
+            const m0 = modeMeta('mode' in routeList[0] ? (routeList[0].mode as string | undefined) : undefined)
+            const M0 = m0.icon
+            return (
+              <div className="flex items-center gap-1.5 text-[12px] font-medium mt-1.5 opacity-95 min-w-0">
+                <M0 size={14} className="shrink-0" />
+                <span className="truncate">{[routeList[0].line, routeList[0].station].filter(Boolean).join(' · ')}</span>
               </div>
-            ))}
+            )
+          })()}
+          <div className="flex items-stretch mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,.28)' }}>
+            <div className="flex-1 flex items-center min-w-0">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1 leading-none">
+                  <StarRating rating={rating} size={13} />
+                  {votes.up + votes.down > 0 && <span className="text-[12px] font-bold">{rating.toFixed(1)}</span>}
+                </div>
+                <div className="text-[9.5px] mt-1.5 text-white/75">คะแนน</div>
+              </div>
+            </div>
+            <div className="flex-1 flex items-center min-w-0">
+              <span className="w-px h-6 mr-3 shrink-0" style={{ background: 'rgba(255,255,255,.28)' }} />
+              <div className="min-w-0">
+                <div className="text-[15px] font-extrabold leading-none truncate">{e.city || '—'}</div>
+                <div className="text-[9.5px] mt-1 text-white/75">เมือง</div>
+              </div>
+            </div>
+            <div className="flex-1 flex items-center min-w-0">
+              <span className="w-px h-6 mr-3 shrink-0" style={{ background: 'rgba(255,255,255,.28)' }} />
+              <div className="min-w-0">
+                <span className="inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold truncate max-w-full" style={{ background: '#fff', color: meta.fg }}>{meta.label}</span>
+                <div className="text-[9.5px] mt-1 text-white/75">หมวด</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -309,22 +328,20 @@ export default function ExplorePlaceDetail() {
 
             {/* location & routes */}
             <div className="card p-3.5">
-              <div className="text-[12px] font-semibold text-ink-2 mb-2 flex items-center gap-1.5"><IconLocation size={14} className="text-brand" /> ที่ตั้ง & การเดินทาง</div>
-              <div className="flex flex-wrap gap-1.5 mb-2.5">
-                {e.city && <span className="chip !py-0.5">{e.city}</span>}
-                {e.country && <span className="chip !py-0.5">{e.country}</span>}
-                {multiBranch && <span className="chip !py-0.5 !bg-brand-soft !text-brand-dark inline-flex items-center gap-1"><IconBuildingStore size={11} /> หลายสาขา</span>}
+              <div className="text-[12px] font-semibold text-ink-2 mb-2.5 flex items-center gap-1.5">
+                <IconLocation size={14} className="text-brand" /> การเดินทาง
+                {multiBranch && <span className="chip !py-0.5 !text-[10.5px] !bg-brand-soft !text-brand-dark inline-flex items-center gap-1 ml-auto"><IconBuildingStore size={11} /> หลายสาขา</span>}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {routeList.map((r, i) => {
                   const m = modeMeta('mode' in r ? (r.mode as string | undefined) : undefined)
                   const MIcon = m.icon
                   return (
-                    <div key={i} className="flex items-center gap-2.5">
-                      <span className="size-7 rounded-full grid place-items-center shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={14} /></span>
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="size-10 rounded-full grid place-items-center shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={19} /></span>
                       <div className="min-w-0">
-                        <div className="text-[13px] font-medium truncate">{[r.line, r.station].filter(Boolean).join(' · ') || m.label}</div>
-                        <div className="text-[11px] text-ink-3">{m.label}</div>
+                        <div className="text-[14.5px] font-semibold truncate">{[r.line, r.station].filter(Boolean).join(' · ') || m.label}</div>
+                        <div className="text-[11.5px] text-ink-3 mt-0.5">{m.label}</div>
                       </div>
                     </div>
                   )
