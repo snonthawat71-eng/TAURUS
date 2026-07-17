@@ -23,21 +23,9 @@ export function Drawer({
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
-    // Back the whole screen with the sheet's surface colour while it's open. On
-    // iOS (esp. installed PWA) the keyboard's translucent toolbar overlays a
-    // strip the web viewport doesn't cover; without this it shows the webview
-    // background (dark/blue page) instead of a seamless white under the sheet.
-    const html = document.documentElement
-    const body = document.body
-    const prevHtmlBg = html.style.backgroundColor
-    const prevBodyBg = body.style.backgroundColor
-    html.style.backgroundColor = 'var(--color-surface)'
-    body.style.backgroundColor = 'var(--color-surface)'
     return () => {
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
-      html.style.backgroundColor = prevHtmlBg
-      body.style.backgroundColor = prevBodyBg
     }
   }, [open, onClose])
 
@@ -54,11 +42,13 @@ export function Drawer({
 
   if (!open) return null
 
-  // Height of the on-screen keyboard: the gap between the visible viewport's
-  // bottom and the (unchanged) layout viewport bottom. We paint a solid surface
-  // panel over it so the translucent keyboard toolbar shows white — a seamless
-  // continuation of the sheet — instead of the darkened page bleeding through.
-  const kbGap = vv ? Math.max(0, window.innerHeight - (vv.top + vv.height)) : 0
+  // Bottom edge of the visible viewport. Everything below it is covered by the
+  // on-screen keyboard and its translucent toolbar; we paint a solid surface
+  // panel from here to the layout-viewport bottom so that toolbar reads white —
+  // a seamless continuation of the sheet — instead of the darkened page bleeding
+  // through. Anchoring with CSS top/bottom (not a JS height from innerHeight,
+  // which iOS mis-reports in an installed PWA) is what makes this reliable.
+  const vvBottom = vv ? vv.top + vv.height : null
 
   // swipe-down-to-close — ONLY from the grab handle, so scrolling/typing in the
   // form never drags the sheet closed.
@@ -84,7 +74,7 @@ export function Drawer({
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
       {/* Solid fill behind the on-screen keyboard, so its translucent toolbar
           reads as white (an extension of the sheet), not the darkened page. */}
-      {kbGap > 1 && <div className="fixed left-0 right-0 bottom-0 bg-surface" style={{ height: kbGap }} />}
+      {vvBottom != null && <div className="fixed left-0 right-0 bottom-0 bg-surface" style={{ top: vvBottom }} />}
       {/* This scroll area is pinned to the VISIBLE viewport (above the keyboard
           when one is open), so the bottom sheet's lower fields stay reachable. */}
       <div className="absolute left-0 right-0 overflow-y-auto"
