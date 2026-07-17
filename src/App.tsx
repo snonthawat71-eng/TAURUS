@@ -29,12 +29,13 @@ import { canvasColor } from '@/lib/theme'
 if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'
 
 // Every route change lands at the top, synchronously before first paint
-// (useLayoutEffect) so there's no flash of the old position. Exception:
-// /explore restores its own saved list position (see pages/Explore.tsx).
+// (useLayoutEffect) so there's no flash of the old position. Exceptions:
+// list pages that restore their own saved position when returning from a
+// place detail (see pages/Explore.tsx and pages/ExploreManage.tsx).
 function ScrollManager() {
   const { pathname } = useLocation()
   useLayoutEffect(() => {
-    if (pathname === '/explore') return
+    if (pathname === '/explore' || pathname === '/explore/mine') return
     window.scrollTo(0, 0)
   }, [pathname])
   return null

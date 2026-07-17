@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCircle, IconMapPin } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -20,6 +20,16 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { filterExplore, initialExploreFilter, type ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
+// Same round-trip cache as pages/Explore.tsx: opening a place detail unmounts
+// this page, so keep the list + stats + scroll so "back" lands exactly where
+// the user left off with the exact same card order (no re-sort jump).
+let cachedItems: ExplorePlace[] | null = null
+let cachedFilter: ExploreFilterState | null = null
+let cachedScroll = 0
+let cachedStats: Map<string, VoteStat> | null = null
+let cachedPop: Map<string, PopStat> | null = null
+let cachedUserId: string | null = null
+
 /** Management view: only the places the current user has shared, with their
  *  engagement stats and quick edit / delete. Lives at /explore/mine. */
 export default function ExploreManage() {
@@ -27,22 +37,26 @@ export default function ExploreManage() {
   const { trips, trip: currentTrip, reload: reloadTrip } = useTrip()
   const goBack = useBack('/explore')
   const navigate = useNavigate()
-  const [items, setItems] = useState<ExplorePlace[]>([])
-  const [loading, setLoading] = useState(true)
+  // a different user's cache must never leak in (cache is per SPA session)
+  const hasCache = !!cachedItems && cachedUserId === (user?.id ?? null)
+  const [items, setItems] = useState<ExplorePlace[]>(hasCache ? cachedItems! : [])
+  const [loading, setLoading] = useState(!hasCache)
   const [error, setError] = useState(false)
   const [editor, setEditor] = useState<ExplorePlace | 'new' | null>(null)
   const [fav, setFav] = useState<Place | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
-  const [stats, setStats] = useState<Map<string, VoteStat>>(new Map())
-  const [pop, setPop] = useState<Map<string, PopStat>>(new Map())
-  const [filter, setFilter] = useState<ExploreFilterState>(initialExploreFilter)
+  const [stats, setStats] = useState<Map<string, VoteStat>>((hasCache && cachedStats) || new Map())
+  const [pop, setPop] = useState<Map<string, PopStat>>((hasCache && cachedPop) || new Map())
+  const [filter, setFilter] = useState<ExploreFilterState>((hasCache && cachedFilter) || initialExploreFilter)
   const setF = (patch: Partial<ExploreFilterState>) => setFilter((s) => ({ ...s, ...patch }))
 
   const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
 
   async function refreshStats() {
-    setStats(await allVoteStats())
-    setPop(await allPopularity())
+    // fetch both BEFORE setting state — one atomic re-render, no partial sort
+    const [s, p] = await Promise.all([allVoteStats(), allPopularity()])
+    cachedStats = s; cachedPop = p
+    setStats(s); setPop(p)
   }
   async function refreshSaved() {
     setSavedSet(await savedExploreIds(myTripIds))
@@ -51,7 +65,10 @@ export default function ExploreManage() {
     if (!user) return
     const { data, error } = await listMyExplore(user.id)
     setError(!!error)
-    setItems((data ?? []) as ExplorePlace[])
+    const list = (data ?? []) as ExplorePlace[]
+    cachedItems = list
+    cachedUserId = user.id
+    setItems(list)
   }
 
   async function load() {
@@ -60,7 +77,17 @@ export default function ExploreManage() {
     setLoading(false)
   }
 
-  useEffect(() => { load(); refreshStats() }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // returning from a place detail — restore the saved scroll position
+  // synchronously before first paint (cached list renders this same frame)
+  useLayoutEffect(() => {
+    if (hasCache) window.scrollTo(0, cachedScroll)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (hasCache) reloadItems() // quiet refresh — keeps what's on screen
+    else load()
+    refreshStats()
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // live engagement updates on my items
@@ -76,7 +103,10 @@ export default function ExploreManage() {
     return () => { clearTimeout(t); supabase.removeChannel(ch) }
   }, [])
 
+  // stash scroll + filter so "back" from the detail lands right here
   function openDetail(e: ExplorePlace) {
+    cachedScroll = window.scrollY
+    cachedFilter = filter
     navigate(`/explore/p/${e.id}`)
   }
   async function toggleFav(e: ExplorePlace) {

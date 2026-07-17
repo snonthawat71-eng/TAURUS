@@ -21,10 +21,14 @@ import type { ExplorePlace, Place } from '@/lib/database.types'
 
 // Kept across route unmount (opening a place detail unmounts this page) so
 // coming back shows the same list at the same scroll position instead of
-// reloading from the top. Lives for the SPA session only.
+// reloading from the top. Stats/popularity are cached too — the "popular"
+// sort orders by them, so without the cache the list re-sorts (and jumps)
+// the moment they arrive. Lives for the SPA session only.
 let cachedItems: ExplorePlace[] | null = null
 let cachedFilter: ExploreFilterState | null = null
 let cachedScroll = 0
+let cachedStats: Map<string, VoteStat> | null = null
+let cachedPop: Map<string, PopStat> | null = null
 
 export default function Explore() {
   const { user } = useAuth()
@@ -40,15 +44,17 @@ export default function Explore() {
   const [fav, setFav] = useState<Place | null>(null)
   const [suggest, setSuggest] = useState<ExplorePlace | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
-  const [stats, setStats] = useState<Map<string, VoteStat>>(new Map())
-  const [pop, setPop] = useState<Map<string, PopStat>>(new Map())
+  const [stats, setStats] = useState<Map<string, VoteStat>>(cachedStats ?? new Map())
+  const [pop, setPop] = useState<Map<string, PopStat>>(cachedPop ?? new Map())
   const [live, setLive] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const popular = useMemo(() => popularSet(pop), [pop])
 
   async function refreshStats() {
-    setStats(await allVoteStats())
-    setPop(await allPopularity())
+    // fetch both BEFORE setting state — one atomic re-render, no partial sort
+    const [s, p] = await Promise.all([allVoteStats(), allPopularity()])
+    cachedStats = s; cachedPop = p
+    setStats(s); setPop(p)
   }
 
   // quiet reload of the items list (no full-page spinner)
