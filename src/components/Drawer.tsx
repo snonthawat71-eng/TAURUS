@@ -26,9 +26,17 @@ export function Drawer({
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
+    // Paint the document root the sheet's surface colour while open. If the
+    // layout viewport shrinks for the keyboard (installed iOS PWA), the strip
+    // it leaves behind is outside every fixed element and falls back to the
+    // root background — this keeps that strip white instead of the page behind.
+    const html = document.documentElement
+    const prevHtmlBg = html.style.backgroundColor
+    html.style.backgroundColor = 'var(--color-surface)'
     return () => {
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
+      html.style.backgroundColor = prevHtmlBg
     }
   }, [open, onClose])
 
@@ -94,12 +102,17 @@ export function Drawer({
             <IconX size={16} />
           </button>
           {title && <div className="px-5 pt-4 text-[16px] font-medium pr-12 shrink-0">{title}</div>}
-          {/* the scrollable body: min-h-0 lets it shrink & scroll inside the
-              capped sheet; paddingBottom = keyboard height keeps the last field
-              reachable above the keyboard while the sheet's white fills behind it */}
-          <div className="min-h-0 overflow-y-auto px-5 pt-3" style={{ paddingBottom: 20 + kb }}>
+          {/* scrollable body: min-h-0 lets it shrink & scroll inside the capped
+              sheet. It sits ABOVE the keyboard because the spacer below carries
+              the sheet's surface down behind the keyboard. */}
+          <div className="min-h-0 overflow-y-auto px-5 pt-3 pb-5">
             {children}
           </div>
+          {/* solid surface spacer that physically extends the sheet down behind
+              the on-screen keyboard, so the strip it (and its translucent
+              toolbar) overlays is the sheet's own white — seamless, not the
+              page behind. Zero-height when the keyboard is down. */}
+          {kb > 0 && <div aria-hidden className="shrink-0" style={{ height: kb }} />}
         </div>
       </div>
     </div>,
