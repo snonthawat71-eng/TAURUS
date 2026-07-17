@@ -288,11 +288,12 @@ export default function ExplorePlaceDetail() {
             into the canvas before the tab zone */}
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'linear-gradient(to top, var(--color-canvas) 16%, rgba(6,20,40,.62) 31%, rgba(6,20,40,.36) 50%, rgba(6,20,40,.13) 70%, transparent 94%)' }} />
-        {/* blur the bottom strip as it fades away, so the photo dissolves softly */}
-        <div className="absolute inset-x-0 bottom-0 h-[92px] pointer-events-none"
-          style={{ backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
-            maskImage: 'linear-gradient(to bottom, transparent 0%, #000 58%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 58%)' }} />
+        {/* blur the whole lower section (behind the stats + tabs) so the photo
+            dissolves softly; text painted on top stays sharp */}
+        <div className="absolute inset-x-0 bottom-0 h-[190px] pointer-events-none"
+          style={{ backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)',
+            maskImage: 'linear-gradient(to bottom, transparent 0%, #000 52%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 52%)' }} />
         <button onClick={() => navigate(-1)} aria-label="กลับ"
           className="absolute z-10 size-9 rounded-full grid place-items-center text-white"
           style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12, background: 'rgba(255,255,255,.22)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
@@ -344,7 +345,7 @@ export default function ExplorePlaceDetail() {
 
       {/* ── tabs — glassmorphism over the hero's dissolved bottom, sticky once
           you scroll ── */}
-      <div className="sticky top-0 z-20 flex px-2 -mt-14 backdrop-blur-xl"
+      <div className="sticky top-0 z-20 flex px-2 -mt-24 backdrop-blur-xl"
         style={{ backgroundColor: 'color-mix(in srgb, var(--color-canvas) 55%, transparent)', borderBottom: '0.5px solid color-mix(in srgb, var(--color-line) 60%, transparent)', boxShadow: '0 1px 0 rgba(255,255,255,.35) inset' }}>
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
