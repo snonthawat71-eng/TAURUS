@@ -236,8 +236,9 @@ export default function ExplorePlaceDetail() {
 
   return (
     <div className="min-h-dvh bg-canvas pb-[calc(env(safe-area-inset-bottom)+80px)]">
-      {/* ── immersive hero cover — photo fills, fades into the page below ── */}
-      <div className="relative h-[470px] bg-surface-2">
+      {/* ── immersive hero cover — photo fills ~80% of the screen, full-bleed to
+          the very top (no white strip), fading into the page below ── */}
+      <div className="relative h-[80dvh] min-h-[440px] bg-surface-2">
         {gallery.length > 0
           ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={900} focus={e.photo_focus} onExpand={(i) => setLightbox(i)}
               fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>} />
