@@ -82,24 +82,35 @@ export function ExploreCard({ e, isOwner, saved, stat, popular, pop, onFav, onDe
               : <span className="text-[11px] text-ink-3">ยังไม่มีรีวิว</span>}
           </div>
 
-          {routes.length > 0 && (
-            <div className="flex flex-col gap-1 text-[12px] text-ink-3 mt-2">
-              {routes.slice(0, 2).map((r, i) => {
-                const MIcon = modeMeta('mode' in r ? r.mode : undefined).icon
-                // official station number (e.g. Taipei "O09") — plain, right
-                // before the station name
-                const code = stationCode(r.line, r.station)
-                const station = [code, r.station].filter(Boolean).join(' ')
-                return (
-                  <span key={i} className="flex items-center gap-1.5 min-w-0">
-                    <span className="inline-flex items-center justify-center size-4 rounded-full shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={10} /></span>
-                    <span className="truncate">{[r.line, station].filter(Boolean).join(' · ') || modeMeta('mode' in r ? r.mode : undefined).label}</span>
-                  </span>
-                )
-              })}
-              {routes.length > 2 && <span className="text-[11px] text-ink-3 pl-4">+{routes.length - 2} เส้นทาง</span>}
-            </div>
-          )}
+          {routes.length > 0 && (() => {
+            // Show only the primary station in full (B2): a line-coloured code
+            // chip + the station name, with the long line name tucked small &
+            // grey underneath (A3). Any other stations collapse to a "+N" pill —
+            // the code+colour already identify the line, so the line name never
+            // needs to fight for width on the card.
+            const r = routes[0]
+            const m = modeMeta('mode' in r ? r.mode : undefined)
+            const MIcon = m.icon
+            const code = stationCode(r.line, r.station)
+            const raw = (r.station ?? '').trim()
+            // don't print the code twice if it's already typed into the label
+            const stationName = code && raw.toUpperCase().startsWith(code.toUpperCase())
+              ? raw.slice(code.length).replace(/^[\s·.-]+/, '')
+              : raw
+            const extra = routes.length - 1
+            return (
+              <div className="flex items-center gap-2 mt-2 min-w-0">
+                {code
+                  ? <span className="text-[11px] font-extrabold text-white px-1.5 py-[3px] rounded-md leading-none shrink-0" style={{ background: r.color ?? '#888780' }}>{code}</span>
+                  : <span className="inline-flex items-center justify-center size-5 rounded-full shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={11} /></span>}
+                <div className="min-w-0 flex-1 leading-tight">
+                  <div className="text-[12.5px] font-medium text-ink-2 truncate">{stationName || m.label}</div>
+                  {r.line && <div className="text-[10.5px] text-ink-3 truncate">{r.line}</div>}
+                </div>
+                {extra > 0 && <span className="text-[11px] font-semibold text-ink-3 bg-surface-2 px-1.5 py-[3px] rounded-md leading-none shrink-0">+{extra} สถานี</span>}
+              </div>
+            )
+          })()}
 
           <div className="flex items-center gap-2 flex-wrap mt-2">
             {e.city && <span className="chip !py-0.5">{e.city}</span>}
