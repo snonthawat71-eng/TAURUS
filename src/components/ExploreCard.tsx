@@ -84,28 +84,46 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, onFav, onDelete, 
             )}
           </div>
 
-          {/* B1: a row of line-coloured station roundels — one per route. The
-              code+colour identify each line, so no long names fight for width. */}
-          {routes.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap mt-2">
-              {routes.map((r, i) => {
-                const m = modeMeta('mode' in r ? r.mode : undefined)
-                const MIcon = m.icon
-                const code = stationCode(r.line, r.station)
-                const mm = code?.match(/^([A-Za-z]+)\s*(\d.*)$/)
-                return (
-                  <span key={i} title={[r.line, r.station].filter(Boolean).join(' · ') || m.label}
-                    className="w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-white leading-none" style={{ background: r.color ?? '#888780' }}>
-                    {code
-                      ? (mm
-                          ? <span className="flex flex-col items-center leading-[1.0]"><span className="text-[9px] font-extrabold tracking-tight">{mm[1]}</span><span className="text-[12.5px] font-extrabold tracking-tight">{mm[2]}</span></span>
-                          : <span className="text-[10px] font-extrabold">{code}</span>)
-                      : <MIcon size={15} />}
-                  </span>
-                )
-              })}
-            </div>
-          )}
+          {/* line-coloured station roundels (B1) + the primary station name and
+              line name. Extra lines trail as more roundels — code+colour identify
+              each, so their long names never fight for width on the card. */}
+          {routes.length > 0 && (() => {
+            const roundel = (r: (typeof routes)[number], i: number) => {
+              const m = modeMeta('mode' in r ? r.mode : undefined)
+              const MIcon = m.icon
+              const code = stationCode(r.line, r.station)
+              const mm = code?.match(/^([A-Za-z]+)\s*(\d.*)$/)
+              return (
+                <span key={i} title={[r.line, r.station].filter(Boolean).join(' · ') || m.label}
+                  className="w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-white leading-none" style={{ background: r.color ?? '#888780' }}>
+                  {code
+                    ? (mm
+                        ? <span className="flex flex-col items-center leading-[1.0]"><span className="text-[9px] font-extrabold tracking-tight">{mm[1]}</span><span className="text-[12.5px] font-extrabold tracking-tight">{mm[2]}</span></span>
+                        : <span className="text-[10px] font-extrabold">{code}</span>)
+                    : <MIcon size={15} />}
+                </span>
+              )
+            }
+            const r0 = routes[0]
+            const m0 = modeMeta('mode' in r0 ? r0.mode : undefined)
+            const code0 = stationCode(r0.line, r0.station)
+            const raw = (r0.station ?? '').trim()
+            const stationName = code0 && raw.toUpperCase().startsWith(code0.toUpperCase())
+              ? raw.slice(code0.length).replace(/^[\s·.-]+/, '')
+              : raw
+            return (
+              <div className="flex items-center gap-2 mt-2 min-w-0">
+                {roundel(r0, 0)}
+                <div className="min-w-0 flex-1 leading-tight">
+                  <div className="text-[12.5px] font-medium text-ink-2 truncate">{stationName || m0.label}</div>
+                  {r0.line && <div className="text-[10.5px] text-ink-3 truncate">{r0.line}</div>}
+                </div>
+                {routes.length > 1 && (
+                  <div className="flex items-center gap-1.5 shrink-0">{routes.slice(1).map((r, i) => roundel(r, i + 1))}</div>
+                )}
+              </div>
+            )
+          })()}
 
           {e.note && <p className="text-[12px] text-ink-2 mt-2 line-clamp-2">{e.note}</p>}
 
