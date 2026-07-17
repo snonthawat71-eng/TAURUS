@@ -44,14 +44,15 @@ function ProfileChrome() {
       html.style.overscrollBehaviorY = 'none'
       meta?.setAttribute('content', '#0A2A6B')
     } else if (pathname.startsWith('/explore/p/')) {
-      // Place detail: the photo runs full-bleed to the very top. Paint the
-      // status-bar zone near-black so no white strip sits above the image.
-      html.style.background = '#0b0f18'
-      html.style.backgroundColor = '#0b0f18'
-      body.style.background = '#0b0f18'
-      body.style.backgroundColor = '#0b0f18'
-      html.style.overscrollBehaviorY = 'none'
-      meta?.setAttribute('content', '#0b0f18')
+      // Place detail: the photo runs full-bleed to the very top. The page itself
+      // then repaints these the colour sampled from the photo's top edge; this
+      // is just the pre-sample default. Keep overscroll so pull-to-refresh works.
+      html.style.background = '#2a3340'
+      html.style.backgroundColor = '#2a3340'
+      body.style.background = '#2a3340'
+      body.style.backgroundColor = '#2a3340'
+      html.style.overscrollBehaviorY = ''
+      meta?.setAttribute('content', '#2a3340')
     } else {
       // Explicit colours (not just clearing) — Safari re-samples the status-bar
       // tint more reliably when the value actually changes to a concrete colour.
