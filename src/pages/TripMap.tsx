@@ -20,8 +20,6 @@ const ATTR = '&copy; OpenStreetMap &copy; CARTO'
 // in its REAL colour (the relation's `colour` tag) + station dots. Fetched per
 // viewport, cached in-memory, toggleable; remembered per device.
 const RAIL_LS = 'tripmap:rail'
-// primary + mirror — Overpass instances rate-limit independently
-const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']
 const RAIL_MIN_ZOOM = 11
 
 interface OverpassEl {
@@ -260,29 +258,18 @@ export default function TripMap() {
       const kill = setTimeout(() => { timedOut = true; ctrl.abort() }, 30000)
       setRailBusy(true)
       try {
-        // NB: `out geom` (not `out tags geom` — tags verbosity strips members);
-        // geom(bbox) clips returned geometry to the box → far smaller payloads
-        const q = `[out:json][timeout:20];(relation["type"="route"]["route"~"^(subway|light_rail|monorail|tram)$"](${bbox});node["railway"="station"]["station"~"^(subway|light_rail|monorail)$"](${bbox});node["railway"="station"]["subway"="yes"](${bbox}););out geom(${bbox});`
-        let els: OverpassEl[] | null = null
-        for (const ep of OVERPASS) {
-          try {
-            const res = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}`, signal: ctrl.signal })
-            if (!res.ok) continue
-            const j = await res.json()
-            els = j?.elements ?? []
-            break
-          } catch (e) {
-            if (ctrl.signal.aborted) throw e // superseded/timed out — stop trying
-          }
-        }
-        if (els) {
-          railCache.current.set(bbox, els)
-          draw(els)
-        } else if (!ctrl.signal.aborted) {
-          toast.error('โหลดเส้นรถไฟฟ้าไม่สำเร็จ — ลองเลื่อน/ซูมแผนที่อีกครั้ง')
-        }
+        // our own serverless proxy fetches Overpass (mobile networks often
+        // can't reach it directly) and edge-caches each grid cell for a week
+        const res = await fetch(`/api/rail?bbox=${encodeURIComponent(bbox)}`, { signal: ctrl.signal })
+        if (!res.ok) throw new Error(`rail ${res.status}`)
+        const j = await res.json()
+        const els: OverpassEl[] = j?.elements ?? []
+        railCache.current.set(bbox, els)
+        draw(els)
+        if (!els.length) toast.info('บริเวณนี้ไม่มีข้อมูลเส้นรถไฟฟ้าใน OSM')
       } catch {
         if (timedOut) toast.error('เซิร์ฟเวอร์ข้อมูลรถไฟฟ้าตอบช้า — ลองใหม่อีกครั้ง')
+        else if (!ctrl.signal.aborted) toast.error('โหลดเส้นรถไฟฟ้าไม่สำเร็จ — ลองเลื่อน/ซูมแผนที่อีกครั้ง')
       }
       finally { clearTimeout(kill); if (railAbort.current === ctrl) setRailBusy(false) }
     }
