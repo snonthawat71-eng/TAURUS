@@ -309,9 +309,9 @@ export default function ExplorePlaceDetail() {
             maskImage: 'linear-gradient(to bottom, transparent 0%, #000 52%)',
             WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 52%)' }} />
         <button onClick={() => navigate(-1)} aria-label="กลับ"
-          className="absolute z-10 size-9 rounded-full grid place-items-center text-white"
-          style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12, background: 'rgba(255,255,255,.22)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
-          <IconArrowLeft size={19} />
+          className="absolute z-10 size-10 rounded-full grid place-items-center text-white shadow-md"
+          style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '0.5px solid rgba(255,255,255,.3)' }}>
+          <IconArrowLeft size={20} />
         </button>
         {/* overlaid identity + 3-stat strip — sits just above the tab bar */}
         <div className="absolute left-4 right-4 bottom-[100px] text-white pointer-events-none">
