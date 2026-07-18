@@ -56,10 +56,10 @@ function clusterPoints(map: L.Map, points: MapPoint[], radiusPx: number): MapGro
 }
 const httpPhoto = (p: Place) => {
   const u = p.photo_url || (p.photo_path && /^https?:\/\//.test(p.photo_path) ? p.photo_path : null)
-  // Cloudinary: a retina-sharp square, cropped on the subject (g_auto) so the
-  // photo sits nicely centred inside the round pin. Non-Cloudinary URLs (no
-  // /upload/ segment) are left untouched.
-  return u ? u.replace('/upload/', '/upload/f_auto,q_auto,dpr_2.0,w_120,h_120,c_fill,g_auto/') : null
+  // Cloudinary: a retina-sharp centre-cropped square for the round pin. (g_auto
+  // was tried but often locked onto a dark, unrecognisable region.) Non-
+  // Cloudinary URLs (no /upload/ segment) are left untouched.
+  return u ? u.replace('/upload/', '/upload/f_auto,q_auto,w_128,h_128,c_fill/') : null
 }
 
 export default function TripMap() {
@@ -210,7 +210,7 @@ export default function TripMap() {
       const photo = httpPhoto(p)
       const inner = photo ? `<img src="${photo}" alt=""/>` : `<div class="tpin-fallback" style="background:${meta.bg}"></div>`
       const icon = L.divIcon({
-        className: '', iconSize: [42, 42], iconAnchor: [21, 21],
+        className: '', iconSize: [48, 48], iconAnchor: [24, 24],
         html: `<div class="tpin ${selected?.id === p.id ? 'sel' : ''} ${coords[p.id]?.approx ? 'approx' : ''}" style="--c:${meta.fg}"><div class="tpin-b">${inner}</div></div>`,
       })
       const m = L.marker([c.lat, c.lng], { icon }).addTo(layer)
