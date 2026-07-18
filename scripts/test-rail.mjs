@@ -17,7 +17,7 @@ const ok = (cond, name) => { if (cond) { pass++; console.log(`  ✓ ${name}`) } 
 // ---- build the TS module to something Node can import ----
 const dir = mkdtempSync(join(tmpdir(), 'railtest-'))
 execSync(`npx esbuild src/lib/railOverlay.ts --bundle --format=esm --outfile=${join(dir, 'railOverlay.mjs')}`, { stdio: 'pipe' })
-const { railShapes, railQuery } = await import(join(dir, 'railOverlay.mjs'))
+const { railShapes, railQuery, fetchRailElements } = await import(join(dir, 'railOverlay.mjs'))
 
 // ---- 1. railShapes ----
 console.log('railShapes()')
@@ -112,6 +112,49 @@ const realFetch = globalThis.fetch
   const res = mkRes()
   await handler({ query: { bbox: '22.2,114.1,22.4,114.3' } }, res)
   ok(res.code === 502, `non-JSON upstream bodies don't crash the handler (got ${res.code})`)
+}
+globalThis.fetch = realFetch
+
+// ---- 4. fetchRailElements (client chain: /api/rail → direct mirrors) ----
+console.log('fetchRailElements()')
+{
+  const steps = []
+  globalThis.fetch = async (url) => {
+    if (String(url).startsWith('/api/rail')) return { ok: true, json: async () => ({ elements: fixture }) }
+    throw new Error('unexpected')
+  }
+  const els = await fetchRailElements('22.2,114.1,22.4,114.3', new AbortController().signal, (s) => steps.push(s))
+  ok(els?.length === fixture.length, `proxy path returns elements (got ${els?.length})`)
+  ok(steps.some((s) => s.includes('สำเร็จ')), 'reports success step')
+}
+{
+  const steps = []
+  globalThis.fetch = async (url) => {
+    if (String(url).startsWith('/api/rail')) return { ok: false, status: 404, json: async () => ({}) }
+    return { ok: true, json: async () => ({ elements: fixture }) } // first direct mirror succeeds
+  }
+  const els = await fetchRailElements('22.2,114.1,22.4,114.3', new AbortController().signal, (s) => steps.push(s))
+  ok(els?.length === fixture.length, `404 proxy → direct mirror fallback works (got ${els?.length})`)
+  ok(steps.some((s) => s.includes('404')), 'reports the 404 hop')
+}
+{
+  globalThis.fetch = async () => { throw new Error('network down') }
+  const els = await fetchRailElements('22.2,114.1,22.4,114.3', new AbortController().signal)
+  ok(els === null, 'everything down → null (caller shows error toast)')
+}
+{
+  // master abort must propagate out as a throw, not fall through the chain
+  const ctrl = new AbortController()
+  globalThis.fetch = async (_u, init) => new Promise((_res, rej) => {
+    const sig = init?.signal
+    if (sig?.aborted) return rej(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+    sig?.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' })))
+  })
+  const p = fetchRailElements('22.2,114.1,22.4,114.3', ctrl.signal)
+  setTimeout(() => ctrl.abort(), 50)
+  let threw = false
+  try { await p } catch { threw = true }
+  ok(threw, 'master abort cancels the whole chain')
 }
 globalThis.fetch = realFetch
 

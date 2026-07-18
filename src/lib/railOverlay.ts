@@ -51,30 +51,54 @@ export function railQuery(bbox: string): string {
   return `[out:json][timeout:18];(relation["type"="route"]["route"~"^(subway|light_rail|monorail|tram)$"](${bbox});node["railway"="station"]["station"~"^(subway|light_rail|monorail)$"](${bbox});node["railway"="station"]["subway"="yes"](${bbox}););out geom(${bbox});`
 }
 
-const MIRRORS = ['https://overpass.kumi.systems/api/interpreter', 'https://overpass-api.de/api/interpreter']
+const MIRRORS = [
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+]
+
+/** fetch with a per-attempt timeout, chained to the caller's master signal so
+ *  a superseded load still cancels everything immediately. */
+async function timedFetch(url: string, init: RequestInit, ms: number, outer: AbortSignal): Promise<Response> {
+  const ctrl = new AbortController()
+  const onAbort = () => ctrl.abort()
+  outer.addEventListener('abort', onAbort)
+  const t = setTimeout(() => ctrl.abort(), ms)
+  try { return await fetch(url, { ...init, signal: ctrl.signal }) }
+  finally { clearTimeout(t); outer.removeEventListener('abort', onAbort) }
+}
 
 /** Fetch rail elements for a bbox: our edge-cached serverless proxy first,
  *  then direct Overpass mirrors as a fallback (covers a missing/failed
- *  function deploy or a proxy outage). Returns null when everything failed. */
-export async function fetchRailElements(bbox: string, signal: AbortSignal): Promise<OverpassEl[] | null> {
+ *  function deploy or a proxy outage). Every hop reports through onStep so
+ *  the test page can show exactly where the chain fails. Returns null when
+ *  everything failed. */
+export async function fetchRailElements(bbox: string, signal: AbortSignal, onStep?: (s: string) => void): Promise<OverpassEl[] | null> {
   try {
-    const res = await fetch(`/api/rail?bbox=${encodeURIComponent(bbox)}`, { signal })
+    onStep?.('API ของแอป…')
+    const res = await timedFetch(`/api/rail?bbox=${encodeURIComponent(bbox)}`, {}, 12000, signal)
     if (res.ok) {
       const j = await res.json()
-      if (Array.isArray(j?.elements)) return j.elements
-    }
+      if (Array.isArray(j?.elements)) { onStep?.(`API สำเร็จ · ${j.elements.length} รายการ`); return j.elements }
+      onStep?.('API ตอบรูปแบบไม่ถูกต้อง')
+    } else onStep?.(`API ตอบ ${res.status}`)
   } catch (e) {
     if (signal.aborted) throw e
+    onStep?.('API ต่อไม่ได้/หมดเวลา')
   }
   const body = `data=${encodeURIComponent(railQuery(bbox))}`
   for (const ep of MIRRORS) {
+    const host = ep.replace(/^https:\/\//, '').split('/')[0]
     try {
-      const res = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, signal })
-      if (!res.ok) continue
+      onStep?.(`ตรง: ${host}…`)
+      const res = await timedFetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body }, 10000, signal)
+      if (!res.ok) { onStep?.(`${host} ตอบ ${res.status}`); continue }
       const j = await res.json()
-      if (Array.isArray(j?.elements)) return j.elements
+      if (Array.isArray(j?.elements)) { onStep?.(`${host} สำเร็จ · ${j.elements.length} รายการ`); return j.elements }
+      onStep?.(`${host} ตอบรูปแบบไม่ถูกต้อง`)
     } catch (e) {
       if (signal.aborted) throw e
+      onStep?.(`${host} ต่อไม่ได้/หมดเวลา`)
     }
   }
   return null

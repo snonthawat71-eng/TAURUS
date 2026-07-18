@@ -73,6 +73,7 @@ export default function TripMap() {
   const [coords, setCoords] = useState<Record<string, GeoHit>>({})
   const [rail, setRail] = useState<boolean>(() => { try { return localStorage.getItem(RAIL_LS) === '1' } catch { return false } })
   const [railBusy, setRailBusy] = useState(false)
+  const [railLog, setRailLog] = useState<string[]>([]) // test-mode diagnostics
   const [showUnplaced, setShowUnplaced] = useState(false)
   const railLayerRef = useRef<L.LayerGroup | null>(null)
   const railAbort = useRef<AbortController | null>(null)
@@ -217,6 +218,7 @@ export default function TripMap() {
       for (const st of shapes.stations) {
         L.circleMarker(st, { radius: 3.5, color: '#3A4354', weight: 1.5, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(layer)
       }
+      setRailLog((l) => [...l, `วาดแล้ว ${shapes.lines.length} เส้น · ${shapes.stations.length} สถานี`])
     }
 
     const load = async () => {
@@ -229,7 +231,8 @@ export default function TripMap() {
       const N = Math.ceil(b.getNorth() * 10) / 10, E = Math.ceil(b.getEast() * 10) / 10
       const bbox = `${S},${W},${N},${E}`
       const cached = railCache.current.get(bbox)
-      if (cached) { draw(cached); return }
+      if (cached) { setRailLog(['จาก cache']); draw(cached); return }
+      setRailLog([`โหลด ${bbox}`])
       railAbort.current?.abort()
       const ctrl = new AbortController()
       railAbort.current = ctrl
@@ -239,7 +242,7 @@ export default function TripMap() {
       try {
         // edge-cached serverless proxy first, direct Overpass mirrors as
         // fallback — see fetchRailElements
-        const els = await fetchRailElements(bbox, ctrl.signal)
+        const els = await fetchRailElements(bbox, ctrl.signal, (s) => setRailLog((l) => [...l, s]))
         if (els) {
           railCache.current.set(bbox, els)
           draw(els)
@@ -408,6 +411,12 @@ export default function TripMap() {
             </span>
           )}
         </div>
+        {/* rail fetch diagnostics — test mode only, pinpoints the failing hop */}
+        {rail && railLog.length > 0 && (
+          <div className="inline-block rounded-[10px] bg-white/95 shadow-sm px-2.5 py-1.5 text-[10.5px] text-ink-2 leading-relaxed max-w-[320px]">
+            {railLog.slice(-5).map((s, i) => <div key={i}>{s}</div>)}
+          </div>
+        )}
       </div>
 
       {/* floating buttons — right side, above the card zone */}
