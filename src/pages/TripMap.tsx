@@ -2,19 +2,25 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft } from '@tabler/icons-react'
+import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconStack2, IconCheck, IconChevronDown } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { latLngFromUrl, geocode, resolveMapUrl, isMapLink, type LatLng } from '@/lib/geo'
+import { latLngFromUrl, geocodeSmart, resolveMapUrl, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
 import type { Place } from '@/lib/database.types'
 
-// Positron: Carto's most minimal base style — pale grey, roads only, hardly
-// any POI labels — so the photo pins are the loudest thing on screen.
-const TILE = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-const ATTR = '&copy; OpenStreetMap &copy; CARTO'
+// Selectable base styles (test-mode picker) — all free, no API key. Positron
+// is the default: pale grey, minimal labels, pins stay the loudest thing.
+const STYLES = [
+  { key: 'positron', label: 'Minimal สว่าง', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', attr: '&copy; OpenStreetMap &copy; CARTO', max: 19 },
+  { key: 'voyager', label: 'สีอ่อน (Voyager)', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', attr: '&copy; OpenStreetMap &copy; CARTO', max: 19 },
+  { key: 'dark', label: 'โหมดมืด', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', attr: '&copy; OpenStreetMap &copy; CARTO', max: 19 },
+  { key: 'esri', label: 'เทา (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', attr: 'Esri, HERE, Garmin', max: 16 },
+  { key: 'osm', label: 'OSM รายละเอียดเต็ม', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '&copy; OpenStreetMap', max: 19 },
+] as const
+const STYLE_LS = 'tripmap:style'
 
 function haversine(a: LatLng, b: LatLng) {
   const R = 6371, toR = Math.PI / 180
@@ -63,7 +69,11 @@ export default function TripMap() {
   const navigate = useNavigate()
   const [filter, setFilter] = useState<'all' | 'place' | 'food'>('all')
   const [query, setQuery] = useState('')
-  const [coords, setCoords] = useState<Record<string, LatLng>>({})
+  const [coords, setCoords] = useState<Record<string, GeoHit>>({})
+  const [style, setStyle] = useState<string>(() => { try { return localStorage.getItem(STYLE_LS) ?? 'positron' } catch { return 'positron' } })
+  const [styleOpen, setStyleOpen] = useState(false)
+  const [showUnplaced, setShowUnplaced] = useState(false)
+  const tileRef = useRef<L.TileLayer | null>(null)
   const [selected, setSelected] = useState<Place | null>(null)
   const [me, setMe] = useState<LatLng | null>(null)
   const [geoBusy, setGeoBusy] = useState(0)
@@ -106,7 +116,7 @@ export default function TripMap() {
   // ---- resolve coordinates (A: lat/lng col or map_url · C: geocode + cache) ----
   useEffect(() => {
     let alive = true
-    const next: Record<string, LatLng> = {}
+    const next: Record<string, GeoHit> = {}
     const missing: Place[] = []
     for (const p of tripPlaces) {
       if (typeof p.lat === 'number' && typeof p.lng === 'number') next[p.id] = { lat: p.lat, lng: p.lng }
@@ -118,21 +128,34 @@ export default function TripMap() {
     }
     setCoords(next)
     setGeoBusy(missing.length)
-    const gotCoords = (p: Place, r: LatLng | null) => {
+    const gotCoords = (p: Place, r: GeoHit | null) => {
       if (!alive) return
       setGeoBusy((n) => Math.max(0, n - 1))
-      if (r) { setCoords((c) => ({ ...c, [p.id]: r })); setPlaceCoords(p.id, r.lat, r.lng).catch(() => {}) }
+      if (r) {
+        setCoords((c) => ({ ...c, [p.id]: r }))
+        // approximate (station stand-in) pins stay in-memory only — never
+        // written to the DB as if they were the real spot
+        if (!r.approx) setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
+      }
     }
     // A2) links (short google/amap) — resolve server-side, in parallel (fast)
     const links = missing.filter((p) => isMapLink(p.map_url))
     const queue = [...links]
-    const worker = async () => { while (queue.length && alive) { const p = queue.shift()!; gotCoords(p, await resolveMapUrl(p.map_url!)) } }
+    const worker = async () => {
+      while (queue.length && alive) {
+        const p = queue.shift()!
+        const r = await resolveMapUrl(p.map_url!)
+        // link dead-ends (expired short link etc.) fall through to geocoding
+        if (r) gotCoords(p, r)
+        else gotCoords(p, await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country }))
+      }
+    }
     Promise.all(Array.from({ length: 6 }, worker))
-    // C) the rest — geocode by name+city (throttled inside geocode())
+    // C) the rest — smart multi-step geocode (throttled inside geocodeSmart())
     ;(async () => {
       for (const p of missing.filter((p) => !isMapLink(p.map_url))) {
         if (!alive) return
-        gotCoords(p, await geocode([p.name, p.station_name, p.city, trip?.country]))
+        gotCoords(p, await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country }))
       }
     })()
     return () => { alive = false }
@@ -153,15 +176,24 @@ export default function TripMap() {
   useEffect(() => {
     if (!boxRef.current || mapRef.current) return
     const map = L.map(boxRef.current, { zoomControl: false, attributionControl: true }).setView([22.3, 114.17], 12)
-    L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19, detectRetina: true }).addTo(map)
     L.control.zoom({ position: 'bottomright' }).addTo(map)
     layerRef.current = L.layerGroup().addTo(map)
     // tap the map while pinning a place → set its location
     map.on('click', (e) => { const p = placingRef.current; if (p) applyRef.current(p, { lat: e.latlng.lat, lng: e.latlng.lng }) })
     map.on('zoomend', () => setZoomTick((n) => n + 1))
     mapRef.current = map
-    return () => { map.remove(); mapRef.current = null }
+    return () => { map.remove(); mapRef.current = null; tileRef.current = null }
   }, [])
+
+  // ---- base tile style (picker in test mode; choice sticks via localStorage) ----
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const s = STYLES.find((x) => x.key === style) ?? STYLES[0]
+    tileRef.current?.remove()
+    tileRef.current = L.tileLayer(s.url, { attribution: s.attr, maxZoom: s.max, detectRetina: true }).addTo(map)
+    try { localStorage.setItem(STYLE_LS, s.key) } catch { /* ignore */ }
+  }, [style])
 
   // ---- (re)draw markers — circular photo pins, grouped into numbered
   // clusters where they'd otherwise overlap on screen ----
@@ -188,7 +220,7 @@ export default function TripMap() {
       const inner = photo ? `<img src="${photo}" alt=""/>` : `<div class="tpin-fallback" style="background:${meta.bg}"></div>`
       const icon = L.divIcon({
         className: '', iconSize: [42, 42], iconAnchor: [21, 21],
-        html: `<div class="tpin ${selected?.id === p.id ? 'sel' : ''}" style="--c:${meta.fg}"><div class="tpin-b">${inner}</div></div>`,
+        html: `<div class="tpin ${selected?.id === p.id ? 'sel' : ''} ${coords[p.id]?.approx ? 'approx' : ''}" style="--c:${meta.fg}"><div class="tpin-b">${inner}</div></div>`,
       })
       const m = L.marker([c.lat, c.lng], { icon }).addTo(layer)
       m.on('click', () => { setSelected(p); map.panTo([c.lat, c.lng]) })
@@ -319,23 +351,42 @@ export default function TripMap() {
       {/* floating buttons */}
       <button onClick={refit} className="absolute right-3 bottom-[42%] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-ink-2" title="จัดกึ่งกลางหมุด"><IconFocus2 size={19} /></button>
       <button onClick={locate} className="absolute right-3 bottom-[calc(42%+3.25rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-brand" title="ตำแหน่งฉัน"><IconCurrentLocation size={19} /></button>
+      {/* base-style picker (test mode — pick a favourite, then we lock it in) */}
+      <div className="absolute right-3 bottom-[calc(42%+6.5rem)] z-[500]">
+        {styleOpen && (
+          <div className="absolute bottom-12 right-0 w-48 rounded-[13px] bg-white shadow-xl overflow-hidden">
+            {STYLES.map((s) => (
+              <button key={s.key} onClick={() => { setStyle(s.key); setStyleOpen(false) }}
+                className="w-full flex items-center gap-2 px-3.5 py-2.5 text-[12.5px] text-left text-ink hover:bg-surface-2 border-b border-line last:border-0">
+                <span className={style === s.key ? 'font-semibold' : ''}>{s.label}</span>
+                {style === s.key && <IconCheck size={15} className="ml-auto text-brand shrink-0" />}
+              </button>
+            ))}
+          </div>
+        )}
+        <button onClick={() => setStyleOpen((o) => !o)} className="size-11 rounded-full bg-white shadow-md grid place-items-center text-ink-2" title="สไตล์แผนที่"><IconStack2 size={19} /></button>
+      </div>
 
       {/* bottom sheet */}
       <div className="absolute inset-x-0 bottom-0 z-[500] bg-white rounded-t-[18px] shadow-[0_-6px_24px_rgba(10,20,40,.14)] max-h-[42%] flex flex-col">
         <div className="w-9 h-1 rounded-full mx-auto mt-2.5 mb-1.5 shrink-0" style={{ background: 'var(--color-line-2)' }} />
         {selected ? (
-          <SelectedCard p={selected} dist={ref ? kmLabel(haversine(ref, coords[selected.id])) : null}
+          <SelectedCard p={selected} dist={ref ? kmLabel(haversine(ref, coords[selected.id])) : null} approx={!!coords[selected.id]?.approx}
             onClose={() => setSelected(null)} onRelocate={() => { setSelected(null); setPlacing(selected) }} />
         ) : (
           <div className="overflow-y-auto px-3 pb-4">
-            {/* places still without a pin — tap to place one */}
+            {/* places still without a pin — collapsed to one row; expand to fix */}
             {unplaced.length > 0 && (
-              <div className="mb-3">
-                <div className="text-[12px] font-bold text-[#D97706] px-1 mb-1">ยังไม่มีพิกัด · {unplaced.length} — แตะ “ปักหมุด”</div>
-                {unplaced.slice(0, 12).map((p) => {
+              <div className="mb-2">
+                <button onClick={() => setShowUnplaced((v) => !v)} className="w-full flex items-center gap-2.5 py-2 px-1">
+                  <span className="size-7 rounded-full grid place-items-center shrink-0" style={{ background: '#FDF0E6', color: '#D97706' }}><IconMapPinOff size={15} /></span>
+                  <span className="text-[12.5px] font-semibold text-ink">ยังไม่มีพิกัด · {unplaced.length} ที่</span>
+                  <IconChevronDown size={16} className={['ml-auto text-ink-3 transition-transform shrink-0', showUnplaced ? 'rotate-180' : ''].join(' ')} />
+                </button>
+                {showUnplaced && unplaced.map((p) => {
                   const meta = catMeta(p.category)
                   return (
-                    <div key={p.id} className="flex items-center gap-3 py-1.5">
+                    <div key={p.id} className="flex items-center gap-3 py-1.5 pl-1">
                       <span className="size-9 rounded-[9px] grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}><meta.icon size={17} /></span>
                       <span className="text-[13px] font-medium truncate flex-1">{p.name}</span>
                       <button onClick={() => setPlacing(p)} className="shrink-0 h-8 px-3 rounded-full bg-brand text-white text-[11.5px] font-semibold inline-flex items-center gap-1"><IconMapPin size={13} /> ปักหมุด</button>
@@ -380,7 +431,7 @@ function NearbyRow({ p, dist, onOpen }: { p: Place; dist: string | null; onOpen:
   )
 }
 
-function SelectedCard({ p, dist, onClose, onRelocate }: { p: Place; dist: string | null; onClose: () => void; onRelocate: () => void }) {
+function SelectedCard({ p, dist, approx, onClose, onRelocate }: { p: Place; dist: string | null; approx?: boolean; onClose: () => void; onRelocate: () => void }) {
   const meta = catMeta(p.category)
   const photo = httpPhoto(p)
   return (
@@ -390,8 +441,9 @@ function SelectedCard({ p, dist, onClose, onRelocate }: { p: Place; dist: string
           : <span className="size-16 rounded-[12px] grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}><meta.icon size={26} /></span>}
         <div className="min-w-0 flex-1">
           <div className="text-[16px] font-bold text-ink leading-tight">{p.name}</div>
-          <div className="mt-1 flex items-center gap-1.5 text-[11.5px]">
+          <div className="mt-1 flex items-center gap-1.5 text-[11.5px] flex-wrap">
             <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: meta.bg, color: meta.fg }}>{meta.label}</span>
+            {approx && <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: '#FDF0E6', color: '#D97706' }}>ตำแหน่งโดยประมาณ (จากสถานี)</span>}
             {dist && <span className="text-brand font-bold">{dist}</span>}
           </div>
           {(p.station_line || p.station_name) && <div className="text-[11.5px] text-ink-3 mt-1 truncate">{p.station_line}{p.station_name ? ` · ${p.station_name}` : ''}</div>}

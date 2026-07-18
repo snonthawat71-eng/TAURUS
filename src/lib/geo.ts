@@ -209,6 +209,80 @@ async function geocodeRaw(query: string): Promise<LatLng | null> {
   } catch { return null }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** Strip the decorations that break geocoders: parentheticals, emoji, branch
+ *  suffixes ("สาขา…", "Branch …"), leftover punctuation runs. */
+export function cleanPlaceName(name: string): string {
+  return name
+    .replace(/\([^)]*\)|（[^）]*）/g, ' ')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2190}-\u{27BF}\u{FE0F}\u{2B00}-\u{2BFF}]/gu, ' ')
+    .replace(/\b(?:สาขา|branch)\b[\s\S]*$/i, ' ')
+    .replace(/[|·•~*]+/g, ' ')
+    .replace(/\s+/g, ' ').trim()
+}
+
+// Photon (komoot) — free OSM geocoder, fuzzy/typo-tolerant where Nominatim
+// wants near-exact matches. No key, CORS-open.
+async function photonRaw(query: string): Promise<LatLng | null> {
+  try {
+    const res = await fetch(`https://photon.komoot.io/api/?limit=1&q=${encodeURIComponent(query)}`)
+    if (!res.ok) return null
+    const j = await res.json()
+    const c = j?.features?.[0]?.geometry?.coordinates
+    const lng = Number(c?.[0]), lat = Number(c?.[1])
+    return valid(lat, lng) ? { lat, lng } : null
+  } catch { return null }
+}
+
+export interface GeoHit extends LatLng { approx?: boolean }
+
+/** C+) Multi-step geocode for a place. Tries, in order:
+ *  1. Nominatim — full name + city + country, then the cleaned name
+ *  2. Photon    — fuzzy match on name + city (handles typos/decorations)
+ *  3. the transit STATION as a stand-in → returned with approx: true
+ *  Cached (memory + localStorage) under one key per place. */
+const smartCache = new Map<string, GeoHit | null>()
+export function geocodeSmart(o: { name?: string | null; station?: string | null; city?: string | null; country?: string | null }): Promise<GeoHit | null> {
+  const name = (o.name ?? '').trim(), station = (o.station ?? '').trim()
+  const city = (o.city ?? '').trim(), country = (o.country ?? '').trim()
+  if (!name && !station) return Promise.resolve(null)
+  const key = `smart:${[name, station, city, country].join('|')}`
+  if (smartCache.has(key)) return Promise.resolve(smartCache.get(key) ?? null)
+  const cached = lsGet(key) as GeoHit | null | undefined
+  if (cached !== undefined) { smartCache.set(key, cached); return Promise.resolve(cached) }
+  const run = chain.then(async (): Promise<GeoHit | null> => {
+    if (smartCache.has(key)) return smartCache.get(key) ?? null
+    const cleaned = cleanPlaceName(name)
+    const tryNom = async (parts: string[]) => {
+      const q = parts.filter(Boolean).join(', ')
+      if (!q) return null
+      const r = await geocodeRaw(q)
+      await sleep(1100) // be polite to Nominatim
+      return r
+    }
+    let hit: GeoHit | null = null
+    // 1) Nominatim ladder
+    let r = name ? await tryNom([name, city, country]) : null
+    if (!r && cleaned && cleaned !== name) r = await tryNom([cleaned, city, country])
+    // 2) Photon fuzzy
+    if (!r && name) r = await photonRaw([name, city].filter(Boolean).join(' '))
+    if (!r && cleaned && cleaned !== name) r = await photonRaw([cleaned, city, country].filter(Boolean).join(' '))
+    // 3) station stand-in — approximate, flagged so the UI can say so
+    if (r) hit = { ...r, approx: false }
+    else if (station) {
+      const s = await tryNom([`${station} station`, city, country])
+        || await tryNom([station, city, country])
+        || await photonRaw([station, city, country].filter(Boolean).join(' '))
+      if (s) hit = { ...s, approx: true }
+    }
+    smartCache.set(key, hit); lsSet(key, hit)
+    return hit
+  })
+  chain = run.catch(() => {})
+  return run
+}
+
 /** C) Geocode "name, city, country" — cached (memory + localStorage) and
  *  throttled to respect Nominatim's 1 req/sec policy. */
 export function geocode(parts: (string | null | undefined)[]): Promise<LatLng | null> {
