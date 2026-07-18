@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconStack2, IconCheck, IconChevronDown } from '@tabler/icons-react'
+import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconTrain } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { latLngFromUrl, geocodeSmart, resolveMapUrl, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
@@ -11,16 +11,15 @@ import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
 import type { Place } from '@/lib/database.types'
 
-// Selectable base styles (test-mode picker) — all free, no API key. Positron
-// is the default: pale grey, minimal labels, pins stay the loudest thing.
-const STYLES = [
-  { key: 'positron', label: 'Minimal สว่าง', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', attr: '&copy; OpenStreetMap &copy; CARTO', max: 19 },
-  { key: 'voyager', label: 'สีอ่อน (Voyager)', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', attr: '&copy; OpenStreetMap &copy; CARTO', max: 19 },
-  { key: 'dark', label: 'โหมดมืด', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', attr: '&copy; OpenStreetMap &copy; CARTO', max: 19 },
-  { key: 'esri', label: 'เทา (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', attr: 'Esri, HERE, Garmin', max: 16 },
-  { key: 'osm', label: 'OSM รายละเอียดเต็ม', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '&copy; OpenStreetMap', max: 19 },
-] as const
-const STYLE_LS = 'tripmap:style'
+// Positron: Carto's most minimal base style — pale grey, minimal labels, so
+// the photo pins stay the loudest thing on screen. (Chosen over Voyager/
+// Dark/Esri/OSM in the live style test.)
+const TILE = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+const ATTR = '&copy; OpenStreetMap &copy; CARTO'
+// OpenRailwayMap — free transparent overlay drawing real rail/metro lines and
+// stations over any base map. Toggleable; remembered per device.
+const RAIL_TILE = 'https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png'
+const RAIL_LS = 'tripmap:rail'
 
 function haversine(a: LatLng, b: LatLng) {
   const R = 6371, toR = Math.PI / 180
@@ -70,10 +69,9 @@ export default function TripMap() {
   const [filter, setFilter] = useState<'all' | 'place' | 'food'>('all')
   const [query, setQuery] = useState('')
   const [coords, setCoords] = useState<Record<string, GeoHit>>({})
-  const [style, setStyle] = useState<string>(() => { try { return localStorage.getItem(STYLE_LS) ?? 'positron' } catch { return 'positron' } })
-  const [styleOpen, setStyleOpen] = useState(false)
+  const [rail, setRail] = useState<boolean>(() => { try { return localStorage.getItem(RAIL_LS) === '1' } catch { return false } })
   const [showUnplaced, setShowUnplaced] = useState(false)
-  const tileRef = useRef<L.TileLayer | null>(null)
+  const railRef = useRef<L.TileLayer | null>(null)
   const [selected, setSelected] = useState<Place | null>(null)
   const [me, setMe] = useState<LatLng | null>(null)
   const [geoBusy, setGeoBusy] = useState(0)
@@ -176,24 +174,32 @@ export default function TripMap() {
   useEffect(() => {
     if (!boxRef.current || mapRef.current) return
     const map = L.map(boxRef.current, { zoomControl: false, attributionControl: true }).setView([22.3, 114.17], 12)
+    L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19, detectRetina: true }).addTo(map)
     L.control.zoom({ position: 'bottomright' }).addTo(map)
     layerRef.current = L.layerGroup().addTo(map)
-    // tap the map while pinning a place → set its location
-    map.on('click', (e) => { const p = placingRef.current; if (p) applyRef.current(p, { lat: e.latlng.lat, lng: e.latlng.lng }) })
+    // tap the map: while pinning → set the place's location; otherwise → close
+    // the open place card
+    map.on('click', (e) => {
+      const p = placingRef.current
+      if (p) applyRef.current(p, { lat: e.latlng.lat, lng: e.latlng.lng })
+      else setSelected(null)
+    })
     map.on('zoomend', () => setZoomTick((n) => n + 1))
     mapRef.current = map
-    return () => { map.remove(); mapRef.current = null; tileRef.current = null }
+    return () => { map.remove(); mapRef.current = null; railRef.current = null }
   }, [])
 
-  // ---- base tile style (picker in test mode; choice sticks via localStorage) ----
+  // ---- rail overlay (OpenRailwayMap) — real metro/rail lines + stations ----
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    const s = STYLES.find((x) => x.key === style) ?? STYLES[0]
-    tileRef.current?.remove()
-    tileRef.current = L.tileLayer(s.url, { attribution: s.attr, maxZoom: s.max, detectRetina: true }).addTo(map)
-    try { localStorage.setItem(STYLE_LS, s.key) } catch { /* ignore */ }
-  }, [style])
+    if (rail && !railRef.current) {
+      railRef.current = L.tileLayer(RAIL_TILE, { attribution: '&copy; OpenRailwayMap', maxZoom: 19, opacity: 0.8 }).addTo(map)
+    } else if (!rail && railRef.current) {
+      railRef.current.remove(); railRef.current = null
+    }
+    try { localStorage.setItem(RAIL_LS, rail ? '1' : '0') } catch { /* ignore */ }
+  }, [rail])
 
   // ---- (re)draw markers — circular photo pins, grouped into numbered
   // clusters where they'd otherwise overlap on screen ----
@@ -284,13 +290,9 @@ export default function TripMap() {
     if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.2), { maxZoom: 15 })
   }
 
-  // distances (and the "nearby" sort) are measured from the user's location only —
-  // NOT the map centre, so panning the map never re-renders/re-sorts the list.
+  // distances are measured from the user's location only — NOT the map centre,
+  // so panning the map never re-renders the open card.
   const ref = me
-  const nearby = useMemo(() => {
-    if (!ref) return shown
-    return [...shown].sort((a, b) => haversine(ref, coords[a.id]) - haversine(ref, coords[b.id]))
-  }, [shown, coords, ref])
   const unplaced = useMemo(() => tripPlaces.filter((p) => !coords[p.id]), [tripPlaces, coords])
 
   const CHIPS: { key: typeof filter; label: string }[] = [
@@ -348,86 +350,49 @@ export default function TripMap() {
         </div>
       </div>
 
-      {/* floating buttons */}
-      <button onClick={refit} className="absolute right-3 bottom-[42%] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-ink-2" title="จัดกึ่งกลางหมุด"><IconFocus2 size={19} /></button>
-      <button onClick={locate} className="absolute right-3 bottom-[calc(42%+3.25rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-brand" title="ตำแหน่งฉัน"><IconCurrentLocation size={19} /></button>
-      {/* base-style picker (test mode — pick a favourite, then we lock it in) */}
-      <div className="absolute right-3 bottom-[calc(42%+6.5rem)] z-[500]">
-        {styleOpen && (
-          <div className="absolute bottom-12 right-0 w-48 rounded-[13px] bg-white shadow-xl overflow-hidden">
-            {STYLES.map((s) => (
-              <button key={s.key} onClick={() => { setStyle(s.key); setStyleOpen(false) }}
-                className="w-full flex items-center gap-2 px-3.5 py-2.5 text-[12.5px] text-left text-ink hover:bg-surface-2 border-b border-line last:border-0">
-                <span className={style === s.key ? 'font-semibold' : ''}>{s.label}</span>
-                {style === s.key && <IconCheck size={15} className="ml-auto text-brand shrink-0" />}
-              </button>
-            ))}
-          </div>
-        )}
-        <button onClick={() => setStyleOpen((o) => !o)} className="size-11 rounded-full bg-white shadow-md grid place-items-center text-ink-2" title="สไตล์แผนที่"><IconStack2 size={19} /></button>
-      </div>
+      {/* floating buttons — right side, above the card zone */}
+      <button onClick={refit} className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-ink-2" title="จัดกึ่งกลางหมุด"><IconFocus2 size={19} /></button>
+      <button onClick={locate} className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+8.75rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-brand" title="ตำแหน่งฉัน"><IconCurrentLocation size={19} /></button>
+      {/* rail overlay toggle — draws real metro/rail lines + stations */}
+      <button onClick={() => setRail((v) => !v)}
+        className={['absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+12rem)] z-[500] size-11 rounded-full shadow-md grid place-items-center', rail ? 'bg-brand text-white' : 'bg-white text-ink-2'].join(' ')}
+        title="เส้นทางรถไฟฟ้า"><IconTrain size={19} /></button>
 
-      {/* bottom sheet */}
-      <div className="absolute inset-x-0 bottom-0 z-[500] bg-white rounded-t-[18px] shadow-[0_-6px_24px_rgba(10,20,40,.14)] max-h-[42%] flex flex-col">
-        <div className="w-9 h-1 rounded-full mx-auto mt-2.5 mb-1.5 shrink-0" style={{ background: 'var(--color-line-2)' }} />
-        {selected ? (
-          <SelectedCard p={selected} dist={ref ? kmLabel(haversine(ref, coords[selected.id])) : null} approx={!!coords[selected.id]?.approx}
-            onClose={() => setSelected(null)} onRelocate={() => { setSelected(null); setPlacing(selected) }} />
-        ) : (
-          <div className="overflow-y-auto px-3 pb-4">
-            {/* places still without a pin — collapsed to one row; expand to fix */}
-            {unplaced.length > 0 && (
-              <div className="mb-2">
-                <button onClick={() => setShowUnplaced((v) => !v)} className="w-full flex items-center gap-2.5 py-2 px-1">
-                  <span className="size-7 rounded-full grid place-items-center shrink-0" style={{ background: '#FDF0E6', color: '#D97706' }}><IconMapPinOff size={15} /></span>
-                  <span className="text-[12.5px] font-semibold text-ink">ยังไม่มีพิกัด · {unplaced.length} ที่</span>
-                  <IconChevronDown size={16} className={['ml-auto text-ink-3 transition-transform shrink-0', showUnplaced ? 'rotate-180' : ''].join(' ')} />
-                </button>
-                {showUnplaced && unplaced.map((p) => {
-                  const meta = catMeta(p.category)
-                  return (
-                    <div key={p.id} className="flex items-center gap-3 py-1.5 pl-1">
-                      <span className="size-9 rounded-[9px] grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}><meta.icon size={17} /></span>
-                      <span className="text-[13px] font-medium truncate flex-1">{p.name}</span>
-                      <button onClick={() => setPlacing(p)} className="shrink-0 h-8 px-3 rounded-full bg-brand text-white text-[11.5px] font-semibold inline-flex items-center gap-1"><IconMapPin size={13} /> ปักหมุด</button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <div className="text-[14px] font-bold px-1 mb-1.5">บนแผนที่ · {shown.length} ที่</div>
-            {nearby.length === 0 ? (
-              <div className="text-center text-[12.5px] text-ink-3 py-8 flex flex-col items-center gap-2">
-                <IconMapPinOff size={24} /> ยังไม่มีสถานที่ที่มีพิกัดบนแผนที่
-              </div>
-            ) : nearby.map((p) => (
-              <NearbyRow key={p.id} p={p} dist={ref ? kmLabel(haversine(ref, coords[p.id])) : null}
-                onOpen={() => { setSelected(p); const c = coords[p.id]; mapRef.current?.setView([c.lat, c.lng], 15) }} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function NearbyRow({ p, dist, onOpen }: { p: Place; dist: string | null; onOpen: () => void }) {
-  const meta = catMeta(p.category)
-  const photo = httpPhoto(p)
-  return (
-    <button onClick={onOpen} className="w-full flex items-center gap-3 py-2 text-left">
-      {photo ? <img src={photo} alt="" className="size-12 rounded-[11px] object-cover shrink-0" />
-        : <span className="size-12 rounded-[11px] grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}><meta.icon size={22} /></span>}
-      <div className="min-w-0 flex-1">
-        <div className="text-[14px] font-semibold text-ink truncate">{p.name}</div>
-        <div className="text-[11.5px] text-ink-3 mt-0.5 flex items-center gap-1.5">
-          <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: meta.bg, color: meta.fg }}>{meta.label}</span>
-          {dist && <span className="text-brand font-bold">{dist}</span>}
+      {/* places with no coordinates yet — one small pill, tap to expand */}
+      {unplaced.length > 0 && !selected && !placing && (
+        <div className="absolute left-3 right-16 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-[500]">
+          {showUnplaced && (
+            <div className="mb-2 rounded-[15px] bg-white shadow-xl max-h-[45dvh] overflow-y-auto px-3 py-2">
+              {unplaced.map((p) => {
+                const meta = catMeta(p.category)
+                return (
+                  <div key={p.id} className="flex items-center gap-3 py-1.5">
+                    <span className="size-9 rounded-[9px] grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}><meta.icon size={17} /></span>
+                    <span className="text-[13px] font-medium truncate flex-1">{p.name}</span>
+                    <button onClick={() => { setShowUnplaced(false); setPlacing(p) }} className="shrink-0 h-8 px-3 rounded-full bg-brand text-white text-[11.5px] font-semibold inline-flex items-center gap-1"><IconMapPin size={13} /> ปักหมุด</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <button onClick={() => setShowUnplaced((v) => !v)}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white shadow-md text-[12px] font-semibold text-ink">
+            <IconMapPinOff size={15} style={{ color: '#D97706' }} /> ยังไม่มีพิกัด · {unplaced.length}
+            {showUnplaced && <IconX size={13} className="text-ink-3" />}
+          </button>
         </div>
-      </div>
-      <span role="button" onClick={(e) => { e.stopPropagation(); openMap(p.map_url) }}
-        className="shrink-0 size-10 rounded-[11px] bg-brand-soft text-brand grid place-items-center"><IconMapPin size={17} /></span>
-    </button>
+      )}
+
+      {/* tapping a pin opens its floating card; tap the map to dismiss */}
+      {selected && coords[selected.id] && (
+        <div className="absolute inset-x-0 bottom-0 z-[500] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
+          <div className="rounded-[18px] bg-white shadow-[0_10px_34px_rgba(10,20,40,.22)] pt-4">
+            <SelectedCard p={selected} dist={ref ? kmLabel(haversine(ref, coords[selected.id])) : null} approx={!!coords[selected.id]?.approx}
+              onClose={() => setSelected(null)} onRelocate={() => { setSelected(null); setPlacing(selected) }} />
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
