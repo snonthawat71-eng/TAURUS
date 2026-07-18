@@ -6,6 +6,7 @@ import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, Icon
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { latLngFromUrl, geocodeSmart, resolveMapUrl, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
+import { railShapes, fetchRailElements, type OverpassEl } from '@/lib/railOverlay'
 import { setPlaceCoords } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -21,15 +22,6 @@ const ATTR = '&copy; OpenStreetMap &copy; CARTO'
 // viewport, cached in-memory, toggleable; remembered per device.
 const RAIL_LS = 'tripmap:rail'
 const RAIL_MIN_ZOOM = 11
-
-interface OverpassEl {
-  type: 'relation' | 'node' | 'way'
-  id: number
-  lat?: number
-  lon?: number
-  tags?: Record<string, string>
-  members?: { type: string; role?: string; geometry?: { lat: number; lon: number }[] }[]
-}
 
 function haversine(a: LatLng, b: LatLng) {
   const R = 6371, toR = Math.PI / 180
@@ -218,25 +210,12 @@ export default function TripMap() {
     const draw = (els: OverpassEl[]) => {
       if (railLayerRef.current !== layer) return
       layer.clearLayers()
-      const seen = new Set<string>()
-      for (const el of els) {
-        if (el.type === 'relation') {
-          const t = el.tags ?? {}
-          const raw = (t.colour ?? '').trim()
-          const color = raw ? (/^[0-9a-f]{3,8}$/i.test(raw) ? `#${raw}` : raw) : '#7A8699'
-          // routes come as one relation per direction — draw each line once
-          const key = `${t.ref ?? t.name ?? el.id}|${color}`
-          if (seen.has(key)) continue
-          seen.add(key)
-          for (const m of el.members ?? []) {
-            if (m.type !== 'way' || !m.geometry?.length) continue
-            if (/platform|stop/i.test(m.role ?? '')) continue
-            L.polyline(m.geometry.map((g) => [g.lat, g.lon] as [number, number]),
-              { color, weight: 3, opacity: 0.8, interactive: false }).addTo(layer)
-          }
-        } else if (el.type === 'node' && el.lat != null && el.lon != null) {
-          L.circleMarker([el.lat, el.lon], { radius: 3.5, color: '#3A4354', weight: 1.5, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(layer)
-        }
+      const shapes = railShapes(els)
+      for (const ln of shapes.lines) {
+        L.polyline(ln.points, { color: ln.color, weight: 3, opacity: 0.8, interactive: false }).addTo(layer)
+      }
+      for (const st of shapes.stations) {
+        L.circleMarker(st, { radius: 3.5, color: '#3A4354', weight: 1.5, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(layer)
       }
     }
 
@@ -258,18 +237,18 @@ export default function TripMap() {
       const kill = setTimeout(() => { timedOut = true; ctrl.abort() }, 30000)
       setRailBusy(true)
       try {
-        // our own serverless proxy fetches Overpass (mobile networks often
-        // can't reach it directly) and edge-caches each grid cell for a week
-        const res = await fetch(`/api/rail?bbox=${encodeURIComponent(bbox)}`, { signal: ctrl.signal })
-        if (!res.ok) throw new Error(`rail ${res.status}`)
-        const j = await res.json()
-        const els: OverpassEl[] = j?.elements ?? []
-        railCache.current.set(bbox, els)
-        draw(els)
-        if (!els.length) toast.info('บริเวณนี้ไม่มีข้อมูลเส้นรถไฟฟ้าใน OSM')
+        // edge-cached serverless proxy first, direct Overpass mirrors as
+        // fallback — see fetchRailElements
+        const els = await fetchRailElements(bbox, ctrl.signal)
+        if (els) {
+          railCache.current.set(bbox, els)
+          draw(els)
+          if (!els.length) toast.info('บริเวณนี้ไม่มีข้อมูลเส้นรถไฟฟ้าใน OSM')
+        } else {
+          toast.error('โหลดเส้นรถไฟฟ้าไม่สำเร็จ — ลองเลื่อน/ซูมแผนที่อีกครั้ง')
+        }
       } catch {
         if (timedOut) toast.error('เซิร์ฟเวอร์ข้อมูลรถไฟฟ้าตอบช้า — ลองใหม่อีกครั้ง')
-        else if (!ctrl.signal.aborted) toast.error('โหลดเส้นรถไฟฟ้าไม่สำเร็จ — ลองเลื่อน/ซูมแผนที่อีกครั้ง')
       }
       finally { clearTimeout(kill); if (railAbort.current === ctrl) setRailBusy(false) }
     }

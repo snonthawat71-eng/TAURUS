@@ -3,13 +3,14 @@
 // from Overpass server-side — mobile networks often can't reach Overpass
 // directly (queues/blocks), and the edge cache makes repeat views instant.
 
-export const config = { maxDuration: 25 }
-
+// No maxDuration override — an out-of-plan value fails the WHOLE deploy.
+// Instead each mirror gets a short budget so the function fits the default
+// 10s window; if both are slow the client falls back to direct Overpass.
 const MIRRORS = [
   'https://overpass.kumi.systems/api/interpreter', // usually the least loaded
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
 ]
+const MIRROR_TIMEOUT_MS = 4000
 
 export default async function handler(req, res) {
   try {
@@ -20,7 +21,7 @@ export default async function handler(req, res) {
     const q = `[out:json][timeout:18];(relation["type"="route"]["route"~"^(subway|light_rail|monorail|tram)$"](${bbox});node["railway"="station"]["station"~"^(subway|light_rail|monorail)$"](${bbox});node["railway"="station"]["subway"="yes"](${bbox}););out geom(${bbox});`
     for (const ep of MIRRORS) {
       const ctrl = new AbortController()
-      const timer = setTimeout(() => ctrl.abort(), 20000)
+      const timer = setTimeout(() => ctrl.abort(), MIRROR_TIMEOUT_MS)
       try {
         const r = await fetch(ep, {
           method: 'POST',
