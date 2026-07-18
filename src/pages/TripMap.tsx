@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -164,9 +163,7 @@ export default function TripMap() {
       const { p, c } = g
       const meta = catMeta(p.category)
       const photo = httpPhoto(p)
-      const inner = photo
-        ? `<img src="${photo}" alt=""/>`
-        : `<div class="tpin-fallback" style="background:${meta.bg}">${renderToStaticMarkup(<meta.icon size={17} stroke={1.8} style={{ color: meta.fg }} />)}</div>`
+      const inner = photo ? `<img src="${photo}" alt=""/>` : `<div class="tpin-fallback" style="background:${meta.bg}"></div>`
       const icon = L.divIcon({
         className: '', iconSize: [42, 42], iconAnchor: [21, 21],
         html: `<div class="tpin ${selected?.id === p.id ? 'sel' : ''}" style="--c:${meta.fg}"><div class="tpin-b">${inner}</div></div>`,
