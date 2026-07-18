@@ -1,4 +1,4 @@
-import { catTabKey } from './placeMeta'
+import { catTabKey, FOOD_CATEGORIES } from './placeMeta'
 import type { PopStat } from './exploreMutations'
 import type { ExplorePlace } from './database.types'
 
@@ -7,21 +7,32 @@ export interface ExploreFilterState {
   group: 'all' | 'place' | 'food'
   cat: string
   city: string
-  sort: 'new' | 'popular'
+  sort: 'new' | 'old' | 'popular'
   q: string
 }
 
 export const initialExploreFilter: ExploreFilterState = { group: 'all', cat: 'all', city: 'all', sort: 'new', q: '' }
 
-/** Apply the group/category/city/text filters, then order by recency or popularity. */
+/** Does an item match the chosen subcategory? Food filters by the *detailed*
+ *  category (ร้านอาหาร, คาเฟ่, …); places by their category tab. */
+function matchCat(e: ExplorePlace, f: ExploreFilterState): boolean {
+  if (f.cat === 'all') return true
+  if (f.group === 'food') {
+    if (f.cat === 'gother') return !FOOD_CATEGORIES.includes(e.category ?? '')
+    return e.category === f.cat
+  }
+  return catTabKey(e.category, f.group) === f.cat
+}
+
+/** Apply the group/category/city/text filters, then order the result. */
 export function filterExplore(items: ExplorePlace[], f: ExploreFilterState, pop: Map<string, PopStat>): ExplorePlace[] {
   const q = f.q.trim().toLowerCase()
   const filtered = items
     .filter((e) => f.group === 'all' || e.group_type === f.group)
-    .filter((e) => f.cat === 'all' || catTabKey(e.category, f.group) === f.cat)
+    .filter((e) => matchCat(e, f))
     .filter((e) => f.city === 'all' || e.city === f.city)
     .filter((e) => !q || [e.name, e.note, e.city, e.country].some((v) => (v ?? '').toLowerCase().includes(q)))
-  return f.sort === 'popular'
-    ? [...filtered].sort((a, b) => (pop.get(b.id)?.score ?? 0) - (pop.get(a.id)?.score ?? 0))
-    : filtered
+  if (f.sort === 'popular') return [...filtered].sort((a, b) => (pop.get(b.id)?.score ?? 0) - (pop.get(a.id)?.score ?? 0))
+  if (f.sort === 'old') return [...filtered].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))
+  return filtered // 'new' — items already arrive newest-first from the query
 }
