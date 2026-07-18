@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   IconWorldSearch, IconMapPin, IconFlame, IconSearch, IconX,
-  IconArrowsSort, IconChevronDown, IconCheck, IconLayoutGrid,
+  IconChevronDown, IconCheck, IconLayoutGrid,
   IconSortDescending2, IconSortAscending2,
 } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
@@ -50,6 +50,11 @@ function Dropdown({ label, applied, width = 210, children }: {
   useEffect(() => {
     if (!open) return
     setRect(btnRef.current?.getBoundingClientRect() ?? null)
+    // stop the browser's pull-to-refresh / overscroll from firing while the
+    // menu is open (dragging the short menu was reloading the page on mobile)
+    const root = document.documentElement
+    const prevOB = root.style.overscrollBehaviorY
+    root.style.overscrollBehaviorY = 'none'
     const onDoc = (e: MouseEvent) => {
       if (btnRef.current?.contains(e.target as Node)) return
       if (document.getElementById('dd-menu')?.contains(e.target as Node)) return
@@ -64,6 +69,7 @@ function Dropdown({ label, applied, width = 210, children }: {
     window.addEventListener('scroll', onMove, true)
     window.addEventListener('resize', onMove)
     return () => {
+      root.style.overscrollBehaviorY = prevOB
       document.removeEventListener('mousedown', onDoc)
       window.removeEventListener('scroll', onMove, true)
       window.removeEventListener('resize', onMove)
@@ -83,7 +89,8 @@ function Dropdown({ label, applied, width = 210, children }: {
         <IconChevronDown size={13} className={['opacity-70 transition-transform', open ? 'rotate-180' : ''].join(' ')} />
       </button>
       {open && rect && createPortal(
-        <div id="dd-menu" style={{ position: 'fixed', top: rect.bottom + 6, left, width, maxHeight: maxH }}
+        <div id="dd-menu" onTouchMove={(e) => e.stopPropagation()}
+          style={{ position: 'fixed', top: rect.bottom + 6, left, width, maxHeight: maxH, overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
           className="z-[200] rounded-[13px] bg-surface hairline shadow-xl overflow-y-auto py-1">
           {children(() => setOpen(false))}
         </div>,
@@ -171,9 +178,9 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
 
       {/* one flat scrolling row: เรียงตาม · ทั้งหมด · Places▾ · Food▾ … 🔥 ยอดนิยม */}
       <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-        {/* sort dropdown (was the ⚙ button) — line sort icon */}
-        <Dropdown applied={f.sort === 'old'} width={200}
-          label={<span className="inline-flex items-center gap-1.5 text-ink"><IconArrowsSort size={15} /> เรียงตาม</span>}>
+        {/* sort dropdown — keeps the original line filter icon, opens เรียงตาม */}
+        <Dropdown applied={f.sort === 'old'} width={210}
+          label={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="text-ink"><path d="M4 6h16M7 12h10M10 18h4" /></svg>}>
           {(close) => SORT_OPTS.map((o) => {
             const on = f.sort === o.key
             return (
