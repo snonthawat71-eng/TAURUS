@@ -46,8 +46,8 @@ export default function PlacesFood() {
 
   return (
     <div>
-      {/* Trip map — entry card with a live minimap preview, at the very top */}
-      <TripMapCard places={places} onOpen={() => navigate('/map')} />
+      {/* Trip map — entry card at the very top */}
+      <TripMapCard onOpen={() => navigate('/map')} />
 
       {/* Search — sits above the tabs and searches across both */}
       <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
