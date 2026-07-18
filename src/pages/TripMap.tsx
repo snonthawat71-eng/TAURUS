@@ -244,20 +244,25 @@ export default function TripMap() {
 
     const load = async () => {
       if (map.getZoom() < RAIL_MIN_ZOOM) return
-      const b = map.getBounds().pad(0.15)
-      const r5 = (x: number) => Math.round(x * 20) / 20 // 0.05° grid → cache hits while nudging around
-      const key = [r5(b.getSouth()), r5(b.getWest()), r5(b.getNorth()), r5(b.getEast())].join(',')
-      const cached = railCache.current.get(key)
+      // snap the view OUTWARD to a 0.1° grid: the snapped box is both the query
+      // bbox and the cache key, so panning around a neighbourhood keeps hitting
+      // the same cell instead of re-queueing Overpass on every nudge
+      const b = map.getBounds()
+      const S = Math.floor(b.getSouth() * 10) / 10, W = Math.floor(b.getWest() * 10) / 10
+      const N = Math.ceil(b.getNorth() * 10) / 10, E = Math.ceil(b.getEast() * 10) / 10
+      const bbox = `${S},${W},${N},${E}`
+      const cached = railCache.current.get(bbox)
       if (cached) { draw(cached); return }
       railAbort.current?.abort()
       const ctrl = new AbortController()
       railAbort.current = ctrl
+      let timedOut = false
+      const kill = setTimeout(() => { timedOut = true; ctrl.abort() }, 30000)
       setRailBusy(true)
       try {
-        const bbox = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`
-        // NB: must be `out geom` — the `tags` verbosity strips relation members
-        // (and node coords) entirely, leaving nothing to draw
-        const q = `[out:json][timeout:25];(relation["type"="route"]["route"~"^(subway|light_rail|monorail|tram)$"](${bbox});node["railway"="station"]["station"~"^(subway|light_rail|monorail)$"](${bbox});node["railway"="station"]["subway"="yes"](${bbox}););out geom;`
+        // NB: `out geom` (not `out tags geom` — tags verbosity strips members);
+        // geom(bbox) clips returned geometry to the box → far smaller payloads
+        const q = `[out:json][timeout:20];(relation["type"="route"]["route"~"^(subway|light_rail|monorail|tram)$"](${bbox});node["railway"="station"]["station"~"^(subway|light_rail|monorail)$"](${bbox});node["railway"="station"]["subway"="yes"](${bbox}););out geom(${bbox});`
         let els: OverpassEl[] | null = null
         for (const ep of OVERPASS) {
           try {
@@ -267,23 +272,25 @@ export default function TripMap() {
             els = j?.elements ?? []
             break
           } catch (e) {
-            if (ctrl.signal.aborted) throw e // superseded — don't try the mirror
+            if (ctrl.signal.aborted) throw e // superseded/timed out — stop trying
           }
         }
         if (els) {
-          railCache.current.set(key, els)
+          railCache.current.set(bbox, els)
           draw(els)
         } else if (!ctrl.signal.aborted) {
           toast.error('โหลดเส้นรถไฟฟ้าไม่สำเร็จ — ลองเลื่อน/ซูมแผนที่อีกครั้ง')
         }
-      } catch { /* aborted — a newer fetch took over */ }
-      finally { if (railAbort.current === ctrl) setRailBusy(false) }
+      } catch {
+        if (timedOut) toast.error('เซิร์ฟเวอร์ข้อมูลรถไฟฟ้าตอบช้า — ลองใหม่อีกครั้ง')
+      }
+      finally { clearTimeout(kill); if (railAbort.current === ctrl) setRailBusy(false) }
     }
 
     if (map.getZoom() < RAIL_MIN_ZOOM) toast.info('ซูมเข้าใกล้เมืองอีกหน่อย แล้วเส้นรถไฟฟ้าจะแสดง')
     load()
     let timer: ReturnType<typeof setTimeout> | undefined
-    const onMove = () => { clearTimeout(timer); timer = setTimeout(load, 700) }
+    const onMove = () => { clearTimeout(timer); timer = setTimeout(load, 1000) }
     map.on('moveend', onMove)
     return () => { map.off('moveend', onMove); clearTimeout(timer) }
   }, [rail])
