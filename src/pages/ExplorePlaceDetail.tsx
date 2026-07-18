@@ -418,15 +418,15 @@ export default function ExplorePlaceDetail() {
                     <div key={i} className="flex items-center gap-3">
                       <span className="size-9 rounded-full grid place-items-center shrink-0 text-white" style={{ background: r.color ?? '#888780' }}><MIcon size={17} /></span>
                       <div className="min-w-0">
-                        {/* line name — small, grey */}
-                        <div className="text-[11.5px] text-ink-3 truncate">{r.line || m.label}</div>
                         {/* station: big line-coloured code + bold dark name */}
                         {(code || stationName) && (
-                          <div className="flex items-baseline gap-1.5 mt-0.5 min-w-0">
+                          <div className="flex items-baseline gap-1.5 min-w-0">
                             {code && <span className="text-[20px] font-extrabold leading-none tracking-wide shrink-0" style={{ color: r.color ?? 'var(--color-ink)' }}>{code}</span>}
                             {stationName && <span className="text-[16px] font-bold text-ink truncate">{stationName}</span>}
                           </div>
                         )}
+                        {/* line name — small, grey, below */}
+                        <div className="text-[11.5px] text-ink-3 truncate mt-0.5">{r.line || m.label}</div>
                       </div>
                     </div>
                   )
