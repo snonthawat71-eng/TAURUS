@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -21,6 +22,36 @@ function haversine(a: LatLng, b: LatLng) {
   return 2 * R * Math.asin(Math.sqrt(s)) // km
 }
 const kmLabel = (km: number) => (km < 1 ? `${Math.round(km * 1000)} ม.` : `${km.toFixed(1)} กม.`)
+
+type MapPoint = { p: Place; c: LatLng }
+type MapGroup = { type: 'point'; p: Place; c: LatLng } | { type: 'cluster'; lat: number; lng: number; items: MapPoint[] }
+
+/** Greedy pixel-distance clustering: any points within `radiusPx` of each
+ *  other on screen collapse into one numbered bubble. Re-run on zoom (pixel
+ *  distances change with zoom level; lat/lng distances don't). */
+function clusterPoints(map: L.Map, points: MapPoint[], radiusPx: number): MapGroup[] {
+  const proj = points.map((pt) => ({ pt, sp: map.latLngToContainerPoint([pt.c.lat, pt.c.lng]) }))
+  const used = new Array(proj.length).fill(false)
+  const groups: MapGroup[] = []
+  for (let i = 0; i < proj.length; i++) {
+    if (used[i]) continue
+    used[i] = true
+    const bucket = [proj[i]]
+    for (let j = i + 1; j < proj.length; j++) {
+      if (used[j]) continue
+      const dx = proj[i].sp.x - proj[j].sp.x, dy = proj[i].sp.y - proj[j].sp.y
+      if (Math.sqrt(dx * dx + dy * dy) < radiusPx) { used[j] = true; bucket.push(proj[j]) }
+    }
+    if (bucket.length === 1) groups.push({ type: 'point', p: bucket[0].pt.p, c: bucket[0].pt.c })
+    else groups.push({
+      type: 'cluster',
+      lat: bucket.reduce((s, g) => s + g.pt.c.lat, 0) / bucket.length,
+      lng: bucket.reduce((s, g) => s + g.pt.c.lng, 0) / bucket.length,
+      items: bucket.map((g) => g.pt),
+    })
+  }
+  return groups
+}
 const httpPhoto = (p: Place) => {
   const u = p.photo_url || (p.photo_path && /^https?:\/\//.test(p.photo_path) ? p.photo_path : null)
   return u ? u.replace('/upload/', '/upload/f_auto,q_auto,w_96,h_96,c_fill/') : null
@@ -45,6 +76,9 @@ export default function TripMap() {
   const meMarkerRef = useRef<L.Marker | null>(null)
   const boxRef = useRef<HTMLDivElement | null>(null)
   const fitted = useRef(false)
+  // bumped on zoom so markers recluster — pixel distance between two points
+  // changes with zoom even though their lat/lng doesn't
+  const [zoomTick, setZoomTick] = useState(0)
 
   const tripPlaces = useMemo(() => places.filter((p) => p.name), [places])
 
@@ -103,23 +137,38 @@ export default function TripMap() {
     layerRef.current = L.layerGroup().addTo(map)
     // tap the map while pinning a place → set its location
     map.on('click', (e) => { const p = placingRef.current; if (p) applyRef.current(p, { lat: e.latlng.lat, lng: e.latlng.lng }) })
+    map.on('zoomend', () => setZoomTick((n) => n + 1))
     mapRef.current = map
     return () => { map.remove(); mapRef.current = null }
   }, [])
 
-  // ---- (re)draw markers ----
+  // ---- (re)draw markers — circular photo pins, grouped into numbered
+  // clusters where they'd otherwise overlap on screen ----
   useEffect(() => {
     const map = mapRef.current, layer = layerRef.current
     if (!map || !layer) return
     layer.clearLayers()
+    const points: MapPoint[] = shown.map((p) => ({ p, c: coords[p.id] })).filter((pt): pt is MapPoint => !!pt.c)
+    const groups = clusterPoints(map, points, 46)
     const pts: L.LatLngExpression[] = []
-    for (const p of shown) {
-      const c = coords[p.id]; if (!c) continue
+    for (const g of groups) {
+      if (g.type === 'cluster') {
+        const icon = L.divIcon({ className: '', iconSize: [44, 44], iconAnchor: [22, 22], html: `<div class="tcluster">${g.items.length}</div>` })
+        const m = L.marker([g.lat, g.lng], { icon, zIndexOffset: 500 }).addTo(layer)
+        // tapping a cluster zooms in just enough to fit its points — it
+        // naturally breaks apart into individual pins as it does
+        m.on('click', () => map.fitBounds(L.latLngBounds(g.items.map((it) => [it.c.lat, it.c.lng])).pad(0.4), { maxZoom: 18 }))
+        g.items.forEach((it) => pts.push([it.c.lat, it.c.lng]))
+        continue
+      }
+      const { p, c } = g
       const meta = catMeta(p.category)
       const photo = httpPhoto(p)
-      const inner = photo ? `<img src="${photo}" alt=""/>` : `<div style="width:100%;height:100%;background:${meta.bg}"></div>`
+      const inner = photo
+        ? `<img src="${photo}" alt=""/>`
+        : `<div class="tpin-fallback" style="background:${meta.bg}">${renderToStaticMarkup(<meta.icon size={17} stroke={1.8} style={{ color: meta.fg }} />)}</div>`
       const icon = L.divIcon({
-        className: '', iconSize: [38, 38], iconAnchor: [19, 38],
+        className: '', iconSize: [42, 42], iconAnchor: [21, 21],
         html: `<div class="tpin ${selected?.id === p.id ? 'sel' : ''}" style="--c:${meta.fg}"><div class="tpin-b">${inner}</div></div>`,
       })
       const m = L.marker([c.lat, c.lng], { icon }).addTo(layer)
@@ -128,7 +177,7 @@ export default function TripMap() {
     }
     // fit once when we first have points (avoid yanking the view on every geocode)
     if (pts.length && !fitted.current) { map.fitBounds(L.latLngBounds(pts).pad(0.2), { maxZoom: 15 }); fitted.current = true }
-  }, [shown, coords, selected])
+  }, [shown, coords, selected, zoomTick])
 
   function applyCoords(p: Place, c: LatLng) {
     setCoords((m) => ({ ...m, [p.id]: c }))
