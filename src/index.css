@@ -211,7 +211,7 @@ html[data-theme='dark'] {
   box-shadow: 0 3px 8px rgba(10, 20, 40, 0.28);
   display: grid; place-items: center;
 }
-.tpin-b img { width: 100%; height: 100%; object-fit: cover; }
+.tpin-b img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tpin-fallback { width: 100%; height: 100%; display: grid; place-items: center; }
 .tpin.sel .tpin-b { width: 50px; height: 50px; border-width: 3.5px; box-shadow: 0 0 0 5px color-mix(in srgb, var(--c, #0270FB) 20%, transparent), 0 3px 8px rgba(10, 20, 40, 0.32); }
 .tpin.sel { width: 50px; height: 50px; }

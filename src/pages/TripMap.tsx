@@ -56,7 +56,10 @@ function clusterPoints(map: L.Map, points: MapPoint[], radiusPx: number): MapGro
 }
 const httpPhoto = (p: Place) => {
   const u = p.photo_url || (p.photo_path && /^https?:\/\//.test(p.photo_path) ? p.photo_path : null)
-  return u ? u.replace('/upload/', '/upload/f_auto,q_auto,w_96,h_96,c_fill/') : null
+  // Cloudinary: a retina-sharp square, cropped on the subject (g_auto) so the
+  // photo sits nicely centred inside the round pin. Non-Cloudinary URLs (no
+  // /upload/ segment) are left untouched.
+  return u ? u.replace('/upload/', '/upload/f_auto,q_auto,dpr_2.0,w_120,h_120,c_fill,g_auto/') : null
 }
 
 export default function TripMap() {
