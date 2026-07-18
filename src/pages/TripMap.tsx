@@ -209,16 +209,20 @@ export default function TripMap() {
     railLayerRef.current = layer
 
     const draw = (els: OverpassEl[]) => {
-      if (railLayerRef.current !== layer) return
-      layer.clearLayers()
-      const shapes = railShapes(els)
-      for (const ln of shapes.lines) {
-        L.polyline(ln.points, { color: ln.color, weight: 3, opacity: 0.8, interactive: false }).addTo(layer)
+      if (railLayerRef.current !== layer) { setRailLog((l) => [...l, 'ข้าม (เลเยอร์ถูกแทนที่)']); return }
+      try {
+        layer.clearLayers()
+        const shapes = railShapes(els)
+        for (const ln of shapes.lines) {
+          L.polyline(ln.points, { color: ln.color, weight: 3, opacity: 0.8, interactive: false }).addTo(layer)
+        }
+        for (const st of shapes.stations) {
+          L.circleMarker(st, { radius: 3.5, color: '#3A4354', weight: 1.5, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(layer)
+        }
+        setRailLog((l) => [...l, `วาดแล้ว ${shapes.lines.length} เส้น · ${shapes.stations.length} สถานี`])
+      } catch (e) {
+        setRailLog((l) => [...l, `วาดพลาด: ${String(e).slice(0, 90)}`])
       }
-      for (const st of shapes.stations) {
-        L.circleMarker(st, { radius: 3.5, color: '#3A4354', weight: 1.5, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(layer)
-      }
-      setRailLog((l) => [...l, `วาดแล้ว ${shapes.lines.length} เส้น · ${shapes.stations.length} สถานี`])
     }
 
     const load = async () => {

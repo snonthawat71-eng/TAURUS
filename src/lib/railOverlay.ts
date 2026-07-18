@@ -8,7 +8,9 @@ export interface OverpassEl {
   lat?: number
   lon?: number
   tags?: Record<string, string>
-  members?: { type: string; role?: string; geometry?: { lat: number; lon: number }[] }[]
+  // `out geom(bbox)` replaces vertices OUTSIDE the bbox with null — real
+  // responses contain them on every way that crosses the box boundary
+  members?: { type: string; role?: string; geometry?: ({ lat: number; lon: number } | null)[] }[]
 }
 
 export interface RailShapes {
@@ -35,7 +37,14 @@ export function railShapes(els: OverpassEl[]): RailShapes {
       for (const m of el.members ?? []) {
         if (m.type !== 'way' || !m.geometry?.length) continue
         if (/platform|stop/i.test(m.role ?? '')) continue
-        lines.push({ color, points: m.geometry.map((g) => [g.lat, g.lon] as [number, number]) })
+        // clipped ways carry null vertices at the box boundary — split into
+        // contiguous runs so they neither crash nor draw a jump across the gap
+        let run: [number, number][] = []
+        for (const g of m.geometry) {
+          if (g && typeof g.lat === 'number' && typeof g.lon === 'number') run.push([g.lat, g.lon])
+          else { if (run.length >= 2) lines.push({ color, points: run }); run = [] }
+        }
+        if (run.length >= 2) lines.push({ color, points: run })
       }
     } else if (el.type === 'node' && el.lat != null && el.lon != null) {
       stations.push([el.lat, el.lon])

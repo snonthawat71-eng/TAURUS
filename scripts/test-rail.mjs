@@ -47,7 +47,7 @@ const fixture = [
   { // no colour tag → grey fallback
     type: 'relation', id: 4,
     tags: { route: 'tram', name: 'HK Tramways' },
-    members: [{ type: 'way', role: '', geometry: [{ lat: 22.279, lon: 114.17 }] }],
+    members: [{ type: 'way', role: '', geometry: [{ lat: 22.279, lon: 114.17 }, { lat: 22.28, lon: 114.18 }] }],
   },
   { type: 'node', id: 5, lat: 22.305, lon: 114.165, tags: { railway: 'station', station: 'subway', name: 'Tsim Sha Tsui' } },
   { type: 'node', id: 6, tags: { railway: 'station', station: 'subway' } }, // clipped node without coords → skip
@@ -59,6 +59,15 @@ ok(s.lines[1].color === '#0860A8', `bare-hex colour normalised (got ${s.lines[1]
 ok(s.lines[2].color === '#7A8699', `missing colour falls back to grey (got ${s.lines[2].color})`)
 ok(s.stations.length === 1 && s.stations[0][0] === 22.305, '1 station dot with coords')
 ok(railShapes([]).lines.length === 0, 'empty input → empty output')
+
+// real `out geom(bbox)` responses null-out vertices beyond the bbox on ways
+// crossing the boundary — this crashed the first production draw (silently)
+const clipped = railShapes([{
+  type: 'relation', id: 9, tags: { ref: 'X', colour: '#123456' },
+  members: [{ type: 'way', role: '', geometry: [null, { lat: 22.3, lon: 114.1 }, { lat: 22.31, lon: 114.12 }, null, { lat: 22.35, lon: 114.2 }] }],
+}])
+ok(clipped.lines.length === 1, `null boundary vertices split into runs, no crash (got ${clipped.lines.length} lines)`)
+ok(clipped.lines[0].points.length === 2, 'run keeps only contiguous in-bbox vertices')
 
 // ---- 2. query sanity ----
 console.log('railQuery()')
