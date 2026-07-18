@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   IconWorldSearch, IconMapPin, IconFlame, IconSearch, IconX,
-  IconAdjustmentsHorizontal, IconChevronDown, IconCheck,
+  IconLayoutGrid, IconChevronDown, IconCheck,
 } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { Drawer } from './Drawer'
 import { hscroll } from '@/lib/hscroll'
 import { cityImage } from '@/lib/cityImages'
-import { PLACE_TABS, FOOD_TABS, type CategoryTab } from '@/lib/placeMeta'
+import { PLACE_TABS, FOOD_TABS, CATEGORY, type CategoryTab } from '@/lib/placeMeta'
 import { filterExplore, type ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace } from '@/lib/database.types'
 
@@ -131,11 +131,17 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
       <Dropdown applied={active} label={sub ?? base}>
         {(close) => tabs.map((t) => {
           const on = active && f.cat === t.key
+          const cm = CATEGORY[t.key]
+          const CIcon = t.key === 'all' ? IconLayoutGrid : cm?.icon
           return (
             <button key={t.key} onClick={() => { set({ group, cat: t.key }); close() }}
-              className="w-full flex items-center gap-2 px-3.5 py-2 text-[13px] hover:bg-surface-2 border-b border-line last:border-0">
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] hover:bg-surface-2 border-b border-line last:border-0">
+              <span className="size-7 rounded-full grid place-items-center shrink-0"
+                style={{ background: cm?.bg ?? 'var(--color-surface-2)', color: cm?.fg ?? 'var(--color-ink-3)' }}>
+                {CIcon && <CIcon size={15} />}
+              </span>
               <span className={on ? 'font-semibold text-brand-dark' : ''}>{t.label}</span>
-              {on && <IconCheck size={16} className="ml-auto text-brand" />}
+              {on && <IconCheck size={16} className="ml-auto text-brand shrink-0" />}
             </button>
           )
         })}
@@ -153,35 +159,35 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
         {f.q && <button onClick={() => set({ q: '' })} aria-label="ล้างคำค้นหา" className="text-ink-3 hover:text-ink-2"><IconX size={15} /></button>}
       </div>
 
-      {/* control bar: [scrollable ⚙ · ทั้งหมด · Places▾ · Food▾] + pinned 🔥 ยอดนิยม */}
-      <div className="flex items-center gap-2 mb-3">
-        <div ref={hscroll} className="flex items-center gap-2 overflow-x-auto no-scrollbar min-w-0 flex-1">
-          {/* full filter sheet */}
-          <button onClick={() => setSheet(true)}
-            className={['relative inline-flex items-center justify-center h-9 px-3 rounded-full shrink-0 border',
-              activeCount ? 'bg-brand-soft text-brand-dark border-brand' : 'bg-surface text-ink border-line-2'].join(' ')}
-            aria-label="ตัวกรอง">
-            <IconAdjustmentsHorizontal size={17} />
-            {activeCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-brand text-white text-[10.5px] font-bold grid place-items-center ring-2 ring-canvas">{activeCount}</span>
-            )}
-          </button>
+      {/* one flat scrolling row: ⚙ · ทั้งหมด · Places▾ · Food▾ … 🔥 ยอดนิยม
+          (all in the same scroll flow so nothing overlaps; ยอดนิยม hugs the
+          right edge when there's room via ml-auto) */}
+      <div ref={hscroll} className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar">
+        {/* full filter sheet — line filter icon (matches the mockup) */}
+        <button onClick={() => setSheet(true)}
+          className={['relative inline-flex items-center justify-center h-9 px-3 rounded-full shrink-0 border',
+            activeCount ? 'bg-brand-soft text-brand-dark border-brand' : 'bg-surface text-ink border-line-2'].join(' ')}
+          aria-label="ตัวกรอง">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
+          {activeCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-brand text-white text-[10.5px] font-bold grid place-items-center ring-2 ring-canvas">{activeCount}</span>
+          )}
+        </button>
 
-          {/* ทั้งหมด — clears the group/category filter */}
-          <button onClick={() => set({ group: 'all', cat: 'all' })}
-            className={['h-9 px-4 rounded-full text-[12.5px] font-semibold whitespace-nowrap shrink-0 border',
-              f.group === 'all' ? 'bg-ink text-white border-ink' : 'bg-surface text-ink-2 border-line-2'].join(' ')}>
-            ทั้งหมด
-          </button>
+        {/* ทั้งหมด — clears the group/category filter */}
+        <button onClick={() => set({ group: 'all', cat: 'all' })}
+          className={['h-9 px-4 rounded-full text-[12.5px] font-semibold whitespace-nowrap shrink-0 border',
+            f.group === 'all' ? 'bg-ink text-white border-ink' : 'bg-surface text-ink-2 border-line-2'].join(' ')}>
+          ทั้งหมด
+        </button>
 
-          {groupMenu('place', 'Places', PLACE_TABS)}
-          {groupMenu('food', 'Food', FOOD_TABS)}
-        </div>
+        {groupMenu('place', 'Places', PLACE_TABS)}
+        {groupMenu('food', 'Food', FOOD_TABS)}
 
-        {/* prominent popularity toggle — always visible, one tap */}
+        {/* prominent popularity toggle — hugs the right, one tap */}
         {showSort && (
           <button onClick={() => set({ sort: f.sort === 'popular' ? 'new' : 'popular' })}
-            className={['inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-[12.5px] font-bold whitespace-nowrap shrink-0 border',
+            className={['ml-auto inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-[12.5px] font-bold whitespace-nowrap shrink-0 border',
               f.sort === 'popular' ? 'text-white border-transparent' : 'bg-surface text-ink-2 border-line-2'].join(' ')}
             style={f.sort === 'popular' ? { background: 'linear-gradient(90deg,#FB7022,#EF4444)', boxShadow: '0 3px 10px rgba(239,68,68,.3)' } : undefined}>
             <IconFlame size={15} /> ยอดนิยม
