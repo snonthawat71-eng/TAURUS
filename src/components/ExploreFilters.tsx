@@ -37,10 +37,14 @@ const SORT_OPTS = [
 
 /** A pill button with a dropdown menu portalled to <body>, so it can't be
  *  clipped by the horizontally-scrolling filter bar it lives in. */
-function Dropdown({ label, applied, width = 210, children }: {
+function Dropdown({ label, applied, width = 210, chevron = true, onActivate, children }: {
   label: ReactNode
   applied: boolean
   width?: number
+  /** show the ▾ affordance (off for the icon-only sort button) */
+  chevron?: boolean
+  /** fired when the menu is opened — e.g. apply the group filter right away */
+  onActivate?: () => void
   children: (close: () => void) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
@@ -82,11 +86,11 @@ function Dropdown({ label, applied, width = 210, children }: {
 
   return (
     <>
-      <button ref={btnRef} onClick={() => setOpen((o) => !o)}
+      <button ref={btnRef} onClick={() => setOpen((o) => { const n = !o; if (n) onActivate?.(); return n })}
         className={['inline-flex items-center gap-1 h-8 px-3 rounded-full text-[12px] font-semibold whitespace-nowrap shrink-0 border',
           applied ? 'bg-brand-soft text-brand-dark border-brand' : 'bg-surface text-ink-2 border-line-2'].join(' ')}>
         {label}
-        <IconChevronDown size={13} className={['opacity-70 transition-transform', open ? 'rotate-180' : ''].join(' ')} />
+        {chevron && <IconChevronDown size={13} className={['opacity-70 transition-transform', open ? 'rotate-180' : ''].join(' ')} />}
       </button>
       {open && rect && createPortal(
         <div id="dd-menu" onTouchMove={(e) => e.stopPropagation()}
@@ -145,7 +149,8 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
     const active = f.group === group
     const sub = active ? tabs.find((t) => t.key === f.cat && t.key !== 'all')?.label : undefined
     return (
-      <Dropdown applied={active} label={<span className={active ? '' : 'text-ink'}>{sub ?? base}</span>}>
+      <Dropdown applied={active} onActivate={() => set({ group, cat: 'all' })}
+        label={<span className={active ? '' : 'text-ink'}>{sub ?? base}</span>}>
         {(close) => tabs.map((t) => {
           const on = active && f.cat === t.key
           const cm = CATEGORY[t.key]
@@ -178,8 +183,8 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
 
       {/* one flat scrolling row: เรียงตาม · ทั้งหมด · Places▾ · Food▾ … 🔥 ยอดนิยม */}
       <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-        {/* sort dropdown — keeps the original line filter icon, opens เรียงตาม */}
-        <Dropdown applied={f.sort === 'old'} width={210}
+        {/* sort dropdown — keeps the original line filter icon, no ▾ chevron */}
+        <Dropdown applied={f.sort === 'old'} width={210} chevron={false}
           label={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="text-ink"><path d="M4 6h16M7 12h10M10 18h4" /></svg>}>
           {(close) => SORT_OPTS.map((o) => {
             const on = f.sort === o.key
