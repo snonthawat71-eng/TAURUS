@@ -1,10 +1,15 @@
-import { useMemo, useState } from 'react'
-import { IconWorldSearch, IconMapPin, IconFlame, IconSearch, IconX } from '@tabler/icons-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  IconWorldSearch, IconMapPin, IconFlame, IconSearch, IconX,
+  IconAdjustmentsHorizontal, IconChevronDown, IconCheck,
+} from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
+import { Drawer } from './Drawer'
 import { hscroll } from '@/lib/hscroll'
 import { cityImage } from '@/lib/cityImages'
-import { PLACE_TABS, FOOD_TABS } from '@/lib/placeMeta'
-import type { ExploreFilterState } from '@/lib/exploreFilter'
+import { PLACE_TABS, FOOD_TABS, type CategoryTab } from '@/lib/placeMeta'
+import { filterExplore, type ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace } from '@/lib/database.types'
 
 /** A city is flagged "new" when it has a place added within this window. */
@@ -17,8 +22,62 @@ function loadSeen(uid: string): Record<string, string> {
   try { return JSON.parse(localStorage.getItem(seenKey(uid)) || '{}') } catch { return {} }
 }
 
-/** Search box + group / sort / category / city filters shared by the Explore
- *  and "my shares" pages. City chips are derived from the items passed in. */
+const GROUPS = [['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food and Cafe']] as const
+
+/** A pill button with a dropdown menu portalled to <body>, so it can't be
+ *  clipped by the horizontally-scrolling filter bar it lives in. */
+function Dropdown({ label, applied, width = 208, children }: {
+  label: ReactNode
+  applied: boolean
+  width?: number
+  children: (close: () => void) => ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setRect(btnRef.current?.getBoundingClientRect() ?? null)
+    const onDoc = (e: MouseEvent) => {
+      if (btnRef.current?.contains(e.target as Node)) return
+      if (document.getElementById('dd-menu')?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    const onMove = () => setOpen(false) // any scroll/resize dismisses (menu is fixed)
+    document.addEventListener('mousedown', onDoc)
+    window.addEventListener('scroll', onMove, true)
+    window.addEventListener('resize', onMove)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('scroll', onMove, true)
+      window.removeEventListener('resize', onMove)
+    }
+  }, [open])
+
+  const left = rect ? Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) : 0
+
+  return (
+    <>
+      <button ref={btnRef} onClick={() => setOpen((o) => !o)}
+        className={['inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-[12.5px] font-semibold whitespace-nowrap shrink-0 border',
+          applied ? 'bg-brand-soft text-brand-dark border-brand' : 'bg-surface text-ink-2 border-line-2'].join(' ')}>
+        {label}
+        <IconChevronDown size={14} className={['opacity-70 transition-transform', open ? 'rotate-180' : ''].join(' ')} />
+      </button>
+      {open && rect && createPortal(
+        <div id="dd-menu" style={{ position: 'fixed', top: rect.bottom + 6, left, width }}
+          className="z-[200] rounded-[13px] bg-surface hairline shadow-xl overflow-hidden max-h-[300px] overflow-y-auto py-1">
+          {children(() => setOpen(false))}
+        </div>,
+        document.body)}
+    </>
+  )
+}
+
+/** Search box + a single compact control bar: filter sheet (⚙) · quick "ทั้งหมด" ·
+ *  Places/Food category dropdowns · a prominent "ยอดนิยม" sort toggle pinned
+ *  right. City cards stay below as their own visual row. */
 export function ExploreFilters({ items, f, set, showSort = true, userId }: {
   items: ExplorePlace[]
   f: ExploreFilterState
@@ -29,6 +88,7 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
   userId?: string
 }) {
   const [seen, setSeen] = useState<Record<string, string>>(() => (userId ? loadSeen(userId) : {}))
+  const [sheet, setSheet] = useState(false)
 
   const cities = useMemo(() => {
     const now = Date.now()
@@ -59,7 +119,29 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
     })
   }
 
-  const catTabs = f.group === 'place' ? PLACE_TABS : f.group === 'food' ? FOOD_TABS : []
+  const sheetCatTabs = f.group === 'place' ? PLACE_TABS : f.group === 'food' ? FOOD_TABS : []
+  const activeCount = (f.group !== 'all' ? 1 : 0) + (f.cat !== 'all' ? 1 : 0)
+  const resultCount = useMemo(() => filterExplore(items, f, new Map()).length, [items, f])
+
+  // a Places/Food dropdown: picking a subcategory switches group + cat at once
+  const groupMenu = (group: 'place' | 'food', base: string, tabs: CategoryTab[]) => {
+    const active = f.group === group
+    const sub = active ? tabs.find((t) => t.key === f.cat && t.key !== 'all')?.label : undefined
+    return (
+      <Dropdown applied={active} label={sub ?? base}>
+        {(close) => tabs.map((t) => {
+          const on = active && f.cat === t.key
+          return (
+            <button key={t.key} onClick={() => { set({ group, cat: t.key }); close() }}
+              className="w-full flex items-center gap-2 px-3.5 py-2 text-[13px] hover:bg-surface-2 border-b border-line last:border-0">
+              <span className={on ? 'font-semibold text-brand-dark' : ''}>{t.label}</span>
+              {on && <IconCheck size={16} className="ml-auto text-brand" />}
+            </button>
+          )
+        })}
+      </Dropdown>
+    )
+  }
 
   return (
     <>
@@ -71,32 +153,43 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
         {f.q && <button onClick={() => set({ q: '' })} aria-label="ล้างคำค้นหา" className="text-ink-3 hover:text-ink-2"><IconX size={15} /></button>}
       </div>
 
-      {/* type filter (places / food & cafe) + sort */}
-      <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-        {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food and Cafe']] as const).map(([g, label]) => (
-          <button key={g} onClick={() => set({ group: g, cat: 'all' })}
-            className={['px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', f.group === g ? 'bg-ink text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{label}</button>
-        ))}
+      {/* control bar: [scrollable ⚙ · ทั้งหมด · Places▾ · Food▾] + pinned 🔥 ยอดนิยม */}
+      <div className="flex items-center gap-2 mb-3">
+        <div ref={hscroll} className="flex items-center gap-2 overflow-x-auto no-scrollbar min-w-0 flex-1">
+          {/* full filter sheet */}
+          <button onClick={() => setSheet(true)}
+            className={['relative inline-flex items-center justify-center h-9 px-3 rounded-full shrink-0 border',
+              activeCount ? 'bg-brand-soft text-brand-dark border-brand' : 'bg-surface text-ink border-line-2'].join(' ')}
+            aria-label="ตัวกรอง">
+            <IconAdjustmentsHorizontal size={17} />
+            {activeCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-brand text-white text-[10.5px] font-bold grid place-items-center ring-2 ring-canvas">{activeCount}</span>
+            )}
+          </button>
+
+          {/* ทั้งหมด — clears the group/category filter */}
+          <button onClick={() => set({ group: 'all', cat: 'all' })}
+            className={['h-9 px-4 rounded-full text-[12.5px] font-semibold whitespace-nowrap shrink-0 border',
+              f.group === 'all' ? 'bg-ink text-white border-ink' : 'bg-surface text-ink-2 border-line-2'].join(' ')}>
+            ทั้งหมด
+          </button>
+
+          {groupMenu('place', 'Places', PLACE_TABS)}
+          {groupMenu('food', 'Food', FOOD_TABS)}
+        </div>
+
+        {/* prominent popularity toggle — always visible, one tap */}
         {showSort && (
           <button onClick={() => set({ sort: f.sort === 'popular' ? 'new' : 'popular' })}
-            className={['ml-auto inline-flex items-center gap-1 px-3.5 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', f.sort === 'popular' ? 'text-white' : 'bg-surface-2 text-ink-2'].join(' ')}
-            style={f.sort === 'popular' ? { background: 'linear-gradient(90deg,#FB7022,#EF4444)' } : undefined}>
-            <IconFlame size={14} /> เรียงตามยอดนิยม
+            className={['inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-[12.5px] font-bold whitespace-nowrap shrink-0 border',
+              f.sort === 'popular' ? 'text-white border-transparent' : 'bg-surface text-ink-2 border-line-2'].join(' ')}
+            style={f.sort === 'popular' ? { background: 'linear-gradient(90deg,#FB7022,#EF4444)', boxShadow: '0 3px 10px rgba(239,68,68,.3)' } : undefined}>
+            <IconFlame size={15} /> ยอดนิยม
           </button>
         )}
       </div>
 
-      {/* category filter (by type, like Places / Food pages) */}
-      {catTabs.length > 0 && (
-        <div ref={hscroll} className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-          {catTabs.map((t) => (
-            <button key={t.key} onClick={() => set({ cat: t.key })}
-              className={['px-3 h-7 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0', f.cat === t.key ? 'bg-brand text-white' : 'bg-surface-2 text-ink-2'].join(' ')}>{t.label}</button>
-          ))}
-        </div>
-      )}
-
-      {/* city tabs (cards, inline) */}
+      {/* city tabs (cards, inline) — kept outside the sheet as a visual row */}
       {cities.length > 0 && (
         <div ref={hscroll} className="flex gap-2.5 overflow-x-auto no-scrollbar mb-4 pb-1">
           <button onClick={() => set({ city: 'all' })}
@@ -123,6 +216,50 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
           ))}
         </div>
       )}
+
+      {/* ── full filter sheet (⚙): type + subcategory ────────────────────── */}
+      <Drawer open={sheet} onClose={() => setSheet(false)} title="ตัวกรอง">
+        <div className="flex flex-col gap-5">
+          {/* type (group) — segmented control */}
+          <div>
+            <div className="text-[12px] font-semibold text-ink-3 mb-2.5">ประเภท</div>
+            <div className="inline-flex bg-surface-2 rounded-full p-1 gap-1 w-full">
+              {GROUPS.map(([g, label]) => (
+                <button key={g} onClick={() => set({ group: g, cat: 'all' })}
+                  className={['flex-1 h-9 rounded-full text-[12.5px] font-semibold whitespace-nowrap',
+                    f.group === g ? 'bg-surface text-ink shadow-sm' : 'text-ink-2'].join(' ')}>{label}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* subcategory — depends on the chosen group */}
+          {sheetCatTabs.length > 0 && (
+            <div>
+              <div className="text-[12px] font-semibold text-ink-3 mb-2.5">หมวดย่อย</div>
+              <div className="flex flex-wrap gap-2">
+                {sheetCatTabs.map((t) => (
+                  <button key={t.key} onClick={() => set({ cat: t.key })}
+                    className={['inline-flex items-center gap-1 h-8 px-3.5 rounded-full text-[12.5px] font-semibold border',
+                      f.cat === t.key ? 'bg-brand-soft text-brand-dark border-brand' : 'bg-surface text-ink-2 border-line-2'].join(' ')}>
+                    {f.cat === t.key && t.key !== 'all' && <IconCheck size={13} />}
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* footer */}
+          <div className="flex gap-2.5 pt-1">
+            <button onClick={() => set({ group: 'all', cat: 'all' })}
+              className="h-11 px-5 rounded-[12px] bg-surface-2 text-ink-2 text-[13.5px] font-semibold shrink-0">ล้างทั้งหมด</button>
+            <button onClick={() => setSheet(false)}
+              className="flex-1 h-11 rounded-[12px] bg-brand text-white text-[13.5px] font-bold">
+              ดูผลลัพธ์ {resultCount} รายการ
+            </button>
+          </div>
+        </div>
+      </Drawer>
     </>
   )
 }
