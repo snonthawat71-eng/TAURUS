@@ -224,7 +224,7 @@ html[data-theme='dark'] {
   border: 2.5px solid #fff;
   box-shadow: 0 3px 10px rgba(2, 112, 251, 0.4), 0 0 0 4px rgba(2, 112, 251, 0.18);
 }
-.leaflet-container { font: inherit; background: #eaeef1; }
+.leaflet-container { font: inherit; background: #f0f1f2; }
 .leaflet-control-attribution { font-size: 9px !important; }
 
 /* NotePanel FAB menu — each item pops up from the button */

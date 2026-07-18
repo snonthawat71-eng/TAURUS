@@ -11,7 +11,9 @@ import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
 import type { Place } from '@/lib/database.types'
 
-const TILE = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+// Positron: Carto's most minimal base style — pale grey, roads only, hardly
+// any POI labels — so the photo pins are the loudest thing on screen.
+const TILE = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
 const ATTR = '&copy; OpenStreetMap &copy; CARTO'
 
 function haversine(a: LatLng, b: LatLng) {
@@ -80,6 +82,26 @@ export default function TripMap() {
   const [zoomTick, setZoomTick] = useState(0)
 
   const tripPlaces = useMemo(() => places.filter((p) => p.name), [places])
+
+  // Full-screen map: freeze the page behind it. Without this, dragging the map
+  // rubber-bands the document and the browser's pull-to-refresh reloads the app.
+  useEffect(() => {
+    const html = document.documentElement, body = document.body
+    const prev = {
+      htmlOB: html.style.overscrollBehavior, bodyOB: body.style.overscrollBehavior,
+      overflow: body.style.overflow, height: body.style.height,
+    }
+    html.style.overscrollBehavior = 'none'
+    body.style.overscrollBehavior = 'none'
+    body.style.overflow = 'hidden'
+    body.style.height = '100%'
+    return () => {
+      html.style.overscrollBehavior = prev.htmlOB
+      body.style.overscrollBehavior = prev.bodyOB
+      body.style.overflow = prev.overflow
+      body.style.height = prev.height
+    }
+  }, [])
 
   // ---- resolve coordinates (A: lat/lng col or map_url · C: geocode + cache) ----
   useEffect(() => {
@@ -196,6 +218,21 @@ export default function TripMap() {
     return null
   }
 
+  // Paste box accepts full links, bare coords AND short links (surl.amap.com,
+  // maps.app.goo.gl) that carry no coords — those get resolved server-side.
+  const [resolving, setResolving] = useState(false)
+  async function usePasted(p: Place, text: string) {
+    const direct = parsePasted(text)
+    if (direct) { applyCoords(p, direct); return }
+    const t = text.trim()
+    if (isMapLink(t)) {
+      setResolving(true)
+      const r = await resolveMapUrl(t).finally(() => setResolving(false))
+      if (r) { applyCoords(p, r); return }
+    }
+    toast.error('อ่านพิกัดจากที่วางไม่ได้ — ใช้ลิงก์ Google/AMap หรือพิมพ์ 22.30,114.17')
+  }
+
   function locate() {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -244,10 +281,12 @@ export default function TripMap() {
           <div className="rounded-2xl bg-ink text-white p-3 shadow-xl">
             <div className="text-[12.5px] font-semibold flex items-center gap-1.5"><IconMapPin size={15} /> แตะบนแผนที่เพื่อวางหมุด: {placing.name}</div>
             <div className="flex gap-2 mt-2">
-              <input value={linkText} onChange={(e) => setLinkText(e.target.value)} placeholder="หรือวางลิงก์ Google / พิกัด lat,lng"
+              <input value={linkText} onChange={(e) => setLinkText(e.target.value)} placeholder="หรือวางลิงก์ Google / AMap / พิกัด lat,lng"
                 className="flex-1 h-9 rounded-md px-2.5 text-[12px] text-ink bg-white outline-none" />
-              <button onClick={() => { const c = parsePasted(linkText); if (c) applyCoords(placing, c); else toast.error('อ่านพิกัดจากที่วางไม่ได้ — ใช้ลิงก์ที่มี @lat,lng หรือพิมพ์ 22.30,114.17') }}
-                className="h-9 px-3.5 rounded-md bg-brand text-white text-[12px] font-semibold shrink-0">ใช้</button>
+              <button onClick={() => usePasted(placing, linkText)} disabled={resolving}
+                className="h-9 px-3.5 rounded-md bg-brand text-white text-[12px] font-semibold shrink-0 inline-flex items-center gap-1 disabled:opacity-60">
+                {resolving && <IconLoader2 size={13} className="animate-spin" />} ใช้
+              </button>
             </div>
             <button onClick={() => { setPlacing(null); setLinkText('') }} className="mt-2 text-[11.5px] text-white/70">ยกเลิก</button>
           </div>
