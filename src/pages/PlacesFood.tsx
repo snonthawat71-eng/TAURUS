@@ -45,6 +45,18 @@ export default function PlacesFood() {
 
   return (
     <div>
+      {/* Trip map — prominent entry card at the very top */}
+      <button onClick={() => navigate('/map')}
+        className="w-full mb-3 rounded-[14px] px-4 py-5 flex items-center gap-3.5 text-left text-white"
+        style={{ background: 'var(--color-ink)', boxShadow: '0 6px 18px rgba(10,20,40,.22)' }}>
+        <IconMap2 size={28} className="shrink-0" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[16px] font-bold leading-tight">แผนที่ทริป</span>
+          <span className="block text-[12.5px] mt-1 opacity-80">ดูทุกสถานที่ปักหมุดตามตำแหน่งจริงบนแผนที่</span>
+        </span>
+        <IconChevronRight size={20} className="shrink-0 opacity-70" />
+      </button>
+
       {/* Search — sits above the tabs and searches across both */}
       <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
         <IconSearch size={16} className="text-ink-3" />
@@ -67,18 +79,6 @@ export default function PlacesFood() {
           )
         })}
       </div>
-
-      {/* Trip map — prominent entry card, right under the tabs */}
-      <button onClick={() => navigate('/map')}
-        className="w-full mb-4 rounded-[14px] p-4 flex items-center gap-3.5 text-left text-white"
-        style={{ background: 'var(--color-ink)', boxShadow: '0 6px 18px rgba(10,20,40,.22)' }}>
-        <IconMap2 size={26} className="shrink-0" />
-        <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-bold leading-tight">แผนที่ทริป</span>
-          <span className="block text-[12px] mt-0.5 opacity-80">ดูทุกสถานที่ปักหมุดตามตำแหน่งจริงบนแผนที่</span>
-        </span>
-        <IconChevronRight size={20} className="shrink-0 opacity-70" />
-      </button>
 
       {/* Key per tab so filters reset when switching (no cross-tab bleed); the
           search box is lifted out above the tabs and shared via query/onQuery. */}
