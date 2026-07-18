@@ -2,11 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconTrain } from '@tabler/icons-react'
+import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { latLngFromUrl, geocodeSmart, resolveMapUrl, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
-import { railShapes, fetchRailElements, type OverpassEl } from '@/lib/railOverlay'
 import { setPlaceCoords } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -17,11 +16,6 @@ import type { Place } from '@/lib/database.types'
 // Dark/Esri/OSM in the live style test.)
 const TILE = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
 const ATTR = '&copy; OpenStreetMap &copy; CARTO'
-// Rail overlay drawn from OSM route relations (Overpass API): each metro line
-// in its REAL colour (the relation's `colour` tag) + station dots. Fetched per
-// viewport, cached in-memory, toggleable; remembered per device.
-const RAIL_LS = 'tripmap:rail'
-const RAIL_MIN_ZOOM = 11
 
 function haversine(a: LatLng, b: LatLng) {
   const R = 6371, toR = Math.PI / 180
@@ -71,13 +65,7 @@ export default function TripMap() {
   const [filter, setFilter] = useState<'all' | 'place' | 'food'>('all')
   const [query, setQuery] = useState('')
   const [coords, setCoords] = useState<Record<string, GeoHit>>({})
-  const [rail, setRail] = useState<boolean>(() => { try { return localStorage.getItem(RAIL_LS) === '1' } catch { return false } })
-  const [railBusy, setRailBusy] = useState(false)
-  const [railLog, setRailLog] = useState<string[]>([]) // test-mode diagnostics
   const [showUnplaced, setShowUnplaced] = useState(false)
-  const railLayerRef = useRef<L.LayerGroup | null>(null)
-  const railAbort = useRef<AbortController | null>(null)
-  const railCache = useRef<Map<string, OverpassEl[]>>(new Map())
   const [selected, setSelected] = useState<Place | null>(null)
   const [me, setMe] = useState<LatLng | null>(null)
   const [geoBusy, setGeoBusy] = useState(0)
@@ -192,81 +180,8 @@ export default function TripMap() {
     })
     map.on('zoomend', () => setZoomTick((n) => n + 1))
     mapRef.current = map
-    return () => { map.remove(); mapRef.current = null; railLayerRef.current = null }
+    return () => { map.remove(); mapRef.current = null }
   }, [])
-
-  // ---- rail overlay — metro lines from OSM in their real colours ----
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    try { localStorage.setItem(RAIL_LS, rail ? '1' : '0') } catch { /* ignore */ }
-    if (!rail) {
-      railAbort.current?.abort()
-      railLayerRef.current?.remove(); railLayerRef.current = null
-      return
-    }
-    const layer = L.layerGroup().addTo(map)
-    railLayerRef.current = layer
-
-    const draw = (els: OverpassEl[]) => {
-      if (railLayerRef.current !== layer) { setRailLog((l) => [...l, 'ข้าม (เลเยอร์ถูกแทนที่)']); return }
-      try {
-        layer.clearLayers()
-        const shapes = railShapes(els)
-        for (const ln of shapes.lines) {
-          L.polyline(ln.points, { color: ln.color, weight: 3, opacity: 0.8, interactive: false }).addTo(layer)
-        }
-        for (const st of shapes.stations) {
-          L.circleMarker(st, { radius: 3.5, color: '#3A4354', weight: 1.5, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(layer)
-        }
-        setRailLog((l) => [...l, `วาดแล้ว ${shapes.lines.length} เส้น · ${shapes.stations.length} สถานี`])
-      } catch (e) {
-        setRailLog((l) => [...l, `วาดพลาด: ${String(e).slice(0, 90)}`])
-      }
-    }
-
-    const load = async () => {
-      if (map.getZoom() < RAIL_MIN_ZOOM) return
-      // snap the view OUTWARD to a 0.1° grid: the snapped box is both the query
-      // bbox and the cache key, so panning around a neighbourhood keeps hitting
-      // the same cell instead of re-queueing Overpass on every nudge
-      const b = map.getBounds()
-      const S = Math.floor(b.getSouth() * 10) / 10, W = Math.floor(b.getWest() * 10) / 10
-      const N = Math.ceil(b.getNorth() * 10) / 10, E = Math.ceil(b.getEast() * 10) / 10
-      const bbox = `${S},${W},${N},${E}`
-      const cached = railCache.current.get(bbox)
-      if (cached) { setRailLog(['จาก cache']); draw(cached); return }
-      setRailLog([`โหลด ${bbox}`])
-      railAbort.current?.abort()
-      const ctrl = new AbortController()
-      railAbort.current = ctrl
-      let timedOut = false
-      const kill = setTimeout(() => { timedOut = true; ctrl.abort() }, 30000)
-      setRailBusy(true)
-      try {
-        // edge-cached serverless proxy first, direct Overpass mirrors as
-        // fallback — see fetchRailElements
-        const els = await fetchRailElements(bbox, ctrl.signal, (s) => setRailLog((l) => [...l, s]))
-        if (els) {
-          railCache.current.set(bbox, els)
-          draw(els)
-          if (!els.length) toast.info('บริเวณนี้ไม่มีข้อมูลเส้นรถไฟฟ้าใน OSM')
-        } else {
-          toast.error('โหลดเส้นรถไฟฟ้าไม่สำเร็จ — ลองเลื่อน/ซูมแผนที่อีกครั้ง')
-        }
-      } catch {
-        if (timedOut) toast.error('เซิร์ฟเวอร์ข้อมูลรถไฟฟ้าตอบช้า — ลองใหม่อีกครั้ง')
-      }
-      finally { clearTimeout(kill); if (railAbort.current === ctrl) setRailBusy(false) }
-    }
-
-    if (map.getZoom() < RAIL_MIN_ZOOM) toast.info('ซูมเข้าใกล้เมืองอีกหน่อย แล้วเส้นรถไฟฟ้าจะแสดง')
-    load()
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const onMove = () => { clearTimeout(timer); timer = setTimeout(load, 1000) }
-    map.on('moveend', onMove)
-    return () => { map.off('moveend', onMove); clearTimeout(timer) }
-  }, [rail])
 
   // ---- (re)draw markers — circular photo pins, grouped into numbered
   // clusters where they'd otherwise overlap on screen ----
@@ -415,21 +330,11 @@ export default function TripMap() {
             </span>
           )}
         </div>
-        {/* rail fetch diagnostics — test mode only, pinpoints the failing hop */}
-        {rail && railLog.length > 0 && (
-          <div className="inline-block rounded-[10px] bg-white/95 shadow-sm px-2.5 py-1.5 text-[10.5px] text-ink-2 leading-relaxed max-w-[320px]">
-            {railLog.slice(-5).map((s, i) => <div key={i}>{s}</div>)}
-          </div>
-        )}
       </div>
 
       {/* floating buttons — right side, above the card zone */}
       <button onClick={refit} className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-ink-2" title="จัดกึ่งกลางหมุด"><IconFocus2 size={19} /></button>
       <button onClick={locate} className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+8.75rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-brand" title="ตำแหน่งฉัน"><IconCurrentLocation size={19} /></button>
-      {/* rail overlay toggle — metro lines from OSM in their real colours */}
-      <button onClick={() => setRail((v) => !v)}
-        className={['absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+12rem)] z-[500] size-11 rounded-full shadow-md grid place-items-center', rail ? 'bg-brand text-white' : 'bg-white text-ink-2'].join(' ')}
-        title="เส้นทางรถไฟฟ้า">{railBusy ? <IconLoader2 size={19} className="animate-spin" /> : <IconTrain size={19} />}</button>
 
       {/* places with no coordinates yet — one small pill, tap to expand */}
       {unplaced.length > 0 && !selected && !placing && (
