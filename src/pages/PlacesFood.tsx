@@ -70,19 +70,14 @@ export default function PlacesFood() {
 
       {/* Trip map — prominent entry card, right under the tabs */}
       <button onClick={() => navigate('/map')}
-        className="w-full mb-4 rounded-[14px] p-4 flex items-center gap-3.5 text-left text-white relative overflow-hidden"
-        style={{ background: 'linear-gradient(120deg, #0270FB, #0257C6)', boxShadow: '0 6px 18px rgba(2,112,251,.28)' }}>
-        {/* soft decorative rings, like a map's radar sweep */}
-        <span aria-hidden className="absolute -right-8 -top-10 size-36 rounded-full" style={{ border: '1.5px solid rgba(255,255,255,.18)' }} />
-        <span aria-hidden className="absolute -right-1 -top-4 size-20 rounded-full" style={{ border: '1.5px solid rgba(255,255,255,.22)' }} />
-        <span className="size-11 rounded-full grid place-items-center shrink-0" style={{ background: 'rgba(255,255,255,.18)' }}>
-          <IconMap2 size={22} />
-        </span>
+        className="w-full mb-4 rounded-[14px] p-4 flex items-center gap-3.5 text-left text-white"
+        style={{ background: 'var(--color-ink)', boxShadow: '0 6px 18px rgba(10,20,40,.22)' }}>
+        <IconMap2 size={26} className="shrink-0" />
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-bold leading-tight">แผนที่ทริป</span>
-          <span className="block text-[12px] mt-0.5 opacity-85">ดูทุกสถานที่ปักหมุดตามตำแหน่งจริงบนแผนที่</span>
+          <span className="block text-[12px] mt-0.5 opacity-80">ดูทุกสถานที่ปักหมุดตามตำแหน่งจริงบนแผนที่</span>
         </span>
-        <IconChevronRight size={20} className="shrink-0 opacity-80" />
+        <IconChevronRight size={20} className="shrink-0 opacity-70" />
       </button>
 
       {/* Key per tab so filters reset when switching (no cross-tab bleed); the
