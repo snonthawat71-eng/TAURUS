@@ -20,7 +20,8 @@ const ATTR = '&copy; OpenStreetMap &copy; CARTO'
 // in its REAL colour (the relation's `colour` tag) + station dots. Fetched per
 // viewport, cached in-memory, toggleable; remembered per device.
 const RAIL_LS = 'tripmap:rail'
-const OVERPASS = 'https://overpass-api.de/api/interpreter'
+// primary + mirror — Overpass instances rate-limit independently
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']
 const RAIL_MIN_ZOOM = 11
 
 interface OverpassEl {
@@ -254,14 +255,28 @@ export default function TripMap() {
       setRailBusy(true)
       try {
         const bbox = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`
-        const q = `[out:json][timeout:25];(relation["type"="route"]["route"~"^(subway|light_rail|monorail|tram)$"](${bbox});node["railway"="station"]["station"~"^(subway|light_rail|monorail)$"](${bbox}););out tags geom;`
-        const res = await fetch(OVERPASS, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}`, signal: ctrl.signal })
-        if (!res.ok) throw new Error(`overpass ${res.status}`)
-        const j = await res.json()
-        const els: OverpassEl[] = j?.elements ?? []
-        railCache.current.set(key, els)
-        draw(els)
-      } catch { /* aborted / rate-limited — keep whatever is already drawn */ }
+        // NB: must be `out geom` — the `tags` verbosity strips relation members
+        // (and node coords) entirely, leaving nothing to draw
+        const q = `[out:json][timeout:25];(relation["type"="route"]["route"~"^(subway|light_rail|monorail|tram)$"](${bbox});node["railway"="station"]["station"~"^(subway|light_rail|monorail)$"](${bbox});node["railway"="station"]["subway"="yes"](${bbox}););out geom;`
+        let els: OverpassEl[] | null = null
+        for (const ep of OVERPASS) {
+          try {
+            const res = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}`, signal: ctrl.signal })
+            if (!res.ok) continue
+            const j = await res.json()
+            els = j?.elements ?? []
+            break
+          } catch (e) {
+            if (ctrl.signal.aborted) throw e // superseded — don't try the mirror
+          }
+        }
+        if (els) {
+          railCache.current.set(key, els)
+          draw(els)
+        } else if (!ctrl.signal.aborted) {
+          toast.error('โหลดเส้นรถไฟฟ้าไม่สำเร็จ — ลองเลื่อน/ซูมแผนที่อีกครั้ง')
+        }
+      } catch { /* aborted — a newer fetch took over */ }
       finally { if (railAbort.current === ctrl) setRailBusy(false) }
     }
 
