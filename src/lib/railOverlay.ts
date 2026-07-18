@@ -52,9 +52,9 @@ export function railQuery(bbox: string): string {
 }
 
 const MIRRORS = [
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter', // most generous limits
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
 ]
 
 /** fetch with a per-attempt timeout, chained to the caller's master signal so

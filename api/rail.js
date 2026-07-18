@@ -5,12 +5,15 @@
 // maxDuration is raised to 60s in vercel.json (hobby-plan maximum).
 
 const MIRRORS = [
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter', // most generous limits
   'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
-  'https://overpass.osm.jp/api/interpreter', // Asia mirror — close to the data we query
+  'https://overpass.osm.ch/api/interpreter',
   'https://overpass-api.de/api/interpreter',
 ]
 const MIRROR_TIMEOUT_MS = 12000
+// OSM services require an identifying User-Agent — anonymous datacenter
+// requests get 406/429 (this is what broke the first deploys of this proxy)
+const UA = 'TAURUS-trip-planner/1.0 (+https://trip-kohl-three.vercel.app)'
 
 export default async function handler(req, res) {
   try {
@@ -27,7 +30,7 @@ export default async function handler(req, res) {
       try {
         const r = await fetch(ep, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
           body: `data=${encodeURIComponent(q)}`,
           signal: ctrl.signal,
         })
