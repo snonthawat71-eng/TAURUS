@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { IconMapPin, IconToolsKitchen2, IconMap2, IconChevronRight } from '@tabler/icons-react'
+import { IconMapPin, IconToolsKitchen2, IconMap2, IconChevronRight, IconSearch, IconX } from '@tabler/icons-react'
 import { PlaceGrid } from '@/components/PlaceGrid'
 import { PLACE_TABS, FOOD_TABS } from '@/lib/placeMeta'
 import { useTrip } from '@/contexts/TripContext'
@@ -17,6 +17,9 @@ export default function PlacesFood() {
     params.get('tab') === 'food' || location.pathname.startsWith('/food') ? 'food' : 'place'
   const [tab, setTab] = useState<PlaceGroup>(initial)
   const [focus, setFocus] = useState<string | null>(params.get('focus'))
+  // search lives above the tabs and covers both tabs, so it's owned here and
+  // shared across them (no reset when switching tab)
+  const [query, setQuery] = useState('')
 
   // React to deep links arriving while the page is already mounted (e.g. tapping
   // an item on "All plans" jumps straight to its tab + opens its detail).
@@ -42,6 +45,14 @@ export default function PlacesFood() {
 
   return (
     <div>
+      {/* Search — sits above the tabs and searches across both */}
+      <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
+        <IconSearch size={16} className="text-ink-3" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ / ร้าน / สถานี — ทุกแท็บ"
+          className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-ink-3" />
+        {query && <button onClick={() => setQuery('')} aria-label="ล้างคำค้นหา" className="text-ink-3"><IconX size={15} /></button>}
+      </div>
+
       {/* Tabs */}
       <div className="flex mb-4" style={{ borderBottom: '0.5px solid var(--color-line)' }} role="tablist">
         {TABS.map((t) => {
@@ -74,13 +85,14 @@ export default function PlacesFood() {
         <IconChevronRight size={20} className="shrink-0 opacity-80" />
       </button>
 
-      {/* Key per tab so filters/search reset when switching (no cross-tab bleed) */}
+      {/* Key per tab so filters reset when switching (no cross-tab bleed); the
+          search box is lifted out above the tabs and shared via query/onQuery. */}
       {tab === 'place' ? (
         <PlaceGrid key="place" group="place" tabs={PLACE_TABS}
-          title="Places • สถานที่ท่องเที่ยว" addLabel="เพิ่มสถานที่" focusId={focus} />
+          title="Places • สถานที่ท่องเที่ยว" addLabel="เพิ่มสถานที่" focusId={focus} query={query} onQuery={setQuery} />
       ) : (
         <PlaceGrid key="food" group="food" tabs={FOOD_TABS}
-          title="Food & café • อาหารการกิน" addLabel="เพิ่มร้าน" focusId={focus} />
+          title="Food & café • อาหารการกิน" addLabel="เพิ่มร้าน" focusId={focus} query={query} onQuery={setQuery} />
       )}
     </div>
   )

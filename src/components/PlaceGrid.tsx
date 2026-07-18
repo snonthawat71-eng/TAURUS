@@ -21,13 +21,17 @@ type Dim = 'none' | 'category' | 'city'
 type SortKey = 'recent' | 'new' | 'old'
 
 export function PlaceGrid({
-  group, tabs, title, addLabel, focusId,
+  group, tabs, title, addLabel, focusId, query: queryProp, onQuery,
 }: {
   group: PlaceGroup
   tabs: CategoryTab[]
   title: string
   addLabel: string
   focusId?: string | null
+  /** lift the search box out of the grid (e.g. above the page tabs); falls
+   *  back to internal state when not provided. */
+  query?: string
+  onQuery?: (q: string) => void
 }) {
   const { trip, places, interests, memberProfiles, reload, patch, canEdit, myPermission } = useTrip()
   const { user } = useAuth()
@@ -37,7 +41,9 @@ export function PlaceGrid({
   const [wantSort, setWantSort] = useState(false)
   const [sortMode, setSortMode] = useState<SortKey>('recent')
   const [sortMenu, setSortMenu] = useState(false)
-  const [query, setQuery] = useState('')
+  const [queryLocal, setQueryLocal] = useState('')
+  const query = queryProp !== undefined ? queryProp : queryLocal
+  const setQuery = onQuery ?? setQueryLocal
   const [dimMenu, setDimMenu] = useState(false)
   const [editor, setEditor] = useState<'new' | Place | null>(null)
   const [detail, setDetail] = useState<Place | null>(null)
@@ -218,13 +224,15 @@ export function PlaceGrid({
         </div>
       )}
 
-      {/* Search — looks across BOTH tabs (Places + Food & café) */}
-      <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
-        <IconSearch size={16} className="text-ink-3" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ / ร้าน / สถานี — ทุกแท็บ"
-          className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-ink-3" />
-        {query && <button onClick={() => setQuery('')} className="text-ink-3"><IconX size={15} /></button>}
-      </div>
+      {/* Search bar rendered here only when the page didn't lift it out (onQuery). */}
+      {onQuery === undefined && (
+        <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
+          <IconSearch size={16} className="text-ink-3" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ / ร้าน / สถานี — ทุกแท็บ"
+            className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-ink-3" />
+          {query && <button onClick={() => setQuery('')} className="text-ink-3"><IconX size={15} /></button>}
+        </div>
+      )}
 
       {/* Filter dimension + value chips (hidden while searching — search covers both tabs) */}
       <div className="flex items-center gap-1.5 mb-3">
