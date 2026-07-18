@@ -283,17 +283,11 @@ export default function TripMap() {
 
   return (
     <div className="fixed inset-0 z-[400]">
-      {/* test banner */}
-      <div className="absolute top-0 inset-x-0 z-[500] bg-[#D97706] text-white text-[11px] font-medium flex items-center justify-center gap-2 py-1">
-        <button onClick={() => navigate('/places')} className="absolute left-2 inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5"><IconArrowLeft size={13} /> กลับ</button>
-        🧪 หน้าแผนที่ (เทส) — ยังไม่เปิดให้ผู้ใช้ · /map
-      </div>
-
       <div ref={boxRef} className="absolute inset-0" style={placing ? { cursor: 'crosshair' } : undefined} />
 
       {/* pinning banner — overlays the search while placing a pin */}
       {placing && (
-        <div className="absolute top-7 inset-x-0 z-[600] px-3 pt-2">
+        <div className="absolute inset-x-0 z-[600] px-3" style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)' }}>
           <div className="rounded-2xl bg-ink text-white p-3 shadow-xl">
             <div className="text-[12.5px] font-semibold flex items-center gap-1.5"><IconMapPin size={15} /> แตะบนแผนที่เพื่อวางหมุด: {placing.name}</div>
             <div className="flex gap-2 mt-2">
@@ -310,12 +304,18 @@ export default function TripMap() {
       )}
 
       {/* top controls */}
-      <div className={`absolute top-7 inset-x-0 z-[500] px-3 pt-2 space-y-2 ${placing ? 'hidden' : ''}`}>
-        <div className="flex items-center gap-2 h-11 rounded-full bg-white shadow-md px-4">
-          <IconSearch size={17} className="text-ink-3" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ในทริป"
-            className="flex-1 bg-transparent outline-none text-[13.5px]" />
-          {query && <button onClick={() => setQuery('')} className="text-ink-3"><IconX size={15} /></button>}
+      <div className={`absolute inset-x-0 z-[500] px-3 space-y-2 ${placing ? 'hidden' : ''}`} style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)' }}>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/places')} aria-label="กลับ"
+            className="size-11 rounded-full bg-white shadow-md grid place-items-center text-ink shrink-0">
+            <IconArrowLeft size={19} />
+          </button>
+          <div className="flex-1 flex items-center gap-2 h-11 rounded-full bg-white shadow-md px-4 min-w-0">
+            <IconSearch size={17} className="text-ink-3" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ในทริป"
+              className="flex-1 bg-transparent outline-none text-[13.5px] min-w-0" />
+            {query && <button onClick={() => setQuery('')} className="text-ink-3"><IconX size={15} /></button>}
+          </div>
         </div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           {CHIPS.map((c) => (
