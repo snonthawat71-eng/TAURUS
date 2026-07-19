@@ -135,6 +135,10 @@ export function isMapLink(url?: string | null): boolean {
 // broken link is never a silent mystery again
 const failNotes = new Map<string, string>()
 export const resolveFailNote = (url?: string | null) => (url ? failNotes.get(url) : undefined)
+// Google's canonical place name from the resolved link (available even when
+// coords aren't) — the fallback geocode anchor
+const linkNames = new Map<string, string>()
+export const resolvedLinkName = (url?: string | null) => (url ? linkNames.get(url) : undefined)
 
 export async function resolveMapUrl(url: string): Promise<LatLng | null> {
   if (linkCache.has(url)) return linkCache.get(url) ?? null
@@ -147,6 +151,7 @@ export async function resolveMapUrl(url: string): Promise<LatLng | null> {
     const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=3`)
     if (res.ok) {
       const j = await res.json()
+      if (typeof j.name === 'string' && j.name.trim()) linkNames.set(url, j.name.trim())
       if (valid(Number(j.lat), Number(j.lng))) out = { lat: Number(j.lat), lng: Number(j.lng) }
       else {
         let host = ''

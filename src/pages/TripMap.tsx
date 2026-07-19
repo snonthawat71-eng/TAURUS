@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconListCheck } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
+import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -165,10 +165,12 @@ export default function TripMap() {
       }
     }
     // re-check stored coords against the place's own named station via the
-    // branch-guarded geocoder; heal when they disagree strongly
-    const stationSanity = async (p: Place, db: LatLng) => {
+    // branch-guarded geocoder; heal when they disagree strongly. nameOverride
+    // lets a failed link resolution still contribute Google's canonical place
+    // name as the search anchor.
+    const stationSanity = async (p: Place, db: LatLng, nameOverride?: string) => {
       if (!(p.station_name ?? '').trim()) return
-      const g = await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country })
+      const g = await geocodeSmart({ name: nameOverride ?? p.name, station: p.station_name, city: p.city, country: trip?.country })
       if (!alive || !g) return
       if (!g.approx && haversine(db, g) > 0.25) {
         setCoords((c) => ({ ...c, [p.id]: g }))
@@ -188,10 +190,10 @@ export default function TripMap() {
         const r = await resolveMapUrl(p.map_url!) // cached per link after first hit
         if (!alive) return
         if (!r) {
-          // resolver blocked/down (Google often refuses datacenter IPs) — the
-          // named station is the next-best truth, don't just give up
+          // no coords from the link — but its canonical Google NAME often came
+          // back; geocode that (station-guarded) instead of giving up
           console.warn('[map] ตามลิงก์ไม่สำเร็จ:', p.name, p.map_url)
-          await stationSanity(p, db)
+          await stationSanity(p, db, resolvedLinkName(p.map_url))
           continue
         }
         // the link's point IS the pin — no tolerance window
@@ -394,7 +396,7 @@ export default function TripMap() {
       if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
       else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
       else if ((p.station_name ?? '').trim()) {
-        const g = await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country })
+        const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, station: p.station_name, city: p.city, country: trip?.country })
         if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, false), linkFailed }
         else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, false, false), linkFailed }
         else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }

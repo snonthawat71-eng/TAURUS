@@ -73,6 +73,37 @@ const page = (html, status = 200) => ({ status, headers: { get: () => null }, te
   ok(Math.abs((res.body?.lat ?? 0) - 22.3) < 1e-6, `meta-refresh interstitial handled (got ${res.body?.lat})`)
 }
 
+// 2d. place-ID URL (no coords in ANY hop) → coords from the page's
+//     APP_INITIALIZATION_STATE bootstrap ([[[zoom,LNG,LAT]…)
+{
+  globalThis.fetch = async (url) => {
+    const s = String(url)
+    if (s.startsWith('https://maps.app.goo.gl/'))
+      return redirect('https://www.google.com/maps/place/ICHIRAN/data=!4m2!3m1!1s0x3404005e7d1a1b2f')
+    return page('<script>window.APP_INITIALIZATION_STATE=[[[17.0,114.1836,22.2799],null,[null,null,22.2799,114.1836]]];</script>')
+  }
+  const res = mkRes()
+  await handler({ query: { url: 'https://maps.app.goo.gl/placeid1' } }, res)
+  ok(Math.abs((res.body?.lat ?? 0) - 22.2799) < 1e-6 && Math.abs((res.body?.lng ?? 0) - 114.1836) < 1e-6,
+    `coords from APP_INITIALIZATION_STATE (got ${res.body?.lat},${res.body?.lng})`)
+  ok(res.body?.name === 'ICHIRAN', `canonical name from the place-ID hop (got ${res.body?.name})`)
+}
+
+// 2e. even with NO coords anywhere, the canonical name still returns (the
+//     client geocodes it, station-guarded)
+{
+  globalThis.fetch = async (url) => {
+    const s = String(url)
+    if (s.includes('goo.gl')) return redirect('https://www.google.com/maps/place/Lau+Haa+Hot+Pot/data=!4m2!3m1!1s0xdead')
+    return page('<html>nothing useful</html>')
+  }
+  const res = mkRes()
+  await handler({ query: { url: 'https://maps.app.goo.gl/nameonly1' } }, res)
+  ok(res.body?.lat === undefined && res.body?.name === 'Lau Haa Hot Pot',
+    `no coords but name survives for the client fallback (got ${res.body?.name})`)
+  ok(String(res.headers['Cache-Control']) === 'no-store', 'name-only result not edge-cached')
+}
+
 // 3. everything blocked → NO edge caching of the failure
 {
   globalThis.fetch = async () => page('<html>sorry</html>', 429)

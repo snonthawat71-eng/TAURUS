@@ -46,6 +46,21 @@ function extract(s) {
   return null
 }
 
+/** Coordinates buried in a Google Maps PAGE body. Modern share links resolve
+ *  to place-ID URLs with no lat/lng at all — the numbers only exist inside the
+ *  page's bootstrap JS. */
+function extractFromBody(s) {
+  if (!s) return null
+  const ok = (a, b) => (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180 ? { lat: a, lng: b } : null)
+  // window.APP_INITIALIZATION_STATE=[[[zoom,LNG,LAT],...
+  let m = s.match(/APP_INITIALIZATION_STATE=\[\[\[-?[\d.]+,(-?\d+\.\d+),(-?\d+\.\d+)\]/)
+  if (m) { const r = ok(+m[2], +m[1]); if (r) return r }
+  // ...,[null,null,LAT,LNG],... (the place's own point in the same blob)
+  m = s.match(/\[null,null,(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})\]/)
+  if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
+  return null
+}
+
 // Last-resort scan for a China-plausible coordinate pair anywhere in the text.
 function scanChina(s) {
   if (!s) return null
@@ -197,7 +212,7 @@ export default async function handler(req, res) {
       interUrl = urlFromInterstitial(body)
       if (interUrl) coords = extract(interUrl) || extract(deepDecode(interUrl)) || (amap ? scanChina(deepDecode(interUrl)) : null)
     }
-    if (!coords) coords = extract(body) || (amap ? scanChina(body) : null)
+    if (!coords) coords = extract(body) || extractFromBody(body) || (amap ? scanChina(body) : null)
 
     let name = null
     for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
