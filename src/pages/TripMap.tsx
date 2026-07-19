@@ -365,7 +365,7 @@ export default function TripMap() {
   // or named station, heal what it can, and report the rest — so nobody has to
   // eyeball pins one by one ─────────────────────────────────────────────────
   type AuditStatus = 'link' | 'station' | 'approx' | 'manualcheck' | 'nocoords'
-  interface AuditRow { p: Place; status: AuditStatus; fixed: boolean }
+  interface AuditRow { p: Place; status: AuditStatus; fixed: boolean; linkFailed?: boolean }
   const [audit, setAudit] = useState<{ running: boolean; done: number; total: number; rows: AuditRow[] } | null>(null)
 
   async function runAudit() {
@@ -388,15 +388,17 @@ export default function TripMap() {
       }
       let row: AuditRow
       const exact = latLngFromUrlExact(p.map_url)
-      const resolved = !exact && isMapLink(p.map_url) ? await resolveMapUrl(p.map_url!) : null
+      const hasLink = !exact && isMapLink(p.map_url)
+      const resolved = hasLink ? await resolveMapUrl(p.map_url!) : null
+      const linkFailed = hasLink && !resolved // surfaced in the panel — never silent
       if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
       else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
       else if ((p.station_name ?? '').trim()) {
         const g = await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country })
-        if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, false) }
-        else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, false, false) }
-        else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false }
-      } else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false }
+        if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, false), linkFailed }
+        else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, false, false), linkFailed }
+        else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
+      } else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
       rows.push(row)
       setAudit({ running: true, done: rows.length, total: list.length, rows: [...rows] })
     }
@@ -489,6 +491,7 @@ export default function TripMap() {
               const confirmed = audit.rows.filter((r) => !r.fixed && (r.status === 'link' || r.status === 'station'))
               const approx = audit.rows.filter((r) => r.status === 'approx')
               const manual = audit.rows.filter((r) => r.status === 'manualcheck' || r.status === 'nocoords')
+              const linkFails = audit.rows.filter((r) => r.linkFailed)
               return (
                 <div className="mt-2.5 space-y-3">
                   <div className="flex flex-wrap gap-1.5 text-[11.5px] font-semibold">
@@ -507,6 +510,12 @@ export default function TripMap() {
                     <div>
                       <div className="text-[11.5px] font-bold text-ink-3 mb-1">ปักไว้ที่สถานีโดยประมาณ (หมุดเส้นประ)</div>
                       {approx.map((r) => <div key={r.p.id} className="text-[12.5px] py-0.5 truncate">≈ {r.p.name} — {r.p.station_name}</div>)}
+                    </div>
+                  )}
+                  {linkFails.length > 0 && (
+                    <div>
+                      <div className="text-[11.5px] font-bold mb-1" style={{ color: '#C0432E' }}>ตามลิงก์แมพไม่สำเร็จ (จะลองใหม่อัตโนมัติครั้งหน้า)</div>
+                      {linkFails.map((r) => <div key={r.p.id} className="text-[12.5px] py-0.5 truncate">🔗 {r.p.name}</div>)}
                     </div>
                   )}
                   {manual.length > 0 && (

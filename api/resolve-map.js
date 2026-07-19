@@ -1,7 +1,10 @@
 // Vercel serverless function: /api/resolve-map?url=<map link>
-// Follows a Google short link (maps.app.goo.gl / goo.gl/maps) server-side —
-// where CORS doesn't apply — and pulls the "@lat,lng" out of the final URL or
-// page so places pinned only with a short link can still show on the map.
+// Resolves a short map link (maps.app.goo.gl / surl.amap.com / …) to the
+// place's coordinates + name. Redirects are followed HOP BY HOP (redirect:
+// 'manual'): the Location header of the first hop already carries the full
+// URL with "!3dLAT!4dLNG", so coords come from redirect URLs alone — no need
+// to download Google's page (datacenter IPs often get blocked/challenged
+// there). Page bodies are only fetched as a last resort.
 
 // GCJ-02 (China, used by AMap) → WGS-84; no-op outside China.
 const GCJ_A = 6378245.0, GCJ_EE = 0.00669342162296594323
@@ -22,17 +25,15 @@ function gcj2wgs(lat, lng) {
 function extract(s) {
   if (!s) return null
   const ok = (a, b) => (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180 ? { lat: a, lng: b } : null)
-  // AMap — lng,lat order + GCJ-02 (convert to WGS-84). Coords can be in the URL
-  // params OR embedded in the page's JS, so try several shapes.
+  // AMap — lng,lat order + GCJ-02 (convert to WGS-84).
   if (/amap|gaode/i.test(s)) {
     const amapPats = [
-      /[?&](?:position|location|ll|point|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i, // url param lng,lat
-      /[?&]lng=(-?\d+\.\d+)&lat=(-?\d+\.\d+)/i,                                   // lng,lat params
-      /["'](?:position|location|center|lnglat)["']?\s*[:=]\s*["'\[]\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/i, // json lng,lat
-      /["']lng["']\s*:\s*(-?\d+\.\d+)\s*,\s*["']lat["']\s*:\s*(-?\d+\.\d+)/i,      // {lng:..,lat:..}
+      /[?&](?:position|location|ll|point|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i,
+      /[?&]lng=(-?\d+\.\d+)&lat=(-?\d+\.\d+)/i,
+      /["'](?:position|location|center|lnglat)["']?\s*[:=]\s*["'\[]\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/i,
+      /["']lng["']\s*:\s*(-?\d+\.\d+)\s*,\s*["']lat["']\s*:\s*(-?\d+\.\d+)/i,
     ]
     for (const re of amapPats) { const m = s.match(re); if (m) { const r = ok(+m[2], +m[1]); if (r) return gcj2wgs(r.lat, r.lng) } }
-    // some amap pages carry lat,lng (not lng,lat) as "lat":..,"lng":..
     const m2 = s.match(/["']lat["']\s*:\s*(-?\d+\.\d+)\s*,\s*["']lng["']\s*:\s*(-?\d+\.\d+)/i)
     if (m2) { const r = ok(+m2[1], +m2[2]); if (r) return gcj2wgs(r.lat, r.lng) }
   }
@@ -41,29 +42,23 @@ function extract(s) {
   let m = s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/); if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
   m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/); if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
   m = s.match(/[?&](?:q|query|ll|center|destination|daddr)=(-?\d+\.\d+),(-?\d+\.\d+)/); if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
-  // Google embeds the point as "/data=...!3dLAT!4dLNG" or a bare "/lat,lng"
   m = s.match(/\/(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})/); if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
   return null
 }
 
 // Last-resort scan for a China-plausible coordinate pair anywhere in the text.
-// lng ∈ [73,135], lat ∈ [3,54] — the disjoint ranges let us fix the order and
-// convert GCJ-02 → WGS-84 (AMap data is GCJ-02).
 function scanChina(s) {
   if (!s) return null
   const re = /(\d{1,3}\.\d{4,})\s*[,%\s]{1,3}\s*(\d{1,3}\.\d{4,})/g
   let m
   while ((m = re.exec(s))) {
     const a = +m[1], b = +m[2]
-    if (a >= 73 && a <= 135.5 && b >= 3 && b <= 54) return gcj2wgs(b, a) // lng,lat
-    if (a >= 3 && a <= 54 && b >= 73 && b <= 135.5) return gcj2wgs(a, b) // lat,lng
+    if (a >= 73 && a <= 135.5 && b >= 3 && b <= 54) return gcj2wgs(b, a)
+    if (a >= 3 && a <= 54 && b >= 73 && b <= 135.5) return gcj2wgs(a, b)
   }
   return null
 }
 
-// AMap share links bury their data in params that are URL-encoded 2–3 levels
-// deep (surl.amap.com → wb.amap.com/?p=… → m.amap.com/callAPP?ios=…%2526…).
-// Peel the encoding until it stops changing so the p=/q= payloads are readable.
 function deepDecode(s) {
   let out = s
   for (let i = 0; i < 3; i++) {
@@ -72,8 +67,6 @@ function deepDecode(s) {
   return out
 }
 
-// AMap: "p=<poiid>,<lat>,<lng>,<name>,<address>" (wb.amap.com and nested inside
-// callAPP's ios=/android= params); fallback "q=<lat>,<lng>,<name>,…".
 function amapName(s) {
   if (!s) return null
   const d = deepDecode(s)
@@ -86,9 +79,6 @@ function amapName(s) {
   return n || null
 }
 
-// The q= of a shared place is often a full address — "LGF, Vission Bakery,
-// 7 Staunton St, Central, ฮ่องกง". Pick the segment that looks like the NAME:
-// the one right before the street address, skipping floor/unit tokens.
 function pickNameFromQuery(q) {
   const parts = q.split(',').map((s) => s.trim()).filter(Boolean)
   if (!parts.length) return null
@@ -102,8 +92,6 @@ function pickNameFromQuery(q) {
   return parts.find((s) => !isUnit(s) && !isStreet(s)) ?? parts[0]
 }
 
-// Place NAME from a resolved Google Maps URL — /maps/place/<name>/ first, then
-// the ?q= of a "maps?q=<address>" share target.
 function nameFrom(s) {
   if (!s) return null
   const m = s.match(/\/maps\/place\/([^/@?#]+)/)
@@ -121,8 +109,6 @@ function nameFrom(s) {
   return null
 }
 
-// Fallback: og:title / <title> of the final page ("<name> - Google Maps",
-// "<name>-高德地图"). Covers links whose final URL carries no /place/ segment.
 function nameFromBody(s) {
   if (!s) return null
   const m = s.match(/property=["']og:title["'][^>]*content=["']([^"']{1,120})["']/i)
@@ -140,28 +126,67 @@ function nameFromBody(s) {
 
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1'
 
+/** Follow redirects one hop at a time, collecting every hop URL. Stops early
+ *  once the total time budget is spent (the function must fit ~10s). */
+async function walk(url, lang, budgetMs = 8000) {
+  const hops = [url]
+  let body = '', status = 0
+  let current = url
+  const t0 = Date.now()
+  for (let i = 0; i < 6; i++) {
+    if (Date.now() - t0 > budgetMs) break
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 3500)
+    try {
+      const r = await fetch(current, {
+        redirect: 'manual', signal: ctrl.signal,
+        headers: { 'User-Agent': UA, 'Accept-Language': lang, Accept: 'text/html', Cookie: 'CONSENT=YES+cb.20240101-00-p0.en+FX; SOCS=CAISHAgB' },
+      })
+      status = r.status
+      const loc = r.headers.get('location')
+      if (loc && status >= 300 && status < 400) {
+        try { current = new URL(loc, current).toString() } catch { break }
+        hops.push(current)
+        continue
+      }
+      body = await r.text().catch(() => '')
+      break
+    } catch { break } finally { clearTimeout(timer) }
+  }
+  return { hops, body, status, finalUrl: current }
+}
+
 export default async function handler(req, res) {
   try {
     const url = req.query?.url
     if (!url || !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'bad url' })
     const amap = /amap|gaode/i.test(url)
-    let finalUrl = url, body = '', status = 0
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 6000) // never hang the function
-    try {
-      const r = await fetch(url, { redirect: 'follow', signal: ctrl.signal, headers: { 'User-Agent': UA, 'Accept-Language': amap ? 'zh-CN,zh;q=0.9' : 'en;q=0.9,th;q=0.8', Accept: 'text/html' } })
-      finalUrl = r.url || url; status = r.status
-      body = await r.text().catch(() => '')
-    } catch (e) { body = ''; if (req.query?.debug) return res.json({ error: String(e?.message || e), finalUrl }) }
-    finally { clearTimeout(timer) }
-    const coords = extract(finalUrl) || extract(body)
-      || (amap ? scanChina(deepDecode(finalUrl)) || scanChina(finalUrl) || scanChina(body) : null)
-    const name = (amap ? amapName(finalUrl) || amapName(body) : null) || nameFrom(finalUrl) || nameFromBody(body)
-    if (req.query?.debug) {
-      return res.json({ finalUrl, status, len: body.length, coords: coords || null, name, snippet: body.slice(0, 800) })
+    const { hops, body, status, finalUrl } = await walk(url, amap ? 'zh-CN,zh;q=0.9' : 'en;q=0.9,th;q=0.8')
+
+    // coords from redirect-hop URLs first (no page download needed), including
+    // the real target hidden inside a Google consent interstitial's ?continue=
+    let coords = null
+    for (const h of hops) {
+      coords = extract(h) || extract(deepDecode(h)) || (amap ? scanChina(deepDecode(h)) : null)
+      if (coords) break
+      try {
+        const cont = new URL(h).searchParams.get('continue')
+        if (cont) { coords = extract(deepDecode(cont)); if (coords) break }
+      } catch { /* not a URL */ }
     }
-    res.setHeader('Cache-Control', 's-maxage=604800') // cache a week at the edge
-    return res.json({ ...(coords || {}), ...(name ? { name } : {}) })
+    if (!coords) coords = extract(body) || (amap ? scanChina(body) : null)
+
+    let name = null
+    for (const h of hops) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
+    if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)
+
+    if (req.query?.debug) {
+      return res.json({ hops, status, len: body.length, coords: coords || null, name, snippet: body.slice(0, 600) })
+    }
+    // cache ONLY successes at the edge — a cached failure would pin every
+    // client to the same empty answer for a week
+    res.setHeader('Cache-Control', coords ? 's-maxage=604800' : 'no-store')
+    return res.json({ ...(coords || {}), ...(name ? { name } : {}), ...(coords ? {} : { error: 'no coords', finalUrl }) })
   } catch (e) {
     return res.status(500).json({ error: String((e && e.message) || e) })
   }

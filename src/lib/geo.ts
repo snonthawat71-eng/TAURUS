@@ -133,13 +133,13 @@ export function isMapLink(url?: string | null): boolean {
 }
 export async function resolveMapUrl(url: string): Promise<LatLng | null> {
   if (linkCache.has(url)) return linkCache.get(url) ?? null
-  // "url2:" + "&v=2" bust the local + edge caches of resolutions made before
-  // the @-viewport-vs-!3d-place precedence fix (those points could be wrong)
-  const ls = lsGet(`url2:${url}`)
+  // "url3:" + "&v=3" bust local nulls persisted by an older build AND the
+  // edge-cached empty responses from before failures became non-cacheable
+  const ls = lsGet(`url3:${url}`)
   if (ls !== undefined) { linkCache.set(url, ls); return ls }
   let out: LatLng | null = null
   try {
-    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=2`)
+    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=3`)
     if (res.ok) {
       const j = await res.json()
       if (valid(Number(j.lat), Number(j.lng))) out = { lat: Number(j.lat), lng: Number(j.lng) }
@@ -148,7 +148,7 @@ export async function resolveMapUrl(url: string): Promise<LatLng | null> {
   // cache successes durably; failures only for this session — a blocked or
   // flaky resolver must be retried on the next load, not remembered forever
   linkCache.set(url, out)
-  if (out) lsSet(`url2:${url}`, out)
+  if (out) lsSet(`url3:${url}`, out)
   return out
 }
 
