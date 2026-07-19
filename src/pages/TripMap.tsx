@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { latLngFromUrl, geocodeSmart, resolveMapUrl, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
+import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -114,9 +114,17 @@ export default function TripMap() {
     const next: Record<string, GeoHit> = {}
     const missing: Place[] = []
     for (const p of tripPlaces) {
-      if (typeof p.lat === 'number' && typeof p.lng === 'number') next[p.id] = { lat: p.lat, lng: p.lng }
-      else {
-        const fromUrl = latLngFromUrl(p.map_url)
+      // a link that names the place's own point is ground truth: when the
+      // stored coords sit >250m from it they came from a bad auto-geocode —
+      // heal them (the link wins, and the fix is persisted)
+      const exact = latLngFromUrlExact(p.map_url)
+      if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+        if (exact && haversine({ lat: p.lat, lng: p.lng }, exact) > 0.25) {
+          next[p.id] = exact
+          setPlaceCoords(p.id, exact.lat, exact.lng).catch(() => {})
+        } else next[p.id] = { lat: p.lat, lng: p.lng }
+      } else {
+        const fromUrl = exact ?? latLngFromUrl(p.map_url)
         if (fromUrl) next[p.id] = fromUrl
         else missing.push(p)
       }

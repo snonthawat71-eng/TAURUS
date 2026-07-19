@@ -79,26 +79,44 @@ export function amapNameFromUrl(url?: string | null): string | null {
   return n || null
 }
 
-/** A) Pull coordinates out of a Google / Apple / AMap / geo: map URL if present. */
-export function latLngFromUrl(url?: string | null): LatLng | null {
+const tryPair = (a?: string, b?: string) => {
+  const lat = Number(a), lng = Number(b)
+  return a != null && b != null && valid(lat, lng) ? { lat, lng } : null
+}
+
+/** A-exact) Coordinates that mark the PLACE itself (not the map view):
+ *  AMap params, Google's "!3dLAT!4dLNG", and explicit lat,lng URL params.
+ *  Excludes "@lat,lng" — that is the viewport centre at share time and can
+ *  sit hundreds of metres off the actual pin. */
+export function latLngFromUrlExact(url?: string | null): LatLng | null {
   if (!url) return null
   if (isAmap(url)) { const r = amapLatLng(url); if (r) return r }
-  const tryPair = (a?: string, b?: string) => {
-    const lat = Number(a), lng = Number(b)
-    return a != null && b != null && valid(lat, lng) ? { lat, lng } : null
-  }
-  // Google "@lat,lng,zoom"
-  let m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
-  if (m) { const r = tryPair(m[1], m[2]); if (r) return r }
-  // "!3dLAT!4dLNG" (embedded), or "ll=", "q=lat,lng", "query=lat,lng", "destination=lat,lng"
-  m = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)
+  const m = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)
   if (m) { const r = tryPair(m[1], m[2]); if (r) return r }
   try {
     const u = new URL(url)
-    for (const key of ['ll', 'q', 'query', 'destination', 'center', 'sll', 'daddr']) {
+    for (const key of ['ll', 'q', 'query', 'destination', 'sll', 'daddr']) {
       const v = u.searchParams.get(key)
       if (v) { const p = v.split(','); const r = tryPair(p[0]?.trim(), p[1]?.trim()); if (r) return r }
     }
+  } catch { /* not a URL */ }
+  return null
+}
+
+/** A) Pull coordinates out of a Google / Apple / AMap / geo: map URL if present.
+ *  Exact place coordinates take priority; the "@lat,lng" viewport centre and a
+ *  bare number pair are last-resort fallbacks. */
+export function latLngFromUrl(url?: string | null): LatLng | null {
+  if (!url) return null
+  const exact = latLngFromUrlExact(url)
+  if (exact) return exact
+  // Google "@lat,lng,zoom" — the view centre, roughly right, not the pin
+  let m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
+  if (m) { const r = tryPair(m[1], m[2]); if (r) return r }
+  try {
+    const u = new URL(url)
+    const v = u.searchParams.get('center')
+    if (v) { const p = v.split(','); const r = tryPair(p[0]?.trim(), p[1]?.trim()); if (r) return r }
   } catch { /* not a URL */ }
   // bare "lat,lng" anywhere
   m = url.match(/(-?\d{1,2}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})/)
