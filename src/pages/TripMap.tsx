@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconListCheck } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
+import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -515,7 +515,12 @@ export default function TripMap() {
                   {linkFails.length > 0 && (
                     <div>
                       <div className="text-[11.5px] font-bold mb-1" style={{ color: '#C0432E' }}>ตามลิงก์แมพไม่สำเร็จ (จะลองใหม่อัตโนมัติครั้งหน้า)</div>
-                      {linkFails.map((r) => <div key={r.p.id} className="text-[12.5px] py-0.5 truncate">🔗 {r.p.name}</div>)}
+                      {linkFails.map((r) => (
+                        <div key={r.p.id} className="text-[12.5px] py-0.5 truncate">
+                          🔗 {r.p.name}
+                          {resolveFailNote(r.p.map_url) && <span className="text-[10.5px] text-ink-3"> — {resolveFailNote(r.p.map_url)}</span>}
+                        </div>
+                      ))}
                     </div>
                   )}
                   {manual.length > 0 && (

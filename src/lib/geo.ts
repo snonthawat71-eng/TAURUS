@@ -131,6 +131,11 @@ const linkCache = new Map<string, LatLng | null>()
 export function isMapLink(url?: string | null): boolean {
   return !!url && /(goo\.gl\/maps|maps\.app\.goo\.gl|share\.google|google\.[a-z.]+\/maps|g\.co\/kgs|amap\.com|gaode|surl\.amap|uri\.amap|ditu\.amap)/i.test(url)
 }
+// why the last resolution of a link failed — the audit panel shows this so a
+// broken link is never a silent mystery again
+const failNotes = new Map<string, string>()
+export const resolveFailNote = (url?: string | null) => (url ? failNotes.get(url) : undefined)
+
 export async function resolveMapUrl(url: string): Promise<LatLng | null> {
   if (linkCache.has(url)) return linkCache.get(url) ?? null
   // "url3:" + "&v=3" bust local nulls persisted by an older build AND the
@@ -143,8 +148,13 @@ export async function resolveMapUrl(url: string): Promise<LatLng | null> {
     if (res.ok) {
       const j = await res.json()
       if (valid(Number(j.lat), Number(j.lng))) out = { lat: Number(j.lat), lng: Number(j.lng) }
-    }
-  } catch { /* offline / endpoint missing */ }
+      else {
+        let host = ''
+        try { host = j?.finalUrl ? new URL(j.finalUrl).hostname : '' } catch { /* ignore */ }
+        failNotes.set(url, `ปลายทางตอบ ${j?.status ?? '?'}${host ? ` · ${host}` : ''}`)
+      }
+    } else failNotes.set(url, `API ตอบ ${res.status}`)
+  } catch { failNotes.set(url, 'ต่อ API ไม่ได้') }
   // cache successes durably; failures only for this session — a blocked or
   // flaky resolver must be retried on the next load, not remembered forever
   linkCache.set(url, out)

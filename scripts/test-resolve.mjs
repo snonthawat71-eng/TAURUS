@@ -46,6 +46,33 @@ const page = (html, status = 200) => ({ status, headers: { get: () => null }, te
   ok(Math.abs((res.body?.lat ?? 0) - 22.3193) < 1e-6, `coords recovered from consent ?continue= (got ${res.body?.lat})`)
 }
 
+// 2b. NO redirect at all — modern maps.app.goo.gl answers 200 with a JS
+//     interstitial whose escaped JSON embeds the real maps URL
+{
+  globalThis.fetch = async (url) => {
+    const s = String(url)
+    if (s.startsWith('https://maps.app.goo.gl/'))
+      return page('<html><script>var data={"u":"https:\\/\\/www.google.com\\/maps\\/place\\/ICHIRAN\\/@22.2801,114.1830,17z\\/data\\u003d!3m1!4b1!4m6!3m5!3d22.2799!4d114.1836"};</script></html>')
+    return page('should not fetch further', 500)
+  }
+  const res = mkRes()
+  await handler({ query: { url: 'https://maps.app.goo.gl/interstitial' } }, res)
+  ok(Math.abs((res.body?.lat ?? 0) - 22.2799) < 1e-6 && Math.abs((res.body?.lng ?? 0) - 114.1836) < 1e-6,
+    `coords dug out of a 200 interstitial page (got ${res.body?.lat},${res.body?.lng})`)
+}
+
+// 2c. meta-refresh interstitial
+{
+  globalThis.fetch = async (url) => {
+    const s = String(url)
+    if (s.includes('goo.gl')) return page('<meta http-equiv="refresh" content="0;url=https://www.google.com/maps/place/X/data=!3d22.3000!4d114.1600">')
+    return page('', 500)
+  }
+  const res = mkRes()
+  await handler({ query: { url: 'https://maps.app.goo.gl/meta1' } }, res)
+  ok(Math.abs((res.body?.lat ?? 0) - 22.3) < 1e-6, `meta-refresh interstitial handled (got ${res.body?.lat})`)
+}
+
 // 3. everything blocked → NO edge caching of the failure
 {
   globalThis.fetch = async () => page('<html>sorry</html>', 429)
@@ -53,6 +80,7 @@ const page = (html, status = 200) => ({ status, headers: { get: () => null }, te
   await handler({ query: { url: 'https://maps.app.goo.gl/blocked9' } }, res)
   ok(res.body?.lat === undefined, 'no coords when fully blocked')
   ok(String(res.headers['Cache-Control']) === 'no-store', `failure NOT cached at the edge (got ${res.headers['Cache-Control']})`)
+  ok(res.body?.error === 'no coords' && typeof res.body?.status === 'number', 'failure explains itself (error + upstream status)')
 }
 
 // 4. amap short link → hop URL carries p=<poi>,<lat>,<lng>,<name> (GCJ→WGS)

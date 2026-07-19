@@ -124,7 +124,24 @@ function nameFromBody(s) {
   return n
 }
 
-const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1'
+// Desktop UA: mobile UAs get an app-open interstitial from maps.app.goo.gl
+// instead of a clean redirect; desktop gets the 302 (or a simpler page).
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+
+/** Modern short links often answer 200 with an HTML/JS interstitial instead of
+ *  a 302 — the real target URL is embedded in the page (escaped JSON, a meta
+ *  refresh, or a ?link=/url= param). Dig it out. */
+function urlFromInterstitial(body) {
+  if (!body) return null
+  const un = body.replace(/\\\//g, '/').replace(/\\u003d/gi, '=').replace(/\\u0026/gi, '&').replace(/&amp;/g, '&')
+  let m = un.match(/http-equiv=["']refresh["'][^>]*url=([^"'>]+)/i)
+  if (m) return m[1]
+  m = un.match(/https:\/\/www\.google\.[a-z.]+\/maps\/[^"'<>\s\\]+/i)
+  if (m) return m[0]
+  m = un.match(/[?&](?:link|url|continue)=(https?[^"'&<>\s]+)/i)
+  if (m) { try { return decodeURIComponent(m[1]) } catch { return m[1] } }
+  return null
+}
 
 /** Follow redirects one hop at a time, collecting every hop URL. Stops early
  *  once the total time budget is spent (the function must fit ~10s). */
@@ -174,19 +191,29 @@ export default async function handler(req, res) {
         if (cont) { coords = extract(deepDecode(cont)); if (coords) break }
       } catch { /* not a URL */ }
     }
+    // 200-interstitial pages embed the target URL in the body — dig it out
+    let interUrl = null
+    if (!coords && body) {
+      interUrl = urlFromInterstitial(body)
+      if (interUrl) coords = extract(interUrl) || extract(deepDecode(interUrl)) || (amap ? scanChina(deepDecode(interUrl)) : null)
+    }
     if (!coords) coords = extract(body) || (amap ? scanChina(body) : null)
 
     let name = null
-    for (const h of hops) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
+    for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
     if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)
 
     if (req.query?.debug) {
-      return res.json({ hops, status, len: body.length, coords: coords || null, name, snippet: body.slice(0, 600) })
+      return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, name, snippet: body.slice(0, 600) })
     }
     // cache ONLY successes at the edge — a cached failure would pin every
     // client to the same empty answer for a week
     res.setHeader('Cache-Control', coords ? 's-maxage=604800' : 'no-store')
-    return res.json({ ...(coords || {}), ...(name ? { name } : {}), ...(coords ? {} : { error: 'no coords', finalUrl }) })
+    return res.json({
+      ...(coords || {}), ...(name ? { name } : {}),
+      // on failure return WHY, so the app's audit can show the reason per link
+      ...(coords ? {} : { error: 'no coords', status, finalUrl, hops: hops.length }),
+    })
   } catch (e) {
     return res.status(500).json({ error: String((e && e.message) || e) })
   }
