@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft } from '@tabler/icons-react'
+import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconListCheck } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
@@ -357,6 +357,47 @@ export default function TripMap() {
   const ref = me
   const unplaced = useMemo(() => tripPlaces.filter((p) => !coords[p.id]), [tripPlaces, coords])
 
+  // ── trip-wide coordinate audit: sweep EVERY place, verify against its link
+  // or named station, heal what it can, and report the rest — so nobody has to
+  // eyeball pins one by one ─────────────────────────────────────────────────
+  type AuditStatus = 'link' | 'station' | 'approx' | 'manualcheck' | 'nocoords'
+  interface AuditRow { p: Place; status: AuditStatus; fixed: boolean }
+  const [audit, setAudit] = useState<{ running: boolean; done: number; total: number; rows: AuditRow[] } | null>(null)
+
+  async function runAudit() {
+    const list = tripPlaces
+    const cur: Record<string, GeoHit | undefined> = { ...coords }
+    const rows: AuditRow[] = []
+    setSelected(null)
+    setAudit({ running: true, done: 0, total: list.length, rows: [] })
+    for (const p of list) {
+      const prev = cur[p.id]
+      const apply = (c: GeoHit, persist: boolean) => {
+        const moved = !prev || haversine(prev, c) > 0.25
+        if (moved) {
+          cur[p.id] = c
+          setCoords((m) => ({ ...m, [p.id]: c }))
+          if (persist && !c.approx) setPlaceCoords(p.id, c.lat, c.lng).catch(() => {})
+        }
+        return moved
+      }
+      let row: AuditRow
+      const exact = latLngFromUrlExact(p.map_url)
+      const resolved = !exact && isMapLink(p.map_url) ? await resolveMapUrl(p.map_url!) : null
+      if (exact) row = { p, status: 'link', fixed: apply(exact, true) }
+      else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true) }
+      else if ((p.station_name ?? '').trim()) {
+        const g = await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country })
+        if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true) }
+        else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, false) }
+        else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false }
+      } else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false }
+      rows.push(row)
+      setAudit({ running: true, done: rows.length, total: list.length, rows: [...rows] })
+    }
+    setAudit({ running: false, done: rows.length, total: list.length, rows })
+  }
+
   const CHIPS: { key: typeof filter; label: string }[] = [
     { key: 'all', label: 'ทั้งหมด' }, { key: 'place', label: 'สถานที่' }, { key: 'food', label: 'อาหาร/คาเฟ่' },
   ]
@@ -415,9 +456,75 @@ export default function TripMap() {
       {/* floating buttons — right side, above the card zone */}
       <button onClick={refit} className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-ink-2" title="จัดกึ่งกลางหมุด"><IconFocus2 size={19} /></button>
       <button onClick={locate} className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+8.75rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-brand" title="ตำแหน่งฉัน"><IconCurrentLocation size={19} /></button>
+      {/* trip-wide pin audit — verify every place at once */}
+      <button onClick={() => { if (audit?.running) return; if (audit) setAudit(null); else runAudit() }}
+        className={['absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+12rem)] z-[500] size-11 rounded-full shadow-md grid place-items-center', audit ? 'bg-brand text-white' : 'bg-white text-ink-2'].join(' ')}
+        title="ตรวจพิกัดทั้งทริป">
+        {audit?.running ? <IconLoader2 size={19} className="animate-spin" /> : <IconListCheck size={19} />}
+      </button>
+
+      {/* audit result panel */}
+      {audit && (
+        <div className="absolute inset-x-0 bottom-0 z-[520] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
+          <div className="rounded-[18px] bg-white shadow-[0_10px_34px_rgba(10,20,40,.22)] p-4 max-h-[55dvh] overflow-y-auto">
+            <div className="flex items-center gap-2">
+              <IconListCheck size={18} className="text-brand shrink-0" />
+              <span className="text-[14.5px] font-bold flex-1">ตรวจพิกัดทั้งทริป</span>
+              {!audit.running && <button onClick={() => setAudit(null)} aria-label="ปิด" className="size-7 grid place-items-center rounded-full bg-surface-2 text-ink-3"><IconX size={15} /></button>}
+            </div>
+            {audit.running ? (
+              <div className="mt-3">
+                <div className="text-[12.5px] text-ink-2">กำลังตรวจ {audit.done}/{audit.total} … (ตรวจกับลิงก์แมพ/สถานีของแต่ละที่)</div>
+                <div className="mt-2 h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                  <div className="h-full bg-brand transition-all" style={{ width: `${audit.total ? (audit.done / audit.total) * 100 : 100}%` }} />
+                </div>
+              </div>
+            ) : (() => {
+              const fixed = audit.rows.filter((r) => r.fixed)
+              const confirmed = audit.rows.filter((r) => !r.fixed && (r.status === 'link' || r.status === 'station'))
+              const approx = audit.rows.filter((r) => r.status === 'approx')
+              const manual = audit.rows.filter((r) => r.status === 'manualcheck' || r.status === 'nocoords')
+              return (
+                <div className="mt-2.5 space-y-3">
+                  <div className="flex flex-wrap gap-1.5 text-[11.5px] font-semibold">
+                    <span className="rounded-full px-2.5 py-1" style={{ background: '#E6F4EE', color: '#1E8E5A' }}>ยืนยันถูกต้อง {confirmed.length}</span>
+                    {fixed.length > 0 && <span className="rounded-full px-2.5 py-1" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>แก้ให้แล้ว {fixed.length}</span>}
+                    {approx.length > 0 && <span className="rounded-full px-2.5 py-1" style={{ background: '#FDF0E6', color: '#C56A1E' }}>โดยประมาณ {approx.length}</span>}
+                    {manual.length > 0 && <span className="rounded-full px-2.5 py-1" style={{ background: '#FBECE9', color: '#C0432E' }}>ต้องยืนยันเอง {manual.length}</span>}
+                  </div>
+                  {fixed.length > 0 && (
+                    <div>
+                      <div className="text-[11.5px] font-bold text-ink-3 mb-1">ย้ายไปตำแหน่งที่ถูกต้องให้แล้ว</div>
+                      {fixed.map((r) => <div key={r.p.id} className="text-[12.5px] py-0.5 truncate">✅ {r.p.name}</div>)}
+                    </div>
+                  )}
+                  {approx.length > 0 && (
+                    <div>
+                      <div className="text-[11.5px] font-bold text-ink-3 mb-1">ปักไว้ที่สถานีโดยประมาณ (หมุดเส้นประ)</div>
+                      {approx.map((r) => <div key={r.p.id} className="text-[12.5px] py-0.5 truncate">≈ {r.p.name} — {r.p.station_name}</div>)}
+                    </div>
+                  )}
+                  {manual.length > 0 && (
+                    <div>
+                      <div className="text-[11.5px] font-bold text-ink-3 mb-1">ระบบยืนยันไม่ได้ — ไม่มีลิงก์แมพ/สถานีให้ยึด</div>
+                      {manual.map((r) => (
+                        <div key={r.p.id} className="flex items-center gap-2 py-1">
+                          <span className="text-[12.5px] truncate flex-1">{r.p.name}</span>
+                          <button onClick={() => { setAudit(null); setPlacing(r.p) }} className="shrink-0 h-7 px-2.5 rounded-full bg-brand text-white text-[11px] font-semibold inline-flex items-center gap-1"><IconMapPin size={12} /> ปักหมุด</button>
+                        </div>
+                      ))}
+                      <div className="text-[11px] text-ink-3 mt-1.5">แนบ “ลิงก์แผนที่” ในหน้าแก้ไขของรายการเหล่านี้ แล้วระบบจะยืนยันให้อัตโนมัติตลอดไป</div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* places with no coordinates yet — one small pill, tap to expand */}
-      {unplaced.length > 0 && !selected && !placing && (
+      {unplaced.length > 0 && !selected && !placing && !audit && (
         <div className="absolute left-3 right-16 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-[500]">
           {showUnplaced && (
             <div className="mb-2 rounded-[15px] bg-white shadow-xl max-h-[45dvh] overflow-y-auto px-3 py-2">
@@ -442,7 +549,7 @@ export default function TripMap() {
       )}
 
       {/* tapping a pin opens its floating card; tap the map to dismiss */}
-      {selected && coords[selected.id] && (
+      {selected && coords[selected.id] && !audit && (
         <div className="absolute inset-x-0 bottom-0 z-[500] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
           <div className="rounded-[18px] bg-white shadow-[0_10px_34px_rgba(10,20,40,.22)] pt-4">
             <SelectedCard p={selected} dist={ref ? kmLabel(haversine(ref, coords[selected.id])) : null} approx={!!coords[selected.id]?.approx}

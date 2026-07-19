@@ -1,0 +1,75 @@
+// Tests for coordinate resolution (no framework — run: node scripts/test-geo.mjs)
+// Covers the exact bugs that put pins in the wrong place:
+//  1. URL parsing precedence — the place's own !3d/!4d point beats the @viewport
+//  2. wrong-branch guard — a name hit far from the place's named station is
+//     rejected and the station stand-in wins
+//  3. a name hit NEAR the station is accepted as-is
+//  4. failed link resolutions are NOT persisted (must retry next load)
+import { execSync } from 'node:child_process'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+let pass = 0, fail = 0
+const ok = (cond, name) => { if (cond) { pass++; console.log(`  ✓ ${name}`) } else { fail++; console.log(`  ✗ ${name}`) } }
+
+// localStorage shim BEFORE importing the module
+const store = new Map()
+globalThis.localStorage = {
+  getItem: (k) => (store.has(k) ? store.get(k) : null),
+  setItem: (k, v) => store.set(k, String(v)),
+  removeItem: (k) => store.delete(k),
+}
+
+const dir = mkdtempSync(join(tmpdir(), 'geotest-'))
+execSync(`npx esbuild src/lib/geo.ts --bundle --format=esm --outfile=${join(dir, 'geo.mjs')}`, { stdio: 'pipe' })
+const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm } = await import(join(dir, 'geo.mjs'))
+
+// ---- 1. URL precedence ----
+console.log('URL parsing')
+const gUrl = 'https://www.google.com/maps/place/Jollibee/@22.2900,114.1000,17z/data=!3m1!4b1!4m6!3m5!3d22.2766!4d114.1747'
+const r1 = latLngFromUrl(gUrl)
+ok(r1 && Math.abs(r1.lat - 22.2766) < 1e-6 && Math.abs(r1.lng - 114.1747) < 1e-6,
+  `!3d/!4d place point wins over @viewport (got ${r1?.lat},${r1?.lng})`)
+const rExact = latLngFromUrlExact('https://maps.google.com/maps?foo=1&daddr=22.30,114.17')
+ok(rExact && rExact.lat === 22.30, 'explicit lat,lng param counts as exact')
+ok(latLngFromUrlExact('https://www.google.com/maps/@22.29,114.10,15z') === null, '@viewport alone is NOT exact')
+
+// ---- fetch mock for geocoders ----
+const json = (body) => ({ ok: true, json: async () => body })
+const realFetch = globalThis.fetch
+globalThis.fetch = async (url) => {
+  const s = decodeURIComponent(String(url))
+  if (s.includes('nominatim')) {
+    if (s.includes('Jollibee')) return json([{ lat: '22.2890', lon: '113.9410' }]) // Tung Chung branch — WRONG (far from Wan Chai)
+    if (s.includes('Wan Chai')) return json([{ lat: '22.2775', lon: '114.1725' }]) // the named station
+    if (s.includes('Cafe Near')) return json([{ lat: '22.2800', lon: '114.1750' }]) // ~0.4km from station — plausible
+    return json([])
+  }
+  if (s.includes('photon')) return json({ features: [] }) // no fuzzy rescue in these cases
+  if (s.includes('/api/resolve-map')) throw new Error('resolver down')
+  throw new Error('unexpected fetch ' + s)
+}
+
+// ---- 2. wrong-branch guard ----
+console.log('geocodeSmart()')
+const g1 = await geocodeSmart({ name: 'Jollibee', station: 'Wan Chai', city: 'Hong Kong', country: 'Hong Kong' })
+ok(!!g1, 'returns a hit')
+ok(g1?.approx === true, 'far-from-station name match rejected → station stand-in (approx)')
+ok(g1 && distKm(g1, { lat: 22.2775, lng: 114.1725 }) < 0.1, `stand-in sits AT the station (got ${g1?.lat},${g1?.lng})`)
+
+// ---- 3. near-station hit accepted ----
+const g2 = await geocodeSmart({ name: 'Cafe Near', station: 'Wan Chai', city: 'Hong Kong', country: 'Hong Kong' })
+ok(g2 && g2.approx === false, 'name match near the station is accepted as exact')
+ok(g2 && Math.abs(g2.lat - 22.28) < 1e-6, 'accepted hit keeps its own coords')
+
+// ---- 4. failed resolutions are not persisted ----
+console.log('resolveMapUrl()')
+const r4 = await resolveMapUrl('https://maps.app.goo.gl/testfail123')
+ok(r4 === null, 'resolver down → null')
+const persistedNull = [...store.keys()].some((k) => k.includes('url2:https://maps.app.goo.gl/testfail123'))
+ok(!persistedNull, 'failure NOT written to localStorage (will retry next load)')
+
+globalThis.fetch = realFetch
+console.log(`\n${pass} passed, ${fail} failed`)
+process.exit(fail ? 1 : 0)
