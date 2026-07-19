@@ -56,10 +56,12 @@ function clusterPoints(map: L.Map, points: MapPoint[], radiusPx: number): MapGro
 }
 const httpPhoto = (p: Place) => {
   const u = p.photo_url || (p.photo_path && /^https?:\/\//.test(p.photo_path) ? p.photo_path : null)
-  // Cloudinary: a retina-sharp centre-cropped square for the round pin. (g_auto
-  // was tried but often locked onto a dark, unrecognisable region.) Non-
-  // Cloudinary URLs (no /upload/ segment) are left untouched.
-  return u ? u.replace('/upload/', '/upload/f_auto,q_auto,w_160,h_160,c_fill/') : null
+  // Cloudinary: fit the WHOLE photo into the square (no cropping — a centre
+  // crop of tall photos showed an unrecognisable slice in the round pin) and
+  // fill the leftover edges with a blurred copy of the same photo, so the
+  // full picture reads inside the circle with no hard bars. Non-Cloudinary
+  // URLs (no /upload/ segment) are left untouched.
+  return u ? u.replace('/upload/', '/upload/f_auto,q_auto,w_160,h_160,c_pad,b_blurred:400:15/') : null
 }
 
 export default function TripMap() {
@@ -193,7 +195,7 @@ export default function TripMap() {
     if (!map || !layer) return
     layer.clearLayers()
     const points: MapPoint[] = shown.map((p) => ({ p, c: coords[p.id] })).filter((pt): pt is MapPoint => !!pt.c)
-    const groups = clusterPoints(map, points, 56)
+    const groups = clusterPoints(map, points, 46)
     const pts: L.LatLngExpression[] = []
     for (const g of groups) {
       if (g.type === 'cluster') {
@@ -210,7 +212,7 @@ export default function TripMap() {
       const photo = httpPhoto(p)
       const inner = photo ? `<img src="${photo}" alt=""/>` : `<div class="tpin-fallback" style="background:${meta.bg}"></div>`
       const icon = L.divIcon({
-        className: '', iconSize: [58, 58], iconAnchor: [29, 29],
+        className: '', iconSize: [48, 48], iconAnchor: [24, 24],
         html: `<div class="tpin ${selected?.id === p.id ? 'sel' : ''} ${coords[p.id]?.approx ? 'approx' : ''}" style="--c:${meta.fg}"><div class="tpin-b">${inner}</div></div>`,
       })
       const m = L.marker([c.lat, c.lng], { icon }).addTo(layer)
