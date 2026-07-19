@@ -113,16 +113,23 @@ export default function TripMap() {
     let alive = true
     const next: Record<string, GeoHit> = {}
     const missing: Place[] = []
+    // stored coords that a link contradicts get healed: the map link is the
+    // user's ground truth, stored values may be stale bad auto-geocodes (e.g.
+    // Nominatim matching the WRONG BRANCH of a chain restaurant)
+    const verify: { p: Place; db: LatLng }[] = []
     for (const p of tripPlaces) {
-      // a link that names the place's own point is ground truth: when the
-      // stored coords sit >250m from it they came from a bad auto-geocode —
-      // heal them (the link wins, and the fix is persisted)
       const exact = latLngFromUrlExact(p.map_url)
       if (typeof p.lat === 'number' && typeof p.lng === 'number') {
-        if (exact && haversine({ lat: p.lat, lng: p.lng }, exact) > 0.25) {
+        const db = { lat: p.lat, lng: p.lng }
+        if (exact && haversine(db, exact) > 0.25) {
           next[p.id] = exact
           setPlaceCoords(p.id, exact.lat, exact.lng).catch(() => {})
-        } else next[p.id] = { lat: p.lat, lng: p.lng }
+        } else {
+          next[p.id] = db
+          // short links carry no inline coords — follow them server-side (cached)
+          // and heal if they land somewhere else
+          if (!exact && isMapLink(p.map_url)) verify.push({ p, db })
+        }
       } else {
         const fromUrl = exact ?? latLngFromUrl(p.map_url)
         if (fromUrl) next[p.id] = fromUrl
@@ -141,6 +148,18 @@ export default function TripMap() {
         if (!r.approx) setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
       }
     }
+    // background verification of short-linked places that already have coords
+    ;(async () => {
+      for (const { p, db } of verify) {
+        if (!alive) return
+        const r = await resolveMapUrl(p.map_url!) // cached per link after first hit
+        if (!alive || !r) continue
+        if (haversine(db, r) > 0.25) {
+          setCoords((c) => ({ ...c, [p.id]: r }))
+          setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
+        }
+      }
+    })()
     // A2) links (short google/amap) — resolve server-side, in parallel (fast)
     const links = missing.filter((p) => isMapLink(p.map_url))
     const queue = [...links]
