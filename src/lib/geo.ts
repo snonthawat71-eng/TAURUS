@@ -145,7 +145,10 @@ export async function resolveMapUrl(url: string): Promise<LatLng | null> {
       if (valid(Number(j.lat), Number(j.lng))) out = { lat: Number(j.lat), lng: Number(j.lng) }
     }
   } catch { /* offline / endpoint missing */ }
-  linkCache.set(url, out); lsSet(`url2:${url}`, out)
+  // cache successes durably; failures only for this session — a blocked or
+  // flaky resolver must be retried on the next load, not remembered forever
+  linkCache.set(url, out)
+  if (out) lsSet(`url2:${url}`, out)
   return out
 }
 

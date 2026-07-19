@@ -161,13 +161,36 @@ export default function TripMap() {
         if (!r.approx) setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
       }
     }
+    // re-check stored coords against the place's own named station via the
+    // branch-guarded geocoder; heal when they disagree strongly
+    const stationSanity = async (p: Place, db: LatLng) => {
+      if (!(p.station_name ?? '').trim()) return
+      const g = await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country })
+      if (!alive || !g) return
+      if (!g.approx && haversine(db, g) > 0.25) {
+        setCoords((c) => ({ ...c, [p.id]: g }))
+        setPlaceCoords(p.id, g.lat, g.lng).catch(() => {})
+        reportHeal()
+      } else if (g.approx && haversine(db, g) > 2) {
+        // stored point is far from the user's own station and nothing better
+        // exists — show the station stand-in (dashed), don't persist
+        setCoords((c) => ({ ...c, [p.id]: g }))
+        reportHeal()
+      }
+    }
     // background verification of short-linked places that already have coords
     ;(async () => {
       for (const { p, db } of verify) {
         if (!alive) return
         const r = await resolveMapUrl(p.map_url!) // cached per link after first hit
         if (!alive) return
-        if (!r) { console.warn('[map] ตามลิงก์ไม่สำเร็จ:', p.name, p.map_url); continue }
+        if (!r) {
+          // resolver blocked/down (Google often refuses datacenter IPs) — the
+          // named station is the next-best truth, don't just give up
+          console.warn('[map] ตามลิงก์ไม่สำเร็จ:', p.name, p.map_url)
+          await stationSanity(p, db)
+          continue
+        }
         if (haversine(db, r) > 0.25) {
           setCoords((c) => ({ ...c, [p.id]: r }))
           setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
@@ -180,19 +203,7 @@ export default function TripMap() {
     ;(async () => {
       for (const p of verifyStation) {
         if (!alive) return
-        const db = { lat: p.lat as number, lng: p.lng as number }
-        const g = await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country })
-        if (!alive || !g) continue
-        if (!g.approx && haversine(db, g) > 0.25) {
-          setCoords((c) => ({ ...c, [p.id]: g }))
-          setPlaceCoords(p.id, g.lat, g.lng).catch(() => {})
-          reportHeal()
-        } else if (g.approx && haversine(db, g) > 2) {
-          // the stored point is far from the user's own station and nothing
-          // better exists — show the station stand-in (dashed), don't persist
-          setCoords((c) => ({ ...c, [p.id]: g }))
-          reportHeal()
-        }
+        await stationSanity(p, { lat: p.lat as number, lng: p.lng as number })
       }
     })()
     // A2) links (short google/amap) — resolve server-side, in parallel (fast)
