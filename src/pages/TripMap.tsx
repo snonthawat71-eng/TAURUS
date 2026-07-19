@@ -130,18 +130,21 @@ export default function TripMap() {
       const exact = latLngFromUrlExact(p.map_url)
       if (typeof p.lat === 'number' && typeof p.lng === 'number') {
         const db = { lat: p.lat, lng: p.lng }
-        if (exact && haversine(db, exact) > 0.25) {
+        if (exact) {
+          // the link IS the pin — no tolerance window; stored values only
+          // matter as a write-churn guard (>20m → persist the correction)
           next[p.id] = exact
-          setPlaceCoords(p.id, exact.lat, exact.lng).catch(() => {})
-          reportHeal()
+          if (haversine(db, exact) > 0.02) {
+            setPlaceCoords(p.id, exact.lat, exact.lng).catch(() => {})
+            if (haversine(db, exact) > 0.05) reportHeal()
+          }
         } else {
           next[p.id] = db
           // short links carry no inline coords — follow them server-side (cached)
-          // and heal if they land somewhere else
-          if (!exact && isMapLink(p.map_url)) verify.push({ p, db })
+          if (isMapLink(p.map_url)) verify.push({ p, db })
           // no usable link at all, but the user named a transit station —
           // sanity-check the stored point against it (wrong-branch geocodes)
-          else if (!exact && !isMapLink(p.map_url) && (p.station_name ?? '').trim()) verifyStation.push(p)
+          else if ((p.station_name ?? '').trim()) verifyStation.push(p)
         }
       } else {
         const fromUrl = exact ?? latLngFromUrl(p.map_url)
@@ -191,10 +194,11 @@ export default function TripMap() {
           await stationSanity(p, db)
           continue
         }
-        if (haversine(db, r) > 0.25) {
-          setCoords((c) => ({ ...c, [p.id]: r }))
+        // the link's point IS the pin — no tolerance window
+        setCoords((c) => ({ ...c, [p.id]: r }))
+        if (haversine(db, r) > 0.02) {
           setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
-          reportHeal()
+          if (haversine(db, r) > 0.05) reportHeal()
         }
       }
     })()
@@ -372,24 +376,25 @@ export default function TripMap() {
     setAudit({ running: true, done: 0, total: list.length, rows: [] })
     for (const p of list) {
       const prev = cur[p.id]
-      const apply = (c: GeoHit, persist: boolean) => {
-        const moved = !prev || haversine(prev, c) > 0.25
-        if (moved) {
-          cur[p.id] = c
-          setCoords((m) => ({ ...m, [p.id]: c }))
-          if (persist && !c.approx) setPlaceCoords(p.id, c.lat, c.lng).catch(() => {})
-        }
+      // link points apply unconditionally (the link IS the pin); geocoded
+      // points keep a 250m threshold so they can't churn a manual placement
+      const apply = (c: GeoHit, persist: boolean, force: boolean) => {
+        const moved = !prev || haversine(prev, c) > 0.05
+        if (!force && prev && haversine(prev, c) <= 0.25) return false
+        cur[p.id] = c
+        setCoords((m) => ({ ...m, [p.id]: c }))
+        if (persist && !c.approx && (!prev || haversine(prev, c) > 0.02)) setPlaceCoords(p.id, c.lat, c.lng).catch(() => {})
         return moved
       }
       let row: AuditRow
       const exact = latLngFromUrlExact(p.map_url)
       const resolved = !exact && isMapLink(p.map_url) ? await resolveMapUrl(p.map_url!) : null
-      if (exact) row = { p, status: 'link', fixed: apply(exact, true) }
-      else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true) }
+      if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
+      else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
       else if ((p.station_name ?? '').trim()) {
         const g = await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country })
-        if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true) }
-        else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, false) }
+        if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, false) }
+        else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, false, false) }
         else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false }
       } else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false }
       rows.push(row)
