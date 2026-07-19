@@ -257,17 +257,29 @@ async function photonRaw(query: string): Promise<LatLng | null> {
 
 export interface GeoHit extends LatLng { approx?: boolean }
 
+/** Great-circle distance in km. */
+export function distKm(a: LatLng, b: LatLng): number {
+  const R = 6371, toR = Math.PI / 180
+  const dLat = (b.lat - a.lat) * toR, dLng = (b.lng - a.lng) * toR
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * toR) * Math.cos(b.lat * toR) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(s))
+}
+
 /** C+) Multi-step geocode for a place. Tries, in order:
  *  1. Nominatim — full name + city + country, then the cleaned name
  *  2. Photon    — fuzzy match on name + city (handles typos/decorations)
  *  3. the transit STATION as a stand-in → returned with approx: true
+ *  A name hit further than 2km from the place's own transit station is
+ *  rejected as the WRONG BRANCH (chain restaurants!) — it retries near the
+ *  station, else falls back to the station point.
  *  Cached (memory + localStorage) under one key per place. */
 const smartCache = new Map<string, GeoHit | null>()
 export function geocodeSmart(o: { name?: string | null; station?: string | null; city?: string | null; country?: string | null }): Promise<GeoHit | null> {
   const name = (o.name ?? '').trim(), station = (o.station ?? '').trim()
   const city = (o.city ?? '').trim(), country = (o.country ?? '').trim()
   if (!name && !station) return Promise.resolve(null)
-  const key = `smart:${[name, station, city, country].join('|')}`
+  // smart2: bust results cached before the wrong-branch guard existed
+  const key = `smart2:${[name, station, city, country].join('|')}`
   if (smartCache.has(key)) return Promise.resolve(smartCache.get(key) ?? null)
   const cached = lsGet(key) as GeoHit | null | undefined
   if (cached !== undefined) { smartCache.set(key, cached); return Promise.resolve(cached) }
@@ -281,19 +293,38 @@ export function geocodeSmart(o: { name?: string | null; station?: string | null;
       await sleep(1100) // be polite to Nominatim
       return r
     }
-    let hit: GeoHit | null = null
+    // the station's own point — the anchor for the wrong-branch check AND the
+    // last-resort stand-in; resolved lazily, at most once
+    let sp: LatLng | null | undefined
+    const stationPoint = async (): Promise<LatLng | null> => {
+      if (sp !== undefined) return sp
+      sp = station
+        ? await tryNom([`${station} station`, city, country])
+          || await tryNom([station, city, country])
+          || await photonRaw([station, city, country].filter(Boolean).join(' '))
+        : null
+      return sp
+    }
     // 1) Nominatim ladder
     let r = name ? await tryNom([name, city, country]) : null
     if (!r && cleaned && cleaned !== name) r = await tryNom([cleaned, city, country])
     // 2) Photon fuzzy
     if (!r && name) r = await photonRaw([name, city].filter(Boolean).join(' '))
     if (!r && cleaned && cleaned !== name) r = await photonRaw([cleaned, city, country].filter(Boolean).join(' '))
-    // 3) station stand-in — approximate, flagged so the UI can say so
+    // wrong-branch guard: the user told us which station the place is at — a
+    // "match" 2km+ away is another branch of the same name. Retry anchored to
+    // the station; if that fails too, the station stand-in wins.
+    if (r && station) {
+      const s = await stationPoint()
+      if (s && distKm(r, s) > 2) {
+        const near = await photonRaw([name, station, city].filter(Boolean).join(' '))
+        r = near && distKm(near, s) <= 2 ? near : null
+      }
+    }
+    let hit: GeoHit | null = null
     if (r) hit = { ...r, approx: false }
-    else if (station) {
-      const s = await tryNom([`${station} station`, city, country])
-        || await tryNom([station, city, country])
-        || await photonRaw([station, city, country].filter(Boolean).join(' '))
+    else {
+      const s = await stationPoint()
       if (s) hit = { ...s, approx: true }
     }
     smartCache.set(key, hit); lsSet(key, hit)

@@ -113,10 +113,19 @@ export default function TripMap() {
     let alive = true
     const next: Record<string, GeoHit> = {}
     const missing: Place[] = []
+    // a "แก้พิกัดให้แล้ว N จุด" toast once the healing passes settle
+    let healed = 0
+    let healTimer: ReturnType<typeof setTimeout> | undefined
+    const reportHeal = () => {
+      healed++
+      clearTimeout(healTimer)
+      healTimer = setTimeout(() => { if (alive) toast.success(`ปรับตำแหน่งหมุดให้ถูกต้องแล้ว ${healed} จุด`) }, 1800)
+    }
     // stored coords that a link contradicts get healed: the map link is the
     // user's ground truth, stored values may be stale bad auto-geocodes (e.g.
     // Nominatim matching the WRONG BRANCH of a chain restaurant)
     const verify: { p: Place; db: LatLng }[] = []
+    const verifyStation: Place[] = []
     for (const p of tripPlaces) {
       const exact = latLngFromUrlExact(p.map_url)
       if (typeof p.lat === 'number' && typeof p.lng === 'number') {
@@ -124,11 +133,15 @@ export default function TripMap() {
         if (exact && haversine(db, exact) > 0.25) {
           next[p.id] = exact
           setPlaceCoords(p.id, exact.lat, exact.lng).catch(() => {})
+          reportHeal()
         } else {
           next[p.id] = db
           // short links carry no inline coords — follow them server-side (cached)
           // and heal if they land somewhere else
           if (!exact && isMapLink(p.map_url)) verify.push({ p, db })
+          // no usable link at all, but the user named a transit station —
+          // sanity-check the stored point against it (wrong-branch geocodes)
+          else if (!exact && !isMapLink(p.map_url) && (p.station_name ?? '').trim()) verifyStation.push(p)
         }
       } else {
         const fromUrl = exact ?? latLngFromUrl(p.map_url)
@@ -153,10 +166,32 @@ export default function TripMap() {
       for (const { p, db } of verify) {
         if (!alive) return
         const r = await resolveMapUrl(p.map_url!) // cached per link after first hit
-        if (!alive || !r) continue
+        if (!alive) return
+        if (!r) { console.warn('[map] ตามลิงก์ไม่สำเร็จ:', p.name, p.map_url); continue }
         if (haversine(db, r) > 0.25) {
           setCoords((c) => ({ ...c, [p.id]: r }))
           setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
+          reportHeal()
+        }
+      }
+    })()
+    // background sanity-check of linkless places against their named station —
+    // heals wrong-branch geocodes persisted before the guard existed
+    ;(async () => {
+      for (const p of verifyStation) {
+        if (!alive) return
+        const db = { lat: p.lat as number, lng: p.lng as number }
+        const g = await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country })
+        if (!alive || !g) continue
+        if (!g.approx && haversine(db, g) > 0.25) {
+          setCoords((c) => ({ ...c, [p.id]: g }))
+          setPlaceCoords(p.id, g.lat, g.lng).catch(() => {})
+          reportHeal()
+        } else if (g.approx && haversine(db, g) > 2) {
+          // the stored point is far from the user's own station and nothing
+          // better exists — show the station stand-in (dashed), don't persist
+          setCoords((c) => ({ ...c, [p.id]: g }))
+          reportHeal()
         }
       }
     })()
@@ -180,7 +215,7 @@ export default function TripMap() {
         gotCoords(p, await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country }))
       }
     })()
-    return () => { alive = false }
+    return () => { alive = false; clearTimeout(healTimer) }
   }, [tripPlaces, trip?.country])
 
   const shown = useMemo(() => {

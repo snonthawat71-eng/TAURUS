@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { updateWithVersion } from './concurrency'
 import { runOrQueue } from './offlineQueue'
 import { toastDbError } from './toast'
+import { latLngFromUrl, latLngFromUrlExact, isMapLink, resolveMapUrl } from './geo'
 import type { Place } from './database.types'
 
 export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
@@ -16,17 +17,34 @@ function stripUnknown(payload: Record<string, unknown>, msg: string) {
   return changed ? copy : null
 }
 
+/** Resolve a place's coordinates from its map link and store them — so pins
+ *  are correct the moment a place is saved, never left to name-guessing.
+ *  Exact in-URL coords parse instantly; short links resolve server-side.
+ *  Fire-and-forget: failures are silent (the map page heals later). */
+export async function syncCoordsFromLink(id: string, mapUrl: string) {
+  try {
+    const c = latLngFromUrlExact(mapUrl)
+      ?? (isMapLink(mapUrl) ? await resolveMapUrl(mapUrl) : latLngFromUrl(mapUrl))
+    if (c) await setPlaceCoords(id, c.lat, c.lng)
+  } catch { /* offline / resolver down — nothing lost */ }
+}
+
 export async function addPlace(trip_id: string, input: PlaceInput) {
   const payload: Record<string, unknown> = { id: crypto.randomUUID(), trip_id, in_plan: false, ...input }
-  return runOrQueue(async () => {
-    let res = await supabase.from('places').insert(payload)
-    if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').insert(s) }
-    return res
+  const res = await runOrQueue(async () => {
+    let r = await supabase.from('places').insert(payload)
+    if (r.error) { const s = stripUnknown(payload, r.error.message); if (s) r = await supabase.from('places').insert(s) }
+    return r
   }, { kind: 'insert', table: 'places', payload })
+  if (typeof input.map_url === 'string' && input.map_url) void syncCoordsFromLink(payload.id as string, input.map_url)
+  return res
 }
 
 export async function updatePlace(id: string, fields: PlaceInput, expectedVersion?: number) {
-  return updateWithVersion('places', id, { ...fields }, expectedVersion, (p, msg) => stripUnknown(p, msg))
+  const res = await updateWithVersion('places', id, { ...fields }, expectedVersion, (p, msg) => stripUnknown(p, msg))
+  // link edited → re-derive the pin from it (the link is ground truth)
+  if (typeof fields.map_url === 'string' && fields.map_url) void syncCoordsFromLink(id, fields.map_url)
+  return res
 }
 
 /** Write just the map pin (lat/lng) — no version bump. Used to cache a geocode
@@ -54,10 +72,16 @@ export async function copyPlaceToTrip(
     plan_branch: opts?.planBranch ?? null,
     map_url: place.map_url, note: place.note, in_plan: opts?.inPlan ?? false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, photo_focus: place.photo_focus ?? null, photos: place.photos ?? null, city: place.city,
     menu_paths: place.menu_paths ?? null,
+    // carry the resolved pin along — the copy must not fall back to name-guessing
+    lat: place.lat ?? null, lng: place.lng ?? null,
     source_explore_id: sourceExploreId ?? null,
   }
   let res = await supabase.from('places').insert(payload)
   if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').insert(s) }
+  // no pin came along but there's a link → resolve it right now
+  if (!res.error && place.lat == null && typeof place.map_url === 'string' && place.map_url) {
+    void syncCoordsFromLink(payload.id as string, place.map_url)
+  }
   return res
 }
 
