@@ -56,12 +56,10 @@ function clusterPoints(map: L.Map, points: MapPoint[], radiusPx: number): MapGro
 }
 const httpPhoto = (p: Place) => {
   const u = p.photo_url || (p.photo_path && /^https?:\/\//.test(p.photo_path) ? p.photo_path : null)
-  // Cloudinary: fit the WHOLE photo into the square (no cropping — a centre
-  // crop of tall photos showed an unrecognisable slice in the round pin) and
-  // fill the leftover edges with a blurred copy of the same photo, so the
-  // full picture reads inside the circle with no hard bars. Non-Cloudinary
-  // URLs (no /upload/ segment) are left untouched.
-  return u ? u.replace('/upload/', '/upload/f_auto,q_auto,w_160,h_160,c_pad,b_blurred:400:15/') : null
+  // Cloudinary: the same square crop the selected card's thumbnail uses.
+  // (b_blurred padding 404'd outright on some stored photos — never again.)
+  // Non-Cloudinary URLs (no /upload/ segment) are left untouched.
+  return u ? u.replace('/upload/', '/upload/f_auto,q_auto,w_160,h_160,c_fill/') : null
 }
 
 export default function TripMap() {
@@ -210,7 +208,11 @@ export default function TripMap() {
       const { p, c } = g
       const meta = catMeta(p.category)
       const photo = httpPhoto(p)
-      const inner = photo ? `<img src="${photo}" alt=""/>` : `<div class="tpin-fallback" style="background:${meta.bg}"></div>`
+      // inline styles on the img — the pin then renders the photo exactly like
+      // the card thumbnail regardless of any stale cached stylesheet
+      const inner = photo
+        ? `<img src="${photo}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"/>`
+        : `<div class="tpin-fallback" style="background:${meta.bg}"></div>`
       const icon = L.divIcon({
         className: '', iconSize: [48, 48], iconAnchor: [24, 24],
         html: `<div class="tpin ${selected?.id === p.id ? 'sel' : ''} ${coords[p.id]?.approx ? 'approx' : ''}" style="--c:${meta.fg}"><div class="tpin-b">${inner}</div></div>`,
