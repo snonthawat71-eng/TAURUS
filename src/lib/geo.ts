@@ -281,6 +281,24 @@ export function cleanPlaceName(name: string): string {
     .replace(/\s+/g, ' ').trim()
 }
 
+/** Google's shared-link address comes LOCALIZED: CJK unit/building tokens and a
+ *  Thai (or other-script) country word tangled up with the Latin street +
+ *  district — e.g. "A座地下F-G舖 ICHIRAN Hong Kong, Causeway Bay, 駱克大廈 440號
+ *  Jaffe Rd, Causeway Bay, ฮ่องกง". Nominatim can't read that mixed string, but
+ *  the street + district ("440 Jaffe Rd, Causeway Bay") ARE geocodable — so
+ *  drop the non-Latin noise and let the trip's country anchor it. */
+export function cleanAddress(address: string, country?: string): string {
+  const s = address
+    .replace(/[　-〿㐀-鿿豈-﫿]/g, ' ') // CJK ideographs & symbols
+    .replace(/[฀-๿]+/g, ' ')                          // Thai (the localized country word)
+    .replace(/\s+/g, ' ')
+    .split(',').map((x) => x.trim()).filter(Boolean).join(', ') // drop segments the strip emptied
+    .trim()
+  const c = (country ?? '').trim()
+  // make sure a country anchors the query when the localized one was stripped
+  return c && !new RegExp(c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(s) ? `${s}, ${c}` : s
+}
+
 // Photon (komoot) — free OSM geocoder, fuzzy/typo-tolerant where Nominatim
 // wants near-exact matches. No key, CORS-open. Optional proximity bias.
 async function photonRaw(query: string, near?: LatLng): Promise<LatLng | null> {
@@ -341,9 +359,9 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
   const address = (o.address ?? '').trim()
   const near = o.near ?? undefined
   if (!name && !station && !address) return Promise.resolve(null)
-  // smart4: address-first geocoding added — bust name-only cached results
+  // smart5: address is now latinized before geocoding — bust prior results
   const nk = near ? `${near.lat.toFixed(2)},${near.lng.toFixed(2)}` : ''
-  const key = `smart4:${[name, address, station, city, country, nk].join('|')}`
+  const key = `smart5:${[name, address, station, city, country, nk].join('|')}`
   if (smartCache.has(key)) return Promise.resolve(smartCache.get(key) ?? null)
   const cached = lsGet(key) as GeoHit | null | undefined
   if (cached !== undefined) { smartCache.set(key, cached); return Promise.resolve(cached) }
@@ -374,12 +392,16 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
       return sp
     }
     // 0) Google's OWN canonical address (name + street + district) is the most
-    // precise signal there is — geocode it verbatim, proximity-biased, before
-    // anything else. This is what lands a ?g_st=ic link that returns an address
-    // (but no coordinate) on the right building instead of a bare-name wrong
-    // branch or the transit-station stand-in.
-    let r: LatLng | null = address ? await tryNom([address]) : null
-    if (!r && address) r = await photonRaw(address, near)
+    // precise signal there is — geocode it proximity-biased, before anything
+    // else. Google localizes it (CJK unit/building tokens + a Thai country word
+    // tangled with the Latin street), which Nominatim can't read — so try a
+    // cleaned/latinized form first, then the raw string as a backstop. This is
+    // what lands a ?g_st=ic link (which carries an address but no coordinate) on
+    // the right building instead of a bare-name wrong branch or the station.
+    const addrClean = address ? cleanAddress(address, country) : ''
+    let r: LatLng | null = addrClean ? await tryNom([addrClean]) : null
+    if (!r && addrClean) r = await photonRaw(addrClean, near)
+    if (!r && address && address !== addrClean) r = await tryNom([address])
     // 0b) Mapbox POI (proximity-biased) — no-ops without VITE_MAPBOX_TOKEN
     if (!r && name) r = await mapboxRaw([name, city].filter(Boolean).join(' '), near)
     if (!r && cleaned && cleaned !== name) r = await mapboxRaw([cleaned, city].filter(Boolean).join(' '), near)

@@ -23,7 +23,7 @@ globalThis.localStorage = {
 
 const dir = mkdtempSync(join(tmpdir(), 'geotest-'))
 execSync(`npx esbuild src/lib/geo.ts --bundle --format=esm --outfile=${join(dir, 'geo.mjs')}`, { stdio: 'pipe' })
-const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm } = await import(join(dir, 'geo.mjs'))
+const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm, cleanAddress } = await import(join(dir, 'geo.mjs'))
 
 // ---- 1. URL precedence ----
 console.log('URL parsing')
@@ -77,6 +77,16 @@ ok(g1 && distKm(g1, { lat: 22.2775, lng: 114.1725 }) < 0.1, `stand-in sits AT th
 const g2 = await geocodeSmart({ name: 'Cafe Near', station: 'Wan Chai', city: 'Hong Kong', country: 'Hong Kong' })
 ok(g2 && g2.approx === false, 'name match near the station is accepted as exact')
 ok(g2 && Math.abs(g2.lat - 22.28) < 1e-6, 'accepted hit keeps its own coords')
+
+// ---- 3a2. cleanAddress: Google's LOCALIZED address (real ICHIRAN shape,
+// captured from production) — CJK unit/building + Thai country are stripped so
+// Nominatim can read the Latin street + district ----
+console.log('cleanAddress (real ICHIRAN shape)')
+const ichAddr = 'A座地下F-G舖 ICHIRAN Hong Kong, Causeway Bay, 駱克大廈 440號 Jaffe Rd, Causeway Bay, ฮ่องกง'
+const ichClean = cleanAddress(ichAddr, 'Hongkong')
+ok(!/[　-鿿฀-๿]/.test(ichClean), `CJK + Thai stripped (got "${ichClean}")`)
+ok(ichClean.includes('Jaffe Rd') && ichClean.includes('Causeway Bay'), 'the geocodable street + district survive')
+ok(ichClean.includes('Hongkong'), 'country anchor kept (was Thai, now the trip country)')
 
 // ---- 3b. address-first: Google's canonical address (name + street + district)
 // geocodes precisely and wins over the bare name — the ?g_st=ic fix ----
