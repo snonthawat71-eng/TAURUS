@@ -141,6 +141,27 @@ ok(gAddr && gAddr.approx === false && Math.abs(gAddr.lat - 22.3405) < 1e-6,
   `canonical address geocodes to its own point, not a station stand-in (got ${gAddr?.lat},${gAddr?.lng})`)
 globalThis.fetch = mainMock
 
+// ---- 3c. landmark far from its station: an ADDRESS-based hit must NOT be
+// bounced back to the station by the wrong-branch guard (that guard is only for
+// bare-name chain matches). Tian Tan Buddha sits ~6km from Tung Chung. ----
+console.log('geocodeSmart landmark far from station')
+globalThis.fetch = async (url) => {
+  const s = decodeURIComponent(String(url))
+  if (s.includes('/api/hk-geocode')) return json({ error: 'no match' }) // ALS misses rural Lantau
+  if (s.includes('nominatim') && s.includes('Ngong Ping')) return json([{ lat: '22.2540', lon: '113.9050' }]) // the Buddha (from its address)
+  if (s.includes('nominatim') && s.includes('Tung Chung')) return json([{ lat: '22.2890', lon: '113.9410' }]) // the station, ~6km away
+  if (s.includes('nominatim')) return json([])
+  if (s.includes('photon')) return json({ features: [] })
+  throw new Error('unexpected ' + s)
+}
+const gLandmark = await geocodeSmart({
+  name: 'Tian Tan Buddha', address: 'Tian Tan Buddha, Ngong Ping Rd, Lantau Island, Hong Kong',
+  station: 'Tung Chung', city: 'Hong Kong', country: 'Hong Kong', near: { lat: 22.27, lng: 113.92 },
+})
+ok(gLandmark && gLandmark.approx === false && Math.abs(gLandmark.lat - 22.2540) < 1e-6,
+  `far-from-station landmark keeps its address point, not the station stand-in (got ${gLandmark?.lat},${gLandmark?.lng}, approx=${gLandmark?.approx})`)
+globalThis.fetch = mainMock
+
 // ---- 4. failed resolutions are not persisted ----
 console.log('resolveMapUrl()')
 const r4 = await resolveMapUrl('https://maps.app.goo.gl/testfail123')

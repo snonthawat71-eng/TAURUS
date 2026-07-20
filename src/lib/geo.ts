@@ -425,9 +425,9 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
   const address = (o.address ?? '').trim()
   const near = o.near ?? undefined
   if (!name && !station && !address) return Promise.resolve(null)
-  // smart9: HK official address DB (ALS) added ahead of OSM — bust prior results
+  // smart10: HK official address DB (ALS) added ahead of OSM — bust prior results
   const nk = near ? `${near.lat.toFixed(2)},${near.lng.toFixed(2)}` : ''
-  const key = `smart9:${[name, address, station, city, country, nk].join('|')}`
+  const key = `smart10:${[name, address, station, city, country, nk].join('|')}`
   if (smartCache.has(key)) return Promise.resolve(smartCache.get(key) ?? null)
   const cached = lsGet(key) as GeoHit | null | undefined
   if (cached !== undefined) { smartCache.set(key, cached); return Promise.resolve(cached) }
@@ -481,6 +481,12 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
     if (!r && addrClean) r = await tryNom([addrClean])
     if (!r && addrClean) r = await photonRaw(addrClean, near)
     if (!r && address && address !== addrClean) r = await tryNom([address])
+    // a hit here came from the place's OWN specific address (or ALS) — it's
+    // trustworthy as-is and must skip the station wrong-branch guard below, which
+    // exists only for bare-name chain matches. Without this, a landmark that's
+    // legitimately far from its nearest station (Tian Tan Buddha ~6km from Tung
+    // Chung, reached by cable car) gets wrongly bounced back to the station.
+    const addrBased = !!r
     // 0b) Mapbox POI (proximity-biased) — no-ops without VITE_MAPBOX_TOKEN
     if (!r && name) r = await mapboxRaw([name, city].filter(Boolean).join(' '), near)
     if (!r && cleaned && cleaned !== name) r = await mapboxRaw([cleaned, city].filter(Boolean).join(' '), near)
@@ -492,8 +498,9 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
     if (!r && cleaned && cleaned !== name) r = await photonRaw([cleaned, city, country].filter(Boolean).join(' '), near)
     // wrong-branch guard: the user told us which station the place is at — a
     // "match" 2km+ away is another branch of the same name. Retry anchored to
-    // the station; if that fails too, the station stand-in wins.
-    if (r && station) {
+    // the station; if that fails too, the station stand-in wins. Only for
+    // bare-NAME hits — an address/ALS match (addrBased) is specific, so trust it.
+    if (r && station && !addrBased) {
       const s = await stationPoint()
       if (s && distKm(r, s) > 2) {
         const nearHit = await mapboxRaw([name, station, city].filter(Boolean).join(' '), s)
