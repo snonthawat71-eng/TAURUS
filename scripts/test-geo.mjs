@@ -97,6 +97,8 @@ ok(alsQuery('Lau Haa Hot Pot, 12 Percival Street, Causeway Bay, Hong Kong') === 
   'house-numbered street is found past a multi-word name')
 ok(alsQuery('Some Cafe, Nathan Road, Mong Kok, Hong Kong') === 'Nathan Road, Mong Kok',
   'no house number → falls back to the road-word segment')
+ok(alsQuery('Lockhart House, Lau Haa Hot Pot Restaurant, Lockhart Rd, Causeway Bay, Hongkong') === 'Lockhart House, Lockhart Rd, Causeway Bay',
+  `numberless address keeps the BUILDING NAME so ALS pins the building, not the road centre (got "${alsQuery('Lockhart House, Lau Haa Hot Pot Restaurant, Lockhart Rd, Causeway Bay, Hongkong')}")`)
 ok(alsQuery('ICHIRAN, Causeway Bay') === '',
   'no street-like segment → empty (caller skips the street query)')
 

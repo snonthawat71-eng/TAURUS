@@ -303,21 +303,30 @@ export function cleanAddress(address: string, country?: string): string {
 // Bay") — that's exactly what our health probe sends — but a leading business
 // name ("ICHIRAN Hong Kong, Causeway Bay, 440 Jaffe Rd, …") throws its parser
 // off and it returns the wrong building. So reduce a full Google address to
-// just its street→district tail before querying ALS: find the first segment
-// that starts with a house number (or carries a road-type word) and keep from
-// there, dropping the bare country token ALS doesn't need. Returns '' when
-// nothing street-like is present (caller then skips ALS / uses the full string).
+// what ALS can actually resolve:
+//   • has a house number ("440 Jaffe Rd") → the street→district tail wins
+//   • no house number, but a building name ("Lockhart House, …, Lockhart Rd")
+//     → keep the BUILDING NAME + road + district, so ALS pins the building
+//     instead of the middle of the road (the Lau Haa case)
+// Drops the bare country token ALS doesn't need. Returns '' when nothing
+// street-like is present (caller then skips ALS / uses the full string).
 const ROAD_WORD = /\b(rd|road|st|street|ave|avenue|lane|ln|path|terr|terrace|praya|crescent|circuit|square|plaza|drive|dr|hill|way|estate|street)\b/i
+const BUILDING_WORD = /\b(house|mansion|building|bldg|tower|centre|center|plaza|court|mall|garden|estate|block|arcade|apartments?|heights|villas?)\b/i
+const isCountryTok = (s: string) => /^(hong\s?kong|hongkong|hk|china|prc)$/i.test(s)
 export function alsQuery(addrClean: string): string {
   const segs = addrClean.split(',').map((s) => s.trim()).filter(Boolean)
   if (!segs.length) return ''
-  // street segment: begins with a house number (not a decimal coord), else the
-  // first segment that carries a road-type keyword
-  let i = segs.findIndex((s) => /^\d{1,4}[a-z]?\b/i.test(s) && !/^\d+\.\d/.test(s))
-  if (i < 0) i = segs.findIndex((s) => ROAD_WORD.test(s))
-  if (i < 0) return ''
-  const tail = segs.slice(i).filter((s) => !/^(hong\s?kong|hongkong|hk|china|prc)$/i.test(s))
-  return tail.join(', ')
+  // 1) a real house number is the strongest signal — take the street tail as-is
+  const num = segs.findIndex((s) => /^\d{1,4}[a-z]?\b/i.test(s) && !/^\d+\.\d/.test(s))
+  if (num >= 0) return segs.slice(num).filter((s) => !isCountryTok(s)).join(', ')
+  // 2) no number: anchor on the building name (if any) + the road + district, so
+  // ALS resolves the actual building rather than defaulting to the road centre
+  const road = segs.findIndex((s) => ROAD_WORD.test(s))
+  const bldg = segs.findIndex((s) => BUILDING_WORD.test(s))
+  const picks: string[] = []
+  if (bldg >= 0) picks.push(segs[bldg])
+  if (road >= 0) for (const s of segs.slice(road)) if (!isCountryTok(s) && s !== segs[bldg]) picks.push(s)
+  return picks.join(', ')
 }
 
 // HK Government official Address Lookup Service (ALS/OGCIO), via our own
@@ -416,9 +425,9 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
   const address = (o.address ?? '').trim()
   const near = o.near ?? undefined
   if (!name && !station && !address) return Promise.resolve(null)
-  // smart7: HK official address DB (ALS) added ahead of OSM — bust prior results
+  // smart8: HK official address DB (ALS) added ahead of OSM — bust prior results
   const nk = near ? `${near.lat.toFixed(2)},${near.lng.toFixed(2)}` : ''
-  const key = `smart7:${[name, address, station, city, country, nk].join('|')}`
+  const key = `smart8:${[name, address, station, city, country, nk].join('|')}`
   if (smartCache.has(key)) return Promise.resolve(smartCache.get(key) ?? null)
   const cached = lsGet(key) as GeoHit | null | undefined
   if (cached !== undefined) { smartCache.set(key, cached); return Promise.resolve(cached) }
