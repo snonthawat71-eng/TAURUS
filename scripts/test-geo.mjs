@@ -148,8 +148,11 @@ console.log('geocodeSmart landmark far from station')
 globalThis.fetch = async (url) => {
   const s = decodeURIComponent(String(url))
   if (s.includes('/api/hk-geocode')) return json({ error: 'no match' }) // ALS misses rural Lantau
-  if (s.includes('nominatim') && s.includes('Ngong Ping')) return json([{ lat: '22.2540', lon: '113.9050' }]) // the Buddha (from its address)
-  if (s.includes('nominatim') && s.includes('Tung Chung')) return json([{ lat: '22.2890', lon: '113.9410' }]) // the station, ~6km away
+  // the numberless address resolves to the ROAD/village (~500m off the statue)
+  if (s.includes('nominatim') && s.includes('Ngong Ping')) return json([{ lat: '22.2565', lon: '113.9105' }])
+  // the bare NAME resolves to the statue POI itself — the refinement target
+  if (s.includes('nominatim') && s.includes('Tian Tan Buddha')) return json([{ lat: '22.2540', lon: '113.9052' }])
+  if (s.includes('nominatim') && s.includes('Tung Chung')) return json([{ lat: '22.2890', lon: '113.9410' }]) // station, ~6km away
   if (s.includes('nominatim')) return json([])
   if (s.includes('photon')) return json({ features: [] })
   throw new Error('unexpected ' + s)
@@ -158,8 +161,8 @@ const gLandmark = await geocodeSmart({
   name: 'Tian Tan Buddha', address: 'Tian Tan Buddha, Ngong Ping Rd, Lantau Island, Hong Kong',
   station: 'Tung Chung', city: 'Hong Kong', country: 'Hong Kong', near: { lat: 22.27, lng: 113.92 },
 })
-ok(gLandmark && gLandmark.approx === false && Math.abs(gLandmark.lat - 22.2540) < 1e-6,
-  `far-from-station landmark keeps its address point, not the station stand-in (got ${gLandmark?.lat},${gLandmark?.lng}, approx=${gLandmark?.approx})`)
+ok(gLandmark && gLandmark.approx === false && Math.abs(gLandmark.lat - 22.2540) < 1e-6 && Math.abs(gLandmark.lng - 113.9052) < 1e-6,
+  `landmark snaps to its named POI, not the road/village or the station (got ${gLandmark?.lat},${gLandmark?.lng}, approx=${gLandmark?.approx})`)
 globalThis.fetch = mainMock
 
 // ---- 4. failed resolutions are not persisted ----
