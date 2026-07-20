@@ -56,6 +56,16 @@ export async function setPlaceCoords(id: string, lat: number | null, lng: number
   return res
 }
 
+/** Persist a HAND-SET pin: writes lat/lng AND stamps map_url with a coordinate
+ *  URL (unless a coordinate-bearing link is supplied to keep). Because the
+ *  coordinate now lives in map_url, `latLngFromUrlExact` treats it as URL-exact
+ *  ground truth everywhere — no later geocode, healer, or audit can ever move
+ *  it. This is what makes a manually-placed pin permanent. */
+export async function setManualPin(id: string, lat: number, lng: number, mapUrl?: string) {
+  const map_url = mapUrl ?? `https://www.google.com/maps?q=${lat},${lng}`
+  return supabase.from('places').update({ lat, lng, map_url }).eq('id', id)
+}
+
 export async function deletePlace(id: string) {
   return runOrQueue(() => supabase.from('places').delete().eq('id', id), { kind: 'delete', table: 'places', id })
 }

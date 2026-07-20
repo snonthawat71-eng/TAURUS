@@ -509,19 +509,6 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
         fromAls = false // replaced by an OSM/Mapbox point — no longer authoritative
       }
     }
-    // POI refinement for landmarks: OSM often resolves a numberless address
-    // ("Tian Tan Buddha, Ngong Ping Rd, …") to the ROAD/village rather than the
-    // named point. When the hit came from an address (not ALS) and the address
-    // has NO house number, look up the NAME as a POI near that point and snap to
-    // it if it's close — so a landmark lands on itself, not the nearest road.
-    // Gated to numberless, non-ALS hits so precise restaurant pins are untouched.
-    const addrHasNumber = /(^|,)\s*\d{1,4}[a-z]?\b/i.test(addrClean)
-    if (r && addrBased && !fromAls && name && !addrHasNumber) {
-      const poi = await mapboxRaw([name, city].filter(Boolean).join(' '), r)
-        || await photonRaw([name, city].filter(Boolean).join(' '), r)
-        || await tryNom([name, city, country], r)
-      if (poi && distKm(poi, r) <= 1) r = poi // close by → same place, snap to its POI
-    }
     let hit: GeoHit | null = null
     if (r) hit = { ...r, approx: false, ...(fromAls ? { precise: true } : {}) }
     else {

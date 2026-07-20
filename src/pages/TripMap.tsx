@@ -6,7 +6,7 @@ import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, Icon
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, alsHealth, cleanAddress, alsQuery, type LatLng, type GeoHit } from '@/lib/geo'
-import { setPlaceCoords } from '@/lib/placeMutations'
+import { setPlaceCoords, setManualPin } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
 import type { Place } from '@/lib/database.types'
@@ -201,13 +201,14 @@ export default function TripMap() {
       if (!(p.station_name ?? '').trim() && !searchName && !address) return
       const g = await geocodeSmart({ name: searchName || undefined, address, station: p.station_name, city: p.city, country: trip?.country, near: tripNear })
       if (!alive || !g) return
-      // ONLY an authoritative ALS building match (g.precise) may overwrite a
-      // coordinate the place already has — a fuzzy OSM/name hit or a station
-      // stand-in must never move a pin the user set by hand (or a previously
-      // good value). This is what "respect the numeric coordinate" means: once a
-      // place has a real coordinate, re-geocoding can refine it only with a
-      // source that's more accurate than OSM, never drift it to the road/village.
-      if (g.precise && !g.approx && haversine(db, g) > 0.25) {
+      // a hand-set pin is stamped into map_url as a coordinate URL, so it's
+      // caught as URL-exact ABOVE (line ~138) and never reaches here — this
+      // healing only ever touches auto-geocoded points.
+      if (!g.approx && haversine(db, g) > 0.25) {
+        setCoords((c) => ({ ...c, [p.id]: g }))
+        setPlaceCoords(p.id, g.lat, g.lng).catch(() => {})
+        reportHeal()
+      } else if (g.approx && haversine(db, g) > 2) {
         setCoords((c) => ({ ...c, [p.id]: g }))
         setPlaceCoords(p.id, g.lat, g.lng).catch(() => {})
         reportHeal()
@@ -355,9 +356,15 @@ export default function TripMap() {
     if (pts.length && !fitted.current) { map.fitBounds(L.latLngBounds(pts).pad(0.2), { maxZoom: 15 }); fitted.current = true }
   }, [shown, coords, selected, zoomTick])
 
-  function applyCoords(p: Place, c: LatLng) {
+  function applyCoords(p: Place, c: LatLng, sourceUrl?: string) {
     setCoords((m) => ({ ...m, [p.id]: c }))
-    setPlaceCoords(p.id, c.lat, c.lng).catch(() => {})
+    // Make the hand-set point PERMANENT: stamp map_url so the coordinate is
+    // URL-exact ground truth (no geocode/audit can move it). Keep the pasted
+    // source only when it already carries this exact coordinate in-URL (a full
+    // Google/Apple link) — otherwise write a clean coordinate URL.
+    const exact = sourceUrl ? latLngFromUrlExact(sourceUrl) : null
+    const map_url = exact && haversine(exact, c) < 0.05 ? sourceUrl : undefined
+    setManualPin(p.id, c.lat, c.lng, map_url).catch(() => {})
     setPlacing(null); setLinkText('')
     fitted.current = true // don't auto-refit after a manual pin
     mapRef.current?.setView([c.lat, c.lng], 15)
@@ -379,13 +386,15 @@ export default function TripMap() {
   // maps.app.goo.gl) that carry no coords — those get resolved server-side.
   const [resolving, setResolving] = useState(false)
   async function usePasted(p: Place, text: string) {
-    const direct = parsePasted(text)
-    if (direct) { applyCoords(p, direct); return }
     const t = text.trim()
+    const direct = parsePasted(text)
+    // pass the pasted text as the source URL so a full coordinate-bearing link
+    // is kept as-is; a bare "lat,lng" (no URL) → applyCoords stamps a coord URL
+    if (direct) { applyCoords(p, direct, /^https?:/i.test(t) ? t : undefined); return }
     if (isMapLink(t)) {
       setResolving(true)
       const r = await resolveMapUrl(t).finally(() => setResolving(false))
-      if (r) { applyCoords(p, r); return }
+      if (r) { applyCoords(p, r); return } // short link resolved → stamp coord URL (short link isn't URL-exact)
     }
     toast.error('อ่านพิกัดจากที่วางไม่ได้ — ใช้ลิงก์ Google/AMap หรือพิมพ์ 22.30,114.17')
   }
@@ -488,15 +497,11 @@ export default function TripMap() {
           else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
           else if ((p.station_name ?? '').trim()) {
             const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, address: linkFailed ? resolvedLinkAddress(p.map_url) : undefined, station: p.station_name, city: p.city, country: trip?.country, near: auditNear })
-            // ALS building matches (g.precise) are authoritative → force-apply,
-            // past the 250m guard. A fuzzy OSM hit or a station stand-in only
-            // FILLS a place that has no pin yet — it must never overwrite an
-            // existing numeric coordinate (a hand-set pin, or a prior good value).
-            if (g && !g.approx && g.precise) row = { p, status: 'station', fixed: apply(g, true, true), linkFailed }
-            else if (g && !prev) row = g.approx
-              ? { p, status: 'approx', fixed: apply({ ...g, approx: true }, true, false), linkFailed }
-              : { p, status: 'station', fixed: apply(g, true, false), linkFailed }
-            else if (g) row = { p, status: prev?.approx ? 'approx' : 'station', fixed: false, linkFailed } // keep the existing pin
+            // ALS building matches (g.precise) are authoritative → force past the
+            // 250m guard. (A hand-set pin is URL-exact via map_url and is handled
+            // by the `exact` branch above, so it never reaches this geocode path.)
+            if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, g.precise === true), linkFailed }
+            else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, true, false), linkFailed }
             else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
           } else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
         } catch (e) {
