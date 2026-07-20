@@ -209,36 +209,54 @@ export default function TripMap() {
         reportHeal()
       }
     }
-    // background verification of short-linked places that already have coords
+    // background verification of short-linked places that already have coords.
+    // Run with a worker pool, NOT one row at a time — a trip can have dozens of
+    // stale rows to re-check, and each /api/resolve-map round-trip can take
+    // seconds; a serial loop could take minutes and never finish before the
+    // user navigates away, leaving most rows silently unhealed.
     ;(async () => {
-      for (const { p, db } of verify) {
-        if (!alive) return
-        const r = await resolveMapUrl(p.map_url!) // cached per link after first hit
-        if (!alive) return
-        if (!r || (r.pageDerived && !(await plausible(p, r)))) {
-          // no coords, or a page-derived point that fails the geography check
-          // (server geo-IP default = wrong country) — geocode the canonical
-          // Google NAME (station-guarded) instead of trusting garbage
-          if (r) console.warn('[map] พิกัดจากหน้าเว็บไม่ผ่านด่านภูมิศาสตร์ ทิ้ง:', p.name, r)
-          else console.warn('[map] ตามลิงก์ไม่สำเร็จ:', p.name, p.map_url)
-          await stationSanity(p, db, resolvedLinkName(p.map_url))
-          continue
-        }
-        // the link's point IS the pin — no tolerance window
-        setCoords((c) => ({ ...c, [p.id]: r }))
-        if (haversine(db, r) > 0.02) {
-          setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
-          if (haversine(db, r) > 0.05) reportHeal()
+      const queue = [...verify]
+      const worker = async () => {
+        while (queue.length && alive) {
+          const { p, db } = queue.shift()!
+          try {
+            const r = await resolveMapUrl(p.map_url!) // cached per link after first hit
+            if (!alive) return
+            if (!r || (r.pageDerived && !(await plausible(p, r)))) {
+              // no coords, or a page-derived point that fails the geography check
+              // (server geo-IP default = wrong country) — geocode the canonical
+              // Google NAME (station-guarded) instead of trusting garbage
+              if (r) console.warn('[map] พิกัดจากหน้าเว็บไม่ผ่านด่านภูมิศาสตร์ ทิ้ง:', p.name, r)
+              else console.warn('[map] ตามลิงก์ไม่สำเร็จ:', p.name, p.map_url)
+              await stationSanity(p, db, resolvedLinkName(p.map_url))
+              continue
+            }
+            // the link's point IS the pin — no tolerance window
+            setCoords((c) => ({ ...c, [p.id]: r }))
+            if (haversine(db, r) > 0.02) {
+              setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
+              if (haversine(db, r) > 0.05) reportHeal()
+            }
+          } catch (e) {
+            // one bad row must never stop the rest of the queue from healing
+            console.warn('[map] verify ล้มเหลว:', p.name, e)
+          }
         }
       }
+      await Promise.all(Array.from({ length: 6 }, worker))
     })()
     // background sanity-check of linkless places against their named station —
     // heals wrong-branch geocodes persisted before the guard existed
     ;(async () => {
-      for (const p of verifyStation) {
-        if (!alive) return
-        await stationSanity(p, { lat: p.lat as number, lng: p.lng as number })
+      const queue = [...verifyStation]
+      const worker = async () => {
+        while (queue.length && alive) {
+          const p = queue.shift()!
+          try { await stationSanity(p, { lat: p.lat as number, lng: p.lng as number }) }
+          catch (e) { console.warn('[map] verifyStation ล้มเหลว:', p.name, e) }
+        }
       }
+      await Promise.all(Array.from({ length: 6 }, worker))
     })()
     // A2) links (short google/amap) — resolve server-side, in parallel (fast)
     const links = missing.filter((p) => isMapLink(p.map_url))
@@ -401,7 +419,6 @@ export default function TripMap() {
   async function runAudit() {
     const list = tripPlaces
     const cur: Record<string, GeoHit | undefined> = { ...coords }
-    const rows: AuditRow[] = []
     // same geographic gate as the load-time healer: page-derived link points
     // must sit near a trusted anchor or the place's own station
     const trusted: LatLng[] = []
@@ -421,36 +438,55 @@ export default function TripMap() {
     }
     setSelected(null)
     setAudit({ running: true, done: 0, total: list.length, rows: [] })
-    for (const p of list) {
-      const prev = cur[p.id]
-      // link points apply unconditionally (the link IS the pin); geocoded
-      // points keep a 250m threshold so they can't churn a manual placement
-      const apply = (c: GeoHit, persist: boolean, force: boolean) => {
-        const moved = !prev || haversine(prev, c) > 0.05
-        if (!force && prev && haversine(prev, c) <= 0.25) return false
-        cur[p.id] = c
-        setCoords((m) => ({ ...m, [p.id]: c }))
-        if (persist && !c.approx && (!prev || haversine(prev, c) > 0.02)) setPlaceCoords(p.id, c.lat, c.lng).catch(() => {})
-        return moved
+    // worker pool, not one place at a time — a trip-wide audit over 100+
+    // places at seconds each would take minutes serially; a pool of 6 finishes
+    // in a fraction of the time. `results` is indexed by original position so
+    // the panel's order stays stable regardless of completion order.
+    const results: (AuditRow | undefined)[] = new Array(list.length)
+    let doneCount = 0
+    const queue = list.map((p, i) => ({ p, i }))
+    const worker = async () => {
+      let item: { p: Place; i: number } | undefined
+      while ((item = queue.shift())) {
+        const { p, i } = item
+        const prev = cur[p.id]
+        // link points apply unconditionally (the link IS the pin); geocoded
+        // points keep a 250m threshold so they can't churn a manual placement
+        const apply = (c: GeoHit, persist: boolean, force: boolean) => {
+          const moved = !prev || haversine(prev, c) > 0.05
+          if (!force && prev && haversine(prev, c) <= 0.25) return false
+          cur[p.id] = c
+          setCoords((m) => ({ ...m, [p.id]: c }))
+          if (persist && !c.approx && (!prev || haversine(prev, c) > 0.02)) setPlaceCoords(p.id, c.lat, c.lng).catch(() => {})
+          return moved
+        }
+        let row: AuditRow
+        try {
+          const exact = latLngFromUrlExact(p.map_url)
+          const hasLink = !exact && isMapLink(p.map_url)
+          const resolvedRaw = hasLink ? await resolveMapUrl(p.map_url!) : null
+          const resolved = resolvedRaw && (!resolvedRaw.pageDerived || (await plausibleA(p, resolvedRaw))) ? resolvedRaw : null
+          const linkFailed = hasLink && !resolved // surfaced in the panel — never silent
+          if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
+          else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
+          else if ((p.station_name ?? '').trim()) {
+            const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, station: p.station_name, city: p.city, country: trip?.country, near: auditNear })
+            if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, false), linkFailed }
+            else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, false, false), linkFailed }
+            else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
+          } else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
+        } catch (e) {
+          // one bad row must never stop the rest of the trip from being audited
+          console.warn('[map] audit ล้มเหลว:', p.name, e)
+          row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false }
+        }
+        results[i] = row
+        doneCount++
+        setAudit({ running: true, done: doneCount, total: list.length, rows: results.filter((r): r is AuditRow => !!r) })
       }
-      let row: AuditRow
-      const exact = latLngFromUrlExact(p.map_url)
-      const hasLink = !exact && isMapLink(p.map_url)
-      const resolvedRaw = hasLink ? await resolveMapUrl(p.map_url!) : null
-      const resolved = resolvedRaw && (!resolvedRaw.pageDerived || (await plausibleA(p, resolvedRaw))) ? resolvedRaw : null
-      const linkFailed = hasLink && !resolved // surfaced in the panel — never silent
-      if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
-      else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
-      else if ((p.station_name ?? '').trim()) {
-        const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, station: p.station_name, city: p.city, country: trip?.country, near: auditNear })
-        if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, false), linkFailed }
-        else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, false, false), linkFailed }
-        else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
-      } else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
-      rows.push(row)
-      setAudit({ running: true, done: rows.length, total: list.length, rows: [...rows] })
     }
-    setAudit({ running: false, done: rows.length, total: list.length, rows })
+    await Promise.all(Array.from({ length: 6 }, worker))
+    setAudit({ running: false, done: list.length, total: list.length, rows: results.filter((r): r is AuditRow => !!r) })
   }
 
   const CHIPS: { key: typeof filter; label: string }[] = [
