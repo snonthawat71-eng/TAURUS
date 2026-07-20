@@ -314,6 +314,27 @@ async function alsRaw(query: string): Promise<LatLng | null> {
   } catch { return null }
 }
 
+// In-app health check for the HK ALS engine, so the audit panel can report
+// whether it's actually working WITHOUT the user ever copying a URL or pasting
+// debug JSON. Probes one known-good HK address and interprets the endpoint's
+// own reply. `ok:false` just means HK places fall back to OSM (right district,
+// not building-exact) — never a worse pin than before.
+export async function alsHealth(): Promise<{ ok: boolean; note: string }> {
+  const probe = '440 Jaffe Road Causeway Bay'
+  try {
+    const res = await fetch(`/api/hk-geocode?q=${encodeURIComponent(probe)}`)
+    let j: Record<string, unknown> = {}
+    try { j = await res.json() } catch { /* non-JSON body */ }
+    const lat = Number(j?.lat), lng = Number(j?.lng)
+    if (valid(lat, lng)) return { ok: true, note: 'ทำงานปกติ (พิกัดระดับตึกจาก ALS)' }
+    if (j?.error === 'no match') return { ok: false, note: 'ALS ตอบกลับ แต่หาที่อยู่ทดสอบไม่เจอ' }
+    if (j?.cause || j?.error) return { ok: false, note: `ต่อ ALS ไม่ได้: ${String(j.cause || j.error)}` }
+    return { ok: false, note: `ไม่เข้าใจคำตอบจาก ALS (HTTP ${res.status})` }
+  } catch (e) {
+    return { ok: false, note: `เรียก endpoint ไม่ได้: ${String((e as Error)?.message || e)}` }
+  }
+}
+
 // Photon (komoot) — free OSM geocoder, fuzzy/typo-tolerant where Nominatim
 // wants near-exact matches. No key, CORS-open. Optional proximity bias.
 async function photonRaw(query: string, near?: LatLng): Promise<LatLng | null> {
