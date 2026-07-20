@@ -46,21 +46,6 @@ function extract(s) {
   return null
 }
 
-/** Coordinates buried in a Google Maps PAGE body. Modern share links resolve
- *  to place-ID URLs with no lat/lng at all — the numbers only exist inside the
- *  page's bootstrap JS. */
-function extractFromBody(s) {
-  if (!s) return null
-  const ok = (a, b) => (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180 ? { lat: a, lng: b } : null)
-  // window.APP_INITIALIZATION_STATE=[[[zoom,LNG,LAT],...
-  let m = s.match(/APP_INITIALIZATION_STATE=\[\[\[-?[\d.]+,(-?\d+\.\d+),(-?\d+\.\d+)\]/)
-  if (m) { const r = ok(+m[2], +m[1]); if (r) return r }
-  // ...,[null,null,LAT,LNG],... (the place's own point in the same blob)
-  m = s.match(/\[null,null,(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})\]/)
-  if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
-  return null
-}
-
 // Last-resort scan for a China-plausible coordinate pair anywhere in the text.
 function scanChina(s) {
   if (!s) return null
@@ -195,13 +180,14 @@ export default async function handler(req, res) {
     const amap = /amap|gaode/i.test(url)
     const { hops, body, status, finalUrl } = await walk(url, amap ? 'zh-CN,zh;q=0.9' : 'en;q=0.9,th;q=0.8')
 
-    // coords from redirect-hop URLs first (no page download needed), including
-    // the real target hidden inside a Google consent interstitial's ?continue=
-    // src records WHERE the point came from: 'url' points are literal, named
-    // coordinates from the link chain — trustworthy. 'page' points are dug out
-    // of page bodies and MUST be geo-sanity-checked by the client (a blocked/
-    // generic Google page centres on the server's geo-IP default → wrong
-    // country entirely).
+    // coords ONLY ever come from a URL (a hop's Location header, a consent
+    // interstitial's ?continue=, or a target URL embedded in a 200 interstitial
+    // page) — never from scraping a rendered page body. A blocked/challenged
+    // Google page can embed the REQUESTING SERVER's own approximate location
+    // instead of the place's — that poisoned pins with a data-centre address on
+    // the other side of the world. If no hop ever carries real coordinates, we
+    // return no coordinates at all (the client falls back to name geocoding,
+    // which stays in the right country even when it picks the wrong branch).
     let coords = null, src = null
     for (const h of hops) {
       coords = extract(h) || extract(deepDecode(h)) || (amap ? scanChina(deepDecode(h)) : null)
@@ -220,11 +206,6 @@ export default async function handler(req, res) {
         if (coords) src = 'url' // literal coords inside an embedded URL
       }
     }
-    if (!coords) {
-      coords = extract(body) || extractFromBody(body) || (amap ? scanChina(body) : null)
-      if (coords) src = 'page'
-    }
-
     let name = null
     for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
     if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)

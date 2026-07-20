@@ -192,8 +192,11 @@ export default function TripMap() {
     // lets a failed link resolution still contribute Google's canonical place
     // name as the search anchor.
     const stationSanity = async (p: Place, db: LatLng, nameOverride?: string) => {
-      if (!(p.station_name ?? '').trim()) return
-      const g = await geocodeSmart({ name: nameOverride ?? p.name, station: p.station_name, city: p.city, country: trip?.country, near: tripNear })
+      const searchName = (nameOverride ?? p.name ?? '').trim()
+      // a name alone is enough for geocodeSmart — station is only used to
+      // guard against the wrong branch of a chain, not required to search at all
+      if (!(p.station_name ?? '').trim() && !searchName) return
+      const g = await geocodeSmart({ name: searchName || undefined, station: p.station_name, city: p.city, country: trip?.country, near: tripNear })
       if (!alive || !g) return
       if (!g.approx && haversine(db, g) > 0.25) {
         setCoords((c) => ({ ...c, [p.id]: g }))

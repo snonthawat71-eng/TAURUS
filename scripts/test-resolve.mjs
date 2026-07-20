@@ -74,8 +74,11 @@ const page = (html, status = 200) => ({ status, headers: { get: () => null }, te
   ok(Math.abs((res.body?.lat ?? 0) - 22.3) < 1e-6, `meta-refresh interstitial handled (got ${res.body?.lat})`)
 }
 
-// 2d. place-ID URL (no coords in ANY hop) → coords from the page's
-//     APP_INITIALIZATION_STATE bootstrap ([[[zoom,LNG,LAT]…)
+// 2d. place-ID URL (no coords in ANY hop) → coordinates scraped out of the
+//     rendered page body are NEVER trusted, even when they look like a valid
+//     lat/lng pair — a blocked/challenged Google page can embed the
+//     REQUESTING SERVER's own approximate location instead of the place's.
+//     The canonical name (found in the hop URL itself here) still comes back.
 {
   globalThis.fetch = async (url) => {
     const s = String(url)
@@ -85,11 +88,28 @@ const page = (html, status = 200) => ({ status, headers: { get: () => null }, te
   }
   const res = mkRes()
   await handler({ query: { url: 'https://maps.app.goo.gl/placeid1' } }, res)
-  ok(Math.abs((res.body?.lat ?? 0) - 22.2799) < 1e-6 && Math.abs((res.body?.lng ?? 0) - 114.1836) < 1e-6,
-    `coords from APP_INITIALIZATION_STATE (got ${res.body?.lat},${res.body?.lng})`)
-  ok(res.body?.name === 'ICHIRAN', `canonical name from the place-ID hop (got ${res.body?.name})`)
-  ok(res.body?.src === 'page', `page-derived points are labelled src:page (got ${res.body?.src})`)
-  ok(String(res.headers['Cache-Control']) === 'no-store', 'page-derived points are NOT edge-cached (client must sanity-check fresh)')
+  ok(res.body?.lat === undefined && res.body?.lng === undefined,
+    `page-body coords (APP_INITIALIZATION_STATE) are never returned (got ${res.body?.lat},${res.body?.lng})`)
+  ok(res.body?.name === 'ICHIRAN', `canonical name still recovered, from the hop URL (got ${res.body?.name})`)
+  ok(res.body?.src === undefined, 'no src label when there are no coordinates to label')
+  ok(res.body?.error === 'no coords', 'reported as a clean failure, not a silent wrong answer')
+  ok(String(res.headers['Cache-Control']) === 'no-store', 'a no-coords result is never edge-cached')
+}
+
+// 2f. the exact production regression that shipped wrong-country pins: a
+//     blocked Google page's bootstrap JS embeds ~39.03,-77.84 — a data-centre
+//     address in Ashburn, VA, nowhere near any real trip — must never leak out
+{
+  globalThis.fetch = async (url) => {
+    const s = String(url)
+    if (s.includes('goo.gl'))
+      return page('<html><script>window.APP_INITIALIZATION_STATE=[[[15,-77.844326,39.02679945],null,[null,null,39.02679945,-77.844326]]];</script></html>')
+    return page('', 500)
+  }
+  const res = mkRes()
+  await handler({ query: { url: 'https://maps.app.goo.gl/gst1?g_st=ic' } }, res)
+  ok(res.body?.lat === undefined && res.body?.lng === undefined,
+    `the real production garbage coordinate (server geo-IP default) never leaks through (got ${res.body?.lat},${res.body?.lng})`)
 }
 
 // 2e. even with NO coords anywhere, the canonical name still returns (the

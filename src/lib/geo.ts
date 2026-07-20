@@ -147,13 +147,14 @@ export interface ResolvedPoint extends LatLng { pageDerived?: boolean }
 
 export async function resolveMapUrl(url: string): Promise<ResolvedPoint | null> {
   if (linkCache.has(url)) return linkCache.get(url) ?? null
-  // "url4:" + "&v=4" bust every earlier cache generation — including the
-  // poisoned page-derived points that landed in the wrong country
-  const ls = lsGet(`url4:${url}`) as ResolvedPoint | null | undefined
+  // "url5:" + "&v=5" bust every earlier cache generation — including any
+  // already-cached page-derived points from before the resolver stopped
+  // trusting scraped page bodies (those could be a data-centre's own address)
+  const ls = lsGet(`url5:${url}`) as ResolvedPoint | null | undefined
   if (ls !== undefined) { linkCache.set(url, ls); return ls }
   let out: ResolvedPoint | null = null
   try {
-    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=4`)
+    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=5`)
     if (res.ok) {
       const j = await res.json()
       if (typeof j.name === 'string' && j.name.trim()) linkNames.set(url, j.name.trim())
@@ -169,7 +170,7 @@ export async function resolveMapUrl(url: string): Promise<ResolvedPoint | null> 
   // cache successes durably; failures only for this session — a blocked or
   // flaky resolver must be retried on the next load, not remembered forever
   linkCache.set(url, out)
-  if (out) lsSet(`url4:${url}`, out)
+  if (out) lsSet(`url5:${url}`, out)
   return out
 }
 
