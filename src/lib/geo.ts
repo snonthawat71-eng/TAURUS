@@ -299,6 +299,27 @@ export function cleanAddress(address: string, country?: string): string {
   return c && !new RegExp(c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(s) ? `${s}, ${c}` : s
 }
 
+// ALS free-text lookup nails a CLEAN street address ("440 Jaffe Rd, Causeway
+// Bay") — that's exactly what our health probe sends — but a leading business
+// name ("ICHIRAN Hong Kong, Causeway Bay, 440 Jaffe Rd, …") throws its parser
+// off and it returns the wrong building. So reduce a full Google address to
+// just its street→district tail before querying ALS: find the first segment
+// that starts with a house number (or carries a road-type word) and keep from
+// there, dropping the bare country token ALS doesn't need. Returns '' when
+// nothing street-like is present (caller then skips ALS / uses the full string).
+const ROAD_WORD = /\b(rd|road|st|street|ave|avenue|lane|ln|path|terr|terrace|praya|crescent|circuit|square|plaza|drive|dr|hill|way|estate|street)\b/i
+export function alsQuery(addrClean: string): string {
+  const segs = addrClean.split(',').map((s) => s.trim()).filter(Boolean)
+  if (!segs.length) return ''
+  // street segment: begins with a house number (not a decimal coord), else the
+  // first segment that carries a road-type keyword
+  let i = segs.findIndex((s) => /^\d{1,4}[a-z]?\b/i.test(s) && !/^\d+\.\d/.test(s))
+  if (i < 0) i = segs.findIndex((s) => ROAD_WORD.test(s))
+  if (i < 0) return ''
+  const tail = segs.slice(i).filter((s) => !/^(hong\s?kong|hongkong|hk|china|prc)$/i.test(s))
+  return tail.join(', ')
+}
+
 // HK Government official Address Lookup Service (ALS/OGCIO), via our own
 // serverless proxy (/api/hk-geocode) to sidestep CORS. The authoritative HK
 // address→coordinate database — building-accurate where OSM is vague — free,
@@ -395,9 +416,9 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
   const address = (o.address ?? '').trim()
   const near = o.near ?? undefined
   if (!name && !station && !address) return Promise.resolve(null)
-  // smart6: HK official address DB (ALS) added ahead of OSM — bust prior results
+  // smart7: HK official address DB (ALS) added ahead of OSM — bust prior results
   const nk = near ? `${near.lat.toFixed(2)},${near.lng.toFixed(2)}` : ''
-  const key = `smart6:${[name, address, station, city, country, nk].join('|')}`
+  const key = `smart7:${[name, address, station, city, country, nk].join('|')}`
   if (smartCache.has(key)) return Promise.resolve(smartCache.get(key) ?? null)
   const cached = lsGet(key) as GeoHit | null | undefined
   if (cached !== undefined) { smartCache.set(key, cached); return Promise.resolve(cached) }
@@ -438,7 +459,11 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
     // Hong Kong? then the official HK address DB is the most accurate free
     // source — try it first. (Off-HK it returns null and we fall through.)
     const isHK = /hong\s?kong|hongkong|\bhk\b/i.test([addrClean, city, country].join(' '))
-    let r: LatLng | null = addrClean && isHK ? await alsRaw(addrClean) : null
+    // ALS first — but with the street→district tail (no business name), which is
+    // what it can actually parse; only fall back to the full string if that misses
+    const alsQ = addrClean && isHK ? alsQuery(addrClean) : ''
+    let r: LatLng | null = alsQ ? await alsRaw(alsQ) : null
+    if (!r && addrClean && isHK && addrClean !== alsQ) r = await alsRaw(addrClean)
     if (!r && addrClean) r = await tryNom([addrClean])
     if (!r && addrClean) r = await photonRaw(addrClean, near)
     if (!r && address && address !== addrClean) r = await tryNom([address])

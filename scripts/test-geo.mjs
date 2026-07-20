@@ -23,7 +23,7 @@ globalThis.localStorage = {
 
 const dir = mkdtempSync(join(tmpdir(), 'geotest-'))
 execSync(`npx esbuild src/lib/geo.ts --bundle --format=esm --outfile=${join(dir, 'geo.mjs')}`, { stdio: 'pipe' })
-const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm, cleanAddress } = await import(join(dir, 'geo.mjs'))
+const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm, cleanAddress, alsQuery } = await import(join(dir, 'geo.mjs'))
 
 // ---- 1. URL precedence ----
 console.log('URL parsing')
@@ -87,6 +87,18 @@ const ichClean = cleanAddress(ichAddr, 'Hongkong')
 ok(!/[　-鿿฀-๿]/.test(ichClean), `CJK + Thai stripped (got "${ichClean}")`)
 ok(ichClean.includes('Jaffe Rd') && ichClean.includes('Causeway Bay'), 'the geocodable street + district survive')
 ok(ichClean.includes('Hongkong'), 'country anchor kept (was Thai, now the trip country)')
+
+// ---- 3a2b. alsQuery: strip the business-name prefix so ALS sees the SAME
+// clean street our health probe uses (the ICHIRAN "moved but still wrong" fix) ----
+console.log('alsQuery (street-focused ALS input)')
+ok(alsQuery('ICHIRAN Hong Kong, Causeway Bay, 440 Jaffe Rd, Causeway Bay, Hongkong') === '440 Jaffe Rd, Causeway Bay',
+  `drops business name + country, keeps street→district (got "${alsQuery('ICHIRAN Hong Kong, Causeway Bay, 440 Jaffe Rd, Causeway Bay, Hongkong')}")`)
+ok(alsQuery('Lau Haa Hot Pot, 12 Percival Street, Causeway Bay, Hong Kong') === '12 Percival Street, Causeway Bay',
+  'house-numbered street is found past a multi-word name')
+ok(alsQuery('Some Cafe, Nathan Road, Mong Kok, Hong Kong') === 'Nathan Road, Mong Kok',
+  'no house number → falls back to the road-word segment')
+ok(alsQuery('ICHIRAN, Causeway Bay') === '',
+  'no street-like segment → empty (caller skips the street query)')
 
 // ---- 3a3. HK official address DB (ALS) is tried FIRST for a HK address and
 // its building-accurate coordinate wins over OSM ----
