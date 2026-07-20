@@ -201,14 +201,13 @@ export default function TripMap() {
       if (!(p.station_name ?? '').trim() && !searchName && !address) return
       const g = await geocodeSmart({ name: searchName || undefined, address, station: p.station_name, city: p.city, country: trip?.country, near: tripNear })
       if (!alive || !g) return
-      if (!g.approx && haversine(db, g) > 0.25) {
-        setCoords((c) => ({ ...c, [p.id]: g }))
-        setPlaceCoords(p.id, g.lat, g.lng).catch(() => {})
-        reportHeal()
-      } else if (g.approx && haversine(db, g) > 2) {
-        // stored point is far from the user's own station and nothing better
-        // exists — persist the station stand-in: an approximate point in the
-        // right neighbourhood beats leaving garbage in the DB forever
+      // ONLY an authoritative ALS building match (g.precise) may overwrite a
+      // coordinate the place already has — a fuzzy OSM/name hit or a station
+      // stand-in must never move a pin the user set by hand (or a previously
+      // good value). This is what "respect the numeric coordinate" means: once a
+      // place has a real coordinate, re-geocoding can refine it only with a
+      // source that's more accurate than OSM, never drift it to the road/village.
+      if (g.precise && !g.approx && haversine(db, g) > 0.25) {
         setCoords((c) => ({ ...c, [p.id]: g }))
         setPlaceCoords(p.id, g.lat, g.lng).catch(() => {})
         reportHeal()
@@ -489,12 +488,15 @@ export default function TripMap() {
           else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
           else if ((p.station_name ?? '').trim()) {
             const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, address: linkFailed ? resolvedLinkAddress(p.map_url) : undefined, station: p.station_name, city: p.city, country: trip?.country, near: auditNear })
-            // ALS building matches (g.precise) are authoritative → force past the
-            // 250m "don't churn" guard so a stale wrong pin actually gets corrected
-            if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, g.precise === true), linkFailed }
-            // persist the station stand-in too — an approximate point beats
-            // leaving old garbage sitting in the DB every time it's queried
-            else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, true, false), linkFailed }
+            // ALS building matches (g.precise) are authoritative → force-apply,
+            // past the 250m guard. A fuzzy OSM hit or a station stand-in only
+            // FILLS a place that has no pin yet — it must never overwrite an
+            // existing numeric coordinate (a hand-set pin, or a prior good value).
+            if (g && !g.approx && g.precise) row = { p, status: 'station', fixed: apply(g, true, true), linkFailed }
+            else if (g && !prev) row = g.approx
+              ? { p, status: 'approx', fixed: apply({ ...g, approx: true }, true, false), linkFailed }
+              : { p, status: 'station', fixed: apply(g, true, false), linkFailed }
+            else if (g) row = { p, status: prev?.approx ? 'approx' : 'station', fixed: false, linkFailed } // keep the existing pin
             else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
           } else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
         } catch (e) {
