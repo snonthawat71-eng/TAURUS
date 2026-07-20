@@ -5,6 +5,13 @@
 // URL with "!3dLAT!4dLNG", so coords come from redirect URLs alone — no need
 // to download Google's page (datacenter IPs often get blocked/challenged
 // there). Page bodies are only fetched as a last resort.
+//
+// Google's response for the SAME link is not deterministic in production —
+// a request that gets blocked/challenged now can succeed moments later, and
+// links carrying a share-tracking param (?g_st=ic and similar) correlate
+// strongly with the blocked response. So a failed first attempt is retried:
+// once with the tracking query string stripped, once more as a plain retry.
+// Whichever attempt first turns up a URL-derived coordinate wins.
 
 // GCJ-02 (China, used by AMap) → WGS-84; no-op outside China.
 const GCJ_A = 6378245.0, GCJ_EE = 0.00669342162296594323
@@ -173,42 +180,68 @@ async function walk(url, lang, budgetMs = 8000) {
   return { hops, body, status, finalUrl: current }
 }
 
+/** Walk one URL and look for a coordinate — ONLY ever from a URL (a hop's
+ *  Location header, a consent interstitial's ?continue=, or a target URL
+ *  embedded in a 200 interstitial page), never from scraping a rendered page
+ *  body. A blocked/challenged Google page can embed the REQUESTING SERVER's
+ *  own approximate location instead of the place's — that poisoned pins with
+ *  a data-centre address on the other side of the world. If no hop ever
+ *  carries real coordinates, this returns no coordinates at all (the client
+ *  falls back to name geocoding, which stays in the right country even when
+ *  it picks the wrong branch). */
+async function resolveOnce(url, lang, amap, budgetMs) {
+  const { hops, body, status, finalUrl } = await walk(url, lang, budgetMs)
+  let coords = null, src = null
+  for (const h of hops) {
+    coords = extract(h) || extract(deepDecode(h)) || (amap ? scanChina(deepDecode(h)) : null)
+    if (coords) { src = 'url'; break }
+    try {
+      const cont = new URL(h).searchParams.get('continue')
+      if (cont) { coords = extract(deepDecode(cont)); if (coords) { src = 'url'; break } }
+    } catch { /* not a URL */ }
+  }
+  // 200-interstitial pages embed the target URL in the body — dig it out
+  let interUrl = null
+  if (!coords && body) {
+    interUrl = urlFromInterstitial(body)
+    if (interUrl) {
+      coords = extract(interUrl) || extract(deepDecode(interUrl)) || (amap ? scanChina(deepDecode(interUrl)) : null)
+      if (coords) src = 'url' // literal coords inside an embedded URL
+    }
+  }
+  let name = null
+  for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
+  if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)
+  return { coords, src, name, hops, body, status, finalUrl, interUrl }
+}
+
 export default async function handler(req, res) {
   try {
     const url = req.query?.url
     if (!url || !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'bad url' })
     const amap = /amap|gaode/i.test(url)
-    const { hops, body, status, finalUrl } = await walk(url, amap ? 'zh-CN,zh;q=0.9' : 'en;q=0.9,th;q=0.8')
+    const lang = amap ? 'zh-CN,zh;q=0.9' : 'en;q=0.9,th;q=0.8'
 
-    // coords ONLY ever come from a URL (a hop's Location header, a consent
-    // interstitial's ?continue=, or a target URL embedded in a 200 interstitial
-    // page) — never from scraping a rendered page body. A blocked/challenged
-    // Google page can embed the REQUESTING SERVER's own approximate location
-    // instead of the place's — that poisoned pins with a data-centre address on
-    // the other side of the world. If no hop ever carries real coordinates, we
-    // return no coordinates at all (the client falls back to name geocoding,
-    // which stays in the right country even when it picks the wrong branch).
-    let coords = null, src = null
-    for (const h of hops) {
-      coords = extract(h) || extract(deepDecode(h)) || (amap ? scanChina(deepDecode(h)) : null)
-      if (coords) { src = 'url'; break }
-      try {
-        const cont = new URL(h).searchParams.get('continue')
-        if (cont) { coords = extract(deepDecode(cont)); if (coords) { src = 'url'; break } }
-      } catch { /* not a URL */ }
+    // build the variants to try, in order: the link as given, the same link
+    // with its query string (tracking params like ?g_st=ic) stripped, then
+    // one more plain retry of the original — covers both the specific
+    // tracking-param correlation and plain non-determinism
+    const variants = [url]
+    try {
+      const stripped = new URL(url)
+      if (stripped.search) { stripped.search = ''; variants.push(stripped.toString()) }
+    } catch { /* already validated above */ }
+    variants.push(url)
+
+    const deadline = Date.now() + 8500
+    let result = null
+    for (const v of variants) {
+      const remaining = deadline - Date.now()
+      if (remaining < 800) break
+      result = await resolveOnce(v, lang, amap, Math.min(remaining, 3200))
+      if (result.coords) break
     }
-    // 200-interstitial pages embed the target URL in the body — dig it out
-    let interUrl = null
-    if (!coords && body) {
-      interUrl = urlFromInterstitial(body)
-      if (interUrl) {
-        coords = extract(interUrl) || extract(deepDecode(interUrl)) || (amap ? scanChina(deepDecode(interUrl)) : null)
-        if (coords) src = 'url' // literal coords inside an embedded URL
-      }
-    }
-    let name = null
-    for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
-    if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)
+    const { hops, body, status, finalUrl, interUrl, coords, src, name } = result
 
     if (req.query?.debug) {
       return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, src, name, snippet: body.slice(0, 600) })

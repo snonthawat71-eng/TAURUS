@@ -150,6 +150,43 @@ const page = (html, status = 200) => ({ status, headers: { get: () => null }, te
     `amap p= coords converted (got ${res.body?.lat},${res.body?.lng})`)
 }
 
+// 2g. the specific real-world flakiness: the ORIGINAL link (with its share-
+//     tracking param) hits a blocked/challenged response, but the SAME link
+//     with the tracking param stripped resolves cleanly — this is what
+//     recovers a real Google coordinate instead of settling for a fallback
+{
+  globalThis.fetch = async (url) => {
+    const s = String(url)
+    if (s.includes('goo.gl/flaky1?g_st=ic')) return page('<html>blocked</html>', 429) // original: blocked
+    if (s.includes('goo.gl/flaky1')) return redirect('https://www.google.com/maps/place/Flaky/@1,2,17z/data=!3d22.29!4d114.17') // stripped: clean
+    return page('', 500)
+  }
+  const res = mkRes()
+  await handler({ query: { url: 'https://maps.app.goo.gl/flaky1?g_st=ic' } }, res)
+  ok(Math.abs((res.body?.lat ?? 0) - 22.29) < 1e-6,
+    `stripping the tracking param recovers a real coordinate when the original attempt is blocked (got ${res.body?.lat})`)
+}
+
+// 2h. same flakiness, but this time the block is non-deterministic rather
+//     than tied to the query string — a plain retry of the SAME url succeeds
+//     the second time. Confirms the retry-of-original attempt actually fires.
+{
+  let calls = 0
+  globalThis.fetch = async (url) => {
+    const s = String(url)
+    if (s.includes('goo.gl/flaky2')) {
+      calls++
+      if (calls < 2) return page('<html>blocked</html>', 429) // fails on the first try…
+      return redirect('https://www.google.com/maps/place/Flaky2/@1,2,17z/data=!3d22.30!4d114.18') // …succeeds on the retry
+    }
+    return page('', 500)
+  }
+  const res = mkRes()
+  await handler({ query: { url: 'https://maps.app.goo.gl/flaky2' } }, res)
+  ok(Math.abs((res.body?.lat ?? 0) - 22.30) < 1e-6,
+    `a plain retry recovers a real coordinate from a non-deterministically blocked link (got ${res.body?.lat})`)
+}
+
 globalThis.fetch = realFetch
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
