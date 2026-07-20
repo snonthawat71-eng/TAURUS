@@ -30,7 +30,8 @@ const page = (html, status = 200) => ({ status, headers: { get: () => null }, te
   await handler({ query: { url: 'https://maps.app.goo.gl/abc123' } }, res)
   ok(Math.abs((res.body?.lat ?? 0) - 22.2766) < 1e-6 && Math.abs((res.body?.lng ?? 0) - 114.1747) < 1e-6,
     `short link → place point from redirect URL (got ${res.body?.lat},${res.body?.lng})`)
-  ok(String(res.headers['Cache-Control']).includes('s-maxage'), 'success IS edge-cached')
+  ok(res.body?.src === 'url', `url-borne points are labelled src:url (got ${res.body?.src})`)
+  ok(String(res.headers['Cache-Control']).includes('s-maxage'), 'url-borne success IS edge-cached')
   ok(res.body?.name === 'Shop', `place name parsed from hop URL (got ${res.body?.name})`)
 }
 
@@ -87,6 +88,8 @@ const page = (html, status = 200) => ({ status, headers: { get: () => null }, te
   ok(Math.abs((res.body?.lat ?? 0) - 22.2799) < 1e-6 && Math.abs((res.body?.lng ?? 0) - 114.1836) < 1e-6,
     `coords from APP_INITIALIZATION_STATE (got ${res.body?.lat},${res.body?.lng})`)
   ok(res.body?.name === 'ICHIRAN', `canonical name from the place-ID hop (got ${res.body?.name})`)
+  ok(res.body?.src === 'page', `page-derived points are labelled src:page (got ${res.body?.src})`)
+  ok(String(res.headers['Cache-Control']) === 'no-store', 'page-derived points are NOT edge-cached (client must sanity-check fresh)')
 }
 
 // 2e. even with NO coords anywhere, the canonical name still returns (the

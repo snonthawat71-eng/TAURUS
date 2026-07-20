@@ -67,8 +67,22 @@ ok(g2 && Math.abs(g2.lat - 22.28) < 1e-6, 'accepted hit keeps its own coords')
 console.log('resolveMapUrl()')
 const r4 = await resolveMapUrl('https://maps.app.goo.gl/testfail123')
 ok(r4 === null, 'resolver down → null')
-const persistedNull = [...store.keys()].some((k) => k.includes('url2:https://maps.app.goo.gl/testfail123'))
+const persistedNull = [...store.keys()].some((k) => k.includes('https://maps.app.goo.gl/testfail123'))
 ok(!persistedNull, 'failure NOT written to localStorage (will retry next load)')
+
+// ---- 5. page-derived points carry the pageDerived flag to the caller ----
+globalThis.fetch = async (url) => {
+  const s = String(url)
+  if (s.includes('/api/resolve-map')) {
+    if (s.includes('pagepoint')) return json({ lat: 39.0, lng: -95.0, src: 'page' }) // geo-IP default garbage
+    return json({ lat: 22.2766, lng: 114.1747, src: 'url' })
+  }
+  throw new Error('unexpected ' + s)
+}
+const rp = await resolveMapUrl('https://maps.app.goo.gl/pagepoint1')
+ok(rp?.pageDerived === true, 'src:page → pageDerived flag set (caller must sanity-check)')
+const ru = await resolveMapUrl('https://maps.app.goo.gl/urlpoint1')
+ok(ru && !ru.pageDerived, 'src:url → trusted, no flag')
 
 globalThis.fetch = realFetch
 console.log(`\n${pass} passed, ${fail} failed`)

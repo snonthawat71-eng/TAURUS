@@ -197,35 +197,46 @@ export default async function handler(req, res) {
 
     // coords from redirect-hop URLs first (no page download needed), including
     // the real target hidden inside a Google consent interstitial's ?continue=
-    let coords = null
+    // src records WHERE the point came from: 'url' points are literal, named
+    // coordinates from the link chain — trustworthy. 'page' points are dug out
+    // of page bodies and MUST be geo-sanity-checked by the client (a blocked/
+    // generic Google page centres on the server's geo-IP default → wrong
+    // country entirely).
+    let coords = null, src = null
     for (const h of hops) {
       coords = extract(h) || extract(deepDecode(h)) || (amap ? scanChina(deepDecode(h)) : null)
-      if (coords) break
+      if (coords) { src = 'url'; break }
       try {
         const cont = new URL(h).searchParams.get('continue')
-        if (cont) { coords = extract(deepDecode(cont)); if (coords) break }
+        if (cont) { coords = extract(deepDecode(cont)); if (coords) { src = 'url'; break } }
       } catch { /* not a URL */ }
     }
     // 200-interstitial pages embed the target URL in the body — dig it out
     let interUrl = null
     if (!coords && body) {
       interUrl = urlFromInterstitial(body)
-      if (interUrl) coords = extract(interUrl) || extract(deepDecode(interUrl)) || (amap ? scanChina(deepDecode(interUrl)) : null)
+      if (interUrl) {
+        coords = extract(interUrl) || extract(deepDecode(interUrl)) || (amap ? scanChina(deepDecode(interUrl)) : null)
+        if (coords) src = 'url' // literal coords inside an embedded URL
+      }
     }
-    if (!coords) coords = extract(body) || extractFromBody(body) || (amap ? scanChina(body) : null)
+    if (!coords) {
+      coords = extract(body) || extractFromBody(body) || (amap ? scanChina(body) : null)
+      if (coords) src = 'page'
+    }
 
     let name = null
     for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
     if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)
 
     if (req.query?.debug) {
-      return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, name, snippet: body.slice(0, 600) })
+      return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, src, name, snippet: body.slice(0, 600) })
     }
-    // cache ONLY successes at the edge — a cached failure would pin every
-    // client to the same empty answer for a week
-    res.setHeader('Cache-Control', coords ? 's-maxage=604800' : 'no-store')
+    // edge-cache ONLY trustworthy url-borne successes; page-derived points
+    // must stay re-checkable and failures must never be pinned for a week
+    res.setHeader('Cache-Control', coords && src === 'url' ? 's-maxage=604800' : 'no-store')
     return res.json({
-      ...(coords || {}), ...(name ? { name } : {}),
+      ...(coords || {}), ...(coords ? { src } : {}), ...(name ? { name } : {}),
       // on failure return WHY, so the app's audit can show the reason per link
       ...(coords ? {} : { error: 'no coords', status, finalUrl, hops: hops.length }),
     })

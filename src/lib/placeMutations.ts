@@ -25,7 +25,9 @@ export async function syncCoordsFromLink(id: string, mapUrl: string) {
   try {
     const c = latLngFromUrlExact(mapUrl)
       ?? (isMapLink(mapUrl) ? await resolveMapUrl(mapUrl) : latLngFromUrl(mapUrl))
-    if (c) await setPlaceCoords(id, c.lat, c.lng)
+    // page-derived points can be a server's geo-IP default (wrong country) —
+    // only the map page persists those, after its geographic sanity check
+    if (c && !('pageDerived' in c && c.pageDerived)) await setPlaceCoords(id, c.lat, c.lng)
   } catch { /* offline / resolver down — nothing lost */ }
 }
 

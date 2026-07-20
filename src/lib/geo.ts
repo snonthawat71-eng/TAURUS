@@ -140,20 +140,26 @@ export const resolveFailNote = (url?: string | null) => (url ? failNotes.get(url
 const linkNames = new Map<string, string>()
 export const resolvedLinkName = (url?: string | null) => (url ? linkNames.get(url) : undefined)
 
-export async function resolveMapUrl(url: string): Promise<LatLng | null> {
+/** A resolved link point. pageDerived marks coordinates dug out of a PAGE
+ *  body rather than a URL — those can be a server's geo-IP default (wrong
+ *  country!) and must pass the caller's geographic sanity check before use. */
+export interface ResolvedPoint extends LatLng { pageDerived?: boolean }
+
+export async function resolveMapUrl(url: string): Promise<ResolvedPoint | null> {
   if (linkCache.has(url)) return linkCache.get(url) ?? null
-  // "url3:" + "&v=3" bust local nulls persisted by an older build AND the
-  // edge-cached empty responses from before failures became non-cacheable
-  const ls = lsGet(`url3:${url}`)
+  // "url4:" + "&v=4" bust every earlier cache generation — including the
+  // poisoned page-derived points that landed in the wrong country
+  const ls = lsGet(`url4:${url}`) as ResolvedPoint | null | undefined
   if (ls !== undefined) { linkCache.set(url, ls); return ls }
-  let out: LatLng | null = null
+  let out: ResolvedPoint | null = null
   try {
-    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=3`)
+    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=4`)
     if (res.ok) {
       const j = await res.json()
       if (typeof j.name === 'string' && j.name.trim()) linkNames.set(url, j.name.trim())
-      if (valid(Number(j.lat), Number(j.lng))) out = { lat: Number(j.lat), lng: Number(j.lng) }
-      else {
+      if (valid(Number(j.lat), Number(j.lng))) {
+        out = { lat: Number(j.lat), lng: Number(j.lng), ...(j.src === 'page' ? { pageDerived: true } : {}) }
+      } else {
         let host = ''
         try { host = j?.finalUrl ? new URL(j.finalUrl).hostname : '' } catch { /* ignore */ }
         failNotes.set(url, `ปลายทางตอบ ${j?.status ?? '?'}${host ? ` · ${host}` : ''}`)
@@ -163,7 +169,7 @@ export async function resolveMapUrl(url: string): Promise<LatLng | null> {
   // cache successes durably; failures only for this session — a blocked or
   // flaky resolver must be retried on the next load, not remembered forever
   linkCache.set(url, out)
-  if (out) lsSet(`url3:${url}`, out)
+  if (out) lsSet(`url4:${url}`, out)
   return out
 }
 

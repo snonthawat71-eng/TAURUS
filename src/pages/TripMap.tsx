@@ -126,8 +126,13 @@ export default function TripMap() {
     // Nominatim matching the WRONG BRANCH of a chain restaurant)
     const verify: { p: Place; db: LatLng }[] = []
     const verifyStation: Place[] = []
+    // url-exact link points are the trip's trustworthy geographic anchors —
+    // page-derived resolutions must land near one (or near the place's own
+    // station) to be believed at all
+    const trustedPts: LatLng[] = []
     for (const p of tripPlaces) {
       const exact = latLngFromUrlExact(p.map_url)
+      if (exact) trustedPts.push(exact)
       if (typeof p.lat === 'number' && typeof p.lng === 'number') {
         const db = { lat: p.lat, lng: p.lng }
         if (exact) {
@@ -164,6 +169,17 @@ export default function TripMap() {
         if (!r.approx) setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
       }
     }
+    // geographic sanity for page-derived link points: near a trusted anchor
+    // (300km) or near the place's own station (50km). With no anchors at all
+    // there's nothing to judge against — accept.
+    const plausible = async (p: Place, c: LatLng): Promise<boolean> => {
+      if (trustedPts.some((t) => haversine(t, c) < 300)) return true
+      if ((p.station_name ?? '').trim()) {
+        const sp = await geocodeSmart({ station: p.station_name, city: p.city, country: trip?.country })
+        if (sp) return haversine(sp, c) < 50
+      }
+      return trustedPts.length === 0
+    }
     // re-check stored coords against the place's own named station via the
     // branch-guarded geocoder; heal when they disagree strongly. nameOverride
     // lets a failed link resolution still contribute Google's canonical place
@@ -189,10 +205,12 @@ export default function TripMap() {
         if (!alive) return
         const r = await resolveMapUrl(p.map_url!) // cached per link after first hit
         if (!alive) return
-        if (!r) {
-          // no coords from the link — but its canonical Google NAME often came
-          // back; geocode that (station-guarded) instead of giving up
-          console.warn('[map] ตามลิงก์ไม่สำเร็จ:', p.name, p.map_url)
+        if (!r || (r.pageDerived && !(await plausible(p, r)))) {
+          // no coords, or a page-derived point that fails the geography check
+          // (server geo-IP default = wrong country) — geocode the canonical
+          // Google NAME (station-guarded) instead of trusting garbage
+          if (r) console.warn('[map] พิกัดจากหน้าเว็บไม่ผ่านด่านภูมิศาสตร์ ทิ้ง:', p.name, r)
+          else console.warn('[map] ตามลิงก์ไม่สำเร็จ:', p.name, p.map_url)
           await stationSanity(p, db, resolvedLinkName(p.map_url))
           continue
         }
@@ -374,6 +392,18 @@ export default function TripMap() {
     const list = tripPlaces
     const cur: Record<string, GeoHit | undefined> = { ...coords }
     const rows: AuditRow[] = []
+    // same geographic gate as the load-time healer: page-derived link points
+    // must sit near a trusted anchor or the place's own station
+    const trusted: LatLng[] = []
+    for (const q of list) { const e = latLngFromUrlExact(q.map_url); if (e) trusted.push(e) }
+    const plausibleA = async (q: Place, c: LatLng): Promise<boolean> => {
+      if (trusted.some((t) => haversine(t, c) < 300)) return true
+      if ((q.station_name ?? '').trim()) {
+        const sp = await geocodeSmart({ station: q.station_name, city: q.city, country: trip?.country })
+        if (sp) return haversine(sp, c) < 50
+      }
+      return trusted.length === 0
+    }
     setSelected(null)
     setAudit({ running: true, done: 0, total: list.length, rows: [] })
     for (const p of list) {
@@ -391,7 +421,8 @@ export default function TripMap() {
       let row: AuditRow
       const exact = latLngFromUrlExact(p.map_url)
       const hasLink = !exact && isMapLink(p.map_url)
-      const resolved = hasLink ? await resolveMapUrl(p.map_url!) : null
+      const resolvedRaw = hasLink ? await resolveMapUrl(p.map_url!) : null
+      const resolved = resolvedRaw && (!resolvedRaw.pageDerived || (await plausibleA(p, resolvedRaw))) ? resolvedRaw : null
       const linkFailed = hasLink && !resolved // surfaced in the panel — never silent
       if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
       else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
