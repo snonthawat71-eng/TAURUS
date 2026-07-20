@@ -18,7 +18,7 @@ const mkRes = () => {
 const realFetch = globalThis.fetch
 const alsHit = (lat, lng, score = 75) => ({
   ok: true, status: 200,
-  json: async () => ({
+  text: async () => JSON.stringify({
     RequestAddress: { AddressLine: ['440 Jaffe Road Causeway Bay'] },
     SuggestedAddress: [{
       Address: { PremisesAddress: {
@@ -53,7 +53,7 @@ const alsHit = (lat, lng, score = 75) => ({
 
 // 3. an empty / unrecognised ALS response → clean miss, no crash
 {
-  globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ SuggestedAddress: [] }) })
+  globalThis.fetch = async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ SuggestedAddress: [] }) })
   const res = mkRes()
   await handler({ query: { q: 'nothing here' } }, res)
   ok(res.body?.lat === undefined && res.body?.error === 'no match', 'empty result set → clean miss')
