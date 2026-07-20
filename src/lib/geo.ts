@@ -400,7 +400,7 @@ async function mapboxRaw(query: string, near?: LatLng): Promise<LatLng | null> {
   } catch { return null }
 }
 
-export interface GeoHit extends LatLng { approx?: boolean }
+export interface GeoHit extends LatLng { approx?: boolean; precise?: boolean }
 
 /** Great-circle distance in km. */
 export function distKm(a: LatLng, b: LatLng): number {
@@ -425,9 +425,9 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
   const address = (o.address ?? '').trim()
   const near = o.near ?? undefined
   if (!name && !station && !address) return Promise.resolve(null)
-  // smart8: HK official address DB (ALS) added ahead of OSM — bust prior results
+  // smart9: HK official address DB (ALS) added ahead of OSM — bust prior results
   const nk = near ? `${near.lat.toFixed(2)},${near.lng.toFixed(2)}` : ''
-  const key = `smart8:${[name, address, station, city, country, nk].join('|')}`
+  const key = `smart9:${[name, address, station, city, country, nk].join('|')}`
   if (smartCache.has(key)) return Promise.resolve(smartCache.get(key) ?? null)
   const cached = lsGet(key) as GeoHit | null | undefined
   if (cached !== undefined) { smartCache.set(key, cached); return Promise.resolve(cached) }
@@ -471,8 +471,13 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
     // ALS first — but with the street→district tail (no business name), which is
     // what it can actually parse; only fall back to the full string if that misses
     const alsQ = addrClean && isHK ? alsQuery(addrClean) : ''
+    // ALS is the authoritative HK address DB — a hit here is building-accurate,
+    // flagged `precise` so the audit force-applies it over a stale wrong pin
+    // (the coarse 250m "don't churn" guard would otherwise freeze the old point)
+    let fromAls = false
     let r: LatLng | null = alsQ ? await alsRaw(alsQ) : null
     if (!r && addrClean && isHK && addrClean !== alsQ) r = await alsRaw(addrClean)
+    if (r) fromAls = true
     if (!r && addrClean) r = await tryNom([addrClean])
     if (!r && addrClean) r = await photonRaw(addrClean, near)
     if (!r && address && address !== addrClean) r = await tryNom([address])
@@ -494,10 +499,11 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
         const nearHit = await mapboxRaw([name, station, city].filter(Boolean).join(' '), s)
           || await photonRaw([name, station, city].filter(Boolean).join(' '), s)
         r = nearHit && distKm(nearHit, s) <= 2 ? nearHit : null
+        fromAls = false // replaced by an OSM/Mapbox point — no longer authoritative
       }
     }
     let hit: GeoHit | null = null
-    if (r) hit = { ...r, approx: false }
+    if (r) hit = { ...r, approx: false, ...(fromAls ? { precise: true } : {}) }
     else {
       const s = await stationPoint()
       if (s) hit = { ...s, approx: true }

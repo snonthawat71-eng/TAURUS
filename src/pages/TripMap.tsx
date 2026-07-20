@@ -419,7 +419,7 @@ export default function TripMap() {
   // or named station, heal what it can, and report the rest — so nobody has to
   // eyeball pins one by one ─────────────────────────────────────────────────
   type AuditStatus = 'link' | 'station' | 'approx' | 'manualcheck' | 'nocoords'
-  interface AuditRow { p: Place; status: AuditStatus; fixed: boolean; linkFailed?: boolean; addr?: string; alsQ?: string }
+  interface AuditRow { p: Place; status: AuditStatus; fixed: boolean; linkFailed?: boolean; addr?: string; alsQ?: string; coord?: GeoHit }
   const [audit, setAudit] = useState<{ running: boolean; done: number; total: number; rows: AuditRow[]; hkEngine?: { ok: boolean; note: string } } | null>(null)
 
   async function runAudit() {
@@ -489,7 +489,9 @@ export default function TripMap() {
           else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
           else if ((p.station_name ?? '').trim()) {
             const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, address: linkFailed ? resolvedLinkAddress(p.map_url) : undefined, station: p.station_name, city: p.city, country: trip?.country, near: auditNear })
-            if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, false), linkFailed }
+            // ALS building matches (g.precise) are authoritative → force past the
+            // 250m "don't churn" guard so a stale wrong pin actually gets corrected
+            if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, g.precise === true), linkFailed }
             // persist the station stand-in too — an approximate point beats
             // leaving old garbage sitting in the DB every time it's queried
             else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, true, false), linkFailed }
@@ -500,7 +502,7 @@ export default function TripMap() {
           console.warn('[map] audit ล้มเหลว:', p.name, e)
           row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false }
         }
-        results[i] = { ...row, addr, alsQ }
+        results[i] = { ...row, addr, alsQ, coord: cur[p.id] }
         doneCount++
         setAudit({ running: true, done: doneCount, total: list.length, rows: results.filter((r): r is AuditRow => !!r), hkEngine })
       }
@@ -610,6 +612,7 @@ export default function TripMap() {
                 <div className="text-[10.5px] text-ink-3 leading-snug break-words pl-4 pb-0.5">
                   {r.addr && <span>📍 {r.addr}</span>}
                   {r.alsQ && <span className="text-brand"> → ALS: {r.alsQ}</span>}
+                  {r.coord && <span> · พิกัด {r.coord.lat.toFixed(5)}, {r.coord.lng.toFixed(5)}</span>}
                 </div>
               ) : null
               return (
