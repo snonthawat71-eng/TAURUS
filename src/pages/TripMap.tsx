@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconListCheck } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, alsHealth, type LatLng, type GeoHit } from '@/lib/geo'
+import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, alsHealth, cleanAddress, alsQuery, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -419,7 +419,7 @@ export default function TripMap() {
   // or named station, heal what it can, and report the rest — so nobody has to
   // eyeball pins one by one ─────────────────────────────────────────────────
   type AuditStatus = 'link' | 'station' | 'approx' | 'manualcheck' | 'nocoords'
-  interface AuditRow { p: Place; status: AuditStatus; fixed: boolean; linkFailed?: boolean }
+  interface AuditRow { p: Place; status: AuditStatus; fixed: boolean; linkFailed?: boolean; addr?: string; alsQ?: string }
   const [audit, setAudit] = useState<{ running: boolean; done: number; total: number; rows: AuditRow[]; hkEngine?: { ok: boolean; note: string } } | null>(null)
 
   async function runAudit() {
@@ -473,10 +473,16 @@ export default function TripMap() {
           return moved
         }
         let row: AuditRow
+        // what we actually fed the geocoder — surfaced in the panel so a wrong
+        // pin's CAUSE (bad/missing address, wrong street segment) is visible
+        // in-app, with no debug JSON to relay
+        let addr: string | undefined, alsQ: string | undefined
         try {
           const exact = latLngFromUrlExact(p.map_url)
           const hasLink = !exact && isMapLink(p.map_url)
           const resolvedRaw = hasLink ? await resolveMapUrl(p.map_url!) : null
+          addr = resolvedLinkAddress(p.map_url) || undefined
+          if (addr) { const q = alsQuery(cleanAddress(addr, trip?.country ?? undefined)); if (q && q !== addr) alsQ = q }
           const resolved = resolvedRaw && (!resolvedRaw.pageDerived || (await plausibleA(p, resolvedRaw))) ? resolvedRaw : null
           const linkFailed = hasLink && !resolved // surfaced in the panel — never silent
           if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
@@ -494,7 +500,7 @@ export default function TripMap() {
           console.warn('[map] audit ล้มเหลว:', p.name, e)
           row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false }
         }
-        results[i] = row
+        results[i] = { ...row, addr, alsQ }
         doneCount++
         setAudit({ running: true, done: doneCount, total: list.length, rows: results.filter((r): r is AuditRow => !!r), hkEngine })
       }
@@ -597,6 +603,15 @@ export default function TripMap() {
               const approx = audit.rows.filter((r) => r.status === 'approx')
               const manual = audit.rows.filter((r) => r.status === 'manualcheck' || r.status === 'nocoords')
               const linkFails = audit.rows.filter((r) => r.linkFailed)
+              // the address we actually searched with — so a wrong pin's cause is
+              // visible on-screen (no debug to paste): raw address + the cleaned
+              // street we sent the HK ALS engine
+              const addrLine = (r: AuditRow) => (r.addr || r.alsQ) ? (
+                <div className="text-[10.5px] text-ink-3 leading-snug break-words pl-4 pb-0.5">
+                  {r.addr && <span>📍 {r.addr}</span>}
+                  {r.alsQ && <span className="text-brand"> → ALS: {r.alsQ}</span>}
+                </div>
+              ) : null
               return (
                 <div className="mt-2.5 space-y-3">
                   <div className="flex flex-wrap gap-1.5 text-[11.5px] font-semibold">
@@ -608,22 +623,25 @@ export default function TripMap() {
                   {fixed.length > 0 && (
                     <div>
                       <div className="text-[11.5px] font-bold text-ink-3 mb-1">ย้ายไปตำแหน่งที่ถูกต้องให้แล้ว</div>
-                      {fixed.map((r) => <div key={r.p.id} className="text-[12.5px] py-0.5 truncate">✅ {r.p.name}</div>)}
+                      {fixed.map((r) => <div key={r.p.id} className="py-0.5"><div className="text-[12.5px] truncate">✅ {r.p.name}</div>{addrLine(r)}</div>)}
                     </div>
                   )}
                   {approx.length > 0 && (
                     <div>
                       <div className="text-[11.5px] font-bold text-ink-3 mb-1">ปักไว้ที่สถานีโดยประมาณ (หมุดเส้นประ)</div>
-                      {approx.map((r) => <div key={r.p.id} className="text-[12.5px] py-0.5 truncate">≈ {r.p.name} — {r.p.station_name}</div>)}
+                      {approx.map((r) => <div key={r.p.id} className="py-0.5"><div className="text-[12.5px] truncate">≈ {r.p.name} — {r.p.station_name}</div>{addrLine(r)}</div>)}
                     </div>
                   )}
                   {linkFails.length > 0 && (
                     <div>
                       <div className="text-[11.5px] font-bold mb-1" style={{ color: '#C0432E' }}>ตามลิงก์แมพไม่สำเร็จ (จะลองใหม่อัตโนมัติครั้งหน้า)</div>
                       {linkFails.map((r) => (
-                        <div key={r.p.id} className="text-[12.5px] py-0.5 truncate">
-                          🔗 {r.p.name}
-                          {resolveFailNote(r.p.map_url) && <span className="text-[10.5px] text-ink-3"> — {resolveFailNote(r.p.map_url)}</span>}
+                        <div key={r.p.id} className="py-0.5">
+                          <div className="text-[12.5px] truncate">
+                            🔗 {r.p.name}
+                            {resolveFailNote(r.p.map_url) && <span className="text-[10.5px] text-ink-3"> — {resolveFailNote(r.p.map_url)}</span>}
+                          </div>
+                          {addrLine(r)}
                         </div>
                       ))}
                     </div>
