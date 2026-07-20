@@ -1,7 +1,7 @@
 // Vercel serverless function: /api/hk-geocode?q=<address>
 // Geocodes a Hong Kong address via the HK Government's official Address Lookup
-// Service (ALS / OGCIO) — the authoritative HK address→coordinate database,
-// free and key-less. Far more accurate for HK street addresses than OSM, so
+// Service (ALS, www.als.gov.hk) — the authoritative HK address→coordinate
+// database, free and key-less. Far more accurate for HK street addresses than OSM, so
 // a ?g_st=ic Google link (which gives us an address but no coordinate) can
 // still land on the exact building. Called server-side to avoid any CORS
 // question and to validate/normalise the response before the client trusts it.
@@ -22,7 +22,9 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 export default async function handler(req, res) {
   const q = req.query?.q
   if (!q || typeof q !== 'string' || !q.trim()) return res.status(400).json({ error: 'bad q' })
-  const url = `https://www.als.ogcio.gov.hk/lookup?q=${encodeURIComponent(q.trim())}&n=1`
+  // NB: ALS moved from als.ogcio.gov.hk to als.gov.hk on 2024-07-25; the old
+  // host no longer resolves (ENOTFOUND).
+  const url = `https://www.als.gov.hk/lookup?q=${encodeURIComponent(q.trim())}&n=1`
   try {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 6000)
