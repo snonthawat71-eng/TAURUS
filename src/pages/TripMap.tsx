@@ -171,9 +171,11 @@ export default function TripMap() {
       setGeoBusy((n) => Math.max(0, n - 1))
       if (r) {
         setCoords((c) => ({ ...c, [p.id]: r }))
-        // approximate (station stand-in) pins stay in-memory only — never
-        // written to the DB as if they were the real spot
-        if (!r.approx) setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
+        // persist even an approximate (station stand-in) pin — re-querying the
+        // DB directly must not keep showing the old garbage forever just
+        // because nothing better was found; the dashed pin still signals
+        // "not confirmed" for as long as this session keeps it in `coords`
+        setPlaceCoords(p.id, r.lat, r.lng).catch(() => {})
       }
     }
     // geographic sanity for page-derived link points: near a trusted anchor
@@ -204,8 +206,10 @@ export default function TripMap() {
         reportHeal()
       } else if (g.approx && haversine(db, g) > 2) {
         // stored point is far from the user's own station and nothing better
-        // exists — show the station stand-in (dashed), don't persist
+        // exists — persist the station stand-in: an approximate point in the
+        // right neighbourhood beats leaving garbage in the DB forever
         setCoords((c) => ({ ...c, [p.id]: g }))
+        setPlaceCoords(p.id, g.lat, g.lng).catch(() => {})
         reportHeal()
       }
     }
@@ -457,7 +461,7 @@ export default function TripMap() {
           if (!force && prev && haversine(prev, c) <= 0.25) return false
           cur[p.id] = c
           setCoords((m) => ({ ...m, [p.id]: c }))
-          if (persist && !c.approx && (!prev || haversine(prev, c) > 0.02)) setPlaceCoords(p.id, c.lat, c.lng).catch(() => {})
+          if (persist && (!prev || haversine(prev, c) > 0.02)) setPlaceCoords(p.id, c.lat, c.lng).catch(() => {})
           return moved
         }
         let row: AuditRow
@@ -472,7 +476,9 @@ export default function TripMap() {
           else if ((p.station_name ?? '').trim()) {
             const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, station: p.station_name, city: p.city, country: trip?.country, near: auditNear })
             if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, false), linkFailed }
-            else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, false, false), linkFailed }
+            // persist the station stand-in too — an approximate point beats
+            // leaving old garbage sitting in the DB every time it's queried
+            else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, true, false), linkFailed }
             else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
           } else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }
         } catch (e) {
