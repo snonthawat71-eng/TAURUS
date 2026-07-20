@@ -88,6 +88,24 @@ ok(!/[　-鿿฀-๿]/.test(ichClean), `CJK + Thai stripped (got "${ichClean}")`
 ok(ichClean.includes('Jaffe Rd') && ichClean.includes('Causeway Bay'), 'the geocodable street + district survive')
 ok(ichClean.includes('Hongkong'), 'country anchor kept (was Thai, now the trip country)')
 
+// ---- 3a3. HK official address DB (ALS) is tried FIRST for a HK address and
+// its building-accurate coordinate wins over OSM ----
+console.log('geocodeSmart HK-ALS-first')
+globalThis.fetch = async (url) => {
+  const s = String(url)
+  if (s.includes('/api/hk-geocode')) return json({ lat: 22.2801, lng: 114.1845, score: 82 }) // official building point
+  if (s.includes('nominatim')) return json([{ lat: '22.2700', lon: '114.1700' }]) // OSM would give a vaguer point
+  if (s.includes('photon')) return json({ features: [] })
+  throw new Error('unexpected ' + s)
+}
+const gHK = await geocodeSmart({
+  name: 'ICHIRAN', address: 'ICHIRAN Hong Kong, Causeway Bay, 440 Jaffe Rd, Causeway Bay, ฮ่องกง',
+  city: 'Hongkong', country: 'Hongkong', near: { lat: 22.28, lng: 114.18 },
+})
+ok(gHK && Math.abs(gHK.lat - 22.2801) < 1e-6 && Math.abs(gHK.lng - 114.1845) < 1e-6,
+  `HK ALS building coordinate wins over OSM (got ${gHK?.lat},${gHK?.lng})`)
+globalThis.fetch = mainMock
+
 // ---- 3b. address-first: Google's canonical address (name + street + district)
 // geocodes precisely and wins over the bare name — the ?g_st=ic fix ----
 console.log('geocodeSmart address-first')

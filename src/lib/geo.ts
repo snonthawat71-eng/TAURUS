@@ -299,6 +299,21 @@ export function cleanAddress(address: string, country?: string): string {
   return c && !new RegExp(c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(s) ? `${s}, ${c}` : s
 }
 
+// HK Government official Address Lookup Service (ALS/OGCIO), via our own
+// serverless proxy (/api/hk-geocode) to sidestep CORS. The authoritative HK
+// address→coordinate database — building-accurate where OSM is vague — free,
+// no key, no card. Returns null off-HK or on any miss, so callers fall through
+// to OSM. This is the closest-to-Google free result for HK street addresses.
+async function alsRaw(query: string): Promise<LatLng | null> {
+  try {
+    const res = await fetch(`/api/hk-geocode?q=${encodeURIComponent(query)}`)
+    if (!res.ok) return null
+    const j = await res.json()
+    const lat = Number(j?.lat), lng = Number(j?.lng)
+    return valid(lat, lng) ? { lat, lng } : null
+  } catch { return null }
+}
+
 // Photon (komoot) — free OSM geocoder, fuzzy/typo-tolerant where Nominatim
 // wants near-exact matches. No key, CORS-open. Optional proximity bias.
 async function photonRaw(query: string, near?: LatLng): Promise<LatLng | null> {
@@ -359,9 +374,9 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
   const address = (o.address ?? '').trim()
   const near = o.near ?? undefined
   if (!name && !station && !address) return Promise.resolve(null)
-  // smart5: address is now latinized before geocoding — bust prior results
+  // smart6: HK official address DB (ALS) added ahead of OSM — bust prior results
   const nk = near ? `${near.lat.toFixed(2)},${near.lng.toFixed(2)}` : ''
-  const key = `smart5:${[name, address, station, city, country, nk].join('|')}`
+  const key = `smart6:${[name, address, station, city, country, nk].join('|')}`
   if (smartCache.has(key)) return Promise.resolve(smartCache.get(key) ?? null)
   const cached = lsGet(key) as GeoHit | null | undefined
   if (cached !== undefined) { smartCache.set(key, cached); return Promise.resolve(cached) }
@@ -399,7 +414,11 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
     // what lands a ?g_st=ic link (which carries an address but no coordinate) on
     // the right building instead of a bare-name wrong branch or the station.
     const addrClean = address ? cleanAddress(address, country) : ''
-    let r: LatLng | null = addrClean ? await tryNom([addrClean]) : null
+    // Hong Kong? then the official HK address DB is the most accurate free
+    // source — try it first. (Off-HK it returns null and we fall through.)
+    const isHK = /hong\s?kong|hongkong|\bhk\b/i.test([addrClean, city, country].join(' '))
+    let r: LatLng | null = addrClean && isHK ? await alsRaw(addrClean) : null
+    if (!r && addrClean) r = await tryNom([addrClean])
     if (!r && addrClean) r = await photonRaw(addrClean, near)
     if (!r && address && address !== addrClean) r = await tryNom([address])
     // 0b) Mapbox POI (proximity-biased) — no-ops without VITE_MAPBOX_TOKEN
