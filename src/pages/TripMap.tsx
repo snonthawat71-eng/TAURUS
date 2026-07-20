@@ -159,6 +159,13 @@ export default function TripMap() {
     }
     setCoords(next)
     setGeoBusy(missing.length)
+    // proximity anchor for the places API: the centre of everything we already
+    // know for sure, so name searches land in the right city/country instead of
+    // matching a same-named place on the other side of the planet
+    const known = Object.values(next)
+    const tripNear: LatLng | undefined = known.length
+      ? { lat: known.reduce((s, c) => s + c.lat, 0) / known.length, lng: known.reduce((s, c) => s + c.lng, 0) / known.length }
+      : undefined
     const gotCoords = (p: Place, r: GeoHit | null) => {
       if (!alive) return
       setGeoBusy((n) => Math.max(0, n - 1))
@@ -175,7 +182,7 @@ export default function TripMap() {
     const plausible = async (p: Place, c: LatLng): Promise<boolean> => {
       if (trustedPts.some((t) => haversine(t, c) < 300)) return true
       if ((p.station_name ?? '').trim()) {
-        const sp = await geocodeSmart({ station: p.station_name, city: p.city, country: trip?.country })
+        const sp = await geocodeSmart({ station: p.station_name, city: p.city, country: trip?.country, near: tripNear })
         if (sp) return haversine(sp, c) < 50
       }
       return trustedPts.length === 0
@@ -186,7 +193,7 @@ export default function TripMap() {
     // name as the search anchor.
     const stationSanity = async (p: Place, db: LatLng, nameOverride?: string) => {
       if (!(p.station_name ?? '').trim()) return
-      const g = await geocodeSmart({ name: nameOverride ?? p.name, station: p.station_name, city: p.city, country: trip?.country })
+      const g = await geocodeSmart({ name: nameOverride ?? p.name, station: p.station_name, city: p.city, country: trip?.country, near: tripNear })
       if (!alive || !g) return
       if (!g.approx && haversine(db, g) > 0.25) {
         setCoords((c) => ({ ...c, [p.id]: g }))
@@ -239,7 +246,7 @@ export default function TripMap() {
         const r = await resolveMapUrl(p.map_url!)
         // link dead-ends (expired short link etc.) fall through to geocoding
         if (r) gotCoords(p, r)
-        else gotCoords(p, await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country }))
+        else gotCoords(p, await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country, near: tripNear }))
       }
     }
     Promise.all(Array.from({ length: 6 }, worker))
@@ -247,7 +254,7 @@ export default function TripMap() {
     ;(async () => {
       for (const p of missing.filter((p) => !isMapLink(p.map_url))) {
         if (!alive) return
-        gotCoords(p, await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country }))
+        gotCoords(p, await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country, near: tripNear }))
       }
     })()
     return () => { alive = false; clearTimeout(healTimer) }
@@ -396,10 +403,15 @@ export default function TripMap() {
     // must sit near a trusted anchor or the place's own station
     const trusted: LatLng[] = []
     for (const q of list) { const e = latLngFromUrlExact(q.map_url); if (e) trusted.push(e) }
+    // proximity anchor for the places API — centre of everything already placed
+    const knownA = Object.values(cur).filter(Boolean) as GeoHit[]
+    const auditNear: LatLng | undefined = knownA.length
+      ? { lat: knownA.reduce((s, c) => s + c.lat, 0) / knownA.length, lng: knownA.reduce((s, c) => s + c.lng, 0) / knownA.length }
+      : (trusted.length ? trusted[0] : undefined)
     const plausibleA = async (q: Place, c: LatLng): Promise<boolean> => {
       if (trusted.some((t) => haversine(t, c) < 300)) return true
       if ((q.station_name ?? '').trim()) {
-        const sp = await geocodeSmart({ station: q.station_name, city: q.city, country: trip?.country })
+        const sp = await geocodeSmart({ station: q.station_name, city: q.city, country: trip?.country, near: auditNear })
         if (sp) return haversine(sp, c) < 50
       }
       return trusted.length === 0
@@ -427,7 +439,7 @@ export default function TripMap() {
       if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
       else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
       else if ((p.station_name ?? '').trim()) {
-        const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, station: p.station_name, city: p.city, country: trip?.country })
+        const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, station: p.station_name, city: p.city, country: trip?.country, near: auditNear })
         if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, false), linkFailed }
         else if (g) row = { p, status: 'approx', fixed: apply({ ...g, approx: true }, false, false), linkFailed }
         else row = { p, status: prev ? 'manualcheck' : 'nocoords', fixed: false, linkFailed }

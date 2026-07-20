@@ -267,13 +267,35 @@ export function cleanPlaceName(name: string): string {
 }
 
 // Photon (komoot) — free OSM geocoder, fuzzy/typo-tolerant where Nominatim
-// wants near-exact matches. No key, CORS-open.
-async function photonRaw(query: string): Promise<LatLng | null> {
+// wants near-exact matches. No key, CORS-open. Optional proximity bias.
+async function photonRaw(query: string, near?: LatLng): Promise<LatLng | null> {
   try {
-    const res = await fetch(`https://photon.komoot.io/api/?limit=1&q=${encodeURIComponent(query)}`)
+    const bias = near ? `&lat=${near.lat}&lon=${near.lng}` : ''
+    const res = await fetch(`https://photon.komoot.io/api/?limit=1&q=${encodeURIComponent(query)}${bias}`)
     if (!res.ok) return null
     const j = await res.json()
     const c = j?.features?.[0]?.geometry?.coordinates
+    const lng = Number(c?.[0]), lat = Number(c?.[1])
+    return valid(lat, lng) ? { lat, lng } : null
+  } catch { return null }
+}
+
+// Mapbox geocoding — a REAL places API: strong business/POI coverage and a
+// proximity bias, which together nail the exact branch of a chain far better
+// than OSM. Needs a free token (VITE_MAPBOX_TOKEN); no-op without one, so the
+// OSM fallbacks below still run. Public URL-restricted tokens are safe client-
+// side (that's what Mapbox tokens are designed for).
+const MAPBOX_TOKEN = (import.meta.env?.VITE_MAPBOX_TOKEN as string | undefined)?.trim()
+export const hasPlacesApi = !!MAPBOX_TOKEN
+async function mapboxRaw(query: string, near?: LatLng): Promise<LatLng | null> {
+  if (!MAPBOX_TOKEN || !query.trim()) return null
+  try {
+    const params = new URLSearchParams({ access_token: MAPBOX_TOKEN, limit: '1', types: 'poi,address,place' })
+    if (near) params.set('proximity', `${near.lng},${near.lat}`)
+    const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params}`)
+    if (!res.ok) return null
+    const j = await res.json()
+    const c = j?.features?.[0]?.center // [lng, lat]
     const lng = Number(c?.[0]), lat = Number(c?.[1])
     return valid(lat, lng) ? { lat, lng } : null
   } catch { return null }
@@ -298,12 +320,14 @@ export function distKm(a: LatLng, b: LatLng): number {
  *  station, else falls back to the station point.
  *  Cached (memory + localStorage) under one key per place. */
 const smartCache = new Map<string, GeoHit | null>()
-export function geocodeSmart(o: { name?: string | null; station?: string | null; city?: string | null; country?: string | null }): Promise<GeoHit | null> {
+export function geocodeSmart(o: { name?: string | null; station?: string | null; city?: string | null; country?: string | null; near?: LatLng | null }): Promise<GeoHit | null> {
   const name = (o.name ?? '').trim(), station = (o.station ?? '').trim()
   const city = (o.city ?? '').trim(), country = (o.country ?? '').trim()
+  const near = o.near ?? undefined
   if (!name && !station) return Promise.resolve(null)
-  // smart2: bust results cached before the wrong-branch guard existed
-  const key = `smart2:${[name, station, city, country].join('|')}`
+  // smart3: bust results cached before Mapbox + proximity bias were added
+  const nk = near ? `${near.lat.toFixed(2)},${near.lng.toFixed(2)}` : ''
+  const key = `smart3:${[name, station, city, country, nk].join('|')}`
   if (smartCache.has(key)) return Promise.resolve(smartCache.get(key) ?? null)
   const cached = lsGet(key) as GeoHit | null | undefined
   if (cached !== undefined) { smartCache.set(key, cached); return Promise.resolve(cached) }
@@ -323,26 +347,31 @@ export function geocodeSmart(o: { name?: string | null; station?: string | null;
     const stationPoint = async (): Promise<LatLng | null> => {
       if (sp !== undefined) return sp
       sp = station
-        ? await tryNom([`${station} station`, city, country])
+        ? await mapboxRaw([`${station} station`, city].filter(Boolean).join(' '), near)
+          || await tryNom([`${station} station`, city, country])
           || await tryNom([station, city, country])
-          || await photonRaw([station, city, country].filter(Boolean).join(' '))
+          || await photonRaw([station, city, country].filter(Boolean).join(' '), near)
         : null
       return sp
     }
+    // 0) Mapbox POI (proximity-biased) — best branch accuracy when a token is set
+    let r = name ? await mapboxRaw([name, city].filter(Boolean).join(' '), near) : null
+    if (!r && cleaned && cleaned !== name) r = await mapboxRaw([cleaned, city].filter(Boolean).join(' '), near)
     // 1) Nominatim ladder
-    let r = name ? await tryNom([name, city, country]) : null
+    if (!r && name) r = await tryNom([name, city, country])
     if (!r && cleaned && cleaned !== name) r = await tryNom([cleaned, city, country])
-    // 2) Photon fuzzy
-    if (!r && name) r = await photonRaw([name, city].filter(Boolean).join(' '))
-    if (!r && cleaned && cleaned !== name) r = await photonRaw([cleaned, city, country].filter(Boolean).join(' '))
+    // 2) Photon fuzzy (proximity-biased)
+    if (!r && name) r = await photonRaw([name, city].filter(Boolean).join(' '), near)
+    if (!r && cleaned && cleaned !== name) r = await photonRaw([cleaned, city, country].filter(Boolean).join(' '), near)
     // wrong-branch guard: the user told us which station the place is at — a
     // "match" 2km+ away is another branch of the same name. Retry anchored to
     // the station; if that fails too, the station stand-in wins.
     if (r && station) {
       const s = await stationPoint()
       if (s && distKm(r, s) > 2) {
-        const near = await photonRaw([name, station, city].filter(Boolean).join(' '))
-        r = near && distKm(near, s) <= 2 ? near : null
+        const nearHit = await mapboxRaw([name, station, city].filter(Boolean).join(' '), s)
+          || await photonRaw([name, station, city].filter(Boolean).join(' '), s)
+        r = nearHit && distKm(nearHit, s) <= 2 ? nearHit : null
       }
     }
     let hit: GeoHit | null = null
