@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconListCheck } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, alsHealth, cleanAddress, alsQuery, type LatLng, type GeoHit } from '@/lib/geo'
+import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, officialHealth, officialQueryFor, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords, setManualPin } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -428,7 +428,7 @@ export default function TripMap() {
   // eyeball pins one by one ─────────────────────────────────────────────────
   type AuditStatus = 'link' | 'station' | 'approx' | 'manualcheck' | 'nocoords'
   interface AuditRow { p: Place; status: AuditStatus; fixed: boolean; linkFailed?: boolean; addr?: string; alsQ?: string; coord?: GeoHit }
-  const [audit, setAudit] = useState<{ running: boolean; done: number; total: number; rows: AuditRow[]; hkEngine?: { ok: boolean; note: string } } | null>(null)
+  const [audit, setAudit] = useState<{ running: boolean; done: number; total: number; rows: AuditRow[]; engine?: { ok: boolean; label: string; note: string } | null } | null>(null)
 
   async function runAudit() {
     const list = tripPlaces
@@ -451,13 +451,14 @@ export default function TripMap() {
       return trusted.length === 0
     }
     setSelected(null)
-    // HK trips lean on the official ALS engine for building-exact pins — probe it
-    // ONCE up front and surface its health right in the panel, so a broken engine
-    // is visible in-app (no URL to copy, no debug to paste). Non-HK trips skip it.
-    const isHKtrip = /hong\s?kong|hongkong|\bhk\b|ฮ่องกง/i.test([trip?.country, trip?.name].filter(Boolean).join(' '))
-    let hkEngine: { ok: boolean; note: string } | undefined
+    // If the trip's country has an official address engine (HK ALS / JP GSI / SG
+    // OneMap), probe it ONCE up front and surface its health right in the panel,
+    // so a broken engine is visible in-app (no URL to copy, no debug to paste).
+    // Countries with no official engine just use OSM — nothing to probe.
+    let engine: { ok: boolean; label: string; note: string } | null = null
     setAudit({ running: true, done: 0, total: list.length, rows: [] })
-    if (isHKtrip) { hkEngine = await alsHealth().catch(() => ({ ok: false, note: 'ตรวจเครื่องยนต์ไม่สำเร็จ' })); setAudit({ running: true, done: 0, total: list.length, rows: [], hkEngine }) }
+    engine = await officialHealth(trip?.country).catch(() => null)
+    if (engine) setAudit({ running: true, done: 0, total: list.length, rows: [], engine })
     // worker pool, not one place at a time — a trip-wide audit over 100+
     // places at seconds each would take minutes serially; a pool of 6 finishes
     // in a fraction of the time. `results` is indexed by original position so
@@ -490,7 +491,7 @@ export default function TripMap() {
           const hasLink = !exact && isMapLink(p.map_url)
           const resolvedRaw = hasLink ? await resolveMapUrl(p.map_url!) : null
           addr = resolvedLinkAddress(p.map_url) || undefined
-          if (addr) { const q = alsQuery(cleanAddress(addr, trip?.country ?? undefined)); if (q && q !== addr) alsQ = q }
+          if (addr) { const q = officialQueryFor(addr, trip?.country ?? undefined); if (q && q !== addr) alsQ = q }
           const resolved = resolvedRaw && (!resolvedRaw.pageDerived || (await plausibleA(p, resolvedRaw))) ? resolvedRaw : null
           const linkFailed = hasLink && !resolved // surfaced in the panel — never silent
           if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
@@ -511,11 +512,11 @@ export default function TripMap() {
         }
         results[i] = { ...row, addr, alsQ, coord: cur[p.id] }
         doneCount++
-        setAudit({ running: true, done: doneCount, total: list.length, rows: results.filter((r): r is AuditRow => !!r), hkEngine })
+        setAudit({ running: true, done: doneCount, total: list.length, rows: results.filter((r): r is AuditRow => !!r), engine })
       }
     }
     await Promise.all(Array.from({ length: 6 }, worker))
-    setAudit({ running: false, done: list.length, total: list.length, rows: results.filter((r): r is AuditRow => !!r), hkEngine })
+    setAudit({ running: false, done: list.length, total: list.length, rows: results.filter((r): r is AuditRow => !!r), engine })
   }
 
   const CHIPS: { key: typeof filter; label: string }[] = [
@@ -592,11 +593,11 @@ export default function TripMap() {
               <span className="text-[14.5px] font-bold flex-1">ตรวจพิกัดทั้งทริป</span>
               {!audit.running && <button onClick={() => setAudit(null)} aria-label="ปิด" className="size-7 grid place-items-center rounded-full bg-surface-2 text-ink-3"><IconX size={15} /></button>}
             </div>
-            {audit.hkEngine && (
+            {audit.engine && (
               <div className="mt-2 flex items-start gap-1.5 rounded-xl px-2.5 py-2 text-[11.5px] leading-snug"
-                style={audit.hkEngine.ok ? { background: '#E6F4EE', color: '#1E8E5A' } : { background: '#FDF0E6', color: '#C56A1E' }}>
-                <span className="shrink-0 font-bold">{audit.hkEngine.ok ? '✅ เครื่องยนต์ HK' : '⚠️ เครื่องยนต์ HK'}</span>
-                <span className="min-w-0">{audit.hkEngine.ok ? audit.hkEngine.note : `${audit.hkEngine.note} — ใช้ OSM แทน (ถูกย่าน แต่อาจไม่ตรงตึก)`}</span>
+                style={audit.engine.ok ? { background: '#E6F4EE', color: '#1E8E5A' } : { background: '#FDF0E6', color: '#C56A1E' }}>
+                <span className="shrink-0 font-bold">{audit.engine.ok ? `✅ ${audit.engine.label}` : `⚠️ ${audit.engine.label}`}</span>
+                <span className="min-w-0">{audit.engine.ok ? audit.engine.note : `${audit.engine.note} — ใช้ OSM แทน (ถูกย่าน แต่อาจไม่ตรงตึก)`}</span>
               </div>
             )}
             {audit.running ? (
@@ -618,7 +619,7 @@ export default function TripMap() {
               const addrLine = (r: AuditRow) => (r.addr || r.alsQ) ? (
                 <div className="text-[10.5px] text-ink-3 leading-snug break-words pl-4 pb-0.5">
                   {r.addr && <span>📍 {r.addr}</span>}
-                  {r.alsQ && <span className="text-brand"> → ALS: {r.alsQ}</span>}
+                  {r.alsQ && <span className="text-brand"> → ค้นทางการ: {r.alsQ}</span>}
                   {r.coord && <span> · พิกัด {r.coord.lat.toFixed(5)}, {r.coord.lng.toFixed(5)}</span>}
                 </div>
               ) : null

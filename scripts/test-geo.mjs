@@ -23,7 +23,7 @@ globalThis.localStorage = {
 
 const dir = mkdtempSync(join(tmpdir(), 'geotest-'))
 execSync(`npx esbuild src/lib/geo.ts --bundle --format=esm --outfile=${join(dir, 'geo.mjs')}`, { stdio: 'pipe' })
-const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm, cleanAddress, alsQuery } = await import(join(dir, 'geo.mjs'))
+const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm, cleanAddress, alsQuery, officialEngineFor, officialQueryFor } = await import(join(dir, 'geo.mjs'))
 
 // ---- 1. URL precedence ----
 console.log('URL parsing')
@@ -118,6 +118,32 @@ const gHK = await geocodeSmart({
 })
 ok(gHK && Math.abs(gHK.lat - 22.2801) < 1e-6 && Math.abs(gHK.lng - 114.1845) < 1e-6,
   `HK ALS building coordinate wins over OSM (got ${gHK?.lat},${gHK?.lng})`)
+globalThis.fetch = mainMock
+
+// ---- 3a4. official-engine dispatch by country (HK ALS / JP GSI / SG OneMap) ----
+console.log('official engine dispatch')
+ok(officialEngineFor('Causeway Bay, Hong Kong')?.cc === 'hk', 'Hong Kong → ALS engine')
+ok(officialEngineFor('千代田区, 日本')?.cc === 'jp', 'Japan (日本) → GSI engine')
+ok(officialEngineFor('Marina Bay, Singapore')?.cc === 'sg', 'Singapore → OneMap engine')
+ok(officialEngineFor('Bangkok, Thailand') === null, 'a country with no official engine → null (OSM handles it)')
+// JP addresses keep their native script (cleanAddress would strip CJK): the
+// engine query drops the leading business name + country token, not the address
+ok(officialQueryFor('スターバックス, 東京都渋谷区神南1-1, 日本', 'Japan') === '東京都渋谷区神南1-1',
+  `JP official query keeps Japanese address, drops name+country (got "${officialQueryFor('スターバックス, 東京都渋谷区神南1-1, 日本', 'Japan')}")`)
+
+// a Japan place with an address is geocoded by GSI FIRST and its point is
+// flagged precise (so the audit force-applies it), even far from any station
+console.log('geocodeSmart JP-GSI-first')
+globalThis.fetch = async (url) => {
+  const s = String(url)
+  if (s.includes('/api/jp-geocode')) return json({ lat: 35.6595, lng: 139.7005 }) // Shibuya, GSI
+  if (s.includes('nominatim')) return json([{ lat: '35.0000', lon: '139.0000' }]) // OSM would be vaguer
+  if (s.includes('photon')) return json({ features: [] })
+  throw new Error('unexpected ' + s)
+}
+const gJP = await geocodeSmart({ name: 'Starbucks', address: 'スターバックス, 東京都渋谷区神南1-1, 日本', city: 'Tokyo', country: 'Japan', near: { lat: 35.66, lng: 139.70 } })
+ok(gJP && gJP.approx === false && gJP.precise === true && Math.abs(gJP.lat - 35.6595) < 1e-6,
+  `JP address → GSI point wins over OSM and is flagged precise (got ${gJP?.lat},${gJP?.lng}, precise=${gJP?.precise})`)
 globalThis.fetch = mainMock
 
 // ---- 3b. address-first: Google's canonical address (name + street + district)

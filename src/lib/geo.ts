@@ -312,7 +312,7 @@ export function cleanAddress(address: string, country?: string): string {
 // street-like is present (caller then skips ALS / uses the full string).
 const ROAD_WORD = /\b(rd|road|st|street|ave|avenue|lane|ln|path|terr|terrace|praya|crescent|circuit|square|plaza|drive|dr|hill|way|estate|street)\b/i
 const BUILDING_WORD = /\b(house|mansion|building|bldg|tower|centre|center|plaza|court|mall|garden|estate|block|arcade|apartments?|heights|villas?)\b/i
-const isCountryTok = (s: string) => /^(hong\s?kong|hongkong|hk|china|prc)$/i.test(s)
+const isCountryTok = (s: string) => /^(hong\s?kong|hongkong|hk|china|prc|japan|nippon|nihon|日本|singapore|新加坡|ญี่ปุ่น|ฮ่องกง|สิงคโปร์)$/i.test(s.trim())
 export function alsQuery(addrClean: string): string {
   const segs = addrClean.split(',').map((s) => s.trim()).filter(Boolean)
   if (!segs.length) return ''
@@ -329,39 +329,75 @@ export function alsQuery(addrClean: string): string {
   return picks.join(', ')
 }
 
-// HK Government official Address Lookup Service (ALS/OGCIO), via our own
-// serverless proxy (/api/hk-geocode) to sidestep CORS. The authoritative HK
-// address→coordinate database — building-accurate where OSM is vague — free,
-// no key, no card. Returns null off-HK or on any miss, so callers fall through
-// to OSM. This is the closest-to-Google free result for HK street addresses.
-async function alsRaw(query: string): Promise<LatLng | null> {
+// ── Official government address databases ──────────────────────────────────
+// Each is a free, key-less national geocoder — building-accurate where OSM is
+// vague — reached through our own serverless proxy (to sidestep CORS and
+// bounds-validate). Tried BEFORE OSM for a place in that country; off a
+// supported country the dispatch returns null and we fall through to OSM, so a
+// pin is never worse than before. This is the closest-to-Google free result.
+export interface OfficialEngine { cc: string; path: string; label: string; probe: string }
+const OFFICIAL_ENGINES: OfficialEngine[] = [
+  { cc: 'hk', path: '/api/hk-geocode', label: 'ฮ่องกง (ALS)', probe: '440 Jaffe Road Causeway Bay' },
+  { cc: 'jp', path: '/api/jp-geocode', label: 'ญี่ปุ่น (GSI)', probe: '東京都千代田区千代田1-1' },
+  { cc: 'sg', path: '/api/sg-geocode', label: 'สิงคโปร์ (OneMap)', probe: '1 Marina Boulevard' },
+]
+/** Pick the official engine for a country/address string, or null if none. */
+export function officialEngineFor(text: string): OfficialEngine | null {
+  const s = (text || '').toLowerCase()
+  if (/hong\s?kong|hongkong|\bhk\b|香港|ฮ่องกง/.test(s)) return OFFICIAL_ENGINES[0]
+  if (/\bjapan\b|日本|ญี่ปุ่น|nippon|nihon/.test(s)) return OFFICIAL_ENGINES[1]
+  if (/singapore|新加坡|สิงคโปร์/.test(s)) return OFFICIAL_ENGINES[2]
+  return null
+}
+/** Query an official engine's proxy; returns a validated point or null. */
+async function officialRaw(query: string, path: string): Promise<LatLng | null> {
   try {
-    const res = await fetch(`/api/hk-geocode?q=${encodeURIComponent(query)}`)
+    const res = await fetch(`${path}?q=${encodeURIComponent(query)}`)
     if (!res.ok) return null
     const j = await res.json()
     const lat = Number(j?.lat), lng = Number(j?.lng)
     return valid(lat, lng) ? { lat, lng } : null
   } catch { return null }
 }
+/** Candidate queries for an official engine, best-first. HK gets the street/
+ *  building extraction (Latin addresses); JP/SG keep their native script and
+ *  just drop a leading business-name segment and the trailing country token. */
+function officialQueries(addr: string, engine: OfficialEngine, country?: string): string[] {
+  if (engine.cc === 'hk') {
+    const clean = cleanAddress(addr, country)
+    return [alsQuery(clean), clean, addr].filter(Boolean)
+  }
+  const segs = addr.split(',').map((s) => s.trim()).filter((s) => s && !isCountryTok(s))
+  const noLead = segs.length > 1 ? segs.slice(1).join(', ') : ''
+  const full = segs.join(', ')
+  return [...new Set([noLead, full, addr].filter(Boolean))]
+}
+/** The primary official-engine query for an address (audit-panel diagnostics),
+ *  or '' when the country has no official engine. */
+export function officialQueryFor(address: string, country?: string): string {
+  const engine = address ? officialEngineFor([address, country].join(' ')) : null
+  return engine ? (officialQueries(address, engine, country)[0] ?? '') : ''
+}
 
-// In-app health check for the HK ALS engine, so the audit panel can report
-// whether it's actually working WITHOUT the user ever copying a URL or pasting
-// debug JSON. Probes one known-good HK address and interprets the endpoint's
-// own reply. `ok:false` just means HK places fall back to OSM (right district,
-// not building-exact) — never a worse pin than before.
-export async function alsHealth(): Promise<{ ok: boolean; note: string }> {
-  const probe = '440 Jaffe Road Causeway Bay'
+// In-app health check for the country's official engine, so the audit panel can
+// report whether it's actually working WITHOUT the user copying a URL or pasting
+// debug JSON. Probes one known-good address and interprets the reply. Returns
+// null when the trip country has no official engine (OSM handles it). `ok:false`
+// just means that country falls back to OSM — never a worse pin than before.
+export async function officialHealth(country?: string | null): Promise<{ ok: boolean; label: string; note: string } | null> {
+  const engine = officialEngineFor(country ?? '')
+  if (!engine) return null
   try {
-    const res = await fetch(`/api/hk-geocode?q=${encodeURIComponent(probe)}`)
+    const res = await fetch(`${engine.path}?q=${encodeURIComponent(engine.probe)}`)
     let j: Record<string, unknown> = {}
     try { j = await res.json() } catch { /* non-JSON body */ }
     const lat = Number(j?.lat), lng = Number(j?.lng)
-    if (valid(lat, lng)) return { ok: true, note: 'ทำงานปกติ (พิกัดระดับตึกจาก ALS)' }
-    if (j?.error === 'no match') return { ok: false, note: 'ALS ตอบกลับ แต่หาที่อยู่ทดสอบไม่เจอ' }
-    if (j?.cause || j?.error) return { ok: false, note: `ต่อ ALS ไม่ได้: ${String(j.cause || j.error)}` }
-    return { ok: false, note: `ไม่เข้าใจคำตอบจาก ALS (HTTP ${res.status})` }
+    if (valid(lat, lng)) return { ok: true, label: engine.label, note: 'ทำงานปกติ (พิกัดระดับตึก)' }
+    if (j?.error === 'no match') return { ok: false, label: engine.label, note: 'ตอบกลับ แต่หาที่อยู่ทดสอบไม่เจอ' }
+    if (j?.cause || j?.error) return { ok: false, label: engine.label, note: `ต่อไม่ได้: ${String(j.cause || j.error)}` }
+    return { ok: false, label: engine.label, note: `ไม่เข้าใจคำตอบ (HTTP ${res.status})` }
   } catch (e) {
-    return { ok: false, note: `เรียก endpoint ไม่ได้: ${String((e as Error)?.message || e)}` }
+    return { ok: false, label: engine.label, note: `เรียก endpoint ไม่ได้: ${String((e as Error)?.message || e)}` }
   }
 }
 
@@ -465,19 +501,21 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
     // what lands a ?g_st=ic link (which carries an address but no coordinate) on
     // the right building instead of a bare-name wrong branch or the station.
     const addrClean = address ? cleanAddress(address, country) : ''
-    // Hong Kong? then the official HK address DB is the most accurate free
-    // source — try it first. (Off-HK it returns null and we fall through.)
-    const isHK = /hong\s?kong|hongkong|\bhk\b/i.test([addrClean, city, country].join(' '))
-    // ALS first — but with the street→district tail (no business name), which is
-    // what it can actually parse; only fall back to the full string if that misses
-    const alsQ = addrClean && isHK ? alsQuery(addrClean) : ''
-    // ALS is the authoritative HK address DB — a hit here is building-accurate,
-    // flagged `precise` so the audit force-applies it over a stale wrong pin
-    // (the coarse 250m "don't churn" guard would otherwise freeze the old point)
-    let fromAls = false
-    let r: LatLng | null = alsQ ? await alsRaw(alsQ) : null
-    if (!r && addrClean && isHK && addrClean !== alsQ) r = await alsRaw(addrClean)
-    if (r) fromAls = true
+    // The country's official address DB (HK ALS / JP GSI / SG OneMap) is the most
+    // accurate free source — try it FIRST, on the RAW address (JP addresses are
+    // Japanese script; cleanAddress would strip them). A hit is building-accurate,
+    // flagged `precise` so the audit force-applies it over a stale wrong pin (the
+    // coarse 250m "don't churn" guard would otherwise freeze the old point). Off
+    // a supported country the dispatch is null and we fall through to OSM.
+    const engine = address ? officialEngineFor([address, city, country].join(' ')) : null
+    let fromOfficial = false
+    let r: LatLng | null = null
+    if (engine && address) {
+      for (const q of officialQueries(address, engine, country ?? undefined)) {
+        r = await officialRaw(q, engine.path)
+        if (r) { fromOfficial = true; break }
+      }
+    }
     if (!r && addrClean) r = await tryNom([addrClean])
     if (!r && addrClean) r = await photonRaw(addrClean, near)
     if (!r && address && address !== addrClean) r = await tryNom([address])
@@ -506,11 +544,11 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
         const nearHit = await mapboxRaw([name, station, city].filter(Boolean).join(' '), s)
           || await photonRaw([name, station, city].filter(Boolean).join(' '), s)
         r = nearHit && distKm(nearHit, s) <= 2 ? nearHit : null
-        fromAls = false // replaced by an OSM/Mapbox point — no longer authoritative
+        fromOfficial = false // replaced by an OSM/Mapbox point — no longer authoritative
       }
     }
     let hit: GeoHit | null = null
-    if (r) hit = { ...r, approx: false, ...(fromAls ? { precise: true } : {}) }
+    if (r) hit = { ...r, approx: false, ...(fromOfficial ? { precise: true } : {}) }
     else {
       const s = await stationPoint()
       if (s) hit = { ...s, approx: true }
