@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconListCheck } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
+import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -195,10 +195,11 @@ export default function TripMap() {
     // name as the search anchor.
     const stationSanity = async (p: Place, db: LatLng, nameOverride?: string) => {
       const searchName = (nameOverride ?? p.name ?? '').trim()
-      // a name alone is enough for geocodeSmart — station is only used to
-      // guard against the wrong branch of a chain, not required to search at all
-      if (!(p.station_name ?? '').trim() && !searchName) return
-      const g = await geocodeSmart({ name: searchName || undefined, station: p.station_name, city: p.city, country: trip?.country, near: tripNear })
+      const address = resolvedLinkAddress(p.map_url)
+      // a name OR Google's canonical address is enough for geocodeSmart —
+      // station is only used to guard against the wrong branch of a chain
+      if (!(p.station_name ?? '').trim() && !searchName && !address) return
+      const g = await geocodeSmart({ name: searchName || undefined, address, station: p.station_name, city: p.city, country: trip?.country, near: tripNear })
       if (!alive || !g) return
       if (!g.approx && haversine(db, g) > 0.25) {
         setCoords((c) => ({ ...c, [p.id]: g }))
@@ -269,9 +270,10 @@ export default function TripMap() {
       while (queue.length && alive) {
         const p = queue.shift()!
         const r = await resolveMapUrl(p.map_url!)
-        // link dead-ends (expired short link etc.) fall through to geocoding
+        // link dead-ends (expired short link etc.) fall through to geocoding —
+        // pass Google's canonical address when the resolve surfaced one
         if (r) gotCoords(p, r)
-        else gotCoords(p, await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country, near: tripNear }))
+        else gotCoords(p, await geocodeSmart({ name: p.name, address: resolvedLinkAddress(p.map_url), station: p.station_name, city: p.city, country: trip?.country, near: tripNear }))
       }
     }
     Promise.all(Array.from({ length: 6 }, worker))
@@ -474,7 +476,7 @@ export default function TripMap() {
           if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
           else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
           else if ((p.station_name ?? '').trim()) {
-            const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, station: p.station_name, city: p.city, country: trip?.country, near: auditNear })
+            const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, address: linkFailed ? resolvedLinkAddress(p.map_url) : undefined, station: p.station_name, city: p.city, country: trip?.country, near: auditNear })
             if (g && !g.approx) row = { p, status: 'station', fixed: apply(g, true, false), linkFailed }
             // persist the station stand-in too — an approximate point beats
             // leaving old garbage sitting in the DB every time it's queried

@@ -116,6 +116,22 @@ function nameFrom(s) {
   return null
 }
 
+/** The FULL canonical address Google puts in the ?q= of a search-style share
+ *  link — "<name> (<building>), <street>, <district>, <city>". For a ?g_st=ic
+ *  link Google redirects to a ?q= SEARCH url (no @lat,lng, no !3d!4d), so no
+ *  coordinate exists in the URL at all — but this address DOES, and geocoding
+ *  it (street + district) pins the right building far better than a bare name.
+ *  Returned only when it's a real address (has commas), never coords/URL/bare. */
+function addressFrom(s) {
+  if (!s) return null
+  let q
+  try { q = new URL(s).searchParams.get('q') } catch { return null } // URLSearchParams already %- and +-decodes
+  if (!q) return null
+  q = q.trim()
+  if (!q || !q.includes(',') || /^-?\d+(\.\d+)?\s*,\s*-?\d+/.test(q) || /^https?:/i.test(q)) return null
+  return q
+}
+
 function nameFromBody(s) {
   if (!s) return null
   const m = s.match(/property=["']og:title["'][^>]*content=["']([^"']{1,120})["']/i)
@@ -212,7 +228,11 @@ async function resolveOnce(url, lang, amap, budgetMs) {
   let name = null
   for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
   if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)
-  return { coords, src, name, hops, body, status, finalUrl, interUrl }
+  // canonical address from a ?q= search redirect (Google's own, precise) — the
+  // client geocodes this when no URL coordinate was found (?g_st=ic links)
+  let address = null
+  for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { address = addressFrom(h); if (address) break }
+  return { coords, src, name, address, hops, body, status, finalUrl, interUrl }
 }
 
 export default async function handler(req, res) {
@@ -241,16 +261,16 @@ export default async function handler(req, res) {
       result = await resolveOnce(v, lang, amap, Math.min(remaining, 3200))
       if (result.coords) break
     }
-    const { hops, body, status, finalUrl, interUrl, coords, src, name } = result
+    const { hops, body, status, finalUrl, interUrl, coords, src, name, address } = result
 
     if (req.query?.debug) {
-      return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, src, name, snippet: body.slice(0, 600) })
+      return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, src, name, address, snippet: body.slice(0, 600) })
     }
     // edge-cache ONLY trustworthy url-borne successes; page-derived points
     // must stay re-checkable and failures must never be pinned for a week
     res.setHeader('Cache-Control', coords && src === 'url' ? 's-maxage=604800' : 'no-store')
     return res.json({
-      ...(coords || {}), ...(coords ? { src } : {}), ...(name ? { name } : {}),
+      ...(coords || {}), ...(coords ? { src } : {}), ...(name ? { name } : {}), ...(address ? { address } : {}),
       // on failure return WHY, so the app's audit can show the reason per link
       ...(coords ? {} : { error: 'no coords', status, finalUrl, hops: hops.length }),
     })

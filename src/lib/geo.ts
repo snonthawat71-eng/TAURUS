@@ -139,6 +139,11 @@ export const resolveFailNote = (url?: string | null) => (url ? failNotes.get(url
 // coords aren't) — the fallback geocode anchor
 const linkNames = new Map<string, string>()
 export const resolvedLinkName = (url?: string | null) => (url ? linkNames.get(url) : undefined)
+// Google's canonical ADDRESS (name + street + district) from a ?q= search
+// redirect — present for ?g_st=ic links that carry no coordinate in the URL.
+// Geocoding this pins the right building far better than the bare name.
+const linkAddresses = new Map<string, string>()
+export const resolvedLinkAddress = (url?: string | null) => (url ? linkAddresses.get(url) : undefined)
 
 /** A resolved link point. pageDerived marks coordinates dug out of a PAGE
  *  body rather than a URL — those can be a server's geo-IP default (wrong
@@ -158,6 +163,7 @@ export async function resolveMapUrl(url: string): Promise<ResolvedPoint | null> 
     if (res.ok) {
       const j = await res.json()
       if (typeof j.name === 'string' && j.name.trim()) linkNames.set(url, j.name.trim())
+      if (typeof j.address === 'string' && j.address.trim()) linkAddresses.set(url, j.address.trim())
       if (valid(Number(j.lat), Number(j.lng))) {
         out = { lat: Number(j.lat), lng: Number(j.lng), ...(j.src === 'page' ? { pageDerived: true } : {}) }
       } else {
@@ -329,14 +335,15 @@ export function distKm(a: LatLng, b: LatLng): number {
  *  station, else falls back to the station point.
  *  Cached (memory + localStorage) under one key per place. */
 const smartCache = new Map<string, GeoHit | null>()
-export function geocodeSmart(o: { name?: string | null; station?: string | null; city?: string | null; country?: string | null; near?: LatLng | null }): Promise<GeoHit | null> {
+export function geocodeSmart(o: { name?: string | null; address?: string | null; station?: string | null; city?: string | null; country?: string | null; near?: LatLng | null }): Promise<GeoHit | null> {
   const name = (o.name ?? '').trim(), station = (o.station ?? '').trim()
   const city = (o.city ?? '').trim(), country = (o.country ?? '').trim()
+  const address = (o.address ?? '').trim()
   const near = o.near ?? undefined
-  if (!name && !station) return Promise.resolve(null)
-  // smart3: bust results cached before Mapbox + proximity bias were added
+  if (!name && !station && !address) return Promise.resolve(null)
+  // smart4: address-first geocoding added — bust name-only cached results
   const nk = near ? `${near.lat.toFixed(2)},${near.lng.toFixed(2)}` : ''
-  const key = `smart3:${[name, station, city, country, nk].join('|')}`
+  const key = `smart4:${[name, address, station, city, country, nk].join('|')}`
   if (smartCache.has(key)) return Promise.resolve(smartCache.get(key) ?? null)
   const cached = lsGet(key) as GeoHit | null | undefined
   if (cached !== undefined) { smartCache.set(key, cached); return Promise.resolve(cached) }
@@ -366,8 +373,15 @@ export function geocodeSmart(o: { name?: string | null; station?: string | null;
         : null
       return sp
     }
-    // 0) Mapbox POI (proximity-biased) — no-ops without VITE_MAPBOX_TOKEN
-    let r = name ? await mapboxRaw([name, city].filter(Boolean).join(' '), near) : null
+    // 0) Google's OWN canonical address (name + street + district) is the most
+    // precise signal there is — geocode it verbatim, proximity-biased, before
+    // anything else. This is what lands a ?g_st=ic link that returns an address
+    // (but no coordinate) on the right building instead of a bare-name wrong
+    // branch or the transit-station stand-in.
+    let r: LatLng | null = address ? await tryNom([address]) : null
+    if (!r && address) r = await photonRaw(address, near)
+    // 0b) Mapbox POI (proximity-biased) — no-ops without VITE_MAPBOX_TOKEN
+    if (!r && name) r = await mapboxRaw([name, city].filter(Boolean).join(' '), near)
     if (!r && cleaned && cleaned !== name) r = await mapboxRaw([cleaned, city].filter(Boolean).join(' '), near)
     // 1) Nominatim ladder — proximity-biased (the actual fix, needs no key)
     if (!r && name) r = await tryNom([name, city, country])

@@ -78,6 +78,27 @@ const g2 = await geocodeSmart({ name: 'Cafe Near', station: 'Wan Chai', city: 'H
 ok(g2 && g2.approx === false, 'name match near the station is accepted as exact')
 ok(g2 && Math.abs(g2.lat - 22.28) < 1e-6, 'accepted hit keeps its own coords')
 
+// ---- 3b. address-first: Google's canonical address (name + street + district)
+// geocodes precisely and wins over the bare name — the ?g_st=ic fix ----
+console.log('geocodeSmart address-first')
+globalThis.fetch = async (url) => {
+  const s = decodeURIComponent(String(url))
+  // only the FULL address (carries the street/district) resolves; the mock
+  // returns nothing for a bare-name query, proving the address is what landed it
+  if (s.includes('nominatim') && s.includes('Lung Poon')) return json([{ lat: '22.3405', lon: '114.2016' }])
+  if (s.includes('nominatim')) return json([])
+  if (s.includes('photon')) return json({ features: [] })
+  throw new Error('unexpected ' + s)
+}
+const gAddr = await geocodeSmart({
+  name: 'ABURI-EN', // bare name alone would miss
+  address: 'ABURI-EN (Plaza Hollywood), Lung Poon St, Diamond Hill, Hong Kong',
+  city: 'Hongkong', near: { lat: 22.33, lng: 114.20 },
+})
+ok(gAddr && gAddr.approx === false && Math.abs(gAddr.lat - 22.3405) < 1e-6,
+  `canonical address geocodes to its own point, not a station stand-in (got ${gAddr?.lat},${gAddr?.lng})`)
+globalThis.fetch = mainMock
+
 // ---- 4. failed resolutions are not persisted ----
 console.log('resolveMapUrl()')
 const r4 = await resolveMapUrl('https://maps.app.goo.gl/testfail123')

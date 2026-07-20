@@ -187,6 +187,46 @@ const page = (html, status = 200) => ({ status, headers: { get: () => null }, te
     `a plain retry recovers a real coordinate from a non-deterministically blocked link (got ${res.body?.lat})`)
 }
 
+// 2i. REAL production shape (captured via ?debug on the deployed app): a
+//     ?g_st=ic link Google redirects to a ?q=<canonical address>&ftid= SEARCH
+//     url — there is NO @lat,lng and NO !3d!4d anywhere in the chain, and the
+//     200 page body carries only the server geo-IP garbage (39.03,-77.84). No
+//     coordinate can be trusted — but the canonical ADDRESS (name + street +
+//     district) MUST come back, because geocoding it is how the client lands
+//     the pin on the right building instead of the bare-name wrong branch.
+{
+  const addr = '1樓131-133號舖 ABURI-EN (Plaza Hollywood), Lung Poon St, Diamond Hill, Hong Kong'
+  globalThis.fetch = async (url) => {
+    const s = String(url)
+    if (s.startsWith('https://maps.app.goo.gl/'))
+      return redirect('https://www.google.com/maps?q=' + encodeURIComponent(addr) + '&ftid=0x3404073e057c8237:0xfdabc900af30dce7&entry=gps')
+    return page('<html>…!1m3!1d3173884!2d-77.844326!3d39.02679939…</html>') // body = geo-IP garbage only
+  }
+  const res = mkRes()
+  await handler({ query: { url: 'https://maps.app.goo.gl/aburien?g_st=ic' } }, res)
+  ok(res.body?.lat === undefined && res.body?.lng === undefined,
+    `?g_st=ic search redirect → no coordinate invented (got ${res.body?.lat},${res.body?.lng})`)
+  ok(res.body?.address === addr, `canonical Google address returned for geocoding (got ${res.body?.address})`)
+  ok(typeof res.body?.name === 'string' && res.body.name.includes('ABURI-EN'), `place name also parsed (got ${res.body?.name})`)
+  ok(res.body?.error === 'no coords', 'still a clean, self-explaining no-coords result')
+  ok(String(res.headers['Cache-Control']) === 'no-store', 'address-only result not edge-cached (still re-checkable)')
+}
+
+// 2j. a bare ?q=<name> (no commas — just a place name, not an address) is NOT
+//     returned as `address`: it is no more precise than the `name` field, and
+//     treating it as an address would wrongly skip the branch-guarded name path
+{
+  globalThis.fetch = async (url) => {
+    const s = String(url)
+    if (s.startsWith('https://maps.app.goo.gl/'))
+      return redirect('https://www.google.com/maps?q=' + encodeURIComponent('Jollibee') + '&ftid=0x0:0x1')
+    return page('<html>nothing</html>')
+  }
+  const res = mkRes()
+  await handler({ query: { url: 'https://maps.app.goo.gl/bareq?g_st=ic' } }, res)
+  ok(res.body?.address === undefined, `bare single-token ?q= is not treated as an address (got ${res.body?.address})`)
+}
+
 globalThis.fetch = realFetch
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
