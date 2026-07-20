@@ -239,11 +239,19 @@ function lsGet(key: string): LatLng | null | undefined {
 }
 function lsSet(key: string, v: LatLng | null) { try { localStorage.setItem(`geo:${key}`, JSON.stringify(v)) } catch { /* ignore */ } }
 
-async function geocodeRaw(query: string): Promise<LatLng | null> {
+/** `near` biases ranking toward a bounding box around that point (Nominatim's
+ *  viewbox) WITHOUT excluding matches outside it — this is what actually fixes
+ *  "search 'Jollibee' → get a random branch anywhere on Earth": with no bias
+ *  Nominatim has nothing to prefer the trip's city with. ±0.6° is roughly a
+ *  60-70km box, wide enough to cover a whole metro area. */
+async function geocodeRaw(query: string, near?: LatLng): Promise<LatLng | null> {
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`, {
-      headers: { 'Accept-Language': 'en' },
-    })
+    let url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
+    if (near) {
+      const d = 0.6
+      url += `&viewbox=${near.lng - d},${near.lat + d},${near.lng + d},${near.lat - d}`
+    }
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } })
     if (!res.ok) return null
     const arr = await res.json()
     const hit = Array.isArray(arr) ? arr[0] : null
@@ -334,10 +342,13 @@ export function geocodeSmart(o: { name?: string | null; station?: string | null;
   const run = chain.then(async (): Promise<GeoHit | null> => {
     if (smartCache.has(key)) return smartCache.get(key) ?? null
     const cleaned = cleanPlaceName(name)
-    const tryNom = async (parts: string[]) => {
+    // NB: `near` (the trip's own centre) biases Nominatim toward the right
+    // city/branch without it — this is what actually fixes "search a chain's
+    // name → get a random branch anywhere on Earth"; free, keyless.
+    const tryNom = async (parts: string[], biasAt?: LatLng) => {
       const q = parts.filter(Boolean).join(', ')
       if (!q) return null
-      const r = await geocodeRaw(q)
+      const r = await geocodeRaw(q, biasAt ?? near)
       await sleep(1100) // be polite to Nominatim
       return r
     }
@@ -354,10 +365,10 @@ export function geocodeSmart(o: { name?: string | null; station?: string | null;
         : null
       return sp
     }
-    // 0) Mapbox POI (proximity-biased) — best branch accuracy when a token is set
+    // 0) Mapbox POI (proximity-biased) — no-ops without VITE_MAPBOX_TOKEN
     let r = name ? await mapboxRaw([name, city].filter(Boolean).join(' '), near) : null
     if (!r && cleaned && cleaned !== name) r = await mapboxRaw([cleaned, city].filter(Boolean).join(' '), near)
-    // 1) Nominatim ladder
+    // 1) Nominatim ladder — proximity-biased (the actual fix, needs no key)
     if (!r && name) r = await tryNom([name, city, country])
     if (!r && cleaned && cleaned !== name) r = await tryNom([cleaned, city, country])
     // 2) Photon fuzzy (proximity-biased)

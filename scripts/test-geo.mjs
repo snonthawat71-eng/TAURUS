@@ -38,7 +38,7 @@ ok(latLngFromUrlExact('https://www.google.com/maps/@22.29,114.10,15z') === null,
 // ---- fetch mock for geocoders ----
 const json = (body) => ({ ok: true, json: async () => body })
 const realFetch = globalThis.fetch
-globalThis.fetch = async (url) => {
+const mainMock = async (url) => {
   const s = decodeURIComponent(String(url))
   if (s.includes('nominatim')) {
     if (s.includes('Jollibee')) return json([{ lat: '22.2890', lon: '113.9410' }]) // Tung Chung branch — WRONG (far from Wan Chai)
@@ -50,6 +50,21 @@ globalThis.fetch = async (url) => {
   if (s.includes('/api/resolve-map')) throw new Error('resolver down')
   throw new Error('unexpected fetch ' + s)
 }
+globalThis.fetch = mainMock
+
+// ---- 1b. Nominatim proximity bias — the actual fix for "wrong branch,
+// wrong country": a viewbox around `near` must reach the request URL ----
+console.log('geocodeRaw proximity bias')
+// multiple providers get queried (Nominatim then Photon) — OR across every
+// call made during the geocodeSmart run, not just the last one
+let sawViewbox = false
+globalThis.fetch = async (url) => { sawViewbox = sawViewbox || String(url).includes('viewbox='); return json([]) }
+await geocodeSmart({ name: 'Solo Test', city: 'Hong Kong', near: { lat: 22.28, lng: 114.17 } })
+ok(sawViewbox === true, 'near: {...} on geocodeSmart reaches Nominatim as &viewbox=')
+sawViewbox = false
+await geocodeSmart({ name: 'Solo Test 2', city: 'Hong Kong' })
+ok(sawViewbox === false, 'no near → no viewbox param (unbiased search still works)')
+globalThis.fetch = mainMock
 
 // ---- 2. wrong-branch guard ----
 console.log('geocodeSmart()')
