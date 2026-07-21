@@ -13,7 +13,7 @@ import { toast } from '@/lib/toast'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
 import { settle, addExpense, updateExpense, deleteExpense } from '@/lib/budgetMutations'
 import { getRateToTHB, CURRENCIES } from '@/lib/fx'
-import { expenseCat } from '@/lib/expenseMeta'
+import { expenseCat, expenseCatLabel } from '@/lib/expenseMeta'
 import { IconTrash } from '@tabler/icons-react'
 import type { Expense } from '@/lib/database.types'
 
@@ -131,6 +131,7 @@ export default function Budget() {
                 <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
                   {payer && <><Avatar name={payer.name} color={payer.color} photo={payer.photo} photoFocus={payer.photoFocus} size={16} ring={false} /> <span>จ่ายโดย {payer.name}</span></>}
                   <span>· หาร {n} คน</span>
+                  {expenseCatLabel(e.category) && <span className="rounded-full px-1.5 py-px text-[10px] font-medium" style={{ background: meta.bg, color: meta.fg }}>{expenseCatLabel(e.category)}</span>}
                 </div>
               </div>
               <div className="text-right shrink-0">

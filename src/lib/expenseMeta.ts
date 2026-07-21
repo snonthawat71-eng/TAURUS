@@ -1,7 +1,7 @@
 // Spending categories for Budget expenses — same idea as placeMeta: one place
 // that maps a category id to its label, icon and colors, shared by the editor
 // pills and the expense-list rows.
-import { IconToolsKitchen2, IconBus, IconBed, IconShoppingBag, IconTicket, IconDots, IconReceipt, type Icon } from '@tabler/icons-react'
+import { IconToolsKitchen2, IconBus, IconBed, IconShoppingBag, IconTicket, IconDots, type Icon } from '@tabler/icons-react'
 
 export interface ExpenseCat {
   id: string
@@ -20,8 +20,16 @@ export const EXPENSE_CATS: ExpenseCat[] = [
   { id: 'other', label: 'อื่นๆ', icon: IconDots, bg: '#EEF1F4', fg: '#5B6573' },
 ]
 
-/** Meta for a stored category id — falls back to a neutral receipt look. */
+/** Meta for a stored category value. Known ids get their pill look; a freeform
+ *  "other" label (e.g. "ค่าปรับ") falls back to the neutral "other" look. */
 export function expenseCat(id?: string | null): ExpenseCat {
   return EXPENSE_CATS.find((c) => c.id === id)
-    ?? { id: 'none', label: 'ค่าใช้จ่าย', icon: IconReceipt, bg: '#EEF1F4', fg: '#5B6573' }
+    ?? { id: 'other', label: 'อื่นๆ', icon: IconDots, bg: '#EEF1F4', fg: '#5B6573' }
+}
+
+/** Human label for a stored category value — a known category's Thai word, or
+ *  the freeform text the user typed for "อื่นๆ". null when unset. */
+export function expenseCatLabel(value?: string | null): string | null {
+  if (!value) return null
+  return EXPENSE_CATS.find((c) => c.id === value)?.label ?? value
 }
