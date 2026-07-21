@@ -29,7 +29,16 @@ export function BudgetSection() {
   const [adding, setAdding] = useState(false)
   const [equiv, setEquiv] = useState<string | null>(null)
 
-  const total = expenses.reduce((s, e) => s + (e.total ?? 0), 0)
+  // foreign-currency expenses (expense_extras.sql) counted at today's rate
+  const [fxMap, setFxMap] = useState<Record<string, number>>({})
+  useEffect(() => {
+    const codes = [...new Set(expenses.map((e) => e.currency).filter((c): c is string => !!c && c !== 'THB'))]
+    if (!codes.length) return
+    Promise.all(codes.map(async (c) => [c, (await getRateToTHB(c)).rate] as const))
+      .then((rs) => setFxMap(Object.fromEntries(rs)))
+  }, [expenses])
+
+  const total = expenses.reduce((s, e) => s + ((e.total ?? 0) * (!e.currency || e.currency === 'THB' ? 1 : (fxMap[e.currency] ?? 1))), 0)
   const distinctSplit = new Set<string>()
   expenses.forEach((e) => (e.split_user_ids ?? []).forEach((id) => distinctSplit.add(id)))
   const headCount = distinctSplit.size || travelers.length || 1

@@ -13,6 +13,7 @@ import { toast } from '@/lib/toast'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
 import { settle, addExpense, updateExpense, deleteExpense } from '@/lib/budgetMutations'
 import { getRateToTHB, CURRENCIES } from '@/lib/fx'
+import { expenseCat } from '@/lib/expenseMeta'
 import { IconTrash } from '@tabler/icons-react'
 import type { Expense } from '@/lib/database.types'
 
@@ -42,7 +43,21 @@ export default function Budget() {
   }, [travelers, memberProfiles])
   const personOf = (id: string) => person.get(id) ?? { name: 'ผู้ใช้', color: undefined, photo: null, photoFocus: null }
 
-  const total = expenses.reduce((s, e) => s + (e.total ?? 0), 0)
+  // expenses may be recorded in a foreign currency (expense_extras.sql) — load
+  // today's rate for each distinct one so every sum below is in THB
+  const [fxMap, setFxMap] = useState<Record<string, number>>({})
+  useEffect(() => {
+    const codes = [...new Set(expenses.map((e) => e.currency).filter((c): c is string => !!c && c !== 'THB'))]
+    if (!codes.length) return
+    Promise.all(codes.map(async (c) => [c, (await getRateToTHB(c)).rate] as const))
+      .then((rs) => setFxMap(Object.fromEntries(rs)))
+  }, [expenses])
+  const inTHB = (e: Expense) => {
+    const t = e.total ?? 0
+    return !e.currency || e.currency === 'THB' ? t : t * (fxMap[e.currency] ?? 1)
+  }
+
+  const total = expenses.reduce((s, e) => s + inTHB(e), 0)
   const distinctSplit = new Set<string>()
   expenses.forEach((e) => (e.split_user_ids ?? []).forEach((id) => distinctSplit.add(id)))
   const headCount = distinctSplit.size || travelers.length || 1
@@ -54,12 +69,14 @@ export default function Budget() {
     for (const e of expenses) {
       const split = e.split_user_ids ?? []
       if (!e.total || split.length === 0) continue
-      if (e.payer_id) add(e.payer_id, e.total)
-      const share = e.total / split.length
+      const thb = inTHB(e)
+      if (e.payer_id) add(e.payer_id, thb)
+      const share = thb / split.length
       for (const sid of split) add(sid, -share)
     }
     return settle(balances)
-  }, [expenses])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenses, fxMap])
 
   // total in the sidebar-selected foreign currency
   useEffect(() => {
@@ -102,9 +119,13 @@ export default function Budget() {
         {expenses.map((e) => {
           const payer = e.payer_id ? personOf(e.payer_id) : null
           const n = (e.split_user_ids ?? []).length || 1
+          const meta = expenseCat(e.category)
+          const CatIcon = meta.icon
+          const foreign = !!e.currency && e.currency !== 'THB'
+          const sym = foreign ? (CURRENCIES.find((c) => c.code === e.currency)?.symbol ?? e.currency) : null
           return (
             <div key={e.id} className="card p-3.5 flex items-center gap-3">
-              <span className="size-9 rounded-md bg-surface-2 grid place-items-center text-ink-2 shrink-0"><IconReceipt size={18} /></span>
+              <span className="size-9 rounded-md grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}><CatIcon size={18} /></span>
               <div className="min-w-0 flex-1">
                 <div className="text-[14px] font-medium truncate">{e.name}</div>
                 <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
@@ -113,8 +134,10 @@ export default function Budget() {
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <div className="text-[14px] font-medium tabular-nums">{baht(e.total)}</div>
-                <div className="text-[11px] text-ink-3 tabular-nums">{baht((e.total ?? 0) / n)}/คน</div>
+                <div className="text-[14px] font-medium tabular-nums">
+                  {foreign ? `${sym}${Math.round(e.total ?? 0).toLocaleString('en-US')}` : baht(e.total)}
+                </div>
+                <div className="text-[11px] text-ink-3 tabular-nums">{foreign ? `≈ ${baht(inTHB(e))}` : `${baht((e.total ?? 0) / n)}/คน`}</div>
               </div>
               <SlipButton path={e.receipt_path} />
               {canEdit && (

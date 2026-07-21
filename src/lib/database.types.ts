@@ -422,6 +422,10 @@ export interface Expense {
   total: number | null
   split_user_ids: string[] | null
   receipt_path: string | null
+  /** optional — present after expense_extras.sql; spending category id (see expenseMeta) */
+  category?: string | null
+  /** optional — present after expense_extras.sql; currency code of `total` (null/THB = บาท) */
+  currency?: string | null
   created_at: string
   /** optional — present after the concurrency.sql migration (optimistic lock) */
   version?: number
