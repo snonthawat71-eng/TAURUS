@@ -329,6 +329,27 @@ export function alsQuery(addrClean: string): string {
   return picks.join(', ')
 }
 
+// Build a Nominatim-friendly street query from a (CJK/Thai-stripped) address,
+// for countries with NO official engine (Taiwan, Thailand, Korea, …). OSM wants
+// "104 Guangzhou Street, Wanhua District, Taipei" — house number glued to the
+// street — but Google's localized address arrives as "No. 104號, Guangzhou St,
+// Fuyin Village, …, 108" with the number split off and sub-village + postal
+// noise. So: drop postal codes and sub-village (里) units, glue a standalone
+// house number onto the following street segment. Returns '' if nothing usable.
+export function osmStreetQuery(addrClean: string): string {
+  let segs = addrClean.split(',').map((s) => s.trim())
+    .filter((s) => s && !/^\d{3,6}$/.test(s) && !/\b(village|neighou?rhood)\b/i.test(s))
+  if (!segs.length) return ''
+  // a segment that's ONLY a house number, e.g. "No. 104", "104", "104-2"
+  const numRe = /^(?:no\.?\s*)?(\d{1,5}(?:-\d{1,4})?[a-z]?)$/i
+  const i = segs.findIndex((s) => numRe.test(s))
+  if (i >= 0 && i + 1 < segs.length) {
+    segs[i + 1] = `${segs[i].match(numRe)![1]} ${segs[i + 1]}`
+    segs.splice(i, 1)
+  }
+  return segs.join(', ')
+}
+
 // ── Official government address databases ──────────────────────────────────
 // Each is a free, key-less national geocoder — building-accurate where OSM is
 // vague — reached through our own serverless proxy (to sidestep CORS and
@@ -516,8 +537,14 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
         if (r) { fromOfficial = true; break }
       }
     }
-    if (!r && addrClean) r = await tryNom([addrClean])
-    if (!r && addrClean) r = await photonRaw(addrClean, near)
+    // OSM: try the cleaned street query first (number glued to street, noise
+    // dropped) — this is what lands a numbered address in a country with no
+    // official engine (e.g. 104 Guangzhou St, Taipei); then the raw cleaned form
+    const streetQ = addrClean ? osmStreetQuery(addrClean) : ''
+    if (!r && streetQ) r = await tryNom([streetQ])
+    if (!r && addrClean && addrClean !== streetQ) r = await tryNom([addrClean])
+    if (!r && streetQ) r = await photonRaw(streetQ, near)
+    if (!r && addrClean && addrClean !== streetQ) r = await photonRaw(addrClean, near)
     if (!r && address && address !== addrClean) r = await tryNom([address])
     // a hit here came from the place's OWN specific address (or ALS) — it's
     // trustworthy as-is and must skip the station wrong-branch guard below, which

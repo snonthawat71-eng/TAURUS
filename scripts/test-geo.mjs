@@ -23,7 +23,7 @@ globalThis.localStorage = {
 
 const dir = mkdtempSync(join(tmpdir(), 'geotest-'))
 execSync(`npx esbuild src/lib/geo.ts --bundle --format=esm --outfile=${join(dir, 'geo.mjs')}`, { stdio: 'pipe' })
-const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm, cleanAddress, alsQuery, officialEngineFor, officialQueryFor } = await import(join(dir, 'geo.mjs'))
+const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm, cleanAddress, alsQuery, osmStreetQuery, officialEngineFor, officialQueryFor } = await import(join(dir, 'geo.mjs'))
 
 // ---- 1. URL precedence ----
 console.log('URL parsing')
@@ -119,6 +119,17 @@ const gHK = await geocodeSmart({
 ok(gHK && Math.abs(gHK.lat - 22.2801) < 1e-6 && Math.abs(gHK.lng - 114.1845) < 1e-6,
   `HK ALS building coordinate wins over OSM (got ${gHK?.lat},${gHK?.lng})`)
 globalThis.fetch = mainMock
+
+// ---- 3a3b. osmStreetQuery: numbered address in an OSM-only country (Taiwan)
+// — glue the house number to the street, drop 里/village + postal noise so
+// Nominatim can actually find it (the 廣州街104號 congee-shop case) ----
+console.log('osmStreetQuery (OSM-only countries)')
+ok(osmStreetQuery('No. 104, Guangzhou St, Fuyin Village, Wanhua District, Taipei City, 108, Taiwan') === '104 Guangzhou St, Wanhua District, Taipei City, Taiwan',
+  `glues number to street, drops village + postal (got "${osmStreetQuery('No. 104, Guangzhou St, Fuyin Village, Wanhua District, Taipei City, 108, Taiwan')}")`)
+ok(osmStreetQuery('440 Jaffe Rd, Causeway Bay') === '440 Jaffe Rd, Causeway Bay',
+  'an address whose number is already glued is left intact')
+ok(osmStreetQuery('Central Market, Des Voeux Rd Central') === 'Central Market, Des Voeux Rd Central',
+  'no standalone house number → returned as-is (minus noise)')
 
 // ---- 3a4. official-engine dispatch by country (HK ALS / JP GSI / SG OneMap) ----
 console.log('official engine dispatch')
