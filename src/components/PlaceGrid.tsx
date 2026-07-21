@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar, IconHeart, IconArrowsSort, IconMapPin, IconToolsKitchen2 } from '@tabler/icons-react'
+import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar, IconHeart, IconArrowsSort, IconMapPin, IconToolsKitchen2, IconCompass } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { PlaceCard, type Interested, type CardMode } from './PlaceCard'
@@ -7,6 +7,7 @@ import { PlaceEditor } from './PlaceEditor'
 import { PlaceDetail } from './PlaceDetail'
 import { SaveToTripDialog } from './SaveToTripDialog'
 import { AddToDayDialog } from './AddToDayDialog'
+import { QuickExplorePicker } from './QuickExplorePicker'
 import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
 import { addExplore, searchExploreSimilar, placeAsExploreInput } from '@/lib/exploreMutations'
 import { confirmDialog, alertDialog } from '@/lib/confirm'
@@ -46,6 +47,7 @@ export function PlaceGrid({
   const setQuery = onQuery ?? setQueryLocal
   const [dimMenu, setDimMenu] = useState(false)
   const [editor, setEditor] = useState<'new' | Place | null>(null)
+  const [explorePick, setExplorePick] = useState(false)
   const [detail, setDetail] = useState<Place | null>(null)
   const [pinPlace, setPinPlace] = useState<Place | null>(null)
   const [dayPickFor, setDayPickFor] = useState<Place | null>(null)
@@ -214,6 +216,7 @@ export function PlaceGrid({
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-[13px] font-medium text-ink-2">{title} · {filtered.length}</h2>
         <div className="flex items-center gap-3">
+          {canEdit && <button onClick={() => setExplorePick(true)} className="btn-link flex items-center gap-1"><IconCompass size={14} /> จาก Explore</button>}
           {canEdit && <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> {addLabel}</button>}
         </div>
       </div>
@@ -298,7 +301,12 @@ export function PlaceGrid({
         <div className="card p-8 flex flex-col items-center gap-2 text-center">
           {wantSort ? <IconHeart size={28} className="text-ink-3" /> : <IconSearch size={28} className="text-ink-3" />}
           <p className="text-[13px] text-ink-2">{wantSort ? 'ยังไม่มีใครกด “อยากไป”' : query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</p>
-          {canEdit && !query && !wantSort && <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-[13px] mt-1"><IconPlus size={15} /> {addLabel}</button>}
+          {canEdit && !query && !wantSort && (
+            <div className="flex items-center gap-2 mt-1">
+              <button onClick={() => setExplorePick(true)} className="h-9 px-4 rounded-full flex items-center gap-1.5 text-[13px] font-medium" style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}><IconCompass size={15} /> จาก Explore</button>
+              <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-[13px]"><IconPlus size={15} /> {addLabel}</button>
+            </div>
+          )}
         </div>
       ) : searching ? (
         // search results grouped by tab so cross-tab hits are clearly labeled;
@@ -348,6 +356,10 @@ export function PlaceGrid({
           })}
         </div>
       )}
+
+      {/* add one or many places straight from the Explore pool */}
+      <QuickExplorePicker open={explorePick} onClose={() => setExplorePick(false)} multi
+        initialGroup={group} title={group === 'food' ? 'เพิ่มร้านจาก Explore' : 'เพิ่มสถานที่จาก Explore'} />
 
       <PlaceEditor
         open={editor !== null} onClose={() => setEditor(null)}

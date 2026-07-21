@@ -19,10 +19,16 @@ export interface QuickPick { id: string; name: string | null; map_url: string | 
  * Tapping a result copies it into THIS trip's places (flagged in_plan, so it also
  * shows up in Places/Food) and hands it back to be selected for the stop at once.
  */
-export function QuickExplorePicker({ open, onClose, onPicked }: {
+export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGroup, title }: {
   open: boolean
   onClose: () => void
-  onPicked: (pick: QuickPick) => void
+  /** called after a single pick (stop flow). Omit in `multi` mode. */
+  onPicked?: (pick: QuickPick) => void
+  /** stay open after each add, so several places can be saved in one go (used
+   *  from the Places page); adds are saved to Places WITHOUT forcing in_plan. */
+  multi?: boolean
+  initialGroup?: 'all' | 'place' | 'food'
+  title?: string
 }) {
   const { trip, places, reload } = useTrip()
   const { user } = useAuth()
@@ -44,7 +50,7 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
 
   useEffect(() => {
     if (!open) return
-    setQ(''); setGroupFilter('all'); setCityFilter('all'); setBusyId(null); setDetail(null); setBranchFor(null)
+    setQ(''); setGroupFilter(initialGroup ?? 'all'); setCityFilter('all'); setBusyId(null); setDetail(null); setBranchFor(null)
     // refresh the trip so the "เพิ่มแล้ว" badge reflects the latest places
     // (e.g. after a place was deleted from Places/Food)
     reload()
@@ -83,7 +89,7 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
   }, [cityScoped, q, groupFilter, cityFilter])
 
   function finishPick(pick: QuickPick) {
-    onPicked(pick)
+    onPicked?.(pick)
     setBusyId(null); setDetail(null); setBranchFor(null); onClose()
   }
 
@@ -97,6 +103,7 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
     const existing = places.find((p) => p.source_explore_id === e.id)
     if (existing) {
       setBusyId(e.id)
+      if (multi) { setBusyId(null); return } // already in this trip → nothing to do
       if (!existing.in_plan) { await setInPlan(existing.id, true); await reload() }
       finishPick({ id: existing.id, name: existing.name, map_url: planMapUrl(existing), note: existing.note })
       return
@@ -110,9 +117,10 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
     if (!trip) return
     setBusyId(e.id)
     const id = crypto.randomUUID()
-    await copyPlaceToTrip(exploreAsPlace(e), trip.id, e.id, { inPlan: true, id, planBranch: branchIdx })
+    await copyPlaceToTrip(exploreAsPlace(e), trip.id, e.id, { inPlan: !multi, id, planBranch: branchIdx })
     if (user) logExploreEvent(e.id, user.id, 'save')
     await reload()
+    if (multi) { setBusyId(null); setBranchFor(null); return } // stay open for more; badge flips to "เพิ่มแล้ว"
     const b = branchIdx != null ? (e.branches ?? [])[branchIdx] : null
     finishPick({ id, name: e.name, map_url: b?.map_url || e.map_url, note: e.note })
   }
@@ -176,12 +184,14 @@ export function QuickExplorePicker({ open, onClose, onPicked }: {
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="เลือกด่วนจาก Explore">
+    <Drawer open={open} onClose={onClose} title={title ?? 'เลือกด่วนจาก Explore'}>
       <div className="space-y-3">
         <p className="text-[12px] text-ink-3 -mt-1">
-          {tripCities.size
-            ? `แสดงเฉพาะเมืองที่ทริปนี้จะไป (${cities.join(', ')}) — แตะเพื่อเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที`
-            : 'เลือกสถานที่จาก Explore — จะถูกเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที'}
+          {multi
+            ? (tripCities.size ? `เลือกจาก Explore มาเก็บไว้ในทริป — แสดงเฉพาะเมืองที่จะไป (${cities.join(', ')}) · เพิ่มได้หลายที่` : 'เลือกจาก Explore มาเก็บไว้ในทริป — เพิ่มได้หลายที่')
+            : (tripCities.size
+              ? `แสดงเฉพาะเมืองที่ทริปนี้จะไป (${cities.join(', ')}) — แตะเพื่อเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที`
+              : 'เลือกสถานที่จาก Explore — จะถูกเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที')}
         </p>
 
         <div className="relative">
