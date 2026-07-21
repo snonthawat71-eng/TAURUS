@@ -510,6 +510,9 @@ export async function geoCandidates(o: {
   if (exact) push(exact, 'link', 'จากลิงก์แมพ')
   else if (o.mapUrl && isMapLink(o.mapUrl)) push(await resolveMapUrl(o.mapUrl, localLang(country)), 'link', 'จากลิงก์แมพ')
   const addr = address || (o.mapUrl ? (resolvedLinkAddress(o.mapUrl) ?? '') : '')
+  // the link's canonical NAME is often in the local script (e.g. 正濱漁港彩色屋)
+  // — OSM in Asia indexes by that, so search it as well as the (English) name
+  const nativeName = o.mapUrl ? (resolvedLinkName(o.mapUrl) ?? '') : ''
 
   // 2) the country's official address DB (building-accurate)
   const engine = addr ? officialEngineFor([addr, city, country].join(' ')) : null
@@ -525,11 +528,14 @@ export async function geoCandidates(o: {
   if (addrClean) { push(await geocodeRaw(osmStreetQuery(addrClean) || addrClean, near), 'osm-addr', 'OSM · ที่อยู่'); await sleep(1100) }
   if (addr && /[㐀-鿿぀-ヿ가-힯]/.test(addr)) { push(await geocodeRaw(addr, near), 'osm-native', 'OSM · ที่อยู่ท้องถิ่น'); await sleep(1100) }
 
-  // 4) by NAME (proximity-biased) — Mapbox, Photon, then Nominatim
-  if (name) {
-    push(await mapboxRaw([name, city].filter(Boolean).join(' '), near), 'mapbox', 'ค้นจากชื่อ · Mapbox')
-    push(await photonRaw([name, city].filter(Boolean).join(' '), near), 'osm-name', 'ค้นจากชื่อ · OSM')
-    push(await geocodeRaw([name, city, country].filter(Boolean).join(', '), near), 'osm-name2', 'ค้นจากชื่อ · Nominatim')
+  // 4) by NAME — both the place name and the link's native-script name, each via
+  // Mapbox → Photon → Nominatim (proximity is a soft hint, never a hard filter)
+  const names = [...new Set([nativeName, name].filter(Boolean))]
+  for (const nm of names) {
+    push(await mapboxRaw([nm, city].filter(Boolean).join(' '), near), `mapbox:${nm}`, `ค้นจากชื่อ · Mapbox`)
+    push(await photonRaw([nm, city].filter(Boolean).join(' '), near), `photon:${nm}`, `ค้นจากชื่อ · OSM`)
+    push(await geocodeRaw([nm, city, country].filter(Boolean).join(', '), near), `nom:${nm}`, `ค้นจากชื่อ · Nominatim`)
+    await sleep(1100)
   }
 
   // dedup by ~40m, keeping the higher-priority (earlier) source
