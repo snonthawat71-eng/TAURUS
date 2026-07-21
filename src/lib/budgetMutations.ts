@@ -10,11 +10,12 @@ export interface ExpenseInput {
   receipt_path?: string | null
   category?: string | null
   currency?: string | null
+  spent_on?: string | null
 }
 
-// category/currency are optional columns (supabase/expense_extras.sql) — strip
-// whichever the API reports as unknown so older databases still work.
-const OPTIONAL = ['category', 'currency']
+// category/currency/spent_on are optional columns (supabase/expense_extras.sql)
+// — strip whichever the API reports as unknown so older databases still work.
+const OPTIONAL = ['category', 'currency', 'spent_on']
 function stripUnknown(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
   let changed = false

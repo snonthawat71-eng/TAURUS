@@ -6,3 +6,6 @@
 
 alter table expenses add column if not exists category text;
 alter table expenses add column if not exists currency text;
+-- the date the money was spent (YYYY-MM-DD); the Budget page groups + filters by
+-- it. Falls back to the row's created_at date when null.
+alter table expenses add column if not exists spent_on date;

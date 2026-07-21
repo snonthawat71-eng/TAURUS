@@ -426,6 +426,8 @@ export interface Expense {
   category?: string | null
   /** optional — present after expense_extras.sql; currency code of `total` (null/THB = บาท) */
   currency?: string | null
+  /** optional — present after expense_extras.sql; date spent (YYYY-MM-DD) */
+  spent_on?: string | null
   created_at: string
   /** optional — present after the concurrency.sql migration (optimistic lock) */
   version?: number
