@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getExploreNotifs } from './exploreMutations'
-import { readNotifIds } from './notifRead'
+import { loadNotifState } from './notifRead'
 import { supabase, isSupabaseConfigured } from './supabase'
 
 /** true when the user has Explore notifications they haven't opened yet —
@@ -10,9 +10,10 @@ export function useUnreadNotifs(userId?: string | null): boolean {
   useEffect(() => {
     if (!userId) { setHas(false); return }
     let active = true
-    const load = () => getExploreNotifs(userId).then((l) => {
-      if (active) setHas(l.some((n) => !readNotifIds(userId).has(n.id)))
-    })
+    const load = async () => {
+      const [l, state] = await Promise.all([getExploreNotifs(userId), loadNotifState(userId)])
+      if (active) setHas(l.some((n) => !state.readIds.has(n.id)))
+    }
     load()
     if (!isSupabaseConfigured) return () => { active = false }
     let t: ReturnType<typeof setTimeout>

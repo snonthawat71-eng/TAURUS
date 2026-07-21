@@ -10,7 +10,7 @@ import { useTrip } from '@/contexts/TripContext'
 import { Avatar } from '@/components/Avatar'
 import { ProfileEditor } from '@/components/ProfileEditor'
 import { listMyExplore, allPopularity, getExploreNotifs, type ExploreNotif } from '@/lib/exploreMutations'
-import { readNotifIds, markNotifRead } from '@/lib/notifRead'
+import { loadNotifState, markNotifRead } from '@/lib/notifRead'
 import { loyaltyTier } from '@/lib/loyalty'
 import { countryFlag } from '@/lib/countries'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -57,9 +57,10 @@ export default function Profile() {
   useEffect(() => {
     if (!user) return
     let active = true
-    const load = () => getExploreNotifs(user.id).then((l) => {
-      if (active) setNotifs(l.filter((n) => !readNotifIds(user.id).has(n.id)))
-    })
+    const load = async () => {
+      const [l, state] = await Promise.all([getExploreNotifs(user.id), loadNotifState(user.id)])
+      if (active) setNotifs(l.filter((n) => !state.readIds.has(n.id)))
+    }
     load()
     if (!isSupabaseConfigured) return () => { active = false }
     let t: ReturnType<typeof setTimeout>

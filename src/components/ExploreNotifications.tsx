@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IconBell, IconHeartFilled, IconMessageCircle, IconMessageReport } from '@tabler/icons-react'
 import { getExploreNotifs, type ExploreNotif } from '@/lib/exploreMutations'
-import { readNotifIds, markNotifRead } from '@/lib/notifRead'
+import { loadNotifState, markNotifRead, markSeen } from '@/lib/notifRead'
 import type { SuggestionKind } from '@/lib/database.types'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-
-const seenKey = (uid: string) => `explore:notifsSeen:${uid}`
 
 const SUG_LABEL: Record<SuggestionKind, string> = {
   route: 'เสนอเพิ่มเส้นทางให้', branch: 'เสนอเพิ่มสาขาให้', edit: 'เสนอแก้ข้อมูลของ', report: 'รายงาน',
@@ -32,11 +30,13 @@ export function ExploreNotifications({ userId, onOpenItem }: {
 }) {
   const [open, setOpen] = useState(false)
   const [notifs, setNotifs] = useState<ExploreNotif[]>([])
-  const [seen, setSeen] = useState<string>(() => localStorage.getItem(seenKey(userId)) ?? '')
+  const [seen, setSeen] = useState<string>('')
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const refresh = useCallback(async () => {
-    const list = (await getExploreNotifs(userId)).filter((n) => !readNotifIds(userId).has(n.id))
+    const [all, state] = await Promise.all([getExploreNotifs(userId), loadNotifState(userId)])
+    setSeen(state.seenAt)
+    const list = all.filter((n) => !state.readIds.has(n.id))
     setNotifs(list)
     return list
   }, [userId])
@@ -63,11 +63,11 @@ export function ExploreNotifications({ userId, onOpenItem }: {
     if (open) { setOpen(false); return }
     setOpen(true)
     const list = await refresh()
-    // mark everything currently shown as seen (clears the badge)
+    // mark everything currently shown as seen (clears the badge) — server-side
     const newest = list[0]?.at
     const mark = newest && newest > seen ? newest : new Date().toISOString()
     setSeen(mark)
-    try { localStorage.setItem(seenKey(userId), mark) } catch { /* ignore */ }
+    markSeen(userId, mark)
   }
 
   useEffect(() => {
