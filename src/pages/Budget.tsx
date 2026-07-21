@@ -153,18 +153,18 @@ export default function Budget() {
             {days.length === 0 ? (
               <div className="card p-6 text-center text-[12.5px] text-ink-3">ไม่มีรายการในหมวดนี้</div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {days.map((d) => {
                   const items = byDay.get(d)!
                   const daySum = items.reduce((s, e) => s + inTHB(e), 0)
                   return (
                     <div key={d}>
                       {/* day header — date + this day's THB subtotal */}
-                      <div className="flex items-center justify-between px-1 mb-1.5">
+                      <div className="flex items-center justify-between px-0.5 mb-2">
                         <span className="text-[12px] font-semibold text-ink-2">{d ? formatLongDate(d) : 'ไม่ระบุวันที่'}</span>
-                        <span className="text-[11px] text-ink-3 tabular-nums">{baht(daySum)}</span>
+                        <span className="text-[11px] font-medium text-ink-3 tabular-nums">{baht(daySum)}</span>
                       </div>
-                      <div className="card divide-y" style={{ borderColor: 'var(--color-line)' }}>
+                      <div className="space-y-2">
                         {items.map((e) => {
                           const payer = e.payer_id ? personOf(e.payer_id) : null
                           const splitN = (e.split_user_ids ?? []).length
@@ -175,21 +175,24 @@ export default function Budget() {
                           const sym = foreign ? (CURRENCIES.find((c) => c.code === e.currency)?.symbol ?? e.currency) : null
                           const custom = !!e.category && !EXPENSE_CATS.some((c) => c.id === e.category)
                           return (
-                            <div key={e.id} className="flex items-center gap-3 p-3">
-                              <span className="size-10 rounded-[11px] grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}><CatIcon size={19} /></span>
+                            <div key={e.id} className="card p-3.5 flex items-center gap-3">
+                              <span className="size-10 rounded-[10px] grid place-items-center shrink-0" style={{ background: meta.bg, color: meta.fg }}><CatIcon size={19} /></span>
                               <div className="min-w-0 flex-1">
-                                <div className="text-[14px] font-medium truncate">{e.name}</div>
-                                <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[14px] font-medium truncate">{e.name}</span>
+                                  {custom && <span className="chip shrink-0">{expenseCatLabel(e.category)}</span>}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-1 min-w-0">
                                   {payer && <Avatar name={payer.name} color={payer.color} photo={payer.photo} photoFocus={payer.photoFocus} size={15} ring={false} />}
-                                  <span className="truncate">
-                                    {payer ? payer.name : 'ไม่ระบุ'} · {personal ? <span style={{ color: '#C56A1E' }}><IconUserOff size={11} className="inline -mt-0.5" /> ส่วนตัว</span> : `หาร ${splitN} คน`}
-                                  </span>
-                                  {custom && <span className="rounded-full px-1.5 py-px text-[10px] font-medium shrink-0" style={{ background: meta.bg, color: meta.fg }}>{expenseCatLabel(e.category)}</span>}
+                                  <span className="truncate">{payer ? payer.name : 'ไม่ระบุคนจ่าย'}</span>
+                                  {personal
+                                    ? <span className="inline-flex items-center gap-0.5 shrink-0 text-brand-mid"><IconUserOff size={11} /> ส่วนตัว</span>
+                                    : <span className="shrink-0">· หาร {splitN} คน</span>}
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
-                                <div className="text-[15px] font-semibold tabular-nums">{foreign ? `${sym}${Math.round(e.total ?? 0).toLocaleString('en-US')}` : baht(e.total)}</div>
-                                <div className="text-[10.5px] text-ink-3 tabular-nums">{foreign ? `≈ ${baht(inTHB(e))}` : personal ? 'ส่วนตัว' : `${baht((e.total ?? 0) / (splitN || 1))}/คน`}</div>
+                                <div className="text-[14.5px] font-semibold tabular-nums">{foreign ? `${sym}${Math.round(e.total ?? 0).toLocaleString('en-US')}` : baht(e.total)}</div>
+                                <div className="text-[10.5px] text-ink-3 tabular-nums mt-0.5">{foreign ? `≈ ${baht(inTHB(e))}` : personal ? 'จ่ายเอง' : `${baht((e.total ?? 0) / (splitN || 1))}/คน`}</div>
                               </div>
                               {e.receipt_path && <SlipButton path={e.receipt_path} />}
                               {canEdit && (

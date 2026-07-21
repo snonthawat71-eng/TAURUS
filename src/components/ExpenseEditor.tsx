@@ -128,15 +128,15 @@ export function ExpenseEditor({
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <button onClick={() => scanInput.current?.click()} disabled={uploading || scanning}
-          className="h-16 rounded-[12px] inline-flex flex-col items-center justify-center gap-1 text-[12.5px] font-semibold disabled:opacity-60"
-          style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '1px solid var(--color-brand-border)' }}>
-          {scanning ? <IconLoader2 size={20} className="animate-spin" /> : <IconScan size={20} />}
+          className="h-16 rounded-[12px] inline-flex flex-col items-center justify-center gap-1 text-[12.5px] font-medium text-ink-2 disabled:opacity-50"
+          style={{ border: '0.5px solid var(--color-line)', background: 'var(--color-surface)' }}>
+          {scanning ? <IconLoader2 size={20} className="animate-spin text-brand" /> : <IconScan size={20} className="text-brand" />}
           {scanning ? 'กำลังอ่าน…' : 'สแกนใบเสร็จ'}
         </button>
         <button onClick={() => slipInput.current?.click()} disabled={uploading || scanning}
           className="h-16 rounded-[12px] inline-flex flex-col items-center justify-center gap-1 text-[12.5px] font-medium text-ink-2 disabled:opacity-50"
-          style={{ border: '1px solid var(--color-line)', background: 'var(--color-surface)' }}>
-          {uploading ? <IconLoader2 size={20} className="animate-spin" /> : <IconPaperclip size={20} />}
+          style={{ border: '0.5px solid var(--color-line)', background: 'var(--color-surface)' }}>
+          {uploading ? <IconLoader2 size={20} className="animate-spin" /> : <IconPaperclip size={20} className="text-ink-3" />}
           {receipt ? 'เปลี่ยนสลิป' : 'แนบสลิปเอง'}
         </button>
       </div>
