@@ -72,6 +72,13 @@ export default function TripMap() {
   const [selected, setSelected] = useState<Place | null>(null)
   const [me, setMe] = useState<LatLng | null>(null)
   const [geoBusy, setGeoBusy] = useState(0)
+  // pins stay hidden (a "loading" banner shows instead) until the first pass has
+  // resolved every place's coordinate — so nothing ever appears at a half-
+  // resolved / wrong spot and then jumps
+  const [coordsReady, setCoordsReady] = useState(false)
+  // the trip-wide audit is stashed for now (coords are stable/persisted) — flip
+  // to re-enable the button + panel
+  const SHOW_AUDIT = false
   const [placing, setPlacing] = useState<Place | null>(null) // the place we're pinning
   const [linkText, setLinkText] = useState('')
   const placingRef = useRef<Place | null>(null)
@@ -159,6 +166,9 @@ export default function TripMap() {
     }
     setCoords(next)
     setGeoBusy(missing.length)
+    // hold the pins back only when something actually needs resolving; if every
+    // place already has a coordinate, show them right away (no loading flash)
+    if (missing.length === 0) setCoordsReady(true); else setCoordsReady(false)
     // proximity anchor for the places API: the centre of everything we already
     // know for sure, so name searches land in the right city/country instead of
     // matching a same-named place on the other side of the planet
@@ -248,7 +258,7 @@ export default function TripMap() {
           }
         }
       }
-      await Promise.all(Array.from({ length: 6 }, worker))
+      await Promise.all(Array.from({ length: 10 }, worker))
     })()
     // background sanity-check of linkless places against their named station —
     // heals wrong-branch geocodes persisted before the guard existed
@@ -261,28 +271,26 @@ export default function TripMap() {
           catch (e) { console.warn('[map] verifyStation ล้มเหลว:', p.name, e) }
         }
       }
-      await Promise.all(Array.from({ length: 6 }, worker))
+      await Promise.all(Array.from({ length: 10 }, worker))
     })()
-    // A2) links (short google/amap) — resolve server-side, in parallel (fast)
-    const links = missing.filter((p) => isMapLink(p.map_url))
-    const queue = [...links]
-    const worker = async () => {
-      while (queue.length && alive) {
-        const p = queue.shift()!
-        const r = await resolveMapUrl(p.map_url!, localLang(trip?.country))
-        // link dead-ends (expired short link etc.) fall through to geocoding —
-        // pass Google's canonical address when the resolve surfaced one
-        if (r) gotCoords(p, r)
-        else gotCoords(p, await geocodeSmart({ name: p.name, address: resolvedLinkAddress(p.map_url), station: p.station_name, city: p.city, country: trip?.country, near: tripNear }))
-      }
-    }
-    Promise.all(Array.from({ length: 6 }, worker))
-    // C) the rest — smart multi-step geocode (throttled inside geocodeSmart())
+    // Place everything still MISSING a coordinate — short links resolved
+    // server-side, the rest smart-geocoded — in ONE wide pool (both kinds run
+    // together, not one phase after another) for speed. When this settles the
+    // coords are "loaded" → reveal the pins. The healing passes above keep
+    // running in the background and only nudge already-placed pins.
     ;(async () => {
-      for (const p of missing.filter((p) => !isMapLink(p.map_url))) {
-        if (!alive) return
-        gotCoords(p, await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country, near: tripNear }))
+      const q = [...missing]
+      const place = async (p: Place) => {
+        if (isMapLink(p.map_url)) {
+          const r = await resolveMapUrl(p.map_url!, localLang(trip?.country))
+          gotCoords(p, r || await geocodeSmart({ name: p.name, address: resolvedLinkAddress(p.map_url), station: p.station_name, city: p.city, country: trip?.country, near: tripNear }))
+        } else {
+          gotCoords(p, await geocodeSmart({ name: p.name, station: p.station_name, city: p.city, country: trip?.country, near: tripNear }))
+        }
       }
+      const worker2 = async () => { let p: Place | undefined; while ((p = q.shift()) && alive) await place(p) }
+      await Promise.all(Array.from({ length: 10 }, worker2))
+      if (alive) setCoordsReady(true)
     })()
     return () => { alive = false; clearTimeout(healTimer) }
   }, [tripPlaces, trip?.country])
@@ -323,6 +331,9 @@ export default function TripMap() {
     const map = mapRef.current, layer = layerRef.current
     if (!map || !layer) return
     layer.clearLayers()
+    // hold every pin back until the first resolve pass is done — no half-resolved
+    // positions on screen (the "กำลังโหลดพิกัด" banner shows meanwhile)
+    if (!coordsReady) return
     const points: MapPoint[] = shown.map((p) => ({ p, c: coords[p.id] })).filter((pt): pt is MapPoint => !!pt.c)
     const groups = clusterPoints(map, points, 46)
     const pts: L.LatLngExpression[] = []
@@ -354,7 +365,7 @@ export default function TripMap() {
     }
     // fit once when we first have points (avoid yanking the view on every geocode)
     if (pts.length && !fitted.current) { map.fitBounds(L.latLngBounds(pts).pad(0.2), { maxZoom: 15 }); fitted.current = true }
-  }, [shown, coords, selected, zoomTick])
+  }, [shown, coords, selected, zoomTick, coordsReady])
 
   function applyCoords(p: Place, c: LatLng, sourceUrl?: string) {
     setCoords((m) => ({ ...m, [p.id]: c }))
@@ -566,7 +577,7 @@ export default function TripMap() {
               {c.label}
             </button>
           ))}
-          {geoBusy > 0 && (
+          {coordsReady && geoBusy > 0 && (
             <span className="flex-none h-9 px-3 rounded-full bg-white shadow-sm text-[11px] text-ink-3 inline-flex items-center gap-1.5">
               <IconLoader2 size={13} className="animate-spin" /> หาพิกัด {geoBusy}
             </span>
@@ -574,18 +585,31 @@ export default function TripMap() {
         </div>
       </div>
 
+      {/* coordinates still loading — pins are held back until every place has a
+          resolved position, so nothing shows at a half-resolved / wrong spot */}
+      {!coordsReady && !placing && (
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-[450] flex justify-center px-6 pointer-events-none">
+          <div className="inline-flex items-center gap-2.5 rounded-full bg-white/95 backdrop-blur shadow-[0_8px_28px_rgba(10,20,40,.18)] px-5 py-3">
+            <IconLoader2 size={18} className="animate-spin text-brand" />
+            <span className="text-[13px] font-semibold text-ink-2">กำลังโหลดพิกัด…</span>
+          </div>
+        </div>
+      )}
+
       {/* floating buttons — right side, above the card zone */}
       <button onClick={refit} className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-ink-2" title="จัดกึ่งกลางหมุด"><IconFocus2 size={19} /></button>
       <button onClick={locate} className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+8.75rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-brand" title="ตำแหน่งฉัน"><IconCurrentLocation size={19} /></button>
-      {/* trip-wide pin audit — verify every place at once */}
+      {/* trip-wide pin audit — verify every place at once (stashed for now) */}
+      {SHOW_AUDIT && (
       <button onClick={() => { if (audit?.running) return; if (audit) setAudit(null); else runAudit() }}
         className={['absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+12rem)] z-[500] size-11 rounded-full shadow-md grid place-items-center', audit ? 'bg-brand text-white' : 'bg-white text-ink-2'].join(' ')}
         title="ตรวจพิกัดทั้งทริป">
         {audit?.running ? <IconLoader2 size={19} className="animate-spin" /> : <IconListCheck size={19} />}
       </button>
+      )}
 
       {/* audit result panel */}
-      {audit && (
+      {SHOW_AUDIT && audit && (
         <div className="absolute inset-x-0 bottom-0 z-[520] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
           <div className="rounded-[18px] bg-white shadow-[0_10px_34px_rgba(10,20,40,.22)] p-4 max-h-[55dvh] overflow-y-auto">
             <div className="flex items-center gap-2">
@@ -677,7 +701,7 @@ export default function TripMap() {
       )}
 
       {/* places with no coordinates yet — one small pill, tap to expand */}
-      {unplaced.length > 0 && !selected && !placing && !audit && (
+      {coordsReady && unplaced.length > 0 && !selected && !placing && !audit && (
         <div className="absolute left-3 right-16 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-[500]">
           {showUnplaced && (
             <div className="mb-2 rounded-[15px] bg-white shadow-xl max-h-[45dvh] overflow-y-auto px-3 py-2">
