@@ -40,12 +40,15 @@ import {
 import type { ItineraryDay, ItineraryStop, Place } from '@/lib/database.types'
 
 function SortableStop({
-  stop, matchedPlace, canEdit, isNext, suggestions, onAddSuggestion, onDismissSug, onToggleDone, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute, onCopy, onMoveBackup,
+  stop, matchedPlace, canEdit, isNext, preview, suggestions, onAddSuggestion, onDismissSug, onToggleDone, onOpenDetail, onEdit, onDelete, onEditRoute, onSkipRoute, onCopy, onMoveBackup,
 }: {
   stop: ItineraryStop
   matchedPlace: Place | null
   canEdit: boolean
   isNext: boolean
+  /** while THIS stop is being dragged: the time it will have if dropped here
+   *  (null = untimed). undefined = not dragging → show the stored time. */
+  preview?: string | null
   suggestions: DaySuggestion[]
   onAddSuggestion: (p: Place) => void
   onDismissSug: () => void
@@ -58,30 +61,47 @@ function SortableStop({
   onCopy: () => void
   onMoveBackup: () => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id, disabled: !canEdit })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver, index, activeIndex } = useSortable({
+    id: stop.id, disabled: !canEdit,
+    // snappier, springier shuffle when neighbours make way for the dragged card
+    transition: { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+  })
   const done = !!stop.done
+  const base = CSS.Transform.toString(transform)
   const style = {
-    transform: CSS.Transform.toString(transform), transition,
-    opacity: isDragging ? 0.5 : done ? 0.5 : 1,
+    // the dragged card LIFTS: slight grow + tilt on top of the pointer-follow
+    transform: isDragging ? [base, 'scale(1.03) rotate(0.6deg)'].filter(Boolean).join(' ') : base,
+    transition,
+    opacity: done && !isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 60 : undefined,
   }
   const mode = stop.link_mode ?? 'map'
   const detailMode = mode === 'detail' && !!matchedPlace
   const tapAction = mode === 'none' ? null : detailMode ? () => onOpenDetail(matchedPlace!) : () => openMap(stop.map_url)
 
   return (
-    <div ref={setNodeRef} id={`stop-${stop.id}`} style={style}>
+    <div ref={setNodeRef} id={`stop-${stop.id}`} style={style} className="relative">
+      {/* drop indicator — a brand line marking exactly where the dragged card
+          will land relative to this one */}
+      {isOver && !isDragging && activeIndex >= 0 && activeIndex !== index && (
+        <div className="absolute left-1 right-1 h-[3px] rounded-full bg-brand pointer-events-none z-10"
+          style={activeIndex > index ? { top: -5 } : { bottom: -5 }} />
+      )}
       {/* PLACE CARD — one to-do-style card per stop; the 💡 bar is a full-width
           footer strip flush with the card's bottom edge */}
       <div className="rounded-[10px] overflow-hidden" style={{
         background: isNext ? 'var(--color-brand-soft)' : 'var(--color-surface)',
         border: `0.5px solid ${isNext ? 'var(--color-brand-border)' : 'var(--color-line)'}`,
+        boxShadow: isDragging ? '0 16px 40px rgba(10,20,40,.28), 0 3px 10px rgba(10,20,40,.14)' : undefined,
       }}>
       <div className="flex gap-2.5 p-3">
       {/* grip + check-in + time, top-aligned so the time sits on the SAME line as
           the place name's first line */}
       <div className="flex items-start gap-1.5 shrink-0">
         {canEdit ? (
-          <button {...attributes} {...listeners} className="mt-0.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากจัดเรียง">
+          // padded + negative-margined: a ~32px finger target while the icon
+          // keeps its exact visual spot in the row
+          <button {...attributes} {...listeners} className="p-2 -mx-2 -mb-2 -mt-1.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากจัดเรียง">
             <IconGripVertical size={16} />
           </button>
         ) : <span className="w-1 shrink-0" />}
@@ -94,7 +114,12 @@ function SortableStop({
         ) : done ? (
           <span className="mt-0.5 size-[18px] rounded-full grid place-items-center shrink-0" style={{ background: 'var(--color-brand)', color: '#fff' }}><IconCheck size={12} /></span>
         ) : <span className="w-[18px] shrink-0" />}
-        <div className="w-10 text-[13px] font-medium tabular-nums leading-snug">{stop.time}</div>
+        {/* while dragging, the cell previews the time this stop WILL have if
+            dropped here (brand color); "—" = it stays untimed */}
+        <div className="w-10 text-[13px] font-medium tabular-nums leading-snug"
+          style={isDragging && preview !== undefined ? { color: 'var(--color-brand)', fontWeight: 700 } : undefined}>
+          {isDragging && preview !== undefined ? (preview ?? '—') : stop.time}
+        </div>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
@@ -174,13 +199,23 @@ function SortableBackup({ stop, canEdit, onPromote, onEdit, onDelete }: {
   onEdit: () => void
   onDelete: () => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.id, disabled: !canEdit })
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: stop.id, disabled: !canEdit,
+    transition: { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+  })
+  const bBase = CSS.Transform.toString(transform)
+  const style = {
+    transform: isDragging ? [bBase, 'scale(1.03) rotate(0.6deg)'].filter(Boolean).join(' ') : bBase,
+    transition,
+    opacity: 1,
+    zIndex: isDragging ? 60 : undefined,
+    filter: isDragging ? 'drop-shadow(0 14px 30px rgba(10,20,40,.26))' : undefined,
+  }
   return (
-    <div ref={setNodeRef} style={style} className="rounded-[10px] p-2.5 bg-surface" >
+    <div ref={setNodeRef} style={style} className="relative rounded-[10px] p-2.5 bg-surface" >
       <div className="flex items-start gap-2">
         {canEdit && (
-          <button {...attributes} {...listeners} className="mt-0.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากเข้าตาราง">
+          <button {...attributes} {...listeners} className="p-2 -mx-2 -mb-2 -mt-1.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากเข้าตาราง">
             <IconGripVertical size={16} />
           </button>
         )}
@@ -245,12 +280,14 @@ function BackupFold({ backups, canEdit, label, onPromote, onEditStop, onDeleteSt
 }
 
 function DayCard({
-  day, index, stops, backups, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, suggestionsFor, onAddSuggestion, onDismissSug, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste, onMoveToBackup, onPromoteBackup,
+  day, index, stops, backups, getMatchedPlace, canEdit, collapsed, nextStopId, wx, isPast, dragStopId, dragPreview, suggestionsFor, onAddSuggestion, onDismissSug, onToggleCollapse, onToggleDone, onOpenDetail, onEditDay, onDeleteDay, onAddStop, onInsertStop, onEditStop, onDeleteStop, onEditRoute, onSkipRoute, onCopyStop, canPaste, onPaste, onMoveToBackup, onPromoteBackup,
 }: {
   day: ItineraryDay
   index: number
   stops: ItineraryStop[]
   backups: ItineraryStop[]
+  dragStopId: string | null
+  dragPreview: string | null
   getMatchedPlace: (s: ItineraryStop) => Place | null
   canEdit: boolean
   collapsed: boolean
@@ -277,8 +314,19 @@ function DayCard({
   onMoveToBackup: (s: ItineraryStop) => void
   onPromoteBackup: (b: ItineraryStop) => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day.id, disabled: !canEdit })
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: day.id, disabled: !canEdit,
+    transition: { duration: 240, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+  })
+  const dBase = CSS.Transform.toString(transform)
+  const style = {
+    transform: isDragging ? [dBase, 'scale(1.01)'].filter(Boolean).join(' ') : dBase,
+    transition,
+    opacity: 1,
+    zIndex: isDragging ? 30 : undefined,
+    // drop-shadow follows the card's rounded silhouette (strip + card)
+    filter: isDragging ? 'drop-shadow(0 18px 36px rgba(10,20,40,.28))' : undefined,
+  }
   const doneCount = stops.filter((s) => s.done).length
 
   // แผนสำรองไปพับอยู่ใต้จุดหลักที่ "เวลาตรงกัน"; ที่เหลือ (เวลาไม่ตรง/ไม่ระบุ) รวมท้ายวัน
@@ -301,7 +349,7 @@ function DayCard({
       <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: isPast ? '#5B6573' : 'var(--color-brand)' }}>
         <div className="flex items-center gap-1.5 min-w-0">
           {canEdit && (
-            <button {...attributes} {...listeners} className="text-white/70 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากย้ายวัน">
+            <button {...attributes} {...listeners} className="p-2 -m-2 text-white/70 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากย้ายวัน">
               <IconGripVertical size={14} />
             </button>
           )}
@@ -341,7 +389,7 @@ function DayCard({
               <div className={canEdit ? '' : 'space-y-2.5'}>
                 {stops.flatMap((s, i) => {
                   const nodes = [
-                    <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} suggestions={suggestionsFor(s)} onAddSuggestion={onAddSuggestion} onDismissSug={() => onDismissSug(s.id)} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} onCopy={() => onCopyStop(s)} onMoveBackup={() => onMoveToBackup(s)} />,
+                    <SortableStop key={s.id} stop={s} matchedPlace={getMatchedPlace(s)} canEdit={canEdit} isNext={s.id === nextStopId} preview={s.id === dragStopId ? dragPreview : undefined} suggestions={suggestionsFor(s)} onAddSuggestion={onAddSuggestion} onDismissSug={() => onDismissSug(s.id)} onToggleDone={() => onToggleDone(s)} onOpenDetail={onOpenDetail} onEdit={() => onEditStop(s)} onDelete={() => onDeleteStop(s.id)} onEditRoute={() => onEditRoute(s)} onSkipRoute={() => onSkipRoute(s)} onCopy={() => onCopyStop(s)} onMoveBackup={() => onMoveToBackup(s)} />,
                   ]
                   // 🎯 แผนสำรองของช่วงเวลานี้ — พับไว้ใต้จุดหลักที่เวลาตรงกัน
                   const mine = backupsForStop.get(s.id)
@@ -623,9 +671,42 @@ export default function Itinerary() {
       : overId.startsWith('day:') ? overId.slice(4)
         : list.find((s) => s.id === overId)?.day_id
 
+  // ── drag UX: haptic ticks + a live "what time will it get" preview ────────
+  const [dragStopId, setDragStopId] = useState<string | null>(null)
+  const [dragPreview, setDragPreview] = useState<string | null>(null)
+  const lastOverRef = useRef<string | null>(null)
+  // tiny vibration ticks (no-op where unsupported, e.g. iOS Safari)
+  const buzz = (ms: number) => { try { navigator.vibrate?.(ms) } catch { /* unsupported */ } }
+
+  /** The time the dragged stop WILL have if dropped at the current hover spot —
+   *  mirrors onDragEnd exactly: same-day timed drag re-pins times across the
+   *  timed stops; untimed / cross-day stops keep their own time. */
+  function previewTimeFor(activeId: string, overId: string): string | null {
+    const cur = stopsRef.current
+    const moving = cur.find((s) => s.id === activeId)
+    if (!moving) return null
+    const crossed = dragOrigin.current != null && dragOrigin.current !== moving.day_id
+    if (crossed || moving.time == null) return moving.time ?? null
+    const list = cur.filter((s) => s.day_id === moving.day_id && s.role !== 'backup').sort((a, b) => a.position - b.position)
+    const oldIdx = list.findIndex((s) => s.id === activeId)
+    let newIdx = list.findIndex((s) => s.id === overId)
+    if (newIdx < 0) newIdx = list.length - 1
+    const reordered = oldIdx >= 0 ? arrayMove(list, oldIdx, newIdx) : list
+    const timedValues = list.filter((s) => s.time != null).map((s) => s.time)
+    let ti = 0
+    for (const s of reordered) {
+      const t = s.time != null ? (timedValues[ti++] ?? null) : null
+      if (s.id === activeId) return t
+    }
+    return moving.time ?? null
+  }
+
   function onDragStart(e: DragStartEvent) {
     const s = stopsRef.current.find((x) => x.id === String(e.active.id))
     dragOrigin.current = s ? s.day_id : null
+    if (s && s.role !== 'backup') { setDragStopId(s.id); setDragPreview(s.time ?? null) }
+    lastOverRef.current = null
+    buzz(8) // picked up
   }
 
   // live-move a dragged stop into whatever day it hovers over, so crossing days
@@ -638,22 +719,36 @@ export default function Itinerary() {
     const cur = stopsRef.current
     const moving = cur.find((s) => s.id === activeId)
     if (!moving || moving.role === 'backup') return // days & backups: handled on drop only
+    if (overId !== lastOverRef.current) { lastOverRef.current = overId; buzz(4) } // tick per slot
     const toDay = dayOf(overId, cur)
-    if (!toDay || moving.day_id === toDay) return
-    const without = cur.filter((s) => s.id !== activeId)
-    const dst = without.filter((s) => s.day_id === toDay && s.role !== 'backup').sort((a, b) => a.position - b.position)
-    const overIdx = dst.findIndex((s) => s.id === overId)
-    dst.splice(overIdx >= 0 ? overIdx : dst.length, 0, { ...moving, day_id: toDay })
-    const next = [...without.filter((s) => s.day_id !== toDay || s.role === 'backup'), ...dst.map((s, i) => ({ ...s, position: i }))]
-    stopsRef.current = next
-    setLocalStops(next)
+    if (toDay && moving.day_id !== toDay) {
+      const without = cur.filter((s) => s.id !== activeId)
+      const dst = without.filter((s) => s.day_id === toDay && s.role !== 'backup').sort((a, b) => a.position - b.position)
+      const overIdx = dst.findIndex((s) => s.id === overId)
+      dst.splice(overIdx >= 0 ? overIdx : dst.length, 0, { ...moving, day_id: toDay })
+      const next = [...without.filter((s) => s.day_id !== toDay || s.role === 'backup'), ...dst.map((s, i) => ({ ...s, position: i }))]
+      stopsRef.current = next
+      setLocalStops(next)
+    }
+    setDragPreview(previewTimeFor(activeId, overId))
+  }
+
+  function onDragCancel() {
+    dragOrigin.current = null
+    lastOverRef.current = null
+    setDragStopId(null)
+    setDragPreview(null)
   }
 
   async function onDragEnd(e: DragEndEvent) {
     const { active, over } = e
     const origin = dragOrigin.current
     dragOrigin.current = null
+    lastOverRef.current = null
+    setDragStopId(null)
+    setDragPreview(null)
     if (!over) return
+    buzz(12) // dropped
     const activeId = String(active.id)
     const overId = String(over.id)
 
@@ -1033,7 +1128,11 @@ export default function Itinerary() {
         </div>
       )}
 
-      <DndContext sensors={daySensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
+      <DndContext sensors={daySensors} collisionDetection={closestCenter}
+        onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}
+        // stronger edge auto-scroll: kicks in within the outer 22% of the
+        // viewport and accelerates harder, so long cross-day drags flow
+        autoScroll={{ threshold: { x: 0, y: 0.22 }, acceleration: 18 }}>
         <SortableContext items={shownDays.map((d) => d.day.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-4">
             {shownDays.map(({ day, idx, isPast }) => (
@@ -1044,6 +1143,8 @@ export default function Itinerary() {
                 isPast={isPast}
                 stops={(stopsByDay.get(day.id) ?? []).filter((s) => s.role !== 'backup')}
                 backups={(stopsByDay.get(day.id) ?? []).filter((s) => s.role === 'backup')}
+                dragStopId={dragStopId}
+                dragPreview={dragPreview}
                 getMatchedPlace={getMatchedPlace}
                 canEdit={canEdit}
                 wx={day.day_date ? dayWx[day.day_date] : undefined}
