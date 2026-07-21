@@ -763,22 +763,32 @@ export default function Itinerary() {
         created_at: new Date().toISOString(),
       }
     }
+    // reflect a chronological/slot re-order in the UI IMMEDIATELY (don't wait for
+    // reload) so the stop is seen to move the instant its time is saved
+    const applyOrder = (ordered: ItineraryStop[]) => {
+      const repositioned = ordered.map((s, i) => ({ ...s, position: i }))
+      const merged = [...stopsRef.current.filter((s) => s.day_id !== dayId || s.role === 'backup'), ...repositioned]
+      stopsRef.current = merged
+      setLocalStops(merged)
+      return repositioned
+    }
     // a stop with a clear time slots into its chronological position AMONG THE
-    // OTHER TIMED stops. If nothing is scheduled later, it sits at the end of the
-    // timed group (just above any not-yet-timed stops) — never below them.
+    // OTHER TIMED stops — even if it was dragged elsewhere before: giving/editing
+    // a time snaps it back to where the clock says it belongs. If nothing is
+    // scheduled later, it sits at the end of the timed group (above untimed ones).
     if (input.time && input.role !== 'backup') {
       const rest = dayStops.filter((s) => s.id !== target.id)
       let insertAt = rest.findIndex((s) => s.time != null && s.time > input.time!)
       if (insertAt < 0) insertAt = rest.map((s) => s.time != null).lastIndexOf(true) + 1
-      const ordered = [...rest.slice(0, insertAt), target, ...rest.slice(insertAt)]
-      await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
+      const ordered = applyOrder([...rest.slice(0, insertAt), target, ...rest.slice(insertAt)])
+      await persistStopOrder(ordered)
     } else if (!editor.stop && editor.at != null) {
       // inserted via the "+" between two activities (no time given) → drop it
       // exactly at the chosen slot rather than at the end of the day.
       const rest = dayStops.filter((s) => s.id !== target.id)
       const at = Math.min(editor.at, rest.length)
-      const ordered = [...rest.slice(0, at), target, ...rest.slice(at)]
-      await persistStopOrder(ordered.map((s, i) => ({ ...s, position: i })))
+      const ordered = applyOrder([...rest.slice(0, at), target, ...rest.slice(at)])
+      await persistStopOrder(ordered)
     }
     await reload()
   }
