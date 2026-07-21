@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  DndContext, PointerSensor, useSensor, useSensors, closestCenter,
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter,
   type DragEndEvent, type DragOverEvent, type DragStartEvent,
 } from '@dnd-kit/core'
 import {
@@ -61,19 +61,19 @@ function SortableStop({
   onCopy: () => void
   onMoveBackup: () => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver, index, activeIndex } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: stop.id, disabled: !canEdit,
     // snappier, springier shuffle when neighbours make way for the dragged card
     transition: { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
   })
   const done = !!stop.done
-  const base = CSS.Transform.toString(transform)
+  // While dragging, the LIFTED card is rendered by <DragOverlay> (follows the
+  // finger); this in-list element becomes the DASHED-FRAME placeholder that
+  // dnd-kit slides to the exact slot the card will land in — the drop indicator.
   const style = {
-    // the dragged card LIFTS: slight grow + tilt on top of the pointer-follow
-    transform: isDragging ? [base, 'scale(1.03) rotate(0.6deg)'].filter(Boolean).join(' ') : base,
+    transform: CSS.Transform.toString(transform),
     transition,
     opacity: done && !isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 60 : undefined,
   }
   const mode = stop.link_mode ?? 'map'
   const detailMode = mode === 'detail' && !!matchedPlace
@@ -81,20 +81,16 @@ function SortableStop({
 
   return (
     <div ref={setNodeRef} id={`stop-${stop.id}`} style={style} className="relative">
-      {/* drop indicator — a brand line marking exactly where the dragged card
-          will land relative to this one */}
-      {isOver && !isDragging && activeIndex >= 0 && activeIndex !== index && (
-        <div className="absolute left-1 right-1 h-[3px] rounded-full bg-brand pointer-events-none z-10"
-          style={activeIndex > index ? { top: -5 } : { bottom: -5 }} />
-      )}
       {/* PLACE CARD — one to-do-style card per stop; the 💡 bar is a full-width
           footer strip flush with the card's bottom edge */}
-      <div className="rounded-[10px] overflow-hidden" style={{
+      <div className="rounded-[10px] overflow-hidden" style={isDragging ? {
+        background: 'var(--color-brand-soft)',
+        border: '1.5px dashed var(--color-brand)',
+      } : {
         background: isNext ? 'var(--color-brand-soft)' : 'var(--color-surface)',
         border: `0.5px solid ${isNext ? 'var(--color-brand-border)' : 'var(--color-line)'}`,
-        boxShadow: isDragging ? '0 16px 40px rgba(10,20,40,.28), 0 3px 10px rgba(10,20,40,.14)' : undefined,
       }}>
-      <div className="flex gap-2.5 p-3">
+      <div className={`flex gap-2.5 p-3 ${isDragging ? 'opacity-30' : ''}`}>
       {/* grip + check-in + time, top-aligned so the time sits on the SAME line as
           the place name's first line */}
       <div className="flex items-start gap-1.5 shrink-0">
@@ -203,17 +199,15 @@ function SortableBackup({ stop, canEdit, onPromote, onEdit, onDelete }: {
     id: stop.id, disabled: !canEdit,
     transition: { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
   })
-  const bBase = CSS.Transform.toString(transform)
+  // in-list placeholder while the lifted copy rides in <DragOverlay>
   const style = {
-    transform: isDragging ? [bBase, 'scale(1.03) rotate(0.6deg)'].filter(Boolean).join(' ') : bBase,
+    transform: CSS.Transform.toString(transform),
     transition,
-    opacity: 1,
-    zIndex: isDragging ? 60 : undefined,
-    filter: isDragging ? 'drop-shadow(0 14px 30px rgba(10,20,40,.26))' : undefined,
+    ...(isDragging ? { border: '1.5px dashed var(--color-brand)', background: 'var(--color-brand-soft)' } : {}),
   }
   return (
     <div ref={setNodeRef} style={style} className="relative rounded-[10px] p-2.5 bg-surface" >
-      <div className="flex items-start gap-2">
+      <div className={`flex items-start gap-2 ${isDragging ? 'opacity-30' : ''}`}>
         {canEdit && (
           <button {...attributes} {...listeners} className="p-2 -mx-2 -mb-2 -mt-1.5 text-ink-3 cursor-grab active:cursor-grabbing touch-none shrink-0" aria-label="ลากเข้าตาราง">
             <IconGripVertical size={16} />
@@ -671,12 +665,9 @@ export default function Itinerary() {
       : overId.startsWith('day:') ? overId.slice(4)
         : list.find((s) => s.id === overId)?.day_id
 
-  // ── drag UX: haptic ticks + a live "what time will it get" preview ────────
+  // ── drag UX: the lifted overlay card + a live "what time will it get" preview ──
   const [dragStopId, setDragStopId] = useState<string | null>(null)
   const [dragPreview, setDragPreview] = useState<string | null>(null)
-  const lastOverRef = useRef<string | null>(null)
-  // tiny vibration ticks (no-op where unsupported, e.g. iOS Safari)
-  const buzz = (ms: number) => { try { navigator.vibrate?.(ms) } catch { /* unsupported */ } }
 
   /** The time the dragged stop WILL have if dropped at the current hover spot —
    *  mirrors onDragEnd exactly: same-day timed drag re-pins times across the
@@ -704,9 +695,7 @@ export default function Itinerary() {
   function onDragStart(e: DragStartEvent) {
     const s = stopsRef.current.find((x) => x.id === String(e.active.id))
     dragOrigin.current = s ? s.day_id : null
-    if (s && s.role !== 'backup') { setDragStopId(s.id); setDragPreview(s.time ?? null) }
-    lastOverRef.current = null
-    buzz(8) // picked up
+    if (s) { setDragStopId(s.id); setDragPreview(s.role === 'backup' ? null : (s.time ?? null)) }
   }
 
   // live-move a dragged stop into whatever day it hovers over, so crossing days
@@ -719,7 +708,6 @@ export default function Itinerary() {
     const cur = stopsRef.current
     const moving = cur.find((s) => s.id === activeId)
     if (!moving || moving.role === 'backup') return // days & backups: handled on drop only
-    if (overId !== lastOverRef.current) { lastOverRef.current = overId; buzz(4) } // tick per slot
     const toDay = dayOf(overId, cur)
     if (toDay && moving.day_id !== toDay) {
       const without = cur.filter((s) => s.id !== activeId)
@@ -735,7 +723,6 @@ export default function Itinerary() {
 
   function onDragCancel() {
     dragOrigin.current = null
-    lastOverRef.current = null
     setDragStopId(null)
     setDragPreview(null)
   }
@@ -744,11 +731,9 @@ export default function Itinerary() {
     const { active, over } = e
     const origin = dragOrigin.current
     dragOrigin.current = null
-    lastOverRef.current = null
     setDragStopId(null)
     setDragPreview(null)
     if (!over) return
-    buzz(12) // dropped
     const activeId = String(active.id)
     const overId = String(over.id)
 
@@ -1176,6 +1161,30 @@ export default function Itinerary() {
             ))}
           </div>
         </SortableContext>
+        {/* the LIFTED card that follows the finger — slightly transparent so
+            the list (and the dashed landing frame) stays visible underneath.
+            Its time cell live-previews the time the stop will get if dropped
+            here ("—" = stays untimed). Days drag in place (no overlay). */}
+        <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }}>
+          {(() => {
+            const s = dragStopId ? localStops.find((x) => x.id === dragStopId) : null
+            if (!s) return null
+            return (
+              <div className="rounded-[10px] flex items-center gap-2.5 px-3 py-3"
+                style={{
+                  background: 'var(--color-surface)', border: '0.5px solid var(--color-line)',
+                  boxShadow: '0 16px 40px rgba(10,20,40,.28), 0 3px 10px rgba(10,20,40,.14)',
+                  transform: 'scale(1.03)', opacity: 0.7, cursor: 'grabbing',
+                }}>
+                <IconGripVertical size={16} className="text-ink-3 shrink-0" />
+                <span className="w-10 shrink-0 text-[13px] font-bold tabular-nums" style={{ color: 'var(--color-brand)' }}>
+                  {dragPreview ?? '—'}
+                </span>
+                <span className="text-[14px] font-medium truncate">{s.place_name}</span>
+              </div>
+            )
+          })()}
+        </DragOverlay>
       </DndContext>
 
       {canEdit && (
