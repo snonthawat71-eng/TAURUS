@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconPlus, IconReceipt, IconArrowRight, IconPhoto, IconPencil, IconArrowLeft, IconArrowsSort, IconUserOff } from '@tabler/icons-react'
+import { IconPlus, IconReceipt, IconArrowRight, IconPhoto, IconPencil, IconArrowLeft, IconArrowsSort, IconUserOff, IconChevronDown } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { tripCurrency } from '@/lib/segments'
 import { Avatar } from '@/components/Avatar'
@@ -41,6 +41,8 @@ export default function Budget() {
   const [equiv, setEquiv] = useState<string | null>(null)
   const [catFilter, setCatFilter] = useState<string | null>(null)
   const [sort, setSort] = useState<'new' | 'old'>('new')
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
+  const toggleDay = (d: string) => setCollapsedDays((s) => { const n = new Set(s); n.has(d) ? n.delete(d) : n.add(d); return n })
 
   const person = useMemo(() => {
     const m = new Map<string, { name: string; color?: string; photo?: string | null; photoFocus?: string | null }>()
@@ -157,13 +159,17 @@ export default function Budget() {
                 {days.map((d) => {
                   const items = byDay.get(d)!
                   const daySum = items.reduce((s, e) => s + inTHB(e), 0)
+                  const collapsed = collapsedDays.has(d)
                   return (
                     <div key={d}>
-                      {/* day header — date + this day's THB subtotal */}
-                      <div className="flex items-center justify-between px-0.5 mb-2">
+                      {/* day header — tap to collapse; shows date · count · subtotal */}
+                      <button onClick={() => toggleDay(d)} className="w-full flex items-center gap-2 px-0.5 mb-2" aria-expanded={!collapsed}>
+                        <IconChevronDown size={15} className={`text-ink-3 shrink-0 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
                         <span className="text-[12px] font-semibold text-ink-2">{d ? formatLongDate(d) : 'ไม่ระบุวันที่'}</span>
-                        <span className="text-[11px] font-medium text-ink-3 tabular-nums">{baht(daySum)}</span>
-                      </div>
+                        <span className="text-[11px] text-ink-3">· {items.length} รายการ</span>
+                        <span className="ml-auto text-[11px] font-medium text-ink-3 tabular-nums">{baht(daySum)}</span>
+                      </button>
+                      {!collapsed && (
                       <div className="space-y-2">
                         {items.map((e) => {
                           const payer = e.payer_id ? personOf(e.payer_id) : null
@@ -205,6 +211,7 @@ export default function Budget() {
                           )
                         })}
                       </div>
+                      )}
                     </div>
                   )
                 })}
