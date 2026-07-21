@@ -706,11 +706,24 @@ export default function Itinerary() {
     if (newIdx < 0) newIdx = list.length - 1 // dropped on day area → end
     const reordered = (oldIdx >= 0 && newIdx >= 0) ? arrayMove(list, oldIdx, newIdx) : list
     const crossed = origin != null && origin !== finalDay
-    // Same-day reorder: the TIME SLOTS stay put (top→bottom order preserved) and
-    // only the places move between them — so dragging a place onto an earlier
-    // slot swaps their times. Cross-day move: the stop carries its own time.
-    const slotTimes = list.map((s) => s.time)
-    const finalPos = reordered.map((s, i) => ({ ...s, position: i, ...(crossed ? {} : { time: slotTimes[i] ?? null }) }))
+    // How times behave on a reorder:
+    //  • cross-day move → the stop carries its OWN time (no reassignment)
+    //  • same-day, dragging a TIMED stop = "rearrange the schedule": the time
+    //    VALUES stay pinned to the timed stops top→bottom (two timed stops thus
+    //    swap), while UNTIMED stops are transparent — they never gain or lose a
+    //    time. So a timed stop dragged down into the untimed zone KEEPS its time.
+    //  • same-day, dragging an UNTIMED stop = just move it: every stop keeps its
+    //    own time, so an untimed place can sit ABOVE a timed one without stealing
+    //    its time (the reason this branch exists).
+    const swap = !crossed && moving.time != null
+    // the timed values in their current top→bottom order (untimed skipped)
+    const timedValues = list.filter((s) => s.time != null).map((s) => s.time)
+    let ti = 0
+    const finalPos = reordered.map((s, i) => ({
+      ...s,
+      position: i,
+      ...(swap ? { time: s.time != null ? (timedValues[ti++] ?? null) : null } : {}),
+    }))
     let next = [...cur.filter((s) => s.day_id !== finalDay || s.role === 'backup'), ...finalPos]
     let toPersist = [...finalPos]
     if (crossed) {
@@ -720,10 +733,9 @@ export default function Itinerary() {
     }
     stopsRef.current = next
     setLocalStops(next)
-    await persistStopOrder(toPersist, { withTime: !crossed })
-    // same-day reorder re-pins the time labels to their slots → tell the user so
-    // (also a clear signal this build is live)
-    if (!crossed && slotTimes.some(Boolean) && oldIdx !== newIdx) toast.success('สลับเวลาตามตำแหน่งใหม่แล้ว')
+    // only the timed-swap rewrites time values; a plain move / cross-day keeps them
+    await persistStopOrder(toPersist, { withTime: swap })
+    if (swap && timedValues.length && oldIdx !== newIdx) toast.success('สลับเวลาตามตำแหน่งใหม่แล้ว')
     await reload()
   }
 
