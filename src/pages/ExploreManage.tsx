@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCircle, IconMapPin } from '@tabler/icons-react'
+import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCircle, IconMapPin, IconMapPins, IconLoader2 } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { useBack } from '@/lib/useBack'
@@ -11,7 +11,7 @@ import { ExploreEditor } from '@/components/ExploreEditor'
 import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import {
-  listMyExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace,
+  listMyExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, syncExploreCoord,
   allVoteStats, allPopularity, type VoteStat, type PopStat,
 } from '@/lib/exploreMutations'
 import { savedExploreIds, removeExploreCopiesDeep } from '@/lib/placeMutations'
@@ -51,6 +51,31 @@ export default function ExploreManage() {
   const setF = (patch: Partial<ExploreFilterState>) => setFilter((s) => ({ ...s, ...patch }))
 
   const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
+  const [syncing, setSyncing] = useState(false)
+
+  // Re-resolve the coordinate of every item I shared from its map_url and push
+  // it onto ALL saved copies — so the same Explore place sits at the identical
+  // spot in every trip, including trips saved before this existed. One click,
+  // no SQL needed; the copies get fixed even without the explore_coords columns.
+  async function resolveAllCoords() {
+    const list = items.filter((e) => e.map_url)
+    if (!list.length || syncing) return
+    setSyncing(true)
+    let done = 0
+    const q = [...list]
+    const worker = async () => {
+      let e: ExplorePlace | undefined
+      while ((e = q.shift())) {
+        try { await syncExploreCoord(e.id, e.map_url, e.country) } catch { /* skip one */ }
+        done++
+      }
+    }
+    await Promise.all(Array.from({ length: 4 }, worker))
+    setSyncing(false)
+    await reloadItems()
+    if (currentTrip && myTripIds.includes(currentTrip.id)) void reloadTrip()
+    toast.success(`อัปเดตพิกัด ${done} สถานที่ให้ตรงกันทุกทริปแล้ว`)
+  }
 
   async function refreshStats() {
     // fetch both BEFORE setting state — one atomic re-render, no partial sort
@@ -161,6 +186,14 @@ export default function ExploreManage() {
               </div>
             ))}
           </div>
+        )}
+
+        {!loading && !error && items.length > 0 && (
+          <button onClick={resolveAllCoords} disabled={syncing}
+            className="w-full mb-4 h-10 rounded-xl bg-surface-2 text-ink-2 text-[12.5px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60">
+            {syncing ? <IconLoader2 size={15} className="animate-spin" /> : <IconMapPins size={15} className="text-brand" />}
+            {syncing ? 'กำลังอัปเดตพิกัด…' : 'อัปเดตพิกัดให้ตรงกันทุกทริป'}
+          </button>
         )}
 
         {!loading && !error && items.length > 0 && (

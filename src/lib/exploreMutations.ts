@@ -22,6 +22,15 @@ export async function setExploreCoords(id: string, lat: number, lng: number) {
   return supabase.from('explore_places').update({ lat, lng }).eq('id', id)
 }
 
+/** Push a resolved Explore coordinate onto EVERY already-saved copy (matched by
+ *  source_explore_id), stamping it into map_url so it's immutable ground truth —
+ *  so fixing the coordinate at the source updates existing trips too, not only
+ *  future saves. RLS limits the write to copies in trips the user can edit. */
+export async function propagateExploreCoord(exploreId: string, lat: number, lng: number) {
+  const map_url = `https://www.google.com/maps?q=${lat},${lng}`
+  return supabase.from('places').update({ lat, lng, map_url }).eq('source_explore_id', exploreId)
+}
+
 /** Resolve an Explore item's coordinate from its map_url ONCE and store it on
  *  the Explore row, so every trip that saves this item inherits the SAME pin
  *  (option B — kills per-trip geocoding drift). Full pipeline: in-URL coords →
@@ -39,7 +48,12 @@ export async function syncExploreCoord(id: string, mapUrl?: string | null, count
       const g = await geocodeSmart({ name: resolvedLinkName(mapUrl), address: resolvedLinkAddress(mapUrl), country })
       if (g) c = { lat: g.lat, lng: g.lng }
     }
-    if (c) await setExploreCoords(id, c.lat, c.lng)
+    if (c) {
+      await setExploreCoords(id, c.lat, c.lng)
+      // fixing the coordinate at the source must flow to trips that ALREADY
+      // saved this item, not just future saves
+      await propagateExploreCoord(id, c.lat, c.lng)
+    }
   } catch { /* offline / resolver down — coord stays null */ }
 }
 function stripUnknown(payload: Record<string, unknown>, msg: string) {
