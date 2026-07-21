@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconListCheck } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, officialHealth, officialQueryFor, type LatLng, type GeoHit } from '@/lib/geo'
+import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, officialHealth, officialQueryFor, localLang, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords, setManualPin } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -225,7 +225,7 @@ export default function TripMap() {
         while (queue.length && alive) {
           const { p, db } = queue.shift()!
           try {
-            const r = await resolveMapUrl(p.map_url!) // cached per link after first hit
+            const r = await resolveMapUrl(p.map_url!, localLang(trip?.country)) // cached per link after first hit
             if (!alive) return
             if (!r || (r.pageDerived && !(await plausible(p, r)))) {
               // no coords, or a page-derived point that fails the geography check
@@ -269,7 +269,7 @@ export default function TripMap() {
     const worker = async () => {
       while (queue.length && alive) {
         const p = queue.shift()!
-        const r = await resolveMapUrl(p.map_url!)
+        const r = await resolveMapUrl(p.map_url!, localLang(trip?.country))
         // link dead-ends (expired short link etc.) fall through to geocoding —
         // pass Google's canonical address when the resolve surfaced one
         if (r) gotCoords(p, r)
@@ -489,7 +489,7 @@ export default function TripMap() {
         try {
           const exact = latLngFromUrlExact(p.map_url)
           const hasLink = !exact && isMapLink(p.map_url)
-          const resolvedRaw = hasLink ? await resolveMapUrl(p.map_url!) : null
+          const resolvedRaw = hasLink ? await resolveMapUrl(p.map_url!, localLang(trip?.country)) : null
           addr = resolvedLinkAddress(p.map_url) || undefined
           if (addr) { const q = officialQueryFor(addr, trip?.country ?? undefined); if (q && q !== addr) alsQ = q }
           const resolved = resolvedRaw && (!resolvedRaw.pageDerived || (await plausibleA(p, resolvedRaw))) ? resolvedRaw : null

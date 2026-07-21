@@ -128,7 +128,15 @@ function addressFrom(s) {
   try { q = new URL(s).searchParams.get('q') } catch { return null } // URLSearchParams already %- and +-decodes
   if (!q) return null
   q = q.trim()
-  if (!q || !q.includes(',') || /^-?\d+(\.\d+)?\s*,\s*-?\d+/.test(q) || /^https?:/i.test(q)) return null
+  if (!q || /^-?\d+(\.\d+)?\s*,\s*-?\d+/.test(q) || /^https?:/i.test(q)) return null
+  // a real address is either the romanized "…, street, district, city" (commas)
+  // OR a CJK address that runs together with no commas ("台北市萬華區廣州街104號",
+  // "東京都渋谷区神南1-1") — accept the latter when it carries a locality/road
+  // marker AND a number, so a bare CJK place NAME is still not treated as one
+  const cjkAddr = /[㐀-鿿]/.test(q)
+    && /[市区區県都道府町村路街巷弄段丁目號号番]/.test(q)
+    && /[0-9０-９一二三四五六七八九十百]/.test(q)
+  if (!q.includes(',') && !cjkAddr) return null
   return q
 }
 
@@ -240,7 +248,13 @@ export default async function handler(req, res) {
     const url = req.query?.url
     if (!url || !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'bad url' })
     const amap = /amap|gaode/i.test(url)
-    const lang = amap ? 'zh-CN,zh;q=0.9' : 'en;q=0.9,th;q=0.8'
+    // Ask Google for the address in the place's OWN language when the caller
+    // knows it (e.g. zh-TW for a Taiwan trip): OSM in Asia indexes streets by
+    // their native names ("廣州街104號"), so the romanized address Google gives a
+    // Thai/EN locale ("Guangzhou St") often can't be matched. Keyless — just a
+    // request header. Falls back to the EN/TH default when no lang is passed.
+    const reqLang = typeof req.query?.lang === 'string' ? req.query.lang.trim() : ''
+    const lang = reqLang ? `${reqLang},en;q=0.5` : (amap ? 'zh-CN,zh;q=0.9' : 'en;q=0.9,th;q=0.8')
 
     // build the variants to try, in order: the link as given, the same link
     // with its query string (tracking params like ?g_st=ic) stripped, then

@@ -150,16 +150,30 @@ export const resolvedLinkAddress = (url?: string | null) => (url ? linkAddresses
  *  country!) and must pass the caller's geographic sanity check before use. */
 export interface ResolvedPoint extends LatLng { pageDerived?: boolean }
 
-export async function resolveMapUrl(url: string): Promise<ResolvedPoint | null> {
-  if (linkCache.has(url)) return linkCache.get(url) ?? null
-  // "url5:" + "&v=5" bust every earlier cache generation — including any
-  // already-cached page-derived points from before the resolver stopped
-  // trusting scraped page bodies (those could be a data-centre's own address)
-  const ls = lsGet(`url5:${url}`) as ResolvedPoint | null | undefined
-  if (ls !== undefined) { linkCache.set(url, ls); return ls }
+/** Local language for a country, so we can ask Google for the address in the
+ *  script OSM actually indexes (native names) — the keyless fix for places OSM
+ *  can't match by their romanized address. '' = use the resolver's EN/TH default. */
+export function localLang(country?: string | null): string {
+  const s = (country ?? '').toLowerCase()
+  if (/taiwan|ไต้หวัน|臺灣|台灣/.test(s)) return 'zh-TW'
+  if (/hong\s?kong|hongkong|香港|ฮ่องกง/.test(s)) return 'zh-HK'
+  if (/\bchina\b|中国|中國|จีน/.test(s)) return 'zh-CN'
+  if (/korea|เกาหลี|한국|대한민국/.test(s)) return 'ko'
+  if (/\bjapan\b|日本|ญี่ปุ่น/.test(s)) return 'ja'
+  return ''
+}
+
+export async function resolveMapUrl(url: string, lang?: string): Promise<ResolvedPoint | null> {
+  const lg = (lang ?? '').trim()
+  const ck = lg ? `${lg}:${url}` : url // cache per language — a zh-TW address differs from the EN one
+  if (linkCache.has(ck)) return linkCache.get(ck) ?? null
+  // "url6:" + "&v=6" bust every earlier cache generation (incl. pre-language
+  // romanized addresses that OSM couldn't match)
+  const ls = lsGet(`url6:${ck}`) as ResolvedPoint | null | undefined
+  if (ls !== undefined) { linkCache.set(ck, ls); return ls }
   let out: ResolvedPoint | null = null
   try {
-    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=5`)
+    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=6${lg ? `&lang=${encodeURIComponent(lg)}` : ''}`)
     if (res.ok) {
       const j = await res.json()
       if (typeof j.name === 'string' && j.name.trim()) linkNames.set(url, j.name.trim())
@@ -175,8 +189,8 @@ export async function resolveMapUrl(url: string): Promise<ResolvedPoint | null> 
   } catch { failNotes.set(url, 'ต่อ API ไม่ได้') }
   // cache successes durably; failures only for this session — a blocked or
   // flaky resolver must be retried on the next load, not remembered forever
-  linkCache.set(url, out)
-  if (out) lsSet(`url5:${url}`, out)
+  linkCache.set(ck, out)
+  if (out) lsSet(`url6:${ck}`, out)
   return out
 }
 
@@ -545,6 +559,16 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
     if (!r && addrClean && addrClean !== streetQ) r = await tryNom([addrClean])
     if (!r && streetQ) r = await photonRaw(streetQ, near)
     if (!r && addrClean && addrClean !== streetQ) r = await photonRaw(addrClean, near)
+    // native-script address (Chinese/JP/KR from a local-language resolve): OSM in
+    // Asia indexes streets by native name, so query the native segments directly
+    // (a leading Thai/Latin business-name segment dropped). This is the keyless
+    // fix for Taiwan etc. — cleanAddress above strips CJK, so try it here.
+    const cjk = /[㐀-鿿぀-ヿ가-힯]/
+    if (!r && address && cjk.test(address)) {
+      const native = address.split(',').map((s) => s.trim()).filter((s) => cjk.test(s)).join(', ')
+      if (native && native !== address) r = await tryNom([native])
+      if (!r) r = await photonRaw(native || address, near)
+    }
     if (!r && address && address !== addrClean) r = await tryNom([address])
     // a hit here came from the place's OWN specific address (or ALS) — it's
     // trustworthy as-is and must skip the station wrong-branch guard below, which

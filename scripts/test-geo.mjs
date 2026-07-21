@@ -23,7 +23,7 @@ globalThis.localStorage = {
 
 const dir = mkdtempSync(join(tmpdir(), 'geotest-'))
 execSync(`npx esbuild src/lib/geo.ts --bundle --format=esm --outfile=${join(dir, 'geo.mjs')}`, { stdio: 'pipe' })
-const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm, cleanAddress, alsQuery, osmStreetQuery, officialEngineFor, officialQueryFor } = await import(join(dir, 'geo.mjs'))
+const { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, distKm, cleanAddress, alsQuery, osmStreetQuery, officialEngineFor, officialQueryFor, localLang } = await import(join(dir, 'geo.mjs'))
 
 // ---- 1. URL precedence ----
 console.log('URL parsing')
@@ -130,6 +130,30 @@ ok(osmStreetQuery('440 Jaffe Rd, Causeway Bay') === '440 Jaffe Rd, Causeway Bay'
   'an address whose number is already glued is left intact')
 ok(osmStreetQuery('Central Market, Des Voeux Rd Central') === 'Central Market, Des Voeux Rd Central',
   'no standalone house number → returned as-is (minus noise)')
+
+// ---- 3a3c. localLang + native-script address: the keyless Taiwan fix. Ask
+// Google for the address in Chinese, then query OSM with the native street name
+// (廣州街104號), which OSM in Asia can match where the romanized form can't ----
+console.log('localLang + native-script OSM query')
+ok(localLang('Taiwan') === 'zh-TW', 'Taiwan → zh-TW')
+ok(localLang('ไต้หวัน') === 'zh-TW', 'ไต้หวัน (Thai) → zh-TW')
+ok(localLang('Thailand') === '', 'a country OSM handles romanized → no override')
+globalThis.fetch = async (url) => {
+  const s = decodeURIComponent(String(url))
+  if (s.includes('/api/hk-geocode') || s.includes('/api/jp-geocode') || s.includes('/api/sg-geocode')) return json({ error: 'no match' })
+  // only the NATIVE Chinese street matches in OSM; the romanized/stripped form misses
+  if (s.includes('nominatim') && s.includes('廣州街')) return json([{ lat: '25.0369', lon: '121.5012' }])
+  if (s.includes('nominatim')) return json([])
+  if (s.includes('photon')) return json({ features: [] })
+  throw new Error('unexpected ' + s)
+}
+const gTW = await geocodeSmart({
+  name: 'ร้านข้าวต้มหมูกรอบ', address: 'ร้านข้าวต้มหมูกรอบ, 台北市萬華區廣州街104號',
+  city: 'Taipei', country: 'Taiwan', near: { lat: 25.037, lng: 121.50 },
+})
+ok(gTW && gTW.approx === false && Math.abs(gTW.lat - 25.0369) < 1e-6,
+  `Chinese address matches OSM by native street name (got ${gTW?.lat},${gTW?.lng}, approx=${gTW?.approx})`)
+globalThis.fetch = mainMock
 
 // ---- 3a4. official-engine dispatch by country (HK ALS / JP GSI / SG OneMap) ----
 console.log('official engine dispatch')

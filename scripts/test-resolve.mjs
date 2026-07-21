@@ -227,6 +227,24 @@ const page = (html, status = 200) => ({ status, headers: { get: () => null }, te
   ok(res.body?.address === undefined, `bare single-token ?q= is not treated as an address (got ${res.body?.address})`)
 }
 
+// 2k. a `lang` query param is forwarded to Google as Accept-Language — so a
+//     Taiwan trip (lang=zh-TW) gets the address in Chinese ("廣州街104號"), which
+//     OSM can match by native street name where the romanized form fails
+{
+  let sawLang = ''
+  globalThis.fetch = async (url, opts) => {
+    sawLang = opts?.headers?.['Accept-Language'] || ''
+    const s = String(url)
+    if (s.startsWith('https://maps.app.goo.gl/'))
+      return redirect('https://www.google.com/maps?q=' + encodeURIComponent('台北市萬華區廣州街104號') + '&ftid=0x0:0x1')
+    return page('<html>x</html>')
+  }
+  const res = mkRes()
+  await handler({ query: { url: 'https://maps.app.goo.gl/tw?g_st=ic', lang: 'zh-TW' } }, res)
+  ok(sawLang.startsWith('zh-TW'), `lang param → Accept-Language sent to Google (got "${sawLang}")`)
+  ok(res.body?.address === '台北市萬華區廣州街104號', `Chinese address comes back for OSM native-name matching (got ${res.body?.address})`)
+}
+
 globalThis.fetch = realFetch
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
