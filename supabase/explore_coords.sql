@@ -20,13 +20,15 @@ from (
 ) c
 where e.id = c.source_explore_id and e.lat is null;
 
--- 3) converge every EXISTING copy onto its item's coordinate, and stamp it into
---    map_url as an exact coordinate so the map treats it as immutable ground
---    truth (no healer/audit can drift it again). After this, all copies match.
+-- 3) converge every EXISTING copy onto its item's coordinate and LOCK it
+--    (pinned = the map trusts lat/lng, no re-geocode drift) — but KEEP each
+--    copy's map_url so navigation still follows the real link. Needs pinned.sql.
+--    After this, all copies of an item sit on the identical spot.
+alter table places add column if not exists pinned boolean not null default false;
 update places p
 set lat = e.lat,
     lng = e.lng,
-    map_url = 'https://www.google.com/maps?q=' || e.lat || ',' || e.lng
+    pinned = true
 from explore_places e
 where p.source_explore_id = e.id
   and e.lat is not null and e.lng is not null;

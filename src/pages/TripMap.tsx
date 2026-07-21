@@ -150,7 +150,11 @@ export default function TripMap() {
       // place re-resolves instead of pinning on the wrong continent forever
       if (typeof p.lat === 'number' && typeof p.lng === 'number' && !isServerGarbage(p.lat, p.lng)) {
         const db = { lat: p.lat, lng: p.lng }
-        if (exact) {
+        if (p.pinned) {
+          // user-locked pin (hand-fixed / Explore-shared) — trust lat/lng as-is,
+          // never re-resolve; map_url stays the real link for navigation
+          next[p.id] = db
+        } else if (exact) {
           // the link IS the pin — no tolerance window; stored values only
           // matter as a write-churn guard (>20m → persist the correction)
           next[p.id] = exact
@@ -379,12 +383,12 @@ export default function TripMap() {
 
   function applyCoords(p: Place, c: LatLng, sourceUrl?: string) {
     setCoords((m) => ({ ...m, [p.id]: c }))
-    // Make the hand-set point PERMANENT: stamp map_url so the coordinate is
-    // URL-exact ground truth (no geocode/audit can move it). Keep the pasted
-    // source only when it already carries this exact coordinate in-URL (a full
-    // Google/Apple link) — otherwise write a clean coordinate URL.
-    const exact = sourceUrl ? latLngFromUrlExact(sourceUrl) : null
-    const map_url = exact && haversine(exact, c) < 0.05 ? sourceUrl : undefined
+    // Lock the hand-set point (pinned) but KEEP the real navigation link. Only
+    // touch map_url when: the user pasted a coordinate-bearing link (use it), or
+    // the place has NO link at all (stamp a coordinate URL so "นำทาง" still works).
+    const pasted = sourceUrl ? latLngFromUrlExact(sourceUrl) : null
+    const map_url = pasted && haversine(pasted, c) < 0.05 ? sourceUrl
+      : (!p.map_url ? `https://www.google.com/maps?q=${c.lat},${c.lng}` : undefined)
     setManualPin(p.id, c.lat, c.lng, map_url).catch(() => {})
     setPlacing(null); setLinkText('')
     fitted.current = true // don't auto-refit after a manual pin
@@ -507,6 +511,13 @@ export default function TripMap() {
         // pin's CAUSE (bad/missing address, wrong street segment) is visible
         // in-app, with no debug JSON to relay
         let addr: string | undefined, alsQ: string | undefined
+        // a user-locked pin is ground truth — confirm it, never re-geocode
+        if (p.pinned && prev) {
+          results[i] = { p, status: 'link', fixed: false, coord: prev }
+          doneCount++
+          setAudit({ running: true, done: doneCount, total: list.length, rows: results.filter((r): r is AuditRow => !!r), engine })
+          continue
+        }
         try {
           const exact = latLngFromUrlExact(p.map_url)
           const hasLink = !exact && isMapLink(p.map_url)

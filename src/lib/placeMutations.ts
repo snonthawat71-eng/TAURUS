@@ -9,7 +9,7 @@ export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
 
 // photo_path & city are optional (added by extra_columns.sql); strip whichever
 // the API reports as unknown so older databases still work.
-const OPTIONAL = ['photo_path', 'photo_url', 'photo_focus', 'photos', 'city', 'source_explore_id', 'routes', 'branches', 'multi_branch', 'plan_branch', 'menu_paths', 'lat', 'lng']
+const OPTIONAL = ['photo_path', 'photo_url', 'photo_focus', 'photos', 'city', 'source_explore_id', 'routes', 'branches', 'multi_branch', 'plan_branch', 'menu_paths', 'lat', 'lng', 'pinned']
 function stripUnknown(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
   let changed = false
@@ -56,14 +56,17 @@ export async function setPlaceCoords(id: string, lat: number | null, lng: number
   return res
 }
 
-/** Persist a HAND-SET pin: writes lat/lng AND stamps map_url with a coordinate
- *  URL (unless a coordinate-bearing link is supplied to keep). Because the
- *  coordinate now lives in map_url, `latLngFromUrlExact` treats it as URL-exact
- *  ground truth everywhere — no later geocode, healer, or audit can ever move
- *  it. This is what makes a manually-placed pin permanent. */
+/** Persist a HAND-SET pin: writes lat/lng and sets `pinned` so the map trusts it
+ *  and never re-geocodes it — WITHOUT touching map_url, so the user's real link
+ *  stays intact for navigation. Pass `mapUrl` only to also set the link (e.g. a
+ *  linkless place needs a coordinate URL so "นำทาง" still works). Degrades to a
+ *  plain lat/lng write if the pinned column isn't there yet. */
 export async function setManualPin(id: string, lat: number, lng: number, mapUrl?: string) {
-  const map_url = mapUrl ?? `https://www.google.com/maps?q=${lat},${lng}`
-  return supabase.from('places').update({ lat, lng, map_url }).eq('id', id)
+  const base: Record<string, unknown> = { lat, lng }
+  if (mapUrl !== undefined) base.map_url = mapUrl
+  let res = await supabase.from('places').update({ ...base, pinned: true }).eq('id', id)
+  if (res.error && /pinned/.test(res.error.message)) res = await supabase.from('places').update(base).eq('id', id)
+  return res
 }
 
 export async function deletePlace(id: string) {
@@ -77,20 +80,20 @@ export async function copyPlaceToTrip(
   place: Place, targetTripId: string, sourceExploreId?: string,
   opts?: { inPlan?: boolean; id?: string; planBranch?: number | null },
 ) {
-  // an Explore item carries its ONE shared coordinate → stamp it into map_url as
-  // an exact coordinate so this copy is URL-exact ground truth: the map's healer
-  // and audit can never re-geocode/drift it, and every trip that saved the same
-  // item stays pinned to the identical spot (option B — no cross-trip drift)
+  // an Explore item carries its ONE shared coordinate → copy lat/lng and mark the
+  // copy `pinned` so the map trusts it (every trip stays on the identical spot,
+  // no re-geocode drift) while KEEPING the Explore item's real link for navigation
   const hasCoord = place.lat != null && place.lng != null
   const payload: Record<string, unknown> = {
     id: opts?.id ?? crypto.randomUUID(), trip_id: targetTripId, group_type: place.group_type, category: place.category,
     name: place.name, station_line: place.station_line, station_color: place.station_color, station_name: place.station_name,
     routes: place.routes ?? null, branches: place.branches ?? null, multi_branch: place.multi_branch ?? null,
     plan_branch: opts?.planBranch ?? null,
-    map_url: hasCoord ? `https://www.google.com/maps?q=${place.lat},${place.lng}` : place.map_url,
+    map_url: place.map_url,
     note: place.note, in_plan: opts?.inPlan ?? false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, photo_focus: place.photo_focus ?? null, photos: place.photos ?? null, city: place.city,
     menu_paths: place.menu_paths ?? null,
     lat: place.lat ?? null, lng: place.lng ?? null,
+    pinned: hasCoord,
     source_explore_id: sourceExploreId ?? null,
   }
   let res = await supabase.from('places').insert(payload)

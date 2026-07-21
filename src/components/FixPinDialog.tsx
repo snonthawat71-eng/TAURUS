@@ -98,7 +98,9 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
   async function confirm() {
     if (!place || !sel) return
     setBusy(true)
-    await setManualPin(place.id, sel.lat, sel.lng)
+    // keep the user's link for navigation; only stamp a coord URL if there's none
+    const mapUrl = place.map_url ? undefined : `https://www.google.com/maps?q=${sel.lat},${sel.lng}`
+    await setManualPin(place.id, sel.lat, sel.lng, mapUrl)
     if (place.source_explore_id) await propagateExploreCoord(place.source_explore_id, sel.lat, sel.lng)
     setBusy(false)
     onFixed(sel)

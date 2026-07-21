@@ -27,8 +27,11 @@ export async function setExploreCoords(id: string, lat: number, lng: number) {
  *  so fixing the coordinate at the source updates existing trips too, not only
  *  future saves. RLS limits the write to copies in trips the user can edit. */
 export async function propagateExploreCoord(exploreId: string, lat: number, lng: number) {
-  const map_url = `https://www.google.com/maps?q=${lat},${lng}`
-  return supabase.from('places').update({ lat, lng, map_url }).eq('source_explore_id', exploreId)
+  // set the shared coordinate + lock it (pinned), but KEEP each copy's map_url so
+  // navigation still follows the real link, not a bare coordinate
+  let r = await supabase.from('places').update({ lat, lng, pinned: true }).eq('source_explore_id', exploreId)
+  if (r.error && /pinned/.test(r.error.message)) r = await supabase.from('places').update({ lat, lng }).eq('source_explore_id', exploreId)
+  return r
 }
 
 /** Resolve an Explore item's coordinate from its map_url ONCE and store it on

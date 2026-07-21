@@ -295,6 +295,10 @@ export interface Place {
    *  from map_url / geocoding / manual pick (see src/lib/geo.ts) */
   lat?: number | null
   lng?: number | null
+  /** optional — present after pinned.sql; coordinate is user-locked (hand-fixed
+   *  or an Explore shared pin) → the map trusts lat/lng and won't re-geocode it,
+   *  while map_url stays the real navigation link */
+  pinned?: boolean | null
   /** optional — present after menu.sql (menu images/PDFs for restaurants) */
   menu_paths?: string[] | null
   /** optional — present after photos.sql; extra photos (2nd–4th) shown only in
