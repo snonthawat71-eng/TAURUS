@@ -484,6 +484,60 @@ async function mapboxRaw(query: string, near?: LatLng): Promise<LatLng | null> {
 
 export interface GeoHit extends LatLng { approx?: boolean; precise?: boolean }
 
+/** A candidate location with the source it came from — for the "fix pin" flow,
+ *  where the user compares real options instead of guessing. */
+export interface GeoCandidate extends LatLng { source: string; label: string }
+
+/** Gather EVERY distinct location this place could be, from all sources at once
+ *  (link, official DB, OSM-by-address, OSM/Mapbox-by-name), deduped by ~40m and
+ *  ranked most-trustworthy first. Used by the report/fix-pin dialog so the user
+ *  picks a real candidate rather than dropping a blind pin. */
+export async function geoCandidates(o: {
+  name?: string | null; address?: string | null; mapUrl?: string | null
+  city?: string | null; country?: string | null; near?: LatLng | null
+}): Promise<GeoCandidate[]> {
+  const name = (o.name ?? '').trim(), address = (o.address ?? '').trim()
+  const city = (o.city ?? '').trim(), country = (o.country ?? '').trim()
+  const near = o.near ?? undefined
+  const out: GeoCandidate[] = []
+  const push = (p: LatLng | null, source: string, label: string) => {
+    if (p && valid(p.lat, p.lng) && !isServerGarbage(p.lat, p.lng)) out.push({ ...p, source, label })
+  }
+
+  // 1) coordinate carried by the link (inline, or resolved from a short link).
+  // resolving also stashes the canonical address, which we reuse below.
+  const exact = latLngFromUrlExact(o.mapUrl ?? undefined)
+  if (exact) push(exact, 'link', 'จากลิงก์แมพ')
+  else if (o.mapUrl && isMapLink(o.mapUrl)) push(await resolveMapUrl(o.mapUrl, localLang(country)), 'link', 'จากลิงก์แมพ')
+  const addr = address || (o.mapUrl ? (resolvedLinkAddress(o.mapUrl) ?? '') : '')
+
+  // 2) the country's official address DB (building-accurate)
+  const engine = addr ? officialEngineFor([addr, city, country].join(' ')) : null
+  if (engine && addr) {
+    for (const q of officialQueries(addr, engine, country || undefined)) {
+      const r = await officialRaw(q, engine.path)
+      if (r) { push(r, 'official', `ทางการ · ${engine.label}`); break }
+    }
+  }
+
+  // 3) OSM by the cleaned street address, and the native-script address as-is
+  const addrClean = addr ? cleanAddress(addr, country) : ''
+  if (addrClean) { push(await geocodeRaw(osmStreetQuery(addrClean) || addrClean, near), 'osm-addr', 'OSM · ที่อยู่'); await sleep(1100) }
+  if (addr && /[㐀-鿿぀-ヿ가-힯]/.test(addr)) { push(await geocodeRaw(addr, near), 'osm-native', 'OSM · ที่อยู่ท้องถิ่น'); await sleep(1100) }
+
+  // 4) by NAME (proximity-biased) — Mapbox, Photon, then Nominatim
+  if (name) {
+    push(await mapboxRaw([name, city].filter(Boolean).join(' '), near), 'mapbox', 'ค้นจากชื่อ · Mapbox')
+    push(await photonRaw([name, city].filter(Boolean).join(' '), near), 'osm-name', 'ค้นจากชื่อ · OSM')
+    push(await geocodeRaw([name, city, country].filter(Boolean).join(', '), near), 'osm-name2', 'ค้นจากชื่อ · Nominatim')
+  }
+
+  // dedup by ~40m, keeping the higher-priority (earlier) source
+  const dedup: GeoCandidate[] = []
+  for (const c of out) if (!dedup.some((d) => distKm(d, c) < 0.04)) dedup.push(c)
+  return dedup
+}
+
 /** Great-circle distance in km. */
 export function distKm(a: LatLng, b: LatLng): number {
   const R = 6371, toR = Math.PI / 180

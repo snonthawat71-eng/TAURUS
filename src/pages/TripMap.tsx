@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconListCheck } from '@tabler/icons-react'
+import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconListCheck, IconFlag } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
+import { FixPinDialog } from '@/components/FixPinDialog'
 import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, isServerGarbage, officialHealth, officialQueryFor, localLang, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords, setManualPin } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
@@ -84,6 +85,7 @@ export default function TripMap() {
   // to re-enable the button + panel
   const SHOW_AUDIT = false
   const [placing, setPlacing] = useState<Place | null>(null) // the place we're pinning
+  const [fixPin, setFixPin] = useState<Place | null>(null) // report/fix-pin dialog target
   const [linkText, setLinkText] = useState('')
   const placingRef = useRef<Place | null>(null)
   useEffect(() => { placingRef.current = placing }, [placing])
@@ -754,15 +756,20 @@ export default function TripMap() {
         <div className="absolute inset-x-0 bottom-0 z-[500] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
           <div className="rounded-[18px] bg-white shadow-[0_10px_34px_rgba(10,20,40,.22)] pt-4">
             <SelectedCard p={selected} dist={ref ? kmLabel(haversine(ref, coords[selected.id])) : null} approx={!!coords[selected.id]?.approx}
-              onClose={() => setSelected(null)} onRelocate={() => { setSelected(null); setPlacing(selected) }} />
+              onClose={() => setSelected(null)} onFix={() => { setFixPin(selected); setSelected(null) }} />
           </div>
         </div>
       )}
+
+      {/* report / fix a wrong pin — compare candidates, pick, lock */}
+      <FixPinDialog place={fixPin} current={fixPin ? (coords[fixPin.id] ?? null) : null} open={!!fixPin}
+        onClose={() => setFixPin(null)}
+        onFixed={(c) => { if (fixPin) setCoords((m) => ({ ...m, [fixPin.id]: c })) }} />
     </div>
   )
 }
 
-function SelectedCard({ p, dist, approx, onClose, onRelocate }: { p: Place; dist: string | null; approx?: boolean; onClose: () => void; onRelocate: () => void }) {
+function SelectedCard({ p, dist, approx, onClose, onFix }: { p: Place; dist: string | null; approx?: boolean; onClose: () => void; onFix: () => void }) {
   const meta = catMeta(p.category)
   const photo = httpPhoto(p)
   return (
@@ -786,8 +793,8 @@ function SelectedCard({ p, dist, approx, onClose, onRelocate }: { p: Place; dist
         <button onClick={() => openMap(p.map_url)} className="btn-primary flex-1 h-11 flex items-center justify-center gap-1.5">
           <IconMapPin size={16} /> นำทาง
         </button>
-        <button onClick={onRelocate} className="h-11 px-4 rounded-md text-[13px] font-medium text-ink-2 inline-flex items-center gap-1.5" style={{ border: '0.5px solid var(--color-line)' }}>
-          <IconFocus2 size={15} /> ย้ายหมุด
+        <button onClick={onFix} className="h-11 px-4 rounded-md text-[13px] font-medium text-ink-2 inline-flex items-center gap-1.5" style={{ border: '0.5px solid var(--color-line)' }}>
+          <IconFlag size={15} /> พิกัดผิด?
         </button>
       </div>
     </div>
