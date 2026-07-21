@@ -72,6 +72,10 @@ export default function TripMap() {
   const [selected, setSelected] = useState<Place | null>(null)
   const [me, setMe] = useState<LatLng | null>(null)
   const [geoBusy, setGeoBusy] = useState(0)
+  // how many pins the current load has to resolve, + when it started — drives the
+  // "กำลังโหลดพิกัด" progress bar (%, done/total, rough ETA)
+  const [geoTotal, setGeoTotal] = useState(0)
+  const geoStart = useRef(0)
   // pins stay hidden (a "loading" banner shows instead) until the first pass has
   // resolved every place's coordinate — so nothing ever appears at a half-
   // resolved / wrong spot and then jumps
@@ -168,6 +172,8 @@ export default function TripMap() {
     }
     setCoords(next)
     setGeoBusy(missing.length)
+    setGeoTotal(missing.length)
+    geoStart.current = Date.now()
     // hold the pins back only when something actually needs resolving; if every
     // place already has a coordinate, show them right away (no loading flash)
     if (missing.length === 0) setCoordsReady(true); else setCoordsReady(false)
@@ -588,15 +594,31 @@ export default function TripMap() {
       </div>
 
       {/* coordinates still loading — pins are held back until every place has a
-          resolved position, so nothing shows at a half-resolved / wrong spot */}
-      {!coordsReady && !placing && (
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-[450] flex justify-center px-6 pointer-events-none">
-          <div className="inline-flex items-center gap-2.5 rounded-full bg-white/95 backdrop-blur shadow-[0_8px_28px_rgba(10,20,40,.18)] px-5 py-3">
-            <IconLoader2 size={18} className="animate-spin text-brand" />
-            <span className="text-[13px] font-semibold text-ink-2">กำลังโหลดพิกัด…</span>
+          resolved position; a %/ETA progress bar shows how far along it is */}
+      {!coordsReady && !placing && (() => {
+        const done = Math.max(0, geoTotal - geoBusy)
+        const pct = geoTotal ? Math.min(100, Math.round((done / geoTotal) * 100)) : 100
+        const eta = done > 0 && geoBusy > 0 && geoStart.current
+          ? Math.ceil(((Date.now() - geoStart.current) / done) * geoBusy / 1000) : 0
+        return (
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-[450] flex justify-center px-6 pointer-events-none">
+            <div className="w-[264px] max-w-full rounded-2xl bg-white/95 backdrop-blur shadow-[0_8px_28px_rgba(10,20,40,.18)] px-5 py-4">
+              <div className="flex items-center gap-2 mb-2.5">
+                <IconLoader2 size={16} className="animate-spin text-brand shrink-0" />
+                <span className="text-[13px] font-semibold text-ink-2 flex-1">กำลังโหลดพิกัด…</span>
+                <span className="text-[14px] font-bold text-brand tabular-nums">{pct}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                <div className="h-full bg-brand transition-all duration-300" style={{ width: `${pct}%` }} />
+              </div>
+              <div className="flex items-center justify-between mt-2 text-[11px] text-ink-3 tabular-nums">
+                <span>{done}/{geoTotal} จุด</span>
+                {eta > 0 && <span>เหลืออีก ~{eta >= 60 ? `${Math.ceil(eta / 60)} นาที` : `${eta} วิ`}</span>}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* floating buttons — right side, above the card zone */}
       <button onClick={refit} className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[500] size-11 rounded-full bg-white shadow-md grid place-items-center text-ink-2" title="จัดกึ่งกลางหมุด"><IconFocus2 size={19} /></button>
