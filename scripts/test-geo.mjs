@@ -31,6 +31,15 @@ const gUrl = 'https://www.google.com/maps/place/Jollibee/@22.2900,114.1000,17z/d
 const r1 = latLngFromUrl(gUrl)
 ok(r1 && Math.abs(r1.lat - 22.2766) < 1e-6 && Math.abs(r1.lng - 114.1747) < 1e-6,
   `!3d/!4d place point wins over @viewport (got ${r1?.lat},${r1?.lng})`)
+// geo-IP garbage (Ashburn, VA datacenter default) is never honoured, even
+// baked into a URL — so a place stamped with it re-resolves instead of pinning
+// on the wrong continent
+ok(latLngFromUrl('https://www.google.com/maps?q=39.02679945,-77.844326') === null,
+  'stamped geo-IP garbage coordinate is rejected (wrong-continent pin heals)')
+ok(latLngFromUrlExact('https://www.google.com/maps?q=39.03,-77.85') === null,
+  'geo-IP garbage rejected as URL-exact too')
+ok(latLngFromUrl('https://www.google.com/maps?q=25.0353,121.4999') !== null,
+  'a real coordinate still parses fine')
 const rExact = latLngFromUrlExact('https://maps.google.com/maps?foo=1&daddr=22.30,114.17')
 ok(rExact && rExact.lat === 22.30, 'explicit lat,lng param counts as exact')
 ok(latLngFromUrlExact('https://www.google.com/maps/@22.29,114.10,15z') === null, '@viewport alone is NOT exact')

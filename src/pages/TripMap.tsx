@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, IconFocus2, IconLoader2, IconArrowLeft, IconListCheck } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, officialHealth, officialQueryFor, localLang, type LatLng, type GeoHit } from '@/lib/geo'
+import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, isServerGarbage, officialHealth, officialQueryFor, localLang, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords, setManualPin } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -140,7 +140,9 @@ export default function TripMap() {
     for (const p of tripPlaces) {
       const exact = latLngFromUrlExact(p.map_url)
       if (exact) trustedPts.push(exact)
-      if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+      // a stored geo-IP-garbage coordinate is treated as NO coordinate → the
+      // place re-resolves instead of pinning on the wrong continent forever
+      if (typeof p.lat === 'number' && typeof p.lng === 'number' && !isServerGarbage(p.lat, p.lng)) {
         const db = { lat: p.lat, lng: p.lng }
         if (exact) {
           // the link IS the pin — no tolerance window; stored values only

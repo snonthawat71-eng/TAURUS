@@ -6,6 +6,15 @@ export interface LatLng { lat: number; lng: number }
 
 const valid = (a: number, b: number) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180
 
+// The datacenter geo-IP default (~Ashburn, Virginia) that Google's blocked/
+// challenged pages embedded — it poisoned old pins with a coordinate on the
+// wrong continent. Never trust a coordinate sitting on it: treat it as "no
+// coordinate" everywhere, so such a place re-resolves (or shows nothing)
+// instead of pinning in North America. ~6km box; no real Asia-trip place is here.
+export function isServerGarbage(lat: number, lng: number): boolean {
+  return Math.abs(lat - 39.0268) < 0.06 && Math.abs(lng + 77.8443) < 0.06
+}
+
 // --- GCJ-02 (China) → WGS-84. AMap/Gaode links use GCJ-02, which is offset ~500m
 // from the WGS-84 that OSM/Leaflet use. The conversion self-guards outside China. ---
 const GCJ_A = 6378245.0, GCJ_EE = 0.00669342162296594323
@@ -81,7 +90,9 @@ export function amapNameFromUrl(url?: string | null): string | null {
 
 const tryPair = (a?: string, b?: string) => {
   const lat = Number(a), lng = Number(b)
-  return a != null && b != null && valid(lat, lng) ? { lat, lng } : null
+  // reject the geo-IP garbage even when it's baked into a URL (a stamped
+  // ?q=39.02,-77.84 must NOT be honoured as URL-exact) so the pin re-resolves
+  return a != null && b != null && valid(lat, lng) && !isServerGarbage(lat, lng) ? { lat, lng } : null
 }
 
 /** A-exact) Coordinates that mark the PLACE itself (not the map view):
@@ -178,7 +189,7 @@ export async function resolveMapUrl(url: string, lang?: string): Promise<Resolve
       const j = await res.json()
       if (typeof j.name === 'string' && j.name.trim()) linkNames.set(url, j.name.trim())
       if (typeof j.address === 'string' && j.address.trim()) linkAddresses.set(url, j.address.trim())
-      if (valid(Number(j.lat), Number(j.lng))) {
+      if (valid(Number(j.lat), Number(j.lng)) && !isServerGarbage(Number(j.lat), Number(j.lng))) {
         out = { lat: Number(j.lat), lng: Number(j.lng), ...(j.src === 'page' ? { pageDerived: true } : {}) }
       } else {
         let host = ''
