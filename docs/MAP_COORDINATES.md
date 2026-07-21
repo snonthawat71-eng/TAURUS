@@ -122,6 +122,18 @@ where name ilike '%tian tan buddha%';
 
 ---
 
+## 4.1 พิกัดร่วมของสถานที่จาก Explore (single source of truth)
+
+สถานที่ที่ดึงมาจาก **Explore** แล้ว save เข้าหลายทริป ต้องอยู่**พิกัดเดียวกันทุกทริป** — ไม่ใช่ต่างทริปต่าง re-geocode เองจนเพี้ยน (เดิม `explore_places` ไม่มี lat/lng เลย copy แต่ละอันเดาเอง)
+
+- ตาราง `explore_places` มีช่อง `lat`/`lng` (ผ่าน `supabase/explore_coords.sql`) — **พิกัดกลางหนึ่งชุดต่อ item**
+- `syncExploreCoord()` (`exploreMutations.ts`) หาพิกัดครั้งเดียวตอน **สร้าง/แก้** item ในหน้า Explore (URL-exact → resolve ลิงก์ย่อ → geocode ที่อยู่ตามประเทศ/ภาษา) แล้วเก็บบน explore row
+- `exploreAsPlace()` พา lat/lng ติดไปกับ copy
+- `copyPlaceToTrip()` ถ้ามีพิกัด → **ฝังลง `map_url` เป็นพิกัด** (`?q=lat,lng`) → กลายเป็น URL-exact → healer/audit ห้ามแตะ → ทุก copy ตรงกันเป๊ะ ไม่ drift
+- ของเดิมที่ save ไปแล้ว: `explore_coords.sql` **backfill พิกัดจาก copy ล่าสุด** ของแต่ละ item แล้ว converge ทุก copy ให้ตรงกัน
+
+> ⚠️ ยังไม่ครอบคลุมเคส: เจ้าของแก้ `map_url` ของ Explore item ทีหลัง (`updateExploreCopies` จะ propagate ลิงก์ดิบไป copy) — เคสนี้ค่อยจัดการเพิ่มถ้าเจอปัญหา
+
 ## 5. ปุ่ม "ตรวจพิกัดทั้งทริป" (Audit)
 
 `runAudit()` ใน `TripMap.tsx` — กดครั้งเดียว ตรวจ+แก้ทั้งทริป (worker pool 6 ตัว) แสดงผลบนจอโดย **ไม่ต้องส่ง debug**:

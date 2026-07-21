@@ -347,6 +347,10 @@ export interface ExplorePlace {
   /** optional — menu images/PDFs for restaurants (public URLs) */
   menu_paths?: string[] | null
   map_url: string | null
+  /** optional — present after explore_coords.sql; the item's SINGLE resolved
+   *  coordinate, so every trip that saves it inherits the same pin (no drift) */
+  lat?: number | null
+  lng?: number | null
   note: string | null
   photo_url: string | null
   /** optional — present after photo_focus column is added; crop "x y scale" */

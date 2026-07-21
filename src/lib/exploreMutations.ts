@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { latLngFromUrl, latLngFromUrlExact, isMapLink, resolveMapUrl, resolvedLinkAddress, resolvedLinkName, geocodeSmart, localLang } from './geo'
 import type { ExplorePlace, ExploreSuggestion, SuggestionKind, Place, Profile } from './database.types'
 
 export type ExploreInput = Partial<Omit<ExplorePlace, 'id' | 'created_by' | 'created_at'>>
@@ -13,7 +14,34 @@ export async function listMyExplore(userId: string) {
 }
 
 // `routes`/`branches` are optional (added later) — strip on a "column does not exist" error.
-const OPTIONAL = ['routes', 'branches', 'multi_branch', 'menu_paths', 'photo_focus', 'photos']
+const OPTIONAL = ['routes', 'branches', 'multi_branch', 'menu_paths', 'photo_focus', 'photos', 'lat', 'lng']
+
+/** Persist an Explore item's resolved coordinate. Silent if the lat/lng columns
+ *  don't exist yet (explore_coords.sql not run). */
+export async function setExploreCoords(id: string, lat: number, lng: number) {
+  return supabase.from('explore_places').update({ lat, lng }).eq('id', id)
+}
+
+/** Resolve an Explore item's coordinate from its map_url ONCE and store it on
+ *  the Explore row, so every trip that saves this item inherits the SAME pin
+ *  (option B — kills per-trip geocoding drift). Full pipeline: in-URL coords →
+ *  short-link resolve → geocode the canonical address (country/local-language
+ *  aware). Fire-and-forget; a failure just leaves the coord null and copies fall
+ *  back to per-trip resolution as before. */
+export async function syncExploreCoord(id: string, mapUrl?: string | null, country?: string | null) {
+  if (!mapUrl) return
+  try {
+    let c: { lat: number; lng: number } | null =
+      latLngFromUrlExact(mapUrl) ?? (isMapLink(mapUrl) ? await resolveMapUrl(mapUrl, localLang(country)) : latLngFromUrl(mapUrl))
+    if (c && 'pageDerived' in c && (c as { pageDerived?: boolean }).pageDerived) c = null
+    if (!c) {
+      // ?g_st=ic (address but no coordinate) — geocode the canonical address
+      const g = await geocodeSmart({ name: resolvedLinkName(mapUrl), address: resolvedLinkAddress(mapUrl), country })
+      if (g) c = { lat: g.lat, lng: g.lng }
+    }
+    if (c) await setExploreCoords(id, c.lat, c.lng)
+  } catch { /* offline / resolver down — coord stays null */ }
+}
 function stripUnknown(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }; let changed = false
   for (const k of OPTIONAL) if (k in copy && msg.includes(k)) { delete copy[k]; changed = true }
@@ -65,6 +93,10 @@ export async function addExplore(created_by: string, input: ExploreInput) {
   const payload: Record<string, unknown> = { id: crypto.randomUUID(), created_by, ...input }
   let res = await supabase.from('explore_places').insert(payload)
   if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('explore_places').insert(s) }
+  // resolve the ONE shared coordinate for this item (so every saved copy matches)
+  if (!res.error && typeof input.map_url === 'string' && input.map_url) {
+    void syncExploreCoord(payload.id as string, input.map_url, (input.country as string) ?? null)
+  }
   return res
 }
 
@@ -72,6 +104,10 @@ export async function updateExplore(id: string, input: ExploreInput) {
   const payload: Record<string, unknown> = { ...input }
   let res = await supabase.from('explore_places').update(payload).eq('id', id)
   if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('explore_places').update(s).eq('id', id) }
+  // link changed → re-resolve the shared coordinate
+  if (!res.error && typeof input.map_url === 'string' && input.map_url) {
+    void syncExploreCoord(id, input.map_url, (input.country as string) ?? null)
+  }
   return res
 }
 
@@ -379,6 +415,9 @@ export function exploreAsPlace(e: ExplorePlace): Place {
     menu_paths: e.menu_paths ?? null,
     map_url: e.map_url, note: e.note, in_plan: false, photo_path: null, photo_url: e.photo_url,
     photo_focus: e.photo_focus ?? null, photos: e.photos ?? null,
+    // carry the Explore item's single shared coordinate so the copy inherits it
+    // instead of independently re-geocoding (the source of cross-trip drift)
+    lat: e.lat ?? null, lng: e.lng ?? null,
     city: e.city, country: e.country ?? null, created_at: e.created_at,
   }
 }

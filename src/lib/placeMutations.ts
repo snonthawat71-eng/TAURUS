@@ -77,21 +77,27 @@ export async function copyPlaceToTrip(
   place: Place, targetTripId: string, sourceExploreId?: string,
   opts?: { inPlan?: boolean; id?: string; planBranch?: number | null },
 ) {
+  // an Explore item carries its ONE shared coordinate → stamp it into map_url as
+  // an exact coordinate so this copy is URL-exact ground truth: the map's healer
+  // and audit can never re-geocode/drift it, and every trip that saved the same
+  // item stays pinned to the identical spot (option B — no cross-trip drift)
+  const hasCoord = place.lat != null && place.lng != null
   const payload: Record<string, unknown> = {
     id: opts?.id ?? crypto.randomUUID(), trip_id: targetTripId, group_type: place.group_type, category: place.category,
     name: place.name, station_line: place.station_line, station_color: place.station_color, station_name: place.station_name,
     routes: place.routes ?? null, branches: place.branches ?? null, multi_branch: place.multi_branch ?? null,
     plan_branch: opts?.planBranch ?? null,
-    map_url: place.map_url, note: place.note, in_plan: opts?.inPlan ?? false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, photo_focus: place.photo_focus ?? null, photos: place.photos ?? null, city: place.city,
+    map_url: hasCoord ? `https://www.google.com/maps?q=${place.lat},${place.lng}` : place.map_url,
+    note: place.note, in_plan: opts?.inPlan ?? false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, photo_focus: place.photo_focus ?? null, photos: place.photos ?? null, city: place.city,
     menu_paths: place.menu_paths ?? null,
-    // carry the resolved pin along — the copy must not fall back to name-guessing
     lat: place.lat ?? null, lng: place.lng ?? null,
     source_explore_id: sourceExploreId ?? null,
   }
   let res = await supabase.from('places').insert(payload)
   if (res.error) { const s = stripUnknown(payload, res.error.message); if (s) res = await supabase.from('places').insert(s) }
-  // no pin came along but there's a link → resolve it right now
-  if (!res.error && place.lat == null && typeof place.map_url === 'string' && place.map_url) {
+  // only re-derive when NO shared coordinate came from Explore — otherwise the
+  // stamped map_url IS the pin and keeps every copy identical
+  if (!res.error && !hasCoord && typeof place.map_url === 'string' && place.map_url) {
     void syncCoordsFromLink(payload.id as string, place.map_url)
   }
   return res
