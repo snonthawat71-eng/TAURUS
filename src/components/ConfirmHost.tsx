@@ -37,7 +37,7 @@ export function ConfirmHost() {
   const iconNode = state.icon ?? (danger ? <IconAlertTriangle size={22} /> : null)
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] grid place-items-center p-4 bg-black/35 backdrop-blur-[1px] animate-[toast-in_.14s_ease-out]"
+    <div className="fixed inset-0 z-[710] grid place-items-center p-4 bg-black/35 backdrop-blur-[1px] animate-[toast-in_.14s_ease-out]"
       onClick={cancel} role="presentation">
       <form className="card w-[min(92vw,360px)] p-5 shadow-xl" onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => { e.preventDefault(); confirm() }}

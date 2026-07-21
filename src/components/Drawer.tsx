@@ -100,7 +100,7 @@ export function Drawer({
 
   // Portal to <body> so no ancestor transform/backdrop-filter can clip or offset it.
   return createPortal(
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[700]">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
       {/* Mobile: a bottom sheet whose white surface runs all the way to the true
           screen bottom — so the strip the keyboard (and its translucent toolbar)
