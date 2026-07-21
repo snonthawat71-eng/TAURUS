@@ -1,14 +1,7 @@
-// Open a place in the user's real map app on mobile, falling back to web on desktop.
-// We pull a search query out of the stored URL and route it to a native scheme so
-// the OS opens an installed map app (AMap / Google Maps / Apple Maps) instead of a
-// web page.
-
-function isiOS() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent)
-}
-function isAndroid() {
-  return /android/i.test(navigator.userAgent)
-}
+// Open a place for navigation. Always routes to GOOGLE MAPS (never Apple Maps) —
+// a Google link opens as-is (the Google Maps app catches it via universal/app
+// links when installed, else the web); anything else becomes a Google Maps
+// search. AMap (China) links keep going to AMap.
 
 /** Pull a human query (place name / coords) out of a stored map URL. */
 function extractQuery(url: string): string | null {
@@ -16,23 +9,29 @@ function extractQuery(url: string): string | null {
     const u = new URL(url)
     const q = u.searchParams.get('q') || u.searchParams.get('keyword') || u.searchParams.get('query')
     if (q) return q
-    // Apple/Google "@lat,lng" or "/place/Name"
-    const at = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
-    if (at) return `${at[1]},${at[2]}`
+    // "@lat,lng" or the place's own "!3d..!4d.." point
+    const m = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
+    if (m) return `${m[1]},${m[2]}`
   } catch { /* not a URL */ }
   return null
 }
 
+const isAmap = (url: string) => /amap\.com|gaode|surl\.amap/i.test(url)
+const isGoogle = (url: string) => /google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/i.test(url)
+
 export function openMap(url: string | null | undefined) {
   if (!url) return
-  const query = extractQuery(url)
 
-  // Pick the best target: a native scheme on mobile so an installed map app
-  // wins; otherwise the original link (iOS Universal Links / Android App Links
-  // still route to the installed app when present, else fall back to the web).
-  let target = url
-  if (isAndroid() && query) target = `geo:0,0?q=${encodeURIComponent(query)}`
-  else if (isiOS() && query) target = `maps://?q=${encodeURIComponent(query)}`
+  // AMap links → AMap. A Google link (incl. the coordinate URL we stamp on a
+  // fixed pin) → open the Google link directly. Everything else (bare coords,
+  // an Apple link, a name) → a Google Maps search so it NEVER lands in Apple Maps.
+  let target: string
+  if (isAmap(url) || isGoogle(url)) {
+    target = url
+  } else {
+    const query = extractQuery(url) ?? url
+    target = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+  }
 
   // Trigger via a transient anchor opening a new context. Crucially we never set
   // the current document's location, so the SPA stays mounted and its images
