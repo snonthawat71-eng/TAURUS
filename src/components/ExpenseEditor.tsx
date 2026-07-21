@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconTrash, IconPaperclip, IconLoader2, IconCheck } from '@tabler/icons-react'
+import { IconTrash, IconPaperclip, IconLoader2, IconCheck, IconReceipt2, IconUser, IconCoin, IconUsers, IconEye } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { uploadImage, getSignedUrl, isSampleFile } from '@/lib/files'
 import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
-import { baht } from '@/lib/format'
 import type { Expense } from '@/lib/database.types'
 import type { ExpenseInput } from '@/lib/budgetMutations'
 
-const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
-const lbl = 'text-[11px] text-ink-3'
+// Match StopEditor's "leading-icon fields inside one card" look: the icon says
+// what the field is, everything fits one screen, no heavy text labels.
+const iconField = 'hairline rounded-[9px] text-[13px] h-11 pl-9 pr-3 bg-surface w-full outline-none focus:border-brand'
+
+function LeadIcon({ children }: { children: React.ReactNode }) {
+  return <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none">{children}</span>
+}
 
 export function ExpenseEditor({
   open, onClose, initial, onSave, onDelete,
@@ -25,6 +29,7 @@ export function ExpenseEditor({
   const { trip, travelers, memberProfiles } = useTrip()
   const { user } = useAuth()
   const payerOptions = memberProfiles.length ? memberProfiles : (user ? [{ id: user.id, nickname: 'ฉัน' }] : [])
+  const unit = trip?.currency?.trim() || 'บาท'
 
   const [name, setName] = useState('')
   const [payer, setPayer] = useState('')
@@ -46,6 +51,10 @@ export function ExpenseEditor({
 
   function toggleSplit(id: string) {
     setSplit((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  }
+  const allOn = travelers.length > 0 && split.length === travelers.length
+  function toggleAll() {
+    setSplit(allOn ? [] : travelers.map((t) => t.id))
   }
 
   async function onSlip(e: React.ChangeEvent<HTMLInputElement>) {
@@ -85,46 +94,83 @@ export function ExpenseEditor({
   return (
     <Drawer open={open} onClose={onClose} title={initial ? 'แก้ไขค่าใช้จ่าย' : 'เพิ่มค่าใช้จ่าย'}>
       <div className="space-y-3">
-        <div><div className={lbl}>รายการ</div><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น มื้อค่ำ Haidilao" /></div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <div className={lbl}>ใครจ่าย</div>
-            <select className={field} value={payer} onChange={(e) => setPayer(e.target.value)}>
-              {payerOptions.map((p) => <option key={p.id} value={p.id}>{p.nickname ?? 'ผู้ใช้'}</option>)}
-            </select>
+        {/* one card, leading-icon fields — mirrors the itinerary/place editors */}
+        <div className="rounded-[13px] bg-surface p-3 space-y-2.5" style={{ border: '0.5px solid var(--color-line)' }}>
+          {/* รายการ */}
+          <div className="relative">
+            <LeadIcon><IconReceipt2 size={15} /></LeadIcon>
+            <input className={iconField} value={name} onChange={(e) => setName(e.target.value)} placeholder="ชื่อรายการ เช่น มื้อค่ำ Haidilao" autoFocus />
           </div>
-          <div><div className={lbl}>ยอดรวม (บาท)</div><input type="number" className={field} value={total} onChange={(e) => setTotal(e.target.value)} placeholder="4600" /></div>
+
+          {/* ใครจ่าย + ยอดรวม */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <LeadIcon><IconUser size={15} /></LeadIcon>
+              <select className={`${iconField} appearance-none pr-7`} value={payer} onChange={(e) => setPayer(e.target.value)} aria-label="ใครจ่าย">
+                {payerOptions.map((p) => <option key={p.id} value={p.id}>{p.nickname ?? 'ผู้ใช้'}</option>)}
+              </select>
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none text-[10px]">▼</span>
+            </div>
+            <div className="relative flex-1 min-w-0">
+              <LeadIcon><IconCoin size={15} /></LeadIcon>
+              <input type="number" inputMode="decimal"
+                className="hairline rounded-[9px] text-[15px] font-semibold tabular-nums h-11 pl-9 pr-12 bg-surface w-full outline-none focus:border-brand"
+                value={total} onChange={(e) => setTotal(e.target.value)} placeholder="0" aria-label="ยอดรวม" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-3 pointer-events-none">{unit}</span>
+            </div>
+          </div>
+
+          {/* หารกับใคร */}
+          <div className="rounded-[10px] p-2.5" style={{ background: 'var(--color-surface-2)' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[12px] font-medium text-ink-2">
+                <IconUsers size={14} className="text-ink-3" /> หารกับใคร · {split.length} คน
+              </div>
+              {perHead > 0
+                ? <span className="text-[12px] font-semibold text-brand-dark tabular-nums">{Math.round(perHead).toLocaleString('en-US')} {unit}/คน</span>
+                : travelers.length > 0 && <button onClick={toggleAll} className="text-[11px] text-brand-mid font-medium">{allOn ? 'ไม่เลือกใคร' : 'เลือกทุกคน'}</button>}
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {travelers.map((t) => {
+                const on = split.includes(t.id)
+                return (
+                  <button key={t.id} onClick={() => toggleSplit(t.id)}
+                    className="inline-flex items-center gap-1 h-8 px-3 rounded-full text-[12px] font-medium transition-colors"
+                    style={on
+                      ? { background: 'var(--color-brand)', color: '#fff' }
+                      : { background: 'var(--color-surface)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
+                    {on && <IconCheck size={12} />} {t.nickname}
+                  </button>
+                )
+              })}
+            </div>
+            {perHead > 0 && travelers.length > 0 && (
+              <button onClick={toggleAll} className="text-[11px] text-brand-mid font-medium mt-2">{allOn ? 'ไม่เลือกใคร' : 'เลือกทุกคน'}</button>
+            )}
+          </div>
+
+          {/* สลิป */}
+          <div className="flex items-center gap-2">
+            <button onClick={() => slipInput.current?.click()} disabled={uploading}
+              className="flex-1 h-10 rounded-[9px] inline-flex items-center justify-center gap-1.5 text-[12.5px] font-medium text-ink-2 disabled:opacity-50"
+              style={{ border: '0.5px solid var(--color-line)', background: 'var(--color-surface)' }}>
+              {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPaperclip size={14} />}
+              {receipt ? 'เปลี่ยนสลิป' : 'แนบสลิป'}
+            </button>
+            {receipt && (
+              <button onClick={viewSlip}
+                className="h-10 px-3.5 rounded-[9px] inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-dark"
+                style={{ border: '0.5px solid var(--color-brand-border)', background: 'var(--color-brand-soft)' }}>
+                <IconEye size={14} /> ดูสลิป
+              </button>
+            )}
+            <input ref={slipInput} type="file" accept="image/*,application/pdf" hidden onChange={onSlip} />
+          </div>
         </div>
 
-        <div>
-          <div className="flex items-center justify-between">
-            <div className={lbl}>หารกับใคร ({split.length} คน)</div>
-            {perHead > 0 && <span className="text-[11px] text-ink-3">≈ {baht(perHead)}/คน</span>}
-          </div>
-          <div className="flex flex-wrap gap-1.5 mt-1.5">
-            {travelers.map((t) => {
-              const on = split.includes(t.id)
-              return (
-                <button key={t.id} onClick={() => toggleSplit(t.id)}
-                  className={['chip', on ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
-                  style={on ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
-                  {on && <IconCheck size={12} />} {t.nickname}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button onClick={() => slipInput.current?.click()} disabled={uploading} className="btn-icon !w-auto px-3 gap-1.5 text-[12px] disabled:opacity-50">
-            {uploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPaperclip size={14} />}
-            {receipt ? 'เปลี่ยนสลิป' : 'แนบสลิป'}
-          </button>
-          {receipt && <button onClick={viewSlip} className="btn-link text-[12px]">ดูสลิป</button>}
-          <input ref={slipInput} type="file" accept="image/*,application/pdf" hidden onChange={onSlip} />
-        </div>
-
-        <button onClick={save} disabled={busy || !name.trim()} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+        <button onClick={save} disabled={busy || !name.trim()} className="btn-primary w-full h-11 disabled:opacity-50">
+          {busy ? 'กำลังบันทึก...' : initial ? 'บันทึกการแก้ไข' : 'เพิ่มค่าใช้จ่าย'}
+        </button>
         {initial && onDelete && (
           <button onClick={del} disabled={busy} className="w-full h-10 flex items-center justify-center gap-1.5 text-[13px] text-[#D85A30]"><IconTrash size={15} /> ลบรายการ</button>
         )}
