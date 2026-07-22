@@ -257,7 +257,7 @@ export default function TripMap() {
               // nearest the trip (the datacenter viewport is a continent away),
               // gated by the same geography check. This heals the pin to the
               // building automatically, no manual report needed.
-              const bc = !r ? bestBodyCoord(p.map_url, tripNear ?? db) : null
+              const bc = !r ? bestBodyCoord(p.map_url, db ?? tripNear) : null
               if (bc && (await plausible(p, bc))) {
                 setCoords((c) => ({ ...c, [p.id]: bc }))
                 if (haversine(db, bc) > 0.02) {
@@ -538,9 +538,13 @@ export default function TripMap() {
           addr = resolvedLinkAddress(p.map_url) || undefined
           if (addr) { const q = officialQueryFor(addr, trip?.country ?? undefined); if (q && q !== addr) alsQ = q }
           const resolved = resolvedRaw && (!resolvedRaw.pageDerived || (await plausibleA(p, resolvedRaw))) ? resolvedRaw : null
-          const linkFailed = hasLink && !resolved // surfaced in the panel — never silent
+          // link had no URL coordinate — take the real place point from the page
+          // body (nearest the current pin; the datacenter viewport is dropped)
+          const bodyPt = (!exact && !resolved && hasLink) ? bestBodyCoord(p.map_url, prev ?? auditNear) : null
+          const linkFailed = hasLink && !resolved && !bodyPt // surfaced in the panel — never silent
           if (exact) row = { p, status: 'link', fixed: apply(exact, true, true) }
           else if (resolved) row = { p, status: 'link', fixed: apply(resolved, true, true) }
+          else if (bodyPt) row = { p, status: 'link', fixed: apply(bodyPt as GeoHit, true, true) }
           else if ((p.station_name ?? '').trim()) {
             const g = await geocodeSmart({ name: (linkFailed && resolvedLinkName(p.map_url)) || p.name, address: linkFailed ? resolvedLinkAddress(p.map_url) : undefined, station: p.station_name, city: p.city, country: trip?.country, near: auditNear })
             // ALS building matches (g.precise) are authoritative → force past the
