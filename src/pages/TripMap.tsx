@@ -8,6 +8,7 @@ import { catMeta } from '@/lib/placeMeta'
 import { FixPinDialog } from '@/components/FixPinDialog'
 import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, bestBodyCoord, isMapLink, isServerGarbage, officialHealth, officialQueryFor, localLang, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords, setManualPin } from '@/lib/placeMutations'
+import { lockExploreCoord } from '@/lib/exploreMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
 import type { Place } from '@/lib/database.types'
@@ -403,6 +404,9 @@ export default function TripMap() {
     const map_url = pasted && haversine(pasted, c) < 0.05 ? sourceUrl
       : (!p.map_url ? `https://www.google.com/maps?q=${c.lat},${c.lng}` : undefined)
     setManualPin(p.id, c.lat, c.lng, map_url).catch(() => {})
+    // an Explore-sourced place: lock this coordinate app-wide (source + every
+    // copy in every trip) so the fix reaches everyone, not just this trip
+    if (p.source_explore_id) lockExploreCoord(p.source_explore_id, c.lat, c.lng).catch(() => {})
     setPlacing(null); setLinkText('')
     fitted.current = true // don't auto-refit after a manual pin
     mapRef.current?.setView([c.lat, c.lng], 15)

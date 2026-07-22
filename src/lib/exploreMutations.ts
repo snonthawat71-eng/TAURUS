@@ -34,6 +34,20 @@ export async function propagateExploreCoord(exploreId: string, lat: number, lng:
   return r
 }
 
+/** Lock a NEW coordinate for an Explore item across the WHOLE app — the shared
+ *  `explore_places` source AND every saved copy in EVERY trip (all users), so
+ *  one person fixing a pin corrects it for everyone. Uses a SECURITY-DEFINER
+ *  RPC (supabase/lock_explore_coord.sql) to bypass per-trip RLS; when that
+ *  function isn't there yet it degrades to what RLS allows from the client:
+ *  update the source (owner only) + the caller's own copies. Idempotent. */
+export async function lockExploreCoord(exploreId: string, lat: number, lng: number) {
+  const rpc = await supabase.rpc('lock_explore_coord', { p_explore_id: exploreId, p_lat: lat, p_lng: lng })
+  if (!rpc.error) return rpc
+  // function/columns not migrated yet — best-effort within RLS
+  await setExploreCoords(exploreId, lat, lng)
+  return propagateExploreCoord(exploreId, lat, lng)
+}
+
 /** Resolve an Explore item's coordinate from its map_url ONCE and store it on
  *  the Explore row, so every trip that saves this item inherits the SAME pin
  *  (option B — kills per-trip geocoding drift). Full pipeline: in-URL coords →

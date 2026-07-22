@@ -5,7 +5,7 @@ import { IconLoader2, IconCheck, IconExternalLink, IconMapPin, IconClipboard, Ic
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { setManualPin } from '@/lib/placeMutations'
-import { propagateExploreCoord } from '@/lib/exploreMutations'
+import { lockExploreCoord } from '@/lib/exploreMutations'
 import { geoCandidates, distKm, latLngFromUrl, isMapLink, resolveMapUrl, localLang, type GeoCandidate, type LatLng } from '@/lib/geo'
 import { toast } from '@/lib/toast'
 import type { Place } from '@/lib/database.types'
@@ -179,7 +179,9 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
     // keep the user's link for navigation; only stamp a coord URL if there's none
     const mapUrl = place.map_url ? undefined : `https://www.google.com/maps?q=${sel.lat},${sel.lng}`
     await setManualPin(place.id, sel.lat, sel.lng, mapUrl)
-    if (place.source_explore_id) await propagateExploreCoord(place.source_explore_id, sel.lat, sel.lng)
+    // one lock corrects this place EVERYWHERE — the Explore source + every copy
+    // in every trip (all users), so nobody has to re-fix the same pin
+    if (place.source_explore_id) await lockExploreCoord(place.source_explore_id, sel.lat, sel.lng)
     setBusy(false)
     onFixed(sel)
     toast.success('อัปเดตพิกัดแล้ว — ล็อกไว้ ระบบจะไม่ย้ายอีก')
