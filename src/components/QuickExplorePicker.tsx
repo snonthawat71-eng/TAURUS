@@ -14,6 +14,10 @@ import type { ExplorePlace } from '@/lib/database.types'
 /** The new (or existing) plan place handed back so the caller can pre-select it. */
 export interface QuickPick { id: string; name: string | null; map_url: string | null; note: string | null }
 
+/** Normalize a city name for matching — a trip's "Bangkok" and an Explore
+ *  place's "bangkok " are the same city (typed by different people). */
+const normCity = (s?: string | null) => (s ?? '').trim().toLowerCase()
+
 /**
  * Quick-pick a place straight from the Explore pool while adding an activity.
  * Tapping a result copies it into THIS trip's places (flagged in_plan, so it also
@@ -65,24 +69,27 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
   const groupOf = (e: ExplorePlace) =>
     e.group_type === 'food' || catMeta(e.category).group === 'food' ? 'food' : 'place'
 
-  // only the cities this trip actually visits
+  // only the cities this trip actually visits (original casing for the chips)
   const tripCities = useMemo(
-    () => new Set((trip?.cities ?? []).filter(Boolean) as string[]),
+    () => [...new Set((trip?.cities ?? []).filter(Boolean) as string[])],
     [trip],
   )
+  // matched case/whitespace-insensitively so "Bangkok" (trip) finds "bangkok"
+  // (Explore) — the two are typed by different people
+  const tripCitySet = useMemo(() => new Set(tripCities.map(normCity)), [tripCities])
   // narrow the whole Explore pool to those cities (if the trip lists any) — so
   // quick-select only ever offers places in the cities you're going to
   const cityScoped = useMemo(
-    () => (tripCities.size ? pool.filter((e) => e.city != null && tripCities.has(e.city)) : pool),
-    [pool, tripCities],
+    () => (tripCitySet.size ? pool.filter((e) => e.city != null && tripCitySet.has(normCity(e.city))) : pool),
+    [pool, tripCitySet],
   )
-  const cities = useMemo(() => Array.from(tripCities), [tripCities])
+  const cities = useMemo(() => tripCities, [tripCities])
 
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase()
     return cityScoped.filter((e) =>
       (groupFilter === 'all' || groupOf(e) === groupFilter) &&
-      (cityFilter === 'all' || (e.city || '') === cityFilter) &&
+      (cityFilter === 'all' || normCity(e.city) === normCity(cityFilter)) &&
       (!term || (e.name || '').toLowerCase().includes(term) || (e.city || '').toLowerCase().includes(term)),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -188,8 +195,8 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
       <div className="space-y-3">
         <p className="text-[12px] text-ink-3 -mt-1">
           {multi
-            ? (tripCities.size ? `เลือกจาก Explore มาเก็บไว้ในทริป — แสดงเฉพาะเมืองที่จะไป (${cities.join(', ')}) · เพิ่มได้หลายที่` : 'เลือกจาก Explore มาเก็บไว้ในทริป — เพิ่มได้หลายที่')
-            : (tripCities.size
+            ? (tripCities.length ? `เลือกจาก Explore มาเก็บไว้ในทริป — แสดงเฉพาะเมืองที่จะไป (${cities.join(', ')}) · เพิ่มได้หลายที่` : 'เลือกจาก Explore มาเก็บไว้ในทริป — เพิ่มได้หลายที่')
+            : (tripCities.length
               ? `แสดงเฉพาะเมืองที่ทริปนี้จะไป (${cities.join(', ')}) — แตะเพื่อเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที`
               : 'เลือกสถานที่จาก Explore — จะถูกเพิ่มเข้าแพลนและเซฟไว้ในหน้า Places/Food ทันที')}
         </p>
@@ -227,7 +234,7 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
           <div className="flex items-center justify-center gap-2 py-10 text-ink-3 text-[13px]"><IconLoader2 size={16} className="animate-spin" /> กำลังโหลด…</div>
         ) : shown.length === 0 ? (
           <p className="text-[13px] text-ink-3 text-center py-10">
-            {tripCities.size
+            {tripCities.length
               ? 'ยังไม่มีสถานที่ใน Explore สำหรับเมืองที่ทริปนี้จะไป'
               : 'ไม่พบสถานที่ใน Explore ที่ตรงกับที่ค้นหา'}
           </p>
