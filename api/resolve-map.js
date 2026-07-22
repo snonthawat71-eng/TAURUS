@@ -233,6 +233,20 @@ async function resolveOnce(url, lang, amap, budgetMs) {
       if (coords) src = 'url' // literal coords inside an embedded URL
     }
   }
+  // LAST resort — an iOS ?g_st=ic share link redirects to a "?q=<address>&ftid="
+  // SEARCH url with NO coordinate anywhere in the URL, but Google then serves
+  // the real PLACE page whose embedded data carries the place's own point as
+  // "!3d<lat>!4d<lng>". Read it, but ONLY when the body is genuinely a
+  // schema.org/Place (a bot challenge / consent wall is not) — never scrape a
+  // random page, and the client's isServerGarbage + country sanity check still
+  // reject any datacenter-geo default. Marked src='page' → stays re-checkable.
+  if (!coords && body && /schema\.org\/Place/i.test(body)) {
+    let bc = null
+    const bm = body.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)
+    if (bm) bc = extract(`!3d${bm[1]}!4d${bm[2]}`)
+    if (!bc) { const am = body.match(/\/@(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})/); if (am) bc = extract(`@${am[1]},${am[2]}`) }
+    if (bc) { coords = bc; src = 'page' }
+  }
   let name = null
   for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
   if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)

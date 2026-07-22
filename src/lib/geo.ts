@@ -184,15 +184,16 @@ export async function resolveMapUrl(url: string, lang?: string, force = false): 
   const ck = lg ? `${lg}:${url}` : url // cache per language — a zh-TW address differs from the EN one
   if (!force) {
     if (linkCache.has(ck)) return linkCache.get(ck) ?? null
-    // "url6:" + "&v=6" bust every earlier cache generation (incl. pre-language
-    // romanized addresses that OSM couldn't match)
-    const ls = lsGet(`url6:${ck}`) as ResolvedPoint | null | undefined
+    // "url7:" + "&v=7" bust every earlier cache generation (v7 = server now
+    // reads the place point from a schema.org/Place page body, so links that
+    // cached as null — the iOS ?g_st=ic case — re-resolve to a real coordinate)
+    const ls = lsGet(`url7:${ck}`) as ResolvedPoint | null | undefined
     if (ls !== undefined) { linkCache.set(ck, ls); return ls }
   }
   let out: ResolvedPoint | null = null
   try {
     const bust = force ? `&fresh=${++resolveNonce}` : '' // dodge the CDN edge cache
-    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=6${lg ? `&lang=${encodeURIComponent(lg)}` : ''}${bust}`)
+    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=7${lg ? `&lang=${encodeURIComponent(lg)}` : ''}${bust}`)
     if (res.ok) {
       const j = await res.json()
       if (typeof j.name === 'string' && j.name.trim()) linkNames.set(url, j.name.trim())
@@ -209,7 +210,7 @@ export async function resolveMapUrl(url: string, lang?: string, force = false): 
   // cache successes durably; failures only for this session — a blocked or
   // flaky resolver must be retried on the next load, not remembered forever
   linkCache.set(ck, out)
-  if (out) lsSet(`url6:${ck}`, out)
+  if (out) lsSet(`url7:${ck}`, out)
   return out
 }
 
