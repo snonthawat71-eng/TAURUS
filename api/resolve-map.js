@@ -258,17 +258,12 @@ async function resolveOnce(url, lang, amap, budgetMs) {
       if (coords) src = 'url' // literal coords inside an embedded URL
     }
   }
-  // LAST resort — an iOS ?g_st=ic share link redirects to a "?q=<address>&ftid="
-  // SEARCH url with NO coordinate anywhere in the URL, but Google then serves
-  // the real PLACE page whose embedded data carries the place's own point as
-  // "!3d<lat>!4d<lng>". Read it, but ONLY when the body is genuinely a
-  // schema.org/Place (a bot challenge / consent wall is not) — never scrape a
-  // random page, and the client's isServerGarbage + country sanity check still
-  // reject any datacenter-geo default. Marked src='page' → stays re-checkable.
-  if (!coords && body && /schema\.org\/Place/i.test(body)) {
-    const bc = coordFromPlaceBody(body)
-    if (bc) { coords = bc; src = 'page' }
-  }
+  // NB: we deliberately do NOT read a coordinate from the place-page body. An
+  // iOS ?g_st=ic link redirects to a "?q=<address>&ftid=" SEARCH page, and
+  // Google centers that page's map on the REQUESTING SERVER's IP (a Vercel
+  // datacenter → 39.03,-77.84 Ashburn) rather than the place. So the body's
+  // !3d!4d is the datacenter, not the pin — poison. The reliable signal from
+  // this page is `address` (below), which the client geocodes precisely.
   let name = null
   for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
   if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)

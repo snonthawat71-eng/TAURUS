@@ -174,6 +174,47 @@ export function localLang(country?: string | null): string {
   return ''
 }
 
+/** Country name in English — Google localizes the address country to the app's
+ *  language (Thai "ไต้หวัน"), which geocoders can't match; re-anchor on English. */
+export function countryEn(country?: string | null): string {
+  const s = (country ?? '').toLowerCase()
+  if (/taiwan|ไต้หวัน|臺灣|台灣/.test(s)) return 'Taiwan'
+  if (/hong\s?kong|hongkong|ฮ่องกง|香港/.test(s)) return 'Hong Kong'
+  if (/\bjapan\b|ญี่ปุ่น|日本/.test(s)) return 'Japan'
+  if (/korea|เกาหลี|한국|대한민국/.test(s)) return 'South Korea'
+  if (/\bchina\b|จีน|中国|中國/.test(s)) return 'China'
+  if (/singapore|สิงคโปร์|新加坡/.test(s)) return 'Singapore'
+  if (/thai|ไทย/.test(s)) return 'Thailand'
+  return (country ?? '').trim()
+}
+
+/** Turn Google's canonical address into a LADDER of geocoder queries, most
+ *  precise first — so a missing house number still lands on the right road/area
+ *  instead of failing outright (an iOS ?g_st=ic link gives NO coordinate, only
+ *  this address). Drops the leading business-name segment (it throws Nominatim
+ *  off), postal codes, sub-village (里/Village) units and the localized country
+ *  token, re-anchoring on an English country name. */
+export function addressQueries(address: string, country?: string | null): string[] {
+  const C = countryEn(country)
+  const segs = address.split(',').map((s) => s.trim()).filter(Boolean)
+    .filter((s) => !/^\d{3,6}$/.test(s))                 // postal code
+    .filter((s) => !/[฀-๿]/.test(s))                     // localized (Thai) country token
+    .filter((s) => !/\b(village|neighou?rhood)\b/i.test(s) && !/里$/.test(s))
+  const hasRoad = (s: string) => /\b(rd|road|st|street|ave|avenue|lane|ln|blvd|boulevard|hwy|highway|section|sec)\b/i.test(s) || /[路街道巷弄]/.test(s)
+  const district = segs.find((s) => /district|區|区/i.test(s))
+  const city = segs.find((s) => /\bcity\b|市/i.test(s))
+  const road = segs.find(hasRoad)
+  const numSeg = segs.find((s) => /^(?:no\.?\s*)?\d{1,5}(?:-\d{1,4})?[a-z]?\s*[號号]?$/i.test(s))
+  const num = numSeg ? (numSeg.match(/(\d{1,5}(?:-\d{1,4})?[a-z]?)/)?.[1] ?? '') : ''
+  const out: string[] = []
+  const add = (parts: (string | undefined)[]) => { const q = parts.filter(Boolean).join(', '); if (q && !out.includes(q)) out.push(q) }
+  if (num && road) add([`${num} ${road}`, district, city, C])
+  if (road) add([road, city || district, C])
+  if (district && city) add([district, city, C])
+  if (city) add([city, C])
+  return out
+}
+
 let resolveNonce = 0
 /** Resolve a short/redirect map link to its point + canonical name/address.
  *  `force` skips every cache (memory, localStorage, and the CDN edge) and asks
@@ -533,9 +574,15 @@ export async function geoCandidates(o: {
     }
   }
 
-  // 3) OSM by the cleaned street address, and the native-script address as-is
-  const addrClean = addr ? cleanAddress(addr, country) : ''
-  if (addrClean) { push(await geocodeRaw(osmStreetQuery(addrClean) || addrClean, near), 'osm-addr', 'OSM · ที่อยู่'); await sleep(1100) }
+  // 3) OSM by the address — walk the precise→loose ladder, taking the first hit
+  // (a numbered street where OSM has it, else the road/district/city), plus the
+  // native-script address as-is (OSM in Asia indexes streets by native name)
+  if (addr) {
+    for (const q of addressQueries(addr, country)) {
+      const hit = await geocodeRaw(q, near); await sleep(1100)
+      if (hit) { push(hit, 'osm-addr', 'OSM · ที่อยู่'); break }
+    }
+  }
   if (addr && /[㐀-鿿぀-ヿ가-힯]/.test(addr)) { push(await geocodeRaw(addr, near), 'osm-native', 'OSM · ที่อยู่ท้องถิ่น'); await sleep(1100) }
 
   // 4) by NAME — both the place name and the link's native-script name, each via
@@ -632,9 +679,16 @@ export function geocodeSmart(o: { name?: string | null; address?: string | null;
         if (r) { fromOfficial = true; break }
       }
     }
-    // OSM: try the cleaned street query first (number glued to street, noise
-    // dropped) — this is what lands a numbered address in a country with no
-    // official engine (e.g. 104 Guangzhou St, Taipei); then the raw cleaned form
+    // OSM: walk the precise→loose address ladder (business name stripped, house
+    // number glued to street, English country) — a numbered address lands the
+    // building where OSM has it, else the road/district/city keeps the pin in
+    // the right area instead of failing to a wrong-branch name match. This is
+    // what fixes an iOS ?g_st=ic link (address only, no coordinate).
+    for (const q of (address ? addressQueries(address, country) : [])) {
+      if (r) break
+      r = await tryNom([q]) || await photonRaw(q, near)
+    }
+    // legacy cleaned-street fallback (kept for addresses the ladder can't parse)
     const streetQ = addrClean ? osmStreetQuery(addrClean) : ''
     if (!r && streetQ) r = await tryNom([streetQ])
     if (!r && addrClean && addrClean !== streetQ) r = await tryNom([addrClean])
