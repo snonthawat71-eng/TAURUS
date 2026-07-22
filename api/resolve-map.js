@@ -240,6 +240,29 @@ async function walk(url, lang, budgetMs = 8000) {
   return { hops, body, status, finalUrl: current }
 }
 
+/** Resolve a place DIRECTLY by its Google feature-id / CID, taken from a hop's
+ *  "ftid=0xAAAA:0xBBBB". A "?q=<address>" page is a SEARCH — Google centers its
+ *  map on the requesting server's IP (a datacenter, wrong continent), so the
+ *  coordinate on that page is the viewport, not the place. But "?cid=<n>" asks
+ *  for one SPECIFIC place, whose own point Google returns regardless of server
+ *  IP. So when the search page gave no usable coordinate, retry by CID. Returns
+ *  a coordinate only from a URL/redirect (never a scraped body datacenter default). */
+async function resolveByCid(hops, lang, budgetMs) {
+  let cidHex = null
+  for (const h of hops) { const m = h.match(/[?&]ftid=0x[0-9a-f]+:0x([0-9a-f]+)/i); if (m) { cidHex = m[1]; break } }
+  if (!cidHex) return { coords: null }
+  let cid
+  try { cid = BigInt('0x' + cidHex).toString() } catch { return { coords: null } }
+  const { hops: h2, body: b2, finalUrl: f2 } = await walk(`https://www.google.com/maps?cid=${cid}`, lang, budgetMs)
+  // a cid page resolves to "/maps/place/<name>/@lat,lng,z/...!3d<lat>!4d<lng>" —
+  // the place's own point; take it from the URL hops
+  for (const h of h2) { const c = extract(h) || extract(deepDecode(h)); if (c) return { coords: c, cidUrl: `https://www.google.com/maps?cid=${cid}`, finalUrl: f2 } }
+  // else the place point embedded in the resolved place page (not an IP viewport —
+  // a cid page is centered on the place, so its first !3d!4d IS the place)
+  if (b2) { const m = b2.match(/!3d(-?\d+\.\d{3,})!4d(-?\d+\.\d{3,})/); if (m) { const r = mkLatLng(m[1], m[2]); if (r) return { coords: r, cidUrl: `https://www.google.com/maps?cid=${cid}`, finalUrl: f2 } } }
+  return { coords: null, cidUrl: `https://www.google.com/maps?cid=${cid}`, finalUrl: f2 }
+}
+
 /** Walk one URL and look for a coordinate — ONLY ever from a URL (a hop's
  *  Location header, a consent interstitial's ?continue=, or a target URL
  *  embedded in a 200 interstitial page), never from scraping a rendered page
@@ -314,22 +337,31 @@ export default async function handler(req, res) {
 
     const deadline = Date.now() + 8500
     let result = null
+    let cidUrl = null
     for (const v of variants) {
       const remaining = deadline - Date.now()
       if (remaining < 800) break
       result = await resolveOnce(v, lang, amap, Math.min(remaining, 3200))
       if (result.coords) break
+      // no coordinate in the search page — but if it carried a feature id, ask
+      // Google for that SPECIFIC place by CID (place-centric, not IP-centered)
+      const rem2 = deadline - Date.now()
+      if (!amap && rem2 > 1500) {
+        const byCid = await resolveByCid(result.hops, lang, Math.min(rem2, 3200))
+        if (byCid.cidUrl) cidUrl = byCid.cidUrl
+        if (byCid.coords) { result.coords = byCid.coords; result.src = 'cid'; break }
+      }
     }
     const { hops, body, status, finalUrl, interUrl, coords, src, name, address, bodyCoords } = result
 
     if (req.query?.debug) {
-      return res.json({ ver: 'bodycoords-v2', hops, interUrl, status, len: body.length, coords: coords || null, src, name, address, bodyCoords, snippet: body.slice(0, 600) })
+      return res.json({ ver: 'cid-v3', hops, cidUrl, interUrl, status, len: body.length, coords: coords || null, src, name, address, bodyCoords, snippet: body.slice(0, 600) })
     }
     // edge-cache ONLY trustworthy url-borne successes; page-derived points
     // must stay re-checkable and failures must never be pinned for a week
-    res.setHeader('Cache-Control', coords && src === 'url' ? 's-maxage=604800' : 'no-store')
+    res.setHeader('Cache-Control', coords && (src === 'url' || src === 'cid') ? 's-maxage=604800' : 'no-store')
     return res.json({
-      ver: 'bodycoords-v2',
+      ver: 'cid-v3',
       ...(coords || {}), ...(coords ? { src } : {}), ...(name ? { name } : {}), ...(address ? { address } : {}),
       ...(bodyCoords && bodyCoords.length ? { bodyCoords } : {}),
       // on failure return WHY, so the app's audit can show the reason per link
