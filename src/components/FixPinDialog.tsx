@@ -45,11 +45,34 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
     const t = paste.trim()
     if (!t) return
     setPasteBusy(true)
+    // 1) a bare "lat,lng" or an inline @lat,lng — the guaranteed path: use as-is
     let p = latLngFromUrl(t)
+    // 2) a short / redirect map link that carries a coordinate — resolve it
     if (!p && isMapLink(t)) p = await resolveMapUrl(t, localLang(trip?.country))
+    if (p) {
+      setSel(p); setSelSource('manual'); setPaste('')
+      mapRef.current?.setView([p.lat, p.lng], 16)
+      setPasteBusy(false)
+      return
+    }
+    // 3) the link has NO coordinate (e.g. an iOS ?g_st=ic share link) but may
+    //    carry a name/address Google can geocode — run the full candidate
+    //    search on THIS link and surface whatever it finds as choices
+    if (/^https?:\/\//i.test(t)) {
+      const more = await geoCandidates({ name: place?.name, mapUrl: t, city: place?.city, country: trip?.country, near: current })
+      if (more.length) {
+        setCands((prev) => {
+          const merged = [...prev]
+          for (const c of more) if (!merged.some((d) => d.source === c.source || distKm(d, c) < 0.04)) merged.push(c)
+          return merged
+        })
+        setPaste(''); setPasteBusy(false)
+        toast.success(`เจอ ${more.length} ตัวเลือกจากลิงก์ — เลือกด้านล่าง`)
+        return
+      }
+    }
     setPasteBusy(false)
-    if (p) { setSel(p); setSelSource('manual'); setPaste(''); mapRef.current?.setView([p.lat, p.lng], 16) }
-    else toast.error('อ่านพิกัดจากที่วางไม่ได้ — ใช้ลิงก์ Google/AMap หรือพิมพ์ 22.30,114.17')
+    toast.error('อ่านจากลิงก์ไม่ได้ — เปิดใน Google Maps กดค้างที่หมุด คัดลอกพิกัด (เช่น 25.13,121.75) มาวาง')
   }
 
   // gather candidates from all sources when opened
@@ -132,7 +155,7 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
 
         {/* paste a corrected link / coords straight from Google */}
         <div className="flex gap-2">
-          <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="วางลิงก์ Google / AMap หรือพิกัด lat,lng"
+          <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="วางพิกัด 25.13,121.75 หรือลิงก์ Google/AMap"
             className="hairline rounded-[9px] text-[12.5px] h-10 px-3 bg-surface flex-1 min-w-0 outline-none focus:border-brand" inputMode="url" />
           <button onClick={usePaste} disabled={pasteBusy || !paste.trim()}
             className="h-10 px-3.5 rounded-[9px] text-[12.5px] font-medium text-ink-2 shrink-0 inline-flex items-center gap-1 disabled:opacity-50" style={{ border: '0.5px solid var(--color-line)' }}>
@@ -147,7 +170,9 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
             <div className="flex items-center gap-2 py-4 text-ink-3 text-[12.5px]"><IconLoader2 size={15} className="animate-spin" /> รวบรวมตัวเลือกจากหลายแหล่ง…</div>
           )}
           {!loading && cands.length === 0 && (
-            <div className="text-[12.5px] text-ink-3 py-2">หาไม่เจอจากระบบ — แตะบนแมพด้านบนเพื่อปักเอง (เทียบกับ Google Maps ได้)</div>
+            <div className="text-[12.5px] text-ink-3 py-2 leading-relaxed">
+              หาไม่เจอจากระบบ — เปิด <span className="text-brand-mid font-medium">Google Maps</span> กดค้างที่หมุดจริงเพื่อคัดลอก<span className="font-medium">พิกัด</span> (เช่น 25.13,121.75) มาวางในช่องด้านบน หรือ<span className="font-medium">แตะบนแมพ</span>เพื่อปักเอง
+            </div>
           )}
           {cands.map((c, i) => {
             const on = !!sel && selSource === c.source && distKm(sel, c) < 0.01
