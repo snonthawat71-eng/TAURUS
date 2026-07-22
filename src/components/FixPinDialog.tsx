@@ -143,13 +143,15 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
     onClose()
   }
 
-  // open the EXACT place the user saved (their own link) — no hunting; only
-  // fall back to a name search when the place has no link at all
-  const gmapsUrl = place?.map_url
-    ? place.map_url
-    : place
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([place.name, place.city, trip?.country].filter(Boolean).join(' '))}`
+  // open a COORDINATE on Google Maps (not the saved place link): the candidate
+  // the user has picked, or — before any pick — the pin currently in place. This
+  // drops a raw pin at that exact lat/lng so the user can verify the spot and,
+  // if it's off, long-press the correct building to read its real coordinate.
+  const gmapsTarget = sel ?? current
+  const gmapsUrl = gmapsTarget
+    ? `https://www.google.com/maps/search/?api=1&query=${gmapsTarget.lat},${gmapsTarget.lng}`
     : '#'
+  const gmapsLabel = sel ? 'เปิดพิกัดที่เลือก' : 'เปิดพิกัดปัจจุบัน'
 
   return (
     <Drawer open={open} onClose={onClose} title="แก้พิกัดสถานที่">
@@ -166,12 +168,12 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
             then tap "วางพิกัด" to pull it back from the clipboard */}
         <div className="rounded-[12px] p-3 space-y-2.5" style={{ background: 'var(--color-surface-2)', border: '0.5px solid var(--color-line)' }}>
           <div className="text-[11.5px] text-ink-3 leading-relaxed">
-            <span className="font-medium text-ink-2">หาพิกัดที่ถูก:</span> เปิด Google Maps → <span className="font-medium">กดค้าง</span>ที่หมุดจริงจนขึ้นตัวเลขพิกัด → <span className="font-medium">แตะคัดลอก</span> → กลับมาแตะ “วางพิกัด”
+            <span className="font-medium text-ink-2">เทียบ/แก้พิกัด:</span> แตะ “{gmapsLabel}” เพื่อเปิด<span className="font-medium">พิกัด</span>บน Google Maps → ถ้าผิด <span className="font-medium">กดค้าง</span>ที่หมุดจริงเพื่อคัดลอกพิกัด → กลับมาแตะ “วางพิกัด”
           </div>
           <div className="flex gap-2">
-            <a href={gmapsUrl} target="_blank" rel="noopener noreferrer"
-              className="flex-1 h-10 rounded-[9px] text-[12.5px] font-medium text-white inline-flex items-center justify-center gap-1.5" style={{ background: 'var(--color-brand)' }}>
-              <IconExternalLink size={15} /> เปิด Google Maps
+            <a href={gmapsUrl} target="_blank" rel="noopener noreferrer" aria-disabled={!gmapsTarget}
+              className={`flex-1 h-10 rounded-[9px] text-[12.5px] font-medium text-white inline-flex items-center justify-center gap-1.5 ${!gmapsTarget ? 'opacity-50 pointer-events-none' : ''}`} style={{ background: 'var(--color-brand)' }}>
+              <IconExternalLink size={15} /> {gmapsLabel}
             </a>
             <button onClick={pasteFromClipboard} disabled={pasteBusy}
               className="flex-1 h-10 rounded-[9px] text-[12.5px] font-medium text-brand-mid inline-flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ border: '0.5px solid var(--color-brand-border)', background: 'var(--color-brand-soft)' }}>
