@@ -44,6 +44,24 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
   const [busy, setBusy] = useState(false)
   const [paste, setPaste] = useState('')
   const [pasteBusy, setPasteBusy] = useState(false)
+  const [diag, setDiag] = useState('')
+  const [diagBusy, setDiagBusy] = useState(false)
+
+  /** Show exactly what the resolver gets back for this link — so a link that
+   *  won't resolve is never a mystery. Google often blocks datacenter IPs on
+   *  ?g_st=ic share links; this reveals the hop count / status / any address it
+   *  did manage to read. */
+  async function diagnose() {
+    if (!place?.map_url) { setDiag('สถานที่นี้ไม่มีลิงก์แมพ'); return }
+    setDiagBusy(true); setDiag('')
+    try {
+      const lg = localLang(trip?.country)
+      const r = await fetch(`/api/resolve-map?url=${encodeURIComponent(place.map_url)}&debug=1&v=6${lg ? `&lang=${encodeURIComponent(lg)}` : ''}&fresh=${Date.now()}`)
+      const j = await r.json()
+      setDiag(JSON.stringify({ status: j.status, coords: j.coords ?? null, src: j.src ?? null, name: j.name ?? null, address: j.address ?? null, hops: j.hops, finalUrl: j.finalUrl, bodyLen: j.len, snippet: (j.snippet || '').slice(0, 240) }, null, 2))
+    } catch (e) { setDiag('เรียก API ไม่ได้: ' + String((e as Error)?.message || e)) }
+    setDiagBusy(false)
+  }
 
   /** Resolve the saved link → real coordinate (+ address/name geocode as
    *  backups) and auto-select the link-derived point. `fresh` re-asks the
@@ -264,6 +282,22 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
                 {pasteBusy ? <IconLoader2 size={14} className="animate-spin" /> : 'ใช้'}
               </button>
             </div>
+          </div>
+        </details>
+
+        {/* diagnostics — reveals what the resolver actually reads from the link */}
+        <details className="rounded-[12px] overflow-hidden" style={{ border: '0.5px solid var(--color-line)' }}>
+          <summary className="list-none cursor-pointer select-none px-3 h-9 flex items-center text-[11.5px] font-medium text-ink-3" style={{ background: 'var(--color-surface-2)' }}>
+            🛠 ตรวจสาเหตุ (debug)
+          </summary>
+          <div className="p-3 space-y-2">
+            <button onClick={diagnose} disabled={diagBusy}
+              className="h-9 px-3 rounded-[9px] text-[12px] font-medium text-ink-2 inline-flex items-center gap-1.5 disabled:opacity-50" style={{ border: '0.5px solid var(--color-line)' }}>
+              {diagBusy ? <IconLoader2 size={14} className="animate-spin" /> : 'ดูว่าลิงก์ resolve ได้อะไร'}
+            </button>
+            {diag && (
+              <pre className="text-[10px] leading-snug bg-surface rounded-[8px] p-2 overflow-x-auto whitespace-pre-wrap break-all" style={{ border: '0.5px solid var(--color-line)' }}>{diag}</pre>
+            )}
           </div>
         </details>
 
