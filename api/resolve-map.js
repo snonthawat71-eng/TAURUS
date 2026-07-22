@@ -53,6 +53,31 @@ function extract(s) {
   return null
 }
 
+// Pull the place's OWN coordinate out of a genuine Google *place* page body.
+// Google encodes it a few ways depending on the surface; try the reliable
+// place-point markers in priority order, validating the lat/lng range so a
+// [lng,lat] array can't masquerade as a point. Only ever call on a real
+// schema.org/Place page (a bot challenge / consent wall has no such point).
+function mkLatLng(a, b) {
+  a = +a; b = +b
+  if (!Number.isFinite(a) || !Number.isFinite(b) || (a === 0 && b === 0)) return null
+  if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return { lat: a, lng: b }
+  if (Math.abs(b) <= 90 && Math.abs(a) <= 180) return { lat: b, lng: a } // swapped
+  return null
+}
+function coordFromPlaceBody(body) {
+  if (!body) return null
+  let m = body.match(/!3d(-?\d+\.\d{3,})!4d(-?\d+\.\d{3,})/)          // place point (lat,lng)
+  if (m) { const r = mkLatLng(m[1], m[2]); if (r) return r }
+  m = body.match(/\/@(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})/)         // canonical @lat,lng
+  if (m) { const r = mkLatLng(m[1], m[2]); if (r) return r }
+  m = body.match(/\[null,null,(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})\]/) // APP_INIT center
+  if (m) { const r = mkLatLng(m[1], m[2]); if (r) return r }
+  m = body.match(/center=(-?\d{1,3}\.\d{4,})(?:,|%2C|%2c)(-?\d{1,3}\.\d{4,})/) // static-map center
+  if (m) { const r = mkLatLng(m[1], m[2]); if (r) return r }
+  return null
+}
+
 // Last-resort scan for a China-plausible coordinate pair anywhere in the text.
 function scanChina(s) {
   if (!s) return null
@@ -241,10 +266,7 @@ async function resolveOnce(url, lang, amap, budgetMs) {
   // random page, and the client's isServerGarbage + country sanity check still
   // reject any datacenter-geo default. Marked src='page' → stays re-checkable.
   if (!coords && body && /schema\.org\/Place/i.test(body)) {
-    let bc = null
-    const bm = body.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)
-    if (bm) bc = extract(`!3d${bm[1]}!4d${bm[2]}`)
-    if (!bc) { const am = body.match(/\/@(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})/); if (am) bc = extract(`@${am[1]},${am[2]}`) }
+    const bc = coordFromPlaceBody(body)
     if (bc) { coords = bc; src = 'page' }
   }
   let name = null
@@ -292,7 +314,16 @@ export default async function handler(req, res) {
     const { hops, body, status, finalUrl, interUrl, coords, src, name, address } = result
 
     if (req.query?.debug) {
-      return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, src, name, address, snippet: body.slice(0, 600) })
+      const grab = (re) => (body.match(re) || []).slice(0, 3)
+      const bodyScan = body ? {
+        isPlace: /schema\.org\/Place/i.test(body),
+        d3d4: grab(/!3d-?\d+\.\d{3,}!4d-?\d+\.\d{3,}/g),
+        at: grab(/\/@-?\d{1,2}\.\d{4,},-?\d{1,3}\.\d{4,}/g),
+        nullnull: grab(/\[null,null,-?\d{1,3}\.\d{4,},-?\d{1,3}\.\d{4,}\]/g),
+        center: grab(/center=-?\d{1,3}\.\d{4,}(?:,|%2C|%2c)-?\d{1,3}\.\d{4,}/gi),
+        picked: coordFromPlaceBody(body),
+      } : null
+      return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, src, name, address, bodyScan, snippet: body.slice(0, 600) })
     }
     // edge-cache ONLY trustworthy url-borne successes; page-derived points
     // must stay re-checkable and failures must never be pinned for a week
