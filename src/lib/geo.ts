@@ -150,6 +150,10 @@ export const resolveFailNote = (url?: string | null) => (url ? failNotes.get(url
 // coords aren't) — the fallback geocode anchor
 const linkNames = new Map<string, string>()
 export const resolvedLinkName = (url?: string | null) => (url ? linkNames.get(url) : undefined)
+// Google's place name in the LOCAL script (正濱漁港彩色屋), scraped from the
+// place page — OSM in Asia indexes by this, not the romanized name.
+const linkNativeNames = new Map<string, string>()
+export const resolvedLinkNativeName = (url?: string | null) => (url ? linkNativeNames.get(url) : undefined)
 // Google's canonical ADDRESS (name + street + district) from a ?q= search
 // redirect — present for ?g_st=ic links that carry no coordinate in the URL.
 // Geocoding this pins the right building far better than the bare name.
@@ -260,6 +264,7 @@ export async function resolveMapUrl(url: string, lang?: string, force = false): 
     if (res.ok) {
       const j = await res.json()
       if (typeof j.name === 'string' && j.name.trim()) linkNames.set(url, j.name.trim())
+      if (typeof j.nativeName === 'string' && j.nativeName.trim()) linkNativeNames.set(url, j.nativeName.trim())
       if (typeof j.address === 'string' && j.address.trim()) linkAddresses.set(url, j.address.trim())
       if (Array.isArray(j.bodyCoords) && j.bodyCoords.length) {
         const arr = j.bodyCoords.map((c: { lat: unknown; lng: unknown }) => ({ lat: Number(c.lat), lng: Number(c.lng) })).filter((c: LatLng) => valid(c.lat, c.lng))
@@ -594,9 +599,11 @@ export async function geoCandidates(o: {
     else push(bestBodyCoord(o.mapUrl, near), 'link', 'พิกัดจากลิงก์ของคุณ (Google)')
   }
   const addr = address || (o.mapUrl ? (resolvedLinkAddress(o.mapUrl) ?? '') : '')
-  // the link's canonical NAME is often in the local script (e.g. 正濱漁港彩色屋)
-  // — OSM in Asia indexes by that, so search it as well as the (English) name
-  const nativeName = o.mapUrl ? (resolvedLinkName(o.mapUrl) ?? '') : ''
+  // the link's canonical NAME. The URL gives a romanized name ("Zhengbin Port
+  // Color Houses") that OSM in Asia can't match; the place PAGE gives the local
+  // script name ("正濱漁港彩色屋"), which OSM DOES index — search that first.
+  const linkName = o.mapUrl ? (resolvedLinkName(o.mapUrl) ?? '') : ''
+  const trueNative = o.mapUrl ? (resolvedLinkNativeName(o.mapUrl) ?? '') : ''
 
   // 2) the country's official address DB (building-accurate)
   const engine = addr ? officialEngineFor([addr, city, country].join(' ')) : null
@@ -618,13 +625,16 @@ export async function geoCandidates(o: {
   }
   if (addr && /[㐀-鿿぀-ヿ가-힯]/.test(addr)) { push(await geocodeRaw(addr, near), 'osm-native', 'OSM · ที่อยู่ท้องถิ่น'); await sleep(1100) }
 
-  // 4) by NAME — both the place name and the link's native-script name, each via
-  // Mapbox → Photon → Nominatim (proximity is a soft hint, never a hard filter)
-  const names = [...new Set([nativeName, name].filter(Boolean))]
+  // 4) by NAME — the LOCAL-SCRIPT name first (OSM in Asia indexes by it, so it's
+  // the one that actually lands the exact POI), then the romanized names. Each
+  // via Mapbox → Photon → Nominatim (proximity is a soft hint, never a filter).
+  const names = [...new Set([trueNative, linkName, name].filter(Boolean))]
   for (const nm of names) {
-    push(await mapboxRaw([nm, city].filter(Boolean).join(' '), near), `mapbox:${nm}`, `ค้นจากชื่อ · Mapbox`)
-    push(await photonRaw([nm, city].filter(Boolean).join(' '), near), `photon:${nm}`, `ค้นจากชื่อ · OSM`)
-    push(await geocodeRaw([nm, city, country].filter(Boolean).join(', '), near), `nom:${nm}`, `ค้นจากชื่อ · Nominatim`)
+    const zh = nm === trueNative && !!trueNative
+    const tag = zh ? 'ค้นจากชื่อท้องถิ่น' : 'ค้นจากชื่อ'
+    push(await mapboxRaw([nm, city].filter(Boolean).join(' '), near), `mapbox:${nm}`, `${tag} · Mapbox`)
+    push(await photonRaw([nm, city].filter(Boolean).join(' '), near), `photon:${nm}`, `${tag} · OSM`)
+    push(await geocodeRaw([nm, city, country].filter(Boolean).join(', '), near), `nom:${nm}`, `${tag} · Nominatim`)
     await sleep(1100)
   }
 

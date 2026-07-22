@@ -301,6 +301,14 @@ async function resolveOnce(url, lang, amap, budgetMs) {
   let name = null
   for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
   if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)
+  // The name above comes from the URL (a ?q= address → ROMANIZED, e.g. "Zhengbin
+  // Port Color Houses"). But the place PAGE is served in the local language
+  // (hl=zh-TW) and titles the place in its NATIVE script — "正濱漁港彩色屋" —
+  // which is exactly what OSM in Asia indexes by. Extract that separately so the
+  // client can search OSM by the native name (the romanized one just returns
+  // garbage). Only keep it when it's actually non-Latin and different.
+  let nativeName = nameFromBody(body)
+  if (nativeName && (nativeName === name || !/[　-鿿가-힯豈-﫿]/.test(nativeName))) nativeName = null
   // canonical address from a ?q= search redirect (Google's own, precise) — the
   // client geocodes this when no URL coordinate was found (?g_st=ic links)
   let address = null
@@ -308,7 +316,7 @@ async function resolveOnce(url, lang, amap, budgetMs) {
   // every coordinate the place page embeds — for the client to pick the one
   // nearest the trip (the real place) and drop the datacenter viewport
   const bodyCoords = (!coords && body && /schema\.org\/Place/i.test(body)) ? allCoordsFromPlaceBody(body) : []
-  return { coords, src, name, address, bodyCoords, hops, body, status, finalUrl, interUrl }
+  return { coords, src, name, nativeName, address, bodyCoords, hops, body, status, finalUrl, interUrl }
 }
 
 export default async function handler(req, res) {
@@ -352,17 +360,17 @@ export default async function handler(req, res) {
         if (byCid.coords) { result.coords = byCid.coords; result.src = 'cid'; break }
       }
     }
-    const { hops, body, status, finalUrl, interUrl, coords, src, name, address, bodyCoords } = result
+    const { hops, body, status, finalUrl, interUrl, coords, src, name, nativeName, address, bodyCoords } = result
 
     if (req.query?.debug) {
-      return res.json({ ver: 'cid-v4', hops, cidUrl, interUrl, status, len: body.length, coords: coords || null, src, name, address, bodyCoords, snippet: body.slice(0, 600) })
+      return res.json({ ver: 'cid-v4', hops, cidUrl, interUrl, status, len: body.length, coords: coords || null, src, name, nativeName, address, bodyCoords, snippet: body.slice(0, 600) })
     }
     // edge-cache ONLY trustworthy url-borne successes; page-derived points
     // must stay re-checkable and failures must never be pinned for a week
     res.setHeader('Cache-Control', coords && (src === 'url' || src === 'cid') ? 's-maxage=604800' : 'no-store')
     return res.json({
       ver: 'cid-v4',
-      ...(coords || {}), ...(coords ? { src } : {}), ...(name ? { name } : {}), ...(address ? { address } : {}),
+      ...(coords || {}), ...(coords ? { src } : {}), ...(name ? { name } : {}), ...(nativeName ? { nativeName } : {}), ...(address ? { address } : {}),
       ...(bodyCoords && bodyCoords.length ? { bodyCoords } : {}),
       // on failure return WHY, so the app's audit can show the reason per link
       ...(coords ? {} : { error: 'no coords', status, finalUrl, hops: hops.length }),
