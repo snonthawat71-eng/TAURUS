@@ -65,17 +65,28 @@ function mkLatLng(a, b) {
   if (Math.abs(b) <= 90 && Math.abs(a) <= 180) return { lat: b, lng: a } // swapped
   return null
 }
-function coordFromPlaceBody(body) {
-  if (!body) return null
-  let m = body.match(/!3d(-?\d+\.\d{3,})!4d(-?\d+\.\d{3,})/)          // place point (lat,lng)
-  if (m) { const r = mkLatLng(m[1], m[2]); if (r) return r }
-  m = body.match(/\/@(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})/)         // canonical @lat,lng
-  if (m) { const r = mkLatLng(m[1], m[2]); if (r) return r }
-  m = body.match(/\[null,null,(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})\]/) // APP_INIT center
-  if (m) { const r = mkLatLng(m[1], m[2]); if (r) return r }
-  m = body.match(/center=(-?\d{1,3}\.\d{4,})(?:,|%2C|%2c)(-?\d{1,3}\.\d{4,})/) // static-map center
-  if (m) { const r = mkLatLng(m[1], m[2]); if (r) return r }
-  return null
+// ALL distinct coordinate pairs embedded in a place-page body. A ?q=<address>
+// page carries several — the place's REAL point, the map viewport (centered on
+// the REQUESTING server's IP = a datacenter, wrong continent), sometimes nearby
+// places. The server can't tell which is the place, but the CLIENT can: it
+// knows the trip's area, so it keeps the pair nearest the trip and drops the
+// far-away datacenter one. We just hand over every candidate.
+function allCoordsFromPlaceBody(body) {
+  if (!body) return []
+  const out = [], seen = new Set()
+  const add = (a, b) => {
+    const r = mkLatLng(a, b); if (!r) return
+    const k = `${r.lat.toFixed(5)},${r.lng.toFixed(5)}`
+    if (!seen.has(k)) { seen.add(k); out.push(r) }
+  }
+  const res = [
+    /!3d(-?\d+\.\d{3,})!4d(-?\d+\.\d{3,})/g,
+    /\/@(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})/g,
+    /\[null,null,(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})\]/g,
+    /center=(-?\d{1,3}\.\d{4,})(?:,|%2C|%2c)(-?\d{1,3}\.\d{4,})/gi,
+  ]
+  for (const re of res) { let m; while ((m = re.exec(body)) && out.length < 40) add(m[1], m[2]) }
+  return out
 }
 
 // Last-resort scan for a China-plausible coordinate pair anywhere in the text.
@@ -271,7 +282,10 @@ async function resolveOnce(url, lang, amap, budgetMs) {
   // client geocodes this when no URL coordinate was found (?g_st=ic links)
   let address = null
   for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { address = addressFrom(h); if (address) break }
-  return { coords, src, name, address, hops, body, status, finalUrl, interUrl }
+  // every coordinate the place page embeds — for the client to pick the one
+  // nearest the trip (the real place) and drop the datacenter viewport
+  const bodyCoords = (!coords && body && /schema\.org\/Place/i.test(body)) ? allCoordsFromPlaceBody(body) : []
+  return { coords, src, name, address, bodyCoords, hops, body, status, finalUrl, interUrl }
 }
 
 export default async function handler(req, res) {
@@ -306,25 +320,17 @@ export default async function handler(req, res) {
       result = await resolveOnce(v, lang, amap, Math.min(remaining, 3200))
       if (result.coords) break
     }
-    const { hops, body, status, finalUrl, interUrl, coords, src, name, address } = result
+    const { hops, body, status, finalUrl, interUrl, coords, src, name, address, bodyCoords } = result
 
     if (req.query?.debug) {
-      const grab = (re) => (body.match(re) || []).slice(0, 3)
-      const bodyScan = body ? {
-        isPlace: /schema\.org\/Place/i.test(body),
-        d3d4: grab(/!3d-?\d+\.\d{3,}!4d-?\d+\.\d{3,}/g),
-        at: grab(/\/@-?\d{1,2}\.\d{4,},-?\d{1,3}\.\d{4,}/g),
-        nullnull: grab(/\[null,null,-?\d{1,3}\.\d{4,},-?\d{1,3}\.\d{4,}\]/g),
-        center: grab(/center=-?\d{1,3}\.\d{4,}(?:,|%2C|%2c)-?\d{1,3}\.\d{4,}/gi),
-        picked: coordFromPlaceBody(body),
-      } : null
-      return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, src, name, address, bodyScan, snippet: body.slice(0, 600) })
+      return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, src, name, address, bodyCoords, snippet: body.slice(0, 600) })
     }
     // edge-cache ONLY trustworthy url-borne successes; page-derived points
     // must stay re-checkable and failures must never be pinned for a week
     res.setHeader('Cache-Control', coords && src === 'url' ? 's-maxage=604800' : 'no-store')
     return res.json({
       ...(coords || {}), ...(coords ? { src } : {}), ...(name ? { name } : {}), ...(address ? { address } : {}),
+      ...(bodyCoords && bodyCoords.length ? { bodyCoords } : {}),
       // on failure return WHY, so the app's audit can show the reason per link
       ...(coords ? {} : { error: 'no coords', status, finalUrl, hops: hops.length }),
     })

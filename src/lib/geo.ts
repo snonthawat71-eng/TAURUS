@@ -155,6 +155,28 @@ export const resolvedLinkName = (url?: string | null) => (url ? linkNames.get(ur
 // Geocoding this pins the right building far better than the bare name.
 const linkAddresses = new Map<string, string>()
 export const resolvedLinkAddress = (url?: string | null) => (url ? linkAddresses.get(url) : undefined)
+// Every coordinate the place page embedded (real place + datacenter viewport +
+// nearby places) — the client disambiguates by trip proximity. See bestBodyCoord.
+const linkBodyCoords = new Map<string, LatLng[]>()
+export function resolvedBodyCoords(url?: string | null): LatLng[] {
+  if (!url) return []
+  if (linkBodyCoords.has(url)) return linkBodyCoords.get(url)!
+  try { const raw = localStorage.getItem(`geo:bodyc7:${url}`); if (raw) { const a = JSON.parse(raw) as LatLng[]; linkBodyCoords.set(url, a); return a } } catch { /* ignore */ }
+  return []
+}
+/** The place page embeds several coordinates; pick the one that is the actual
+ *  place. The map viewport pair is centered on the resolving server's datacenter
+ *  (wrong continent), so the REAL place is simply the pair nearest the trip.
+ *  Requires an anchor (`near`) and a sane radius — with nothing to judge
+ *  against we don't guess (return null → caller falls back to the address). */
+export function bestBodyCoord(url: string | null | undefined, near?: LatLng | null, maxKm = 150): LatLng | null {
+  if (!near) return null
+  const arr = resolvedBodyCoords(url).filter((c) => valid(c.lat, c.lng) && !isServerGarbage(c.lat, c.lng))
+  if (!arr.length) return null
+  let best: LatLng | null = null, bd = Infinity
+  for (const c of arr) { const d = distKm(c, near); if (d < bd) { bd = d; best = c } }
+  return best && bd <= maxKm ? best : null
+}
 
 /** A resolved link point. pageDerived marks coordinates dug out of a PAGE
  *  body rather than a URL — those can be a server's geo-IP default (wrong
@@ -239,6 +261,10 @@ export async function resolveMapUrl(url: string, lang?: string, force = false): 
       const j = await res.json()
       if (typeof j.name === 'string' && j.name.trim()) linkNames.set(url, j.name.trim())
       if (typeof j.address === 'string' && j.address.trim()) linkAddresses.set(url, j.address.trim())
+      if (Array.isArray(j.bodyCoords) && j.bodyCoords.length) {
+        const arr = j.bodyCoords.map((c: { lat: unknown; lng: unknown }) => ({ lat: Number(c.lat), lng: Number(c.lng) })).filter((c: LatLng) => valid(c.lat, c.lng))
+        if (arr.length) { linkBodyCoords.set(url, arr); try { localStorage.setItem(`geo:bodyc7:${url}`, JSON.stringify(arr)) } catch { /* ignore */ } }
+      }
       if (valid(Number(j.lat), Number(j.lng)) && !isServerGarbage(Number(j.lat), Number(j.lng))) {
         out = { lat: Number(j.lat), lng: Number(j.lng), ...(j.src === 'page' ? { pageDerived: true } : {}) }
       } else {
@@ -559,7 +585,14 @@ export async function geoCandidates(o: {
   // resolving also stashes the canonical address, which we reuse below.
   const exact = latLngFromUrlExact(o.mapUrl ?? undefined)
   if (exact) push(exact, 'link', 'จากลิงก์แมพ')
-  else if (o.mapUrl && isMapLink(o.mapUrl)) push(await resolveMapUrl(o.mapUrl, localLang(country), o.fresh), 'link', 'พิกัดจากลิงก์ของคุณ')
+  else if (o.mapUrl && isMapLink(o.mapUrl)) {
+    const r = await resolveMapUrl(o.mapUrl, localLang(country), o.fresh)
+    if (r) push(r, 'link', 'พิกัดจากลิงก์ของคุณ')
+    // no coordinate in the URL (?g_st=ic): the place page embedded several —
+    // take the one nearest the trip (the real place; the datacenter viewport is
+    // a continent away and dropped)
+    else push(bestBodyCoord(o.mapUrl, near), 'link', 'พิกัดจากลิงก์ของคุณ (Google)')
+  }
   const addr = address || (o.mapUrl ? (resolvedLinkAddress(o.mapUrl) ?? '') : '')
   // the link's canonical NAME is often in the local script (e.g. 正濱漁港彩色屋)
   // — OSM in Asia indexes by that, so search it as well as the (English) name

@@ -6,7 +6,7 @@ import { IconSearch, IconX, IconCurrentLocation, IconMapPin, IconMapPinOff, Icon
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { FixPinDialog } from '@/components/FixPinDialog'
-import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, isMapLink, isServerGarbage, officialHealth, officialQueryFor, localLang, type LatLng, type GeoHit } from '@/lib/geo'
+import { latLngFromUrl, latLngFromUrlExact, geocodeSmart, resolveMapUrl, resolveFailNote, resolvedLinkName, resolvedLinkAddress, bestBodyCoord, isMapLink, isServerGarbage, officialHealth, officialQueryFor, localLang, type LatLng, type GeoHit } from '@/lib/geo'
 import { setPlaceCoords, setManualPin } from '@/lib/placeMutations'
 import { openMap } from '@/lib/maps'
 import { toast } from '@/lib/toast'
@@ -252,9 +252,22 @@ export default function TripMap() {
             const r = await resolveMapUrl(p.map_url!, localLang(trip?.country)) // cached per link after first hit
             if (!alive) return
             if (!r || (r.pageDerived && !(await plausible(p, r)))) {
-              // no coords, or a page-derived point that fails the geography check
-              // (server geo-IP default = wrong country) — geocode the canonical
-              // Google NAME (station-guarded) instead of trusting garbage
+              // no URL coordinate (an iOS ?g_st=ic link) — but the place page
+              // may have embedded the real point among several; take the one
+              // nearest the trip (the datacenter viewport is a continent away),
+              // gated by the same geography check. This heals the pin to the
+              // building automatically, no manual report needed.
+              const bc = !r ? bestBodyCoord(p.map_url, tripNear ?? db) : null
+              if (bc && (await plausible(p, bc))) {
+                setCoords((c) => ({ ...c, [p.id]: bc }))
+                if (haversine(db, bc) > 0.02) {
+                  setPlaceCoords(p.id, bc.lat, bc.lng).catch(() => {})
+                  if (haversine(db, bc) > 0.05) reportHeal()
+                }
+                continue
+              }
+              // still nothing trustworthy — geocode the canonical Google NAME /
+              // address (station-guarded) instead of trusting garbage
               if (r) console.warn('[map] พิกัดจากหน้าเว็บไม่ผ่านด่านภูมิศาสตร์ ทิ้ง:', p.name, r)
               else console.warn('[map] ตามลิงก์ไม่สำเร็จ:', p.name, p.map_url)
               await stationSanity(p, db, resolvedLinkName(p.map_url))
