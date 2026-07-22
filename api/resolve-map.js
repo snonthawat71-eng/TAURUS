@@ -323,12 +323,13 @@ export default async function handler(req, res) {
     const { hops, body, status, finalUrl, interUrl, coords, src, name, address, bodyCoords } = result
 
     if (req.query?.debug) {
-      return res.json({ hops, interUrl, status, len: body.length, coords: coords || null, src, name, address, bodyCoords, snippet: body.slice(0, 600) })
+      return res.json({ ver: 'bodycoords-v2', hops, interUrl, status, len: body.length, coords: coords || null, src, name, address, bodyCoords, snippet: body.slice(0, 600) })
     }
     // edge-cache ONLY trustworthy url-borne successes; page-derived points
     // must stay re-checkable and failures must never be pinned for a week
     res.setHeader('Cache-Control', coords && src === 'url' ? 's-maxage=604800' : 'no-store')
     return res.json({
+      ver: 'bodycoords-v2',
       ...(coords || {}), ...(coords ? { src } : {}), ...(name ? { name } : {}), ...(address ? { address } : {}),
       ...(bodyCoords && bodyCoords.length ? { bodyCoords } : {}),
       // on failure return WHY, so the app's audit can show the reason per link
