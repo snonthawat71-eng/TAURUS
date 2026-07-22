@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { IconLoader2, IconCheck, IconExternalLink, IconMapPin, IconClipboard } from '@tabler/icons-react'
+import { IconLoader2, IconCheck, IconExternalLink, IconMapPin, IconClipboard, IconRefresh } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { setManualPin } from '@/lib/placeMutations'
@@ -19,9 +19,13 @@ function dot(color: string, label: string, ring = false) {
   })
 }
 
-/** Report-and-fix a place's pin: pulls candidate locations from every source at
- *  once and lets the user compare them on a mini map (or drop their own), then
- *  locks the chosen one (stamps map_url) and propagates to Explore copies. */
+/** Fix a place's wrong pin. Its ONE job: take the map link the user saved (the
+ *  real place they got off Google/AMap) and resolve it back to the true
+ *  coordinate. The link is ground truth — so we re-resolve it (retryable, since
+ *  Google's redirect is non-deterministic), auto-pick the link-derived point,
+ *  and let the user confirm. Manual paste / tap-the-map exist only as a fallback
+ *  when the link genuinely can't be resolved. Locks the result (pinned) while
+ *  keeping map_url intact for navigation, and propagates to Explore copies. */
 export function FixPinDialog({ place, current, open, onClose, onFixed }: {
   place: Place | null
   current: LatLng | null
@@ -41,9 +45,31 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
   const [paste, setPaste] = useState('')
   const [pasteBusy, setPasteBusy] = useState(false)
 
-  // read the clipboard on tap (works after a user gesture over HTTPS) and
-  // feed it straight through usePaste — so the round trip is one tap: copy a
-  // coordinate in Google Maps, come back, tap "วางพิกัด".
+  /** Resolve the saved link → real coordinate (+ address/name geocode as
+   *  backups) and auto-select the link-derived point. `fresh` re-asks the
+   *  resolver bypassing every cache — Google's redirect is flaky, so a retry
+   *  often lands the coordinate the first pass missed. */
+  async function search(fresh = false) {
+    if (!place) return
+    setLoading(true)
+    if (fresh) { setCands([]); setSel(null); setSelSource('') }
+    const c = await geoCandidates({ name: place.name, mapUrl: place.map_url, city: place.city, country: trip?.country, near: current, fresh })
+    setCands(c)
+    // auto-pick the most trustworthy point: the one straight from the user's
+    // link, else a national-DB hit — so they can confirm without choosing
+    const hero = c.find((x) => x.source === 'link') ?? c.find((x) => x.source === 'official')
+    if (hero) { setSel({ lat: hero.lat, lng: hero.lng }); setSelSource(hero.source) }
+    setLoading(false)
+    if (fresh) {
+      if (c.some((x) => x.source === 'link')) toast.success('เจอพิกัดจากลิงก์ของคุณแล้ว')
+      else if (c.length) toast.success(`เจอ ${c.length} ตัวเลือก — เลือกด้านล่าง`)
+      else toast.error('ยังหาพิกัดจากลิงก์ไม่ได้ — ลองอีกครั้ง หรือคัดลอกพิกัดเอง')
+    }
+  }
+
+  // read the clipboard on tap (works after a user gesture over HTTPS) and feed
+  // it straight through usePaste — one tap: copy a coordinate in Google Maps,
+  // come back, tap "วางพิกัด".
   async function pasteFromClipboard() {
     try {
       const txt = (await navigator.clipboard.readText())?.trim()
@@ -87,12 +113,11 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
     toast.error('อ่านจากลิงก์ไม่ได้ — เปิดใน Google Maps กดค้างที่หมุด คัดลอกพิกัด (เช่น 25.13,121.75) มาวาง')
   }
 
-  // gather candidates from all sources when opened
+  // resolve the link → coordinate the moment the dialog opens
   useEffect(() => {
     if (!open || !place) return
-    setCands([]); setSel(null); setSelSource(''); setLoading(true)
-    geoCandidates({ name: place.name, mapUrl: place.map_url, city: place.city, country: trip?.country, near: current })
-      .then((c) => { setCands(c); setLoading(false) })
+    setCands([]); setSel(null); setSelSource(''); setPaste('')
+    search(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, place?.id])
 
@@ -143,18 +168,17 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
     onClose()
   }
 
-  // open a COORDINATE on Google Maps (not the saved place link): the candidate
-  // the user has picked, or — before any pick — the pin currently in place. This
-  // drops a raw pin at that exact lat/lng so the user can verify the spot and,
-  // if it's off, long-press the correct building to read its real coordinate.
-  const gmapsTarget = sel ?? current
-  const gmapsUrl = gmapsTarget
-    ? `https://www.google.com/maps/search/?api=1&query=${gmapsTarget.lat},${gmapsTarget.lng}`
+  // fallback reference only: open the EXACT place the user saved (their link) so
+  // they can eyeball the real spot / long-press to copy its coordinate
+  const gmapsUrl = place?.map_url
+    ? place.map_url
+    : place
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([place.name, place.city, trip?.country].filter(Boolean).join(' '))}`
     : '#'
-  const gmapsLabel = sel ? 'เปิดพิกัดที่เลือก' : 'เปิดพิกัดปัจจุบัน'
+  const gotLink = cands.some((c) => c.source === 'link')
 
   return (
-    <Drawer open={open} onClose={onClose} title="แก้พิกัดสถานที่">
+    <Drawer open={open} onClose={onClose} title="ค้นหาพิกัดที่ถูกต้อง">
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-[13px]">
           <IconMapPin size={15} className="text-brand shrink-0" />
@@ -164,54 +188,41 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
         {/* mini compare map */}
         <div ref={boxRef} className="w-full h-52 rounded-[12px] overflow-hidden" style={{ border: '0.5px solid var(--color-line)' }} />
 
-        {/* one-tap flow — open the EXACT saved place, copy its coordinate there,
-            then tap "วางพิกัด" to pull it back from the clipboard */}
-        <div className="rounded-[12px] p-3 space-y-2.5" style={{ background: 'var(--color-surface-2)', border: '0.5px solid var(--color-line)' }}>
-          <div className="text-[11.5px] text-ink-3 leading-relaxed">
-            <span className="font-medium text-ink-2">เทียบ/แก้พิกัด:</span> แตะ “{gmapsLabel}” เพื่อเปิด<span className="font-medium">พิกัด</span>บน Google Maps → ถ้าผิด <span className="font-medium">กดค้าง</span>ที่หมุดจริงเพื่อคัดลอกพิกัด → กลับมาแตะ “วางพิกัด”
-          </div>
-          <div className="flex gap-2">
-            <a href={gmapsUrl} target="_blank" rel="noopener noreferrer" aria-disabled={!gmapsTarget}
-              className={`flex-1 h-10 rounded-[9px] text-[12.5px] font-medium text-white inline-flex items-center justify-center gap-1.5 ${!gmapsTarget ? 'opacity-50 pointer-events-none' : ''}`} style={{ background: 'var(--color-brand)' }}>
-              <IconExternalLink size={15} /> {gmapsLabel}
-            </a>
-            <button onClick={pasteFromClipboard} disabled={pasteBusy}
-              className="flex-1 h-10 rounded-[9px] text-[12.5px] font-medium text-brand-mid inline-flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ border: '0.5px solid var(--color-brand-border)', background: 'var(--color-brand-soft)' }}>
-              {pasteBusy ? <IconLoader2 size={14} className="animate-spin" /> : <><IconClipboard size={15} /> วางพิกัด</>}
-            </button>
-          </div>
-          {/* manual fallback — type or paste a coordinate / link yourself */}
-          <div className="flex gap-2">
-            <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="หรือพิมพ์เอง 25.13,121.75"
-              className="hairline rounded-[9px] text-[12px] h-9 px-3 bg-surface flex-1 min-w-0 outline-none focus:border-brand" inputMode="text" />
-            <button onClick={() => usePaste()} disabled={pasteBusy || !paste.trim()}
-              className="h-9 px-3.5 rounded-[9px] text-[12px] font-medium text-ink-2 shrink-0 inline-flex items-center gap-1 disabled:opacity-50" style={{ border: '0.5px solid var(--color-line)' }}>
-              {pasteBusy ? <IconLoader2 size={14} className="animate-spin" /> : 'ใช้'}
-            </button>
-          </div>
-        </div>
+        {/* HERO — re-resolve the user's saved link to its real coordinate */}
+        <button onClick={() => search(true)} disabled={loading || busy} className="btn-primary w-full h-11 inline-flex items-center justify-center gap-2 disabled:opacity-60">
+          {loading
+            ? <><IconLoader2 size={16} className="animate-spin" /> กำลังค้นหาพิกัดจากลิงก์…</>
+            : <><IconRefresh size={16} /> ค้นหาพิกัดจากลิงก์อีกครั้ง</>}
+        </button>
+        {!loading && !gotLink && cands.length > 0 && (
+          <div className="text-[11px] text-ink-3 -mt-1">ลิงก์ยังแกะพิกัดตรงๆ ไม่ได้ (Google ตอบไม่แน่นอน) — กดค้นอีกครั้ง หรือเลือกจากตัวเลือกด้านล่าง</div>
+        )}
 
         {/* candidate list — tap to select (marker highlights on the map) */}
         <div className="space-y-1.5">
-          <div className="text-[11px] font-medium text-ink-3">เลือกตำแหน่งที่ถูกต้อง{loading && ' · กำลังค้นหา…'}</div>
+          <div className="text-[11px] font-medium text-ink-3">ตัวเลือกพิกัด{loading && ' · กำลังค้นหา…'}</div>
           {loading && cands.length === 0 && (
-            <div className="flex items-center gap-2 py-4 text-ink-3 text-[12.5px]"><IconLoader2 size={15} className="animate-spin" /> รวบรวมตัวเลือกจากหลายแหล่ง…</div>
+            <div className="flex items-center gap-2 py-4 text-ink-3 text-[12.5px]"><IconLoader2 size={15} className="animate-spin" /> กำลังแกะพิกัดจากลิงก์ของคุณ…</div>
           )}
           {!loading && cands.length === 0 && (
             <div className="text-[12.5px] text-ink-3 py-2 leading-relaxed">
-              หาไม่เจอจากระบบ — เปิด <span className="text-brand-mid font-medium">Google Maps</span> กดค้างที่หมุดจริงเพื่อคัดลอก<span className="font-medium">พิกัด</span> (เช่น 25.13,121.75) มาวางในช่องด้านบน หรือ<span className="font-medium">แตะบนแมพ</span>เพื่อปักเอง
+              ยังหาไม่เจอ — กด <span className="font-medium">“ค้นหาพิกัดจากลิงก์อีกครั้ง”</span> ด้านบน หรือแก้เองด้านล่าง
             </div>
           )}
           {cands.map((c, i) => {
             const on = !!sel && selSource === c.source && distKm(sel, c) < 0.01
             const away = current ? distKm(current, c) : 0
+            const fromLink = c.source === 'link'
             return (
               <button key={c.source} onClick={() => { setSel({ lat: c.lat, lng: c.lng }); setSelSource(c.source) }}
                 className="w-full flex items-center gap-2.5 p-2.5 rounded-[10px] text-left transition-colors"
                 style={on ? { background: 'var(--color-brand-soft)', border: '1px solid var(--color-brand-border)' } : { background: 'var(--color-surface-2)', border: '1px solid transparent' }}>
-                <span className="size-6 rounded-full grid place-items-center text-[11px] font-bold text-white shrink-0" style={{ background: on ? '#0270FB' : '#135fd6' }}>{i + 1}</span>
+                <span className="size-6 rounded-full grid place-items-center text-[11px] font-bold text-white shrink-0" style={{ background: on ? '#0270FB' : fromLink ? '#0270FB' : '#135fd6' }}>{i + 1}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[12.5px] font-medium">{c.label}</div>
+                  <div className="text-[12.5px] font-medium flex items-center gap-1.5">
+                    {c.label}
+                    {fromLink && <span className="text-[9.5px] font-semibold text-white px-1.5 py-0.5 rounded-full" style={{ background: 'var(--color-brand)' }}>ตรงลิงก์</span>}
+                  </div>
                   <div className="text-[10.5px] text-ink-3 tabular-nums">{c.lat.toFixed(5)}, {c.lng.toFixed(5)}{away > 0.03 ? ` · ห่างจุดเดิม ${away < 1 ? `${Math.round(away * 1000)} ม.` : `${away.toFixed(1)} กม.`}` : ''}</div>
                 </div>
                 {on && <IconCheck size={16} className="text-brand shrink-0" />}
@@ -221,10 +232,40 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
           {sel && selSource === 'manual' && (
             <div className="flex items-center gap-2 p-2.5 rounded-[10px]" style={{ background: 'var(--color-brand-soft)', border: '1px solid var(--color-brand-border)' }}>
               <span className="size-6 rounded-full grid place-items-center text-white shrink-0" style={{ background: '#0270FB' }}><IconCheck size={14} /></span>
-              <div className="text-[12.5px] font-medium flex-1">ปักเอง (จุดที่แตะบนแมพ)</div>
+              <div className="text-[12.5px] font-medium flex-1">ปักเอง (จุดที่แตะบนแมพ / วางพิกัด)</div>
             </div>
           )}
         </div>
+
+        {/* FALLBACK — only if the link won't resolve: eyeball it & set by hand */}
+        <details className="rounded-[12px] overflow-hidden" style={{ border: '0.5px solid var(--color-line)' }}>
+          <summary className="list-none cursor-pointer select-none px-3 h-10 flex items-center text-[12px] font-medium text-ink-2" style={{ background: 'var(--color-surface-2)' }}>
+            ยังไม่ถูก? แก้เอง
+          </summary>
+          <div className="p-3 space-y-2.5">
+            <div className="text-[11.5px] text-ink-3 leading-relaxed">
+              เปิดลิงก์สถานที่ดูจุดจริง → <span className="font-medium">กดค้าง</span>ที่หมุดเพื่อคัดลอกพิกัด → กลับมาแตะ “วางพิกัด” (หรือ<span className="font-medium">แตะบนแมพด้านบน</span>เพื่อปักเอง)
+            </div>
+            <div className="flex gap-2">
+              <a href={gmapsUrl} target="_blank" rel="noopener noreferrer"
+                className="flex-1 h-10 rounded-[9px] text-[12.5px] font-medium text-brand-mid inline-flex items-center justify-center gap-1.5" style={{ border: '0.5px solid var(--color-brand-border)', background: 'var(--color-brand-soft)' }}>
+                <IconExternalLink size={15} /> เปิดลิงก์สถานที่
+              </a>
+              <button onClick={pasteFromClipboard} disabled={pasteBusy}
+                className="flex-1 h-10 rounded-[9px] text-[12.5px] font-medium text-brand-mid inline-flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ border: '0.5px solid var(--color-brand-border)', background: 'var(--color-brand-soft)' }}>
+                {pasteBusy ? <IconLoader2 size={14} className="animate-spin" /> : <><IconClipboard size={15} /> วางพิกัด</>}
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="หรือพิมพ์เอง 25.13,121.75"
+                className="hairline rounded-[9px] text-[12px] h-9 px-3 bg-surface flex-1 min-w-0 outline-none focus:border-brand" inputMode="text" />
+              <button onClick={() => usePaste()} disabled={pasteBusy || !paste.trim()}
+                className="h-9 px-3.5 rounded-[9px] text-[12px] font-medium text-ink-2 shrink-0 inline-flex items-center gap-1 disabled:opacity-50" style={{ border: '0.5px solid var(--color-line)' }}>
+                {pasteBusy ? <IconLoader2 size={14} className="animate-spin" /> : 'ใช้'}
+              </button>
+            </div>
+          </div>
+        </details>
 
         <button onClick={confirm} disabled={!sel || busy} className="btn-primary w-full h-11 disabled:opacity-50">
           {busy ? 'กำลังบันทึก…' : 'ยืนยันพิกัดนี้ · ล็อกไว้'}

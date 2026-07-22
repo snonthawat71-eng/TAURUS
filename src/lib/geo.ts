@@ -174,17 +174,25 @@ export function localLang(country?: string | null): string {
   return ''
 }
 
-export async function resolveMapUrl(url: string, lang?: string): Promise<ResolvedPoint | null> {
+let resolveNonce = 0
+/** Resolve a short/redirect map link to its point + canonical name/address.
+ *  `force` skips every cache (memory, localStorage, and the CDN edge) and asks
+ *  the resolver again — Google's redirect is non-deterministic, so a link that
+ *  came back coordinate-less can succeed on a fresh retry. */
+export async function resolveMapUrl(url: string, lang?: string, force = false): Promise<ResolvedPoint | null> {
   const lg = (lang ?? '').trim()
   const ck = lg ? `${lg}:${url}` : url // cache per language — a zh-TW address differs from the EN one
-  if (linkCache.has(ck)) return linkCache.get(ck) ?? null
-  // "url6:" + "&v=6" bust every earlier cache generation (incl. pre-language
-  // romanized addresses that OSM couldn't match)
-  const ls = lsGet(`url6:${ck}`) as ResolvedPoint | null | undefined
-  if (ls !== undefined) { linkCache.set(ck, ls); return ls }
+  if (!force) {
+    if (linkCache.has(ck)) return linkCache.get(ck) ?? null
+    // "url6:" + "&v=6" bust every earlier cache generation (incl. pre-language
+    // romanized addresses that OSM couldn't match)
+    const ls = lsGet(`url6:${ck}`) as ResolvedPoint | null | undefined
+    if (ls !== undefined) { linkCache.set(ck, ls); return ls }
+  }
   let out: ResolvedPoint | null = null
   try {
-    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=6${lg ? `&lang=${encodeURIComponent(lg)}` : ''}`)
+    const bust = force ? `&fresh=${++resolveNonce}` : '' // dodge the CDN edge cache
+    const res = await fetch(`/api/resolve-map?url=${encodeURIComponent(url)}&v=6${lg ? `&lang=${encodeURIComponent(lg)}` : ''}${bust}`)
     if (res.ok) {
       const j = await res.json()
       if (typeof j.name === 'string' && j.name.trim()) linkNames.set(url, j.name.trim())
@@ -495,6 +503,7 @@ export interface GeoCandidate extends LatLng { source: string; label: string }
 export async function geoCandidates(o: {
   name?: string | null; address?: string | null; mapUrl?: string | null
   city?: string | null; country?: string | null; near?: LatLng | null
+  fresh?: boolean // force a cache-busting re-resolve of the link (retry button)
 }): Promise<GeoCandidate[]> {
   const name = (o.name ?? '').trim(), address = (o.address ?? '').trim()
   const city = (o.city ?? '').trim(), country = (o.country ?? '').trim()
@@ -508,7 +517,7 @@ export async function geoCandidates(o: {
   // resolving also stashes the canonical address, which we reuse below.
   const exact = latLngFromUrlExact(o.mapUrl ?? undefined)
   if (exact) push(exact, 'link', 'จากลิงก์แมพ')
-  else if (o.mapUrl && isMapLink(o.mapUrl)) push(await resolveMapUrl(o.mapUrl, localLang(country)), 'link', 'จากลิงก์แมพ')
+  else if (o.mapUrl && isMapLink(o.mapUrl)) push(await resolveMapUrl(o.mapUrl, localLang(country), o.fresh), 'link', 'พิกัดจากลิงก์ของคุณ')
   const addr = address || (o.mapUrl ? (resolvedLinkAddress(o.mapUrl) ?? '') : '')
   // the link's canonical NAME is often in the local script (e.g. 正濱漁港彩色屋)
   // — OSM in Asia indexes by that, so search it as well as the (English) name
