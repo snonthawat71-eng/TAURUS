@@ -4,7 +4,7 @@ import type { Flight, Train, HotelRoom, Trip } from './database.types'
 
 // Columns added by supabase/extra_columns.sql — the app still works before the
 // migration is run by stripping any column the API reports as unknown.
-const OPTIONAL_COLS = ['avatar_color', 'avatar_url', 'avatar_focus', 'year_goal', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone', 'direction', 'dep_tz', 'arr_tz', 'gate', 'car', 'seat_no', 'label', 'from_station', 'to_station', 'is_main', 'used', 'kind', 'note', 'iccid', 'link', 'privacy', 'user_id', 'segments']
+const OPTIONAL_COLS = ['avatar_color', 'avatar_url', 'avatar_focus', 'year_goal', 'onboarded', 'seat_class', 'seats', 'status', 'photo_path', 'flag', 'cities', 'currency', 'timezone', 'direction', 'dep_tz', 'arr_tz', 'gate', 'car', 'seat_no', 'label', 'from_station', 'to_station', 'is_main', 'used', 'kind', 'note', 'iccid', 'link', 'privacy', 'user_id', 'segments']
 
 function stripMentioned(payload: Record<string, unknown>, msg: string) {
   const copy = { ...payload }
@@ -153,6 +153,19 @@ export async function updateProfile(id: string, fields: { nickname?: string | nu
   if (res.error) {
     const stripped = stripMentioned({ ...fields }, res.error.message)
     if (stripped) res = await supabase.from('profiles').update(stripped).eq('id', id)
+  }
+  return res
+}
+
+/** First-run profile save for a brand-new signup: writes the identity AND flips
+ *  `onboarded` so the setup screen never shows again. Upsert because the row may
+ *  not exist yet. Degrades if `onboarded`/`avatar_url` aren't migrated. */
+export async function completeOnboarding(id: string, fields: { nickname: string; avatar_color: string; avatar_url?: string | null; avatar_focus?: string | null }) {
+  const payload: Record<string, unknown> = { id, ...fields, onboarded: true }
+  let res = await supabase.from('profiles').upsert(payload, { onConflict: 'id' })
+  if (res.error) {
+    const stripped = stripMentioned({ ...payload }, res.error.message)
+    if (stripped) { stripped.id = id; res = await supabase.from('profiles').upsert(stripped, { onConflict: 'id' }) }
   }
   return res
 }

@@ -1,8 +1,10 @@
-import { useEffect, useLayoutEffect } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { TaurusMark } from '@/components/TaurusMark'
 import { TripProvider } from '@/contexts/TripContext'
+import { ProfileSetup } from '@/components/ProfileSetup'
+import { supabase } from '@/lib/supabase'
 import Login from '@/pages/Login'
 import { AppShell } from '@/components/layout/AppShell'
 import TripsDashboard from '@/pages/TripsDashboard'
@@ -100,6 +102,43 @@ function PendingInviteRedirect() {
   return null
 }
 
+// Gate a brand-new signup into the profile-setup screen ONCE, before the app.
+// `profiles.onboarded` is false only for accounts created after the migration
+// (existing users are backfilled true); we cache the "done" flag per-user in
+// localStorage so returning users never pay a round-trip. Invite links bypass
+// the gate so joining a trip is never blocked. Missing column / any error →
+// treat as onboarded (feature stays dormant until supabase/onboarding.sql runs).
+function OnboardingGate({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  const [phase, setPhase] = useState<'checking' | 'setup' | 'ready'>('checking')
+
+  useEffect(() => {
+    if (!user) { setPhase('ready'); return }
+    if (window.location.pathname.startsWith('/join/')) { setPhase('ready'); return }
+    let alive = true
+    try { if (localStorage.getItem(`onboarded:${user.id}`) === '1') { setPhase('ready'); return } } catch { /* ignore */ }
+    ;(async () => {
+      const { data, error } = await supabase.from('profiles').select('onboarded').eq('id', user.id).maybeSingle()
+      if (!alive) return
+      if (error) { setPhase('ready'); return } // column not migrated → don't block
+      const done = !!data && (data as { onboarded?: boolean }).onboarded === true
+      if (done) { try { localStorage.setItem(`onboarded:${user.id}`, '1') } catch { /* ignore */ } }
+      setPhase(done ? 'ready' : 'setup')
+    })()
+    return () => { alive = false }
+  }, [user?.id])
+
+  if (phase === 'checking') {
+    return (
+      <div className="min-h-dvh grid place-items-center bg-canvas">
+        <span className="animate-pulse"><TaurusMark size={40} /></span>
+      </div>
+    )
+  }
+  if (phase === 'setup') return <ProfileSetup onDone={() => setPhase('ready')} />
+  return <>{children}</>
+}
+
 export default function App() {
   const { loading, session } = useAuth()
 
@@ -127,6 +166,7 @@ export default function App() {
   }
 
   return (
+    <OnboardingGate>
     <TripProvider>
       <BrowserRouter>
         <PendingInviteRedirect />
@@ -152,5 +192,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </TripProvider>
+    </OnboardingGate>
   )
 }

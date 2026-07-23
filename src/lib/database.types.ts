@@ -15,6 +15,9 @@ export interface Profile {
   /** optional — present after supabase/profile_page.sql; yearly trip goal per
    *  year, e.g. { "2026": 8 } — the target slot count for the travel bar */
   year_goal?: Record<string, number> | null
+  /** optional — present after supabase/onboarding.sql; false until a brand-new
+   *  signup finishes the first-run profile-setup screen */
+  onboarded?: boolean | null
   created_at: string
 }
 
