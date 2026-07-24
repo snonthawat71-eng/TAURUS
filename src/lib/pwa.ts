@@ -2,20 +2,29 @@ import { registerSW } from 'virtual:pwa-register'
 import { toast } from './toast'
 
 /**
- * Service-worker registration with a RELIABLE, user-controlled update prompt.
+ * Service-worker registration with a two-mode update policy:
  *
- * registerType is 'prompt': a new build waits until the user taps "อัปเดต".
- * The normal path is the SW's onNeedRefresh, but that depends on the browser
- * noticing a new worker at the right moment, which isn't reliable. So we ALSO
- * check the deployed index.html directly (cache-busted) and compare its hashed
- * main bundle to the one we're running — if they differ, a new build is live and
- * we show the bar. This runs on load, on focus/visibility, on reconnect, and on
- * a timer, so the "อัปเดต" bar appears every time there's a new version.
+ *  • AT BOOT — the user just opened the app and has nothing in progress, so a
+ *    newer live build is applied SILENTLY: download the new worker, activate
+ *    it, reload once. Fresh arrivals always land on the latest version without
+ *    ever seeing a prompt.
+ *  • MID-SESSION — a deploy that lands while the user is working must never
+ *    yank the app out from under them: show the "อัปเดต" bar and let them
+ *    choose when (checked on a timer, on focus/visibility, on reconnect).
  *
- * Tapping it activates the new worker and reloads (the Supabase session lives in
- * localStorage, so the user stays signed in).
+ * Both paths activate the new worker in LOCK-STEP: reload fires on
+ * controllerchange (the new worker actually took over), never on a blind
+ * timer — a fixed sleep used to reload into the OLD cached shell when the
+ * download hadn't finished, which re-showed the bar in a loop. A per-build
+ * sessionStorage marker breaks any residual silent-reload loop: one silent
+ * attempt per build, then fall back to the manual bar.
+ *
+ * (registerType stays 'prompt' in vite.config.ts — activation timing is fully
+ * ours via updateSW(true). The Supabase session lives in localStorage, so a
+ * reload keeps the user signed in.)
  */
 const CHECK_EVERY = 10 * 60 * 1000 // re-check for a new deploy every 10 min while open
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /** The hash of the main bundle the page is currently running (…/assets/index-XXXX.js). */
 function currentBuildTag(): string | null {
@@ -28,11 +37,12 @@ export function registerPWA() {
 
   let reg: ServiceWorkerRegistration | null = null
   let promptedFor: string | null = null
+  let updating = false // a silent boot update is in flight — suppress the bar
 
   const updateSW = registerSW({
     immediate: true,
     onRegisteredSW(_swUrl, r) { if (r) reg = r },
-    onNeedRefresh() { showBar() },
+    onNeedRefresh() { if (!updating) showBar() },
   })
 
   function showBar() {
@@ -44,33 +54,83 @@ export function registerPWA() {
     )
   }
 
-  async function applyUpdate() {
-    try { await reg?.update() } catch { /* offline */ }
-    await new Promise((r) => setTimeout(r, 1000)) // let the new worker reach "waiting"
-    try { await updateSW(true) } catch { /* no waiting worker */ }
-    setTimeout(() => location.reload(), 800) // hard fallback if the worker didn't reload us
+  /** Wait for the freshly-downloaded worker to reach "waiting" (installed). */
+  async function waitingWorker(timeoutMs: number): Promise<ServiceWorker | null> {
+    const t0 = Date.now()
+    while (Date.now() - t0 < timeoutMs) {
+      if (reg?.waiting) return reg.waiting
+      await sleep(250)
+    }
+    return reg?.waiting ?? null
   }
 
-  // Direct check against the live index.html — independent of SW timing.
-  async function checkForUpdate() {
+  /** Activate the waiting worker and reload IN LOCK-STEP: the reload fires on
+   *  controllerchange — i.e. the new worker really took over, so the reloaded
+   *  page is served by the NEW build. A short timer is only a hard fallback. */
+  async function activateAndReload(fallbackMs: number) {
+    let reloaded = false
+    const doReload = () => { if (!reloaded) { reloaded = true; location.reload() } }
+    navigator.serviceWorker.addEventListener('controllerchange', doReload, { once: true })
+    try { await updateSW(true) } catch { /* no waiting worker */ }
+    setTimeout(doReload, fallbackMs)
+  }
+
+  // manual path — the bar's "อัปเดต" button
+  async function applyUpdate() {
+    updating = true
+    try { await reg?.update() } catch { /* offline */ }
+    await waitingWorker(15_000) // wait for the real install, not a blind 1s
+    await activateAndReload(2_500)
+  }
+
+  /** Silent boot update. False only when the new worker never reached
+   *  "waiting" (download stuck/offline) — caller falls back to the bar. */
+  async function silentUpdate(): Promise<boolean> {
+    updating = true
+    try { await reg?.update() } catch { /* offline */ }
+    const w = await waitingWorker(20_000)
+    if (!w) { updating = false; return false }
+    await activateAndReload(2_500)
+    return true
+  }
+
+  /** The bundle hash of the LIVE deployment (cache-busted fetch of index.html). */
+  async function latestBuildTag(): Promise<string | null> {
+    try {
+      const res = await fetch(`/?_ts=${Date.now()}`, { cache: 'no-store' })
+      if (!res.ok) return null
+      return (await res.text()).match(/\/assets\/index-([\w-]+)\.js/)?.[1] ?? null
+    } catch { return null } // offline — ignore
+  }
+
+  async function checkForUpdate(atBoot = false) {
     reg?.update().catch(() => {}) // also nudge the normal SW path
     const cur = currentBuildTag()
     if (!cur) return // dev server / no hashed bundle
-    try {
-      const res = await fetch(`/?_ts=${Date.now()}`, { cache: 'no-store' })
-      if (!res.ok) return
-      const latest = (await res.text()).match(/\/assets\/index-([\w-]+)\.js/)?.[1]
-      if (latest && latest !== cur && promptedFor !== latest) {
-        promptedFor = latest
-        showBar()
+    const latest = await latestBuildTag()
+    if (!latest || latest === cur) return
+    if (atBoot) {
+      // one silent attempt per build per tab-session: if we already tried and
+      // are STILL on the old build, something's stuck — show the bar instead
+      // of reload-looping
+      const key = `sw-auto:${latest}`
+      let tried = false
+      try { tried = sessionStorage.getItem(key) === '1' } catch { /* ignore */ }
+      if (!tried) {
+        try { sessionStorage.setItem(key, '1') } catch { /* ignore */ }
+        if (await silentUpdate()) return
       }
-    } catch { /* offline — ignore */ }
+    }
+    if (promptedFor !== latest) {
+      promptedFor = latest
+      showBar()
+    }
   }
 
-  setInterval(checkForUpdate, CHECK_EVERY)
+  setInterval(() => checkForUpdate(), CHECK_EVERY)
   const onVisible = () => { if (document.visibilityState === 'visible') checkForUpdate() }
   document.addEventListener('visibilitychange', onVisible)
-  window.addEventListener('focus', checkForUpdate)
-  window.addEventListener('online', checkForUpdate)
-  setTimeout(checkForUpdate, 8 * 1000) // shortly after load, in case a deploy just landed
+  window.addEventListener('focus', () => checkForUpdate())
+  window.addEventListener('online', () => checkForUpdate())
+  checkForUpdate(true) // right at boot — a newer live build swaps in silently
 }
