@@ -166,9 +166,16 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
       writeJSON(SNAP_TRIPS, allTrips)
 
-      // Pick the current trip (saved, else first). No trip yet → empty state.
+      // Pick the current trip (saved, else first). No trip yet → empty state —
+      // but the profile (nickname/avatar/onboarded) is the user's own identity,
+      // not trip data, so it must load even with zero trips (e.g. right after
+      // first-run setup, before the user has created a trip at all).
       const current = allTrips.find((t) => t.id === currentTripIdRef.current) ?? allTrips[0]
-      if (!current) { setData(empty); return }
+      if (!current) {
+        const { data: soloProfile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+        setData({ ...empty, profile: (soloProfile as Profile) ?? null })
+        return
+      }
       if (current.id !== currentTripIdRef.current) {
         localStorage.setItem(STORAGE_KEY, current.id)
         setCurrentTripId(current.id)

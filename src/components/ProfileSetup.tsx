@@ -7,6 +7,7 @@ import { AVATAR_COLORS } from '@/lib/avatars'
 import { uploadPublicImage } from '@/lib/files'
 import { useAuth } from '@/contexts/AuthContext'
 import { completeOnboarding } from '@/lib/tripMutations'
+import { toast } from '@/lib/toast'
 
 /**
  * First-run screen shown ONCE to a brand-new signup (right after they confirm
@@ -38,12 +39,15 @@ export function ProfileSetup({ onDone }: { onDone: () => void }) {
   async function start() {
     if (!user || !nickname.trim()) return
     setBusy(true)
-    await completeOnboarding(user.id, {
+    const res = await completeOnboarding(user.id, {
       nickname: nickname.trim(), avatar_color: color,
       avatar_url: photo, avatar_focus: photo ? focus : null,
     })
-    try { localStorage.setItem(`onboarded:${user.id}`, '1') } catch { /* ignore */ }
     setBusy(false)
+    // never silently proceed on a failed write — the identity wouldn't be
+    // saved and the gate would still show setup again next time regardless
+    if (res.error) { toast.error('บันทึกไม่สำเร็จ — ลองอีกครั้ง: ' + res.error.message); return }
+    try { localStorage.setItem(`onboarded:${user.id}`, '1') } catch { /* ignore */ }
     onDone()
   }
 
