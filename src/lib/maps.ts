@@ -27,7 +27,11 @@ export function openMap(url: string | null | undefined) {
   // an Apple link, a name) → a Google Maps search so it NEVER lands in Apple Maps.
   let target: string
   if (isAmap(url) || isGoogle(url)) {
-    target = url
+    // legacy stamped pins used "…/maps?q=lat,lng" — NOT part of the Maps URLs
+    // API, and the Google Maps app rejects it as an unsupported link. Rewrite
+    // to the official search form at open time (heals old rows, no migration).
+    const coord = url.match(/google\.[a-z.]+\/maps\/?\?q=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i)
+    target = coord ? `https://www.google.com/maps/search/?api=1&query=${coord[1]},${coord[2]}` : url
   } else {
     const query = extractQuery(url) ?? url
     target = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`

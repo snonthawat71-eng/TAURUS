@@ -402,7 +402,7 @@ export default function TripMap() {
     // the place has NO link at all (stamp a coordinate URL so "นำทาง" still works).
     const pasted = sourceUrl ? latLngFromUrlExact(sourceUrl) : null
     const map_url = pasted && haversine(pasted, c) < 0.05 ? sourceUrl
-      : (!p.map_url ? `https://www.google.com/maps?q=${c.lat},${c.lng}` : undefined)
+      : (!p.map_url ? `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}` : undefined)
     setManualPin(p.id, c.lat, c.lng, map_url).catch(() => {})
     // an Explore-sourced place: lock this coordinate app-wide (source + every
     // copy in every trip) so the fix reaches everyone, not just this trip

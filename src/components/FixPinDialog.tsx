@@ -177,7 +177,7 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
     if (!place || !sel) return
     setBusy(true)
     // keep the user's link for navigation; only stamp a coord URL if there's none
-    const mapUrl = place.map_url ? undefined : `https://www.google.com/maps?q=${sel.lat},${sel.lng}`
+    const mapUrl = place.map_url ? undefined : `https://www.google.com/maps/search/?api=1&query=${sel.lat},${sel.lng}`
     await setManualPin(place.id, sel.lat, sel.lng, mapUrl)
     // one lock corrects this place EVERYWHERE — the Explore source + every copy
     // in every trip (all users), so nobody has to re-fix the same pin
