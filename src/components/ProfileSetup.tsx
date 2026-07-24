@@ -48,6 +48,7 @@ export function ProfileSetup({ onDone }: { onDone: () => void }) {
     // saved and the gate would still show setup again next time regardless
     if (res.error) { toast.error('บันทึกไม่สำเร็จ — ลองอีกครั้ง: ' + res.error.message); return }
     try { localStorage.setItem(`onboarded:${user.id}`, '1') } catch { /* ignore */ }
+    toast.success('บันทึกโปรไฟล์แล้ว ยินดีต้อนรับ!')
     onDone()
   }
 
