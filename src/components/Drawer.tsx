@@ -99,6 +99,11 @@ export function Drawer({
   }
 
   // Portal to <body> so no ancestor transform/backdrop-filter can clip or offset it.
+  //
+  // APP-WIDE STACKING ORDER — anything that opens FROM INSIDE a drawer must sit
+  // ABOVE this one, or the drawer covers it and its controls can't be tapped:
+  //   400 TripMap (fixed map)  ·  700 Drawer  ·  705 metro map pickers
+  //   706 Lightbox  ·  710 ConfirmHost  ·  720 Toaster
   return createPortal(
     <div className="fixed inset-0 z-[700]">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />

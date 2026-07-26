@@ -25,7 +25,7 @@ export function HKMapViewer({ onClose, onResult }: { onClose: () => void; onResu
     : []
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] bg-canvas flex flex-col">
+    <div className="fixed inset-0 z-[705] bg-canvas flex flex-col">
       <div className="flex items-center justify-between px-4 h-14 shrink-0" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
         <div className="text-[15px] font-medium">MTR ฮ่องกง · เลือกสถานี</div>
         <button onClick={onClose} className="btn-icon !border-0"><IconX size={18} /></button>

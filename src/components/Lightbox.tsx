@@ -66,7 +66,7 @@ export function Lightbox({ src, photos, index = 0, alt, onClose }: {
   if (!open) return null
   const url = resolved[cur]
   return createPortal(
-    <div className="fixed inset-0 z-[130] bg-black/85 grid place-items-center p-4"
+    <div className="fixed inset-0 z-[706] bg-black/85 grid place-items-center p-4"
       onClick={onClose}
       onTouchStart={(e) => { touchX.current = e.touches[0].clientX }}
       onTouchEnd={(e) => {
