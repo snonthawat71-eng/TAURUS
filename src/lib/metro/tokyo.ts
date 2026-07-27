@@ -4,9 +4,10 @@
 // รหัสเก็บแบบไม่มีขีด (G01, JY17) ตามที่ใช้บนป้ายจริง — วงกลมบนการ์ดจะได้แยก
 // "ตัวอักษร/ตัวเลข" ได้ถูก สถานีชื่อเดียวกันใช้ id เดียวกัน = จุดเปลี่ยนสาย
 //
-// กันออกจากไฟล์ต้นทาง 6 สาย เพราะข้อมูลขัดแย้งกันเอง (ดู docs): Negishi (รหัส JK
-// ชนกับ Keihin-Tohoku), Ueno-Tokyo / Utsunomiya / Takasaki (ใช้รหัส JU ชุดเดียวกัน
-// แต่คนละสถานี), Nambu (สถานีซ้ำ 3 คู่), Sagami (門沢橋 ซ้ำ 2 แถว)
+// กันออกจากไฟล์ต้นทาง 5 สาย เพราะข้อมูลขัดแย้งกันเอง: Ueno-Tokyo / Utsunomiya /
+// Takasaki (ใช้รหัส JU ชุดเดียวกันแต่คนละสถานี), Nambu (สถานีซ้ำ 3 คู่),
+// Sagami (門沢橋 ซ้ำ 2 แถว) — สายพวกนี้มีสถานีซ้ำ/ขัดกันในเนื้อข้อมูลเอง แก้ไม่ได้
+// โดยไม่เดา ส่วน Negishi เก็บไว้แบบไม่มีรหัส (ดูหมายเหตุที่ตัวสาย)
 // หมายเหตุ: สาย Oedo ในต้นฉบับมี Tsukishima ซ้ำที่ E17 และ E19 — คงไว้ตามต้นฉบับ
 import type { MetroNetwork, LineStation } from './types'
 
@@ -239,6 +240,18 @@ export const TOKYO: MetroNetwork = {
         s('hamamatsucho', 'Hamamatsucho', 'JK25'), s('tamachi', 'Tamachi', 'JK26'), s('takanawa-gateway', 'Takanawa Gateway', 'JK27'),
         s('shinagawa', 'Shinagawa', 'JK28'), s('oimachi', 'Oimachi', 'JK29'), s('omori', 'Omori', 'JK30'),
         s('kamata', 'Kamata', 'JK31'),
+      ],
+    },
+    {
+      // สาย JR ของแท้ — แต่ไฟล์ต้นทางให้รหัส JK12–JK23 ซึ่งเป็นของ
+      // Keihin-Tohoku อยู่แล้ว (คนละสถานีกัน) จึงเก็บชื่อ+ลำดับสถานีที่ถูกต้อง
+      // ไว้ แต่ไม่ใส่รหัส ดีกว่าใส่รหัสผิดแล้วไปทับสายอื่น
+      id: 'JK-negishi-line', name: 'JR Negishi Line', color: '#00B2E5',
+      stations: [
+        s('yokohama', 'Yokohama', ''), s('sakuragicho', 'Sakuragicho', ''), s('kannai', 'Kannai', ''),
+        s('ishikawacho', 'Ishikawacho', ''), s('yamate', 'Yamate', ''), s('negishi', 'Negishi', ''),
+        s('isogo', 'Isogo', ''), s('shin-sugita', 'Shin-Sugita', ''), s('yokodai', 'Yokodai', ''),
+        s('konandai', 'Konandai', ''), s('hongodai', 'Hongodai', ''), s('ofuna', 'Ofuna', ''),
       ],
     },
     {
