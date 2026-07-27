@@ -1,9 +1,7 @@
-import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { IconShare2, IconUserCircle, IconHome, IconWorldSearch } from '@tabler/icons-react'
+import { IconUserCircle, IconHome, IconWorldSearch } from '@tabler/icons-react'
 import { NAV_ITEMS } from './nav'
 import { TripSwitcher } from '@/components/TripSwitcher'
-import { ShareDialog } from '@/components/ShareDialog'
 import { FxWidget } from '@/components/FxWidget'
 import { useAuth } from '@/contexts/AuthContext'
 import { useUnreadNotifs } from '@/lib/useUnreadNotifs'
@@ -13,7 +11,6 @@ export function TopBar() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const unread = useUnreadNotifs(user?.id)
-  const [share, setShare] = useState(false)
 
   const current = NAV_ITEMS.find((n) => pathname.startsWith(n.to))
   const title = current?.label ?? 'TAURUS'
@@ -38,18 +35,12 @@ export function TopBar() {
         <button onClick={() => navigate('/')} className="btn-icon" aria-label="หน้าแรก" title="หน้าแรก">
           <IconHome size={16} />
         </button>
-        {/* แชร์ทริป */}
-        <button onClick={() => setShare(true)} className="btn-icon" aria-label="แชร์ทริป" title="แชร์ทริป">
-          <IconShare2 size={16} />
-        </button>
         {/* โปรไฟล์ของฉัน — ขวาสุด (จุดแดง = มีแจ้งเตือนยังไม่อ่าน) */}
         <button onClick={() => navigate('/profile')} className="btn-icon relative" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
           <IconUserCircle size={16} />
           {unread && <span className="absolute top-1 right-1 size-2 rounded-full bg-[#EF4444]" style={{ boxShadow: '0 0 0 2px var(--color-canvas)' }} />}
         </button>
       </div>
-
-      <ShareDialog open={share} onClose={() => setShare(false)} />
     </header>
   )
 }
