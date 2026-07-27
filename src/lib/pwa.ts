@@ -24,6 +24,16 @@ import { toast } from './toast'
 const CHECK_EVERY = 10 * 60 * 1000 // re-check for a new deploy every 10 min while open
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+export type UpdateCheck = 'updating' | 'latest' | 'offline'
+let manualCheck: (() => Promise<UpdateCheck>) | null = null
+
+/** Check for a new build ON DEMAND (ตั้งค่าโปรไฟล์ → ตรวจหาอัปเดต). The bar is
+ *  still the normal path — this is the manual backstop for when it doesn't pop
+ *  up (offline at the moment of the deploy, a tab left open for days, …). */
+export async function checkForUpdateNow(): Promise<UpdateCheck> {
+  return manualCheck ? manualCheck() : 'latest'
+}
+
 /** The hash of the main bundle the page is currently running (…/assets/index-XXXX.js). */
 function currentBuildTag(): string | null {
   const src = Array.from(document.scripts).map((s) => s.src).find((s) => /\/assets\/index-[\w-]+\.js/.test(s))
@@ -89,6 +99,19 @@ export function registerPWA() {
         showBar()
       }
     } catch { /* offline — ignore */ }
+  }
+
+  manualCheck = async () => {
+    const cur = currentBuildTag()
+    let latest: string | null = null
+    try {
+      const res = await fetch(`/?_ts=${Date.now()}`, { cache: 'no-store' })
+      if (res.ok) latest = (await res.text()).match(/\/assets\/index-([\w-]+)\.js/)?.[1] ?? null
+    } catch { return 'offline' }
+    if (!latest) return 'offline'
+    if (cur && latest === cur) return 'latest'
+    void applyUpdate() // installs, then reloads once the new worker takes over
+    return 'updating'
   }
 
   setInterval(checkForUpdate, CHECK_EVERY)

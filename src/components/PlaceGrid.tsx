@@ -8,7 +8,7 @@ import { PlaceDetail } from './PlaceDetail'
 import { SaveToTripDialog } from './SaveToTripDialog'
 import { AddToDayDialog } from './AddToDayDialog'
 import { QuickExplorePicker } from './QuickExplorePicker'
-import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
+import { addPlace, updatePlace, deletePlaceDeep, setInPlan, toggleInterest } from '@/lib/placeMutations'
 import { addExplore, searchExploreSimilar, placeAsExploreInput } from '@/lib/exploreMutations'
 import { confirmDialog, alertDialog } from '@/lib/confirm'
 import { IconWorldShare, IconCircleCheck } from '@tabler/icons-react'
@@ -34,7 +34,7 @@ export function PlaceGrid({
   query?: string
   onQuery?: (q: string) => void
 }) {
-  const { trip, places, interests, memberProfiles, reload, patch, canEdit, myPermission } = useTrip()
+  const { trip, places, stops, interests, memberProfiles, reload, patch, canEdit, myPermission } = useTrip()
   const { user } = useAuth()
   const mode: CardMode = canEdit ? 'edit' : myPermission === 'places' ? 'pin' : 'view'
   const [dim, setDim] = useState<Dim>('none')
@@ -154,11 +154,31 @@ export function PlaceGrid({
     }))
     toggleInterest(p.id, user.id, mine).then(() => reload())
   }
+  /** Stops in the plan that came from this place (matched by name) — used to
+   *  warn before deleting, since they go with it. */
+  const stopsOf = (p: Place) => {
+    const n = (p.name ?? '').trim().toLowerCase()
+    return n ? stops.filter((s) => (s.place_name ?? '').trim().toLowerCase() === n) : []
+  }
+
   async function remove(p: Place) {
-    if (!(await confirmDialog({ message: 'ลบรายการนี้?', danger: true, confirmLabel: 'ลบ' }))) return
+    const planned = stopsOf(p).length
+    if (!(await confirmDialog({
+      message: planned
+        ? `ลบรายการนี้? จะถูกเอาออกจาก Itinerary ${planned} จุดด้วย`
+        : 'ลบรายการนี้?',
+      danger: true, confirmLabel: 'ลบ',
+    }))) return
     patch((d) => ({ places: d.places.filter((x) => x.id !== p.id) })) // vanish instantly
-    await deletePlace(p.id); await reload()
-    offerUndo('ลบรายการแล้ว', [{ table: 'places', rows: [p] }], reload)
+    // deleting from Places/Food must clear it from the plan too, or the stop
+    // lingers in the Itinerary pointing at something that no longer exists
+    const { stops: removed } = await deletePlaceDeep(p, stopsOf(p))
+    await reload()
+    offerUndo(
+      removed.length ? `ลบรายการแล้ว · เอาออกจาก Itinerary ${removed.length} จุด` : 'ลบรายการแล้ว',
+      [{ table: 'places', rows: [p] }, { table: 'itinerary_stops', rows: removed }],
+      reload,
+    )
   }
   // Share a place we added into the public Explore pool — but first warn if the
   // same spot looks like it's already there, so we don't flood it with dupes.
@@ -374,7 +394,7 @@ export function PlaceGrid({
           }
           await reload()
         }}
-        onDelete={editor && editor !== 'new' ? async () => { await deletePlace(editor.id); await reload() } : undefined}
+        onDelete={editor && editor !== 'new' ? async () => { await deletePlaceDeep(editor, stopsOf(editor)); await reload() } : undefined}
       />
 
       {(() => {

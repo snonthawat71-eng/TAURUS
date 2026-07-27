@@ -3,7 +3,7 @@ import { updateWithVersion } from './concurrency'
 import { runOrQueue } from './offlineQueue'
 import { toastDbError } from './toast'
 import { latLngFromUrl, latLngFromUrlExact, isMapLink, resolveMapUrl } from './geo'
-import type { Place } from './database.types'
+import type { ItineraryStop, Place } from './database.types'
 
 export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
 
@@ -71,6 +71,33 @@ export async function setManualPin(id: string, lat: number, lng: number, mapUrl?
 
 export async function deletePlace(id: string) {
   return runOrQueue(() => supabase.from('places').delete().eq('id', id), { kind: 'delete', table: 'places', id })
+}
+
+/** The itinerary stops that were created from a place — matched by name within
+ *  the same trip (a stop stores the name, not a foreign key). Used to keep the
+ *  plan in sync when the place itself is deleted. */
+export async function stopsForPlace(place: Place): Promise<ItineraryStop[]> {
+  const name = (place.name ?? '').trim()
+  if (!name || !place.trip_id) return []
+  const { data } = await supabase.from('itinerary_stops')
+    .select('*').eq('trip_id', place.trip_id).eq('place_name', name)
+  return (data ?? []) as ItineraryStop[]
+}
+
+/** Delete a place AND the itinerary stops that came from it — deleting it from
+ *  Places/Food should take it out of the plan too, otherwise the stop lingers
+ *  in the Itinerary pointing at something that no longer exists. Returns the
+ *  removed stops so the caller's undo can put them back with their original
+ *  ids (day_id/position stay valid). */
+export async function deletePlaceDeep(place: Place, known?: ItineraryStop[]): Promise<{ stops: ItineraryStop[] }> {
+  // prefer the caller's already-loaded stops (matched case-insensitively, and
+  // exactly what the user was warned about); fall back to a server lookup
+  const stops = known ?? await stopsForPlace(place)
+  if (stops.length) {
+    await supabase.from('itinerary_stops').delete().in('id', stops.map((s) => s.id))
+  }
+  await deletePlace(place.id)
+  return { stops }
 }
 
 /** Copy a place (from a shared trip / Explore) into one of the user's own trips.
