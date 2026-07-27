@@ -26,6 +26,17 @@ import { toast } from './toast'
 const CHECK_EVERY = 10 * 60 * 1000 // re-check for a new deploy every 10 min while open
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+export type UpdateCheck = 'updating' | 'latest' | 'offline'
+let manualCheck: (() => Promise<UpdateCheck>) | null = null
+
+/** Force an update check from the UI (Settings → ตรวจหาอัปเดต). Silent boot
+ *  updates mean the prompt bar normally never appears — this guarantees there
+ *  is ALWAYS a way to pull a new build by hand, even if the silent path is
+ *  stuck (offline at boot, a worker that never reached "waiting", …). */
+export async function checkForUpdateNow(): Promise<UpdateCheck> {
+  return manualCheck ? manualCheck() : 'latest'
+}
+
 /** The hash of the main bundle the page is currently running (…/assets/index-XXXX.js). */
 function currentBuildTag(): string | null {
   const src = Array.from(document.scripts).map((s) => s.src).find((s) => /\/assets\/index-[\w-]+\.js/.test(s))
@@ -125,6 +136,15 @@ export function registerPWA() {
       promptedFor = latest
       showBar()
     }
+  }
+
+  manualCheck = async () => {
+    const cur = currentBuildTag()
+    const latest = await latestBuildTag()
+    if (!latest) return 'offline'
+    if (cur && latest === cur) return 'latest'
+    void applyUpdate() // installs, then reloads on controllerchange
+    return 'updating'
   }
 
   setInterval(() => checkForUpdate(), CHECK_EVERY)
