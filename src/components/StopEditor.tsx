@@ -172,6 +172,7 @@ export function StopEditor({
     setBranchIdx(null)
     setLinkMode('map')
     setAutoFilled(false)
+    setOpenCard(null)
   }
 
   function pickPlanned(id: string) {
@@ -181,25 +182,31 @@ export function StopEditor({
     // tap the selected card again to deselect — and clear what it filled in,
     // otherwise the name/link/note of a place you just unpicked gets saved
     if (pickedId === id) { clearPick(); return }
+    const url = planMapUrl(p) ?? '' // branch picked for the plan, else main
     setPickedId(id)
     setPlace(p.name ?? '')
-    setMapUrl(planMapUrl(p) ?? '') // branch picked for the plan, else main
+    setMapUrl(url)
     setBranchIdx(p.plan_branch ?? null) // that place's default branch
     setNote(p.note ?? '')
     setLinkMode('detail')
     setAutoFilled(false)
+    // the place came with a link → unfold the section so the เปิดแผนที่ /
+    // ดูรายละเอียด / ไม่มี choice is right there instead of hidden in a fold
+    setOpenCard(url ? 'link' : null)
   }
 
   // a place just quick-added from Explore — it's now in the plan (and Places/Food);
   // pre-select it for this stop so the user can save right away
   function onQuickPicked(pick: QuickPick) {
+    const url = pick.map_url ?? ''
     setPickedId(pick.id)
     setBranchIdx(null) // freshly collected — no branch chosen yet
     setPlace(pick.name ?? '')
-    setMapUrl(pick.map_url ?? '')
+    setMapUrl(url)
     setNote(pick.note ?? '')
     setLinkMode('detail')
     setAutoFilled(false)
+    setOpenCard(url ? 'link' : null)
   }
 
   async function save() {
