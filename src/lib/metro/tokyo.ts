@@ -9,7 +9,7 @@
 // ชุดสถานีของตัวเอง) และลำดับในต้นฉบับก็มี Omiya ซ้ำ 2 แถว
 // Nambu ใช้ชุดที่แก้แล้ว (JN01–JN26) · Negishi/Utsunomiya/Takasaki เก็บ
 // สถานีครบแต่ใส่รหัสเฉพาะช่วงที่ข้อมูลไม่ขัดกัน · JU ใช้ชุดที่แก้แล้ว
-// (ช่วงร่วม JU01–JU07 แล้วแยกสาขาที่ JU08) — ข้าม 'JU20 Kogae?' ที่ยังไม่สมบูรณ์
+// (ช่วงร่วม JU01–JU07 แล้วแยกสาขาที่ JU08) — JU20 Kogae ยืนยันโดยผู้ใช้ (ยังไม่มีชื่อ JP)
 // หมายเหตุ: สาย Oedo ในต้นฉบับมี Tsukishima ซ้ำที่ E17 และ E19 — คงไว้ตามต้นฉบับ
 import type { MetroNetwork, LineStation } from './types'
 
@@ -281,9 +281,9 @@ export const TOKYO: MetroNetwork = {
         s('akabane', 'Akabane', 'JU04'), s('urawa', 'Urawa', 'JU05'), s('saitama-shintoshin', 'Saitama-Shintoshin', 'JU06'),
         s('omiya', 'Omiya', 'JU07'), s('higashi-omiya', 'Higashi-Omiya', 'JU08'), s('hasuda', 'Hasuda', 'JU09'),
         s('shiraoka', 'Shiraoka', 'JU10'), s('shin-shiraoka', 'Shin-Shiraoka', 'JU11'), s('kuki', 'Kuki', 'JU12'),
-        s('higashi-washinomiya', 'Higashi-Washinomiya', 'JU13'), s('koganei', 'Koganei', 'JU14'), s('oyama', 'Oyama', 'JU15'),
-        s('mamada', 'Mamada', 'JU16'), s('nogi', 'Nogi', 'JU17'), s('koga', 'Koga', 'JU18'),
-        s('kurihashi', 'Kurihashi', 'JU19'),
+        s('higashi-washinomiya', 'Higashi-Washinomiya', 'JU13'), s('kurihashi', 'Kurihashi', 'JU14'), s('koga', 'Koga', 'JU15'),
+        s('nogi', 'Nogi', 'JU16'), s('mamada', 'Mamada', 'JU17'), s('oyama', 'Oyama', 'JU18'),
+        s('koganei', 'Koganei', 'JU19'), s('kogae', 'Kogae', 'JU20'),
       ],
     },
     {
