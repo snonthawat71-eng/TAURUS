@@ -57,7 +57,13 @@ export function getTransitSuggestions(trip: Trip | null | undefined): TransitSug
 
 /** Look up the per-line station code (e.g. "BR09", "M16") for a line+station
  *  pair, scanning every built-in network. Returns null when unknown — networks
- *  without codes (HK/Shanghai/Shenzhen), or a custom value the user typed. */
+ *  without codes (HK/Shanghai/Shenzhen), or a custom value the user typed.
+ *
+ *  The stored JR codes carry a "JR-" prefix purely to keep them from colliding
+ *  with Metro codes internally (New Tram P09–P18 vs JR Yumesaki P14–P17). It is
+ *  dropped here so the UI shows the line symbol + station number the way the
+ *  roundels expect — "O01", not "JR-O01" — which is also how JR West prints it
+ *  on the actual station signs. */
 export function stationCode(line: string | null | undefined, station: string | null | undefined): string | null {
   if (!line || !station) return null
   const ln = line.trim().toLowerCase()
@@ -65,7 +71,7 @@ export function stationCode(line: string | null | undefined, station: string | n
   for (const n of NETWORKS) {
     const l = n.lines.find((x) => x.name.toLowerCase() === ln)
     const s = l?.stations.find((x) => x.name.toLowerCase() === sn && x.num)
-    if (s?.num) return s.num
+    if (s?.num) return s.num.replace(/^JR-/i, '')
   }
   return null
 }
