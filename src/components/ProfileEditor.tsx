@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconLogout, IconCheck, IconCamera, IconLoader2, IconTrash, IconCrop, IconTargetArrow, IconSun, IconMoon, IconDeviceMobile, IconRefresh } from '@tabler/icons-react'
+import { IconLogout, IconCheck, IconCamera, IconLoader2, IconTrash, IconCrop, IconTargetArrow, IconSun, IconMoon, IconDeviceMobile } from '@tabler/icons-react'
 import { themePref, setThemePref, type ThemePref } from '@/lib/theme'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
@@ -10,8 +10,6 @@ import { supabase } from '@/lib/supabase'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { updateProfile, claimTraveler } from '@/lib/tripMutations'
-import { checkForUpdateNow } from '@/lib/pwa'
-import { toast } from '@/lib/toast'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
@@ -36,7 +34,6 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
   const [cropping, setCropping] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [checking, setChecking] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -61,16 +58,6 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
   function removePhoto() { setPhoto(null); setFocus(null); setCropping(false) }
 
   const myTraveler = scope === 'trip' && user ? travelers.find((t) => t.user_id === user.id) : undefined
-
-  // New builds normally install themselves when the app is opened, so the
-  // "อัปเดต" bar rarely shows — this is the always-available manual path.
-  async function checkUpdate() {
-    setChecking(true)
-    const r = await checkForUpdateNow()
-    if (r === 'updating') toast.success('เจอเวอร์ชันใหม่ — กำลังอัปเดต แล้วจะรีเฟรชให้เอง')
-    else if (r === 'offline') toast.error('ตรวจไม่ได้ตอนนี้ — เช็คอินเทอร์เน็ตแล้วลองใหม่')
-    else { toast.success('ใช้เวอร์ชันล่าสุดอยู่แล้ว'); setChecking(false) }
-  }
 
   async function save() {
     if (!user) return
@@ -185,17 +172,6 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
             </div>
           </div>
         )}
-
-        {/* เวอร์ชันแอป — ปกติอัปเดตให้เองตอนเปิดแอป ปุ่มนี้ไว้บังคับเช็คเอง */}
-        <button onClick={checkUpdate} disabled={checking}
-          className="w-full flex items-center gap-2.5 rounded-[10px] px-3 h-11 text-left disabled:opacity-60"
-          style={{ background: 'var(--color-surface-2)' }}>
-          {checking ? <IconLoader2 size={15} className="animate-spin text-ink-3 shrink-0" /> : <IconRefresh size={15} className="text-brand shrink-0" />}
-          <div className="min-w-0 flex-1">
-            <div className="text-[12.5px] font-medium">{checking ? 'กำลังตรวจ…' : 'ตรวจหาอัปเดต'}</div>
-            <div className="text-[10.5px] text-ink-3">ปกติแอปอัปเดตให้เองตอนเปิด — กดถ้าอยากเช็คเดี๋ยวนี้</div>
-          </div>
-        </button>
 
         <div className="text-[11px] text-ink-3">อีเมล: {user?.email}</div>
         <button onClick={save} disabled={busy || !nickname} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
