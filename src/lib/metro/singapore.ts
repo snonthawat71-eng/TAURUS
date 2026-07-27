@@ -2,8 +2,13 @@
 // suggestions: ชื่อสาย สีทางการของ LTA รหัสสถานี และลำดับสถานีภาษาอังกฤษ
 // รวม Circle Line Stage 6 (CC30 Keppel, CC31 Cantonment, CC32 Prince Edward
 // Road — เปิด 12 ก.ค. 2026) ซึ่งทำให้ Marina Bay = CC33 และ Bayfront = CC34
-// (รหัสเดิม CE1/CE2 เลิกใช้แล้ว) ไม่รวม LRT และไม่รวมช่วงที่ยังไม่เปิด
-// (TEL Stage 5, DTL3 Extension) สถานีที่อยู่หลายสายใช้ id เดียวกัน = interchange
+// (รหัสเดิม CE1/CE2 เลิกใช้แล้ว)
+//
+// รวมช่วงที่ยังไม่เปิดให้บริการ ณ วันที่ทำข้อมูลไว้ด้วย — TEL Stage 5 (TE30 Bedok
+// South, TE31 Sungei Bedok) และ DTL3 Extension (DT36 Xilin, DT37 Sungei Bedok)
+// รหัสมาจากเอกสารต้นทางโดยตรง ไม่ได้เดา; Sungei Bedok เป็นสถานีเปลี่ยนสาย
+// TE↔DT จึงใช้ node เดียวกัน ส่วน LRT ยังไม่รวม
+// สถานีที่อยู่หลายสายใช้ id เดียวกัน = interchange
 import type { MetroNetwork, LineStation } from './types'
 
 const s = (id: string, name: string, num: string): LineStation => ({ id, name, num })
@@ -86,6 +91,7 @@ export const SINGAPORE: MetroNetwork = {
         s('kaki-bukit', 'Kaki Bukit', 'DT28'), s('bedok-north', 'Bedok North', 'DT29'), s('bedok-reservoir', 'Bedok Reservoir', 'DT30'),
         s('tampines-west', 'Tampines West', 'DT31'), s('tampines', 'Tampines', 'DT32'), s('tampines-east', 'Tampines East', 'DT33'),
         s('upper-changi', 'Upper Changi', 'DT34'), s('expo', 'Expo', 'DT35'),
+        s('xilin', 'Xilin', 'DT36'), s('sungei-bedok', 'Sungei Bedok', 'DT37'),
       ],
     },
     {
@@ -100,6 +106,7 @@ export const SINGAPORE: MetroNetwork = {
         s('marina-bay', 'Marina Bay', 'TE20'), s('gardens-by-the-bay', 'Gardens by the Bay', 'TE22'), s('tanjong-rhu', 'Tanjong Rhu', 'TE23'),
         s('katong-park', 'Katong Park', 'TE24'), s('tanjong-katong', 'Tanjong Katong', 'TE25'), s('marine-parade', 'Marine Parade', 'TE26'),
         s('marine-terrace', 'Marine Terrace', 'TE27'), s('siglap', 'Siglap', 'TE28'), s('bayshore', 'Bayshore', 'TE29'),
+        s('bedok-south', 'Bedok South', 'TE30'), s('sungei-bedok', 'Sungei Bedok', 'TE31'),
       ],
     },
   ],
