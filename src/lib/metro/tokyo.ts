@@ -4,7 +4,7 @@
 // รหัสเก็บแบบไม่มีขีด (G01, JY17) ตามที่ใช้บนป้ายจริง — วงกลมบนการ์ดจะได้แยก
 // "ตัวอักษร/ตัวเลข" ได้ถูก สถานีชื่อเดียวกันใช้ id เดียวกัน = จุดเปลี่ยนสาย
 //
-// กันออก 2 สาย: Sagami (門沢橋 ซ้ำ 2 แถว) และ Ueno-Tokyo — ตัวหลังเป็น
+// กันออกสายเดียว: Ueno-Tokyo — เป็น
 // through-service ที่วิ่งทับสาย Utsunomiya/Takasaki (เป็น 'เส้นทาง' ไม่ใช่
 // ชุดสถานีของตัวเอง) และลำดับในต้นฉบับก็มี Omiya ซ้ำ 2 แถว
 // Nambu ใช้ชุดที่แก้แล้ว (JN01–JN26) · Negishi/Utsunomiya/Takasaki เก็บ
@@ -294,6 +294,17 @@ export const TOKYO: MetroNetwork = {
         s('kita-konosu', 'Kita-Konosu', ''), s('fukiage', 'Fukiage', ''), s('kumagaya', 'Kumagaya', ''),
         s('kagohara', 'Kagohara', ''), s('fukaya', 'Fukaya', ''), s('honjo', 'Honjo', ''),
         s('takasaki', 'Takasaki', 'JU16'),
+      ],
+    },
+    {
+      // หมายเหตุ: ต้นฉบับให้ชื่อญี่ปุ่น 門沢橋 ซ้ำที่ CA06 และ CA07 — ชื่ออังกฤษ
+      // ต่างกันและเราเก็บเฉพาะอังกฤษ จึงไม่กระทบ (CA06 Motosamukawa ยังน่าสงสัย)
+      id: 'CA-sagami-line', name: 'CA Sagami Line', color: '#009879',
+      stations: [
+        s('chigasaki', 'Chigasaki', 'CA01'), s('kita-chigasaki', 'Kita-Chigasaki', 'CA02'), s('kagawa', 'Kagawa', 'CA03'),
+        s('miyayama', 'Miyayama', 'CA04'), s('kurami', 'Kurami', 'CA05'), s('motosamukawa', 'Motosamukawa', 'CA06'),
+        s('kadosawabashi', 'Kadosawabashi', 'CA07'), s('atsugi', 'Atsugi', 'CA08'), s('ebina', 'Ebina', 'CA09'),
+        s('harataima', 'Harataima', 'CA10'), s('hashimoto', 'Hashimoto', 'CA11'),
       ],
     },
     {
