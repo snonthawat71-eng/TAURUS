@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   IconCheck, IconLoader2, IconHeartFilled, IconX, IconBuildingStore, IconChevronLeft, IconMapPin,
   IconBookmark, IconClipboardCheck,
@@ -81,9 +81,29 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   // Taipei spot into a Tokyo trip. Trips it's already saved in stay listed so
   // un-saving still works. No location on the place → can't filter, show all.
   const placeTokens = [place?.city, place?.country].map(norm).filter(Boolean)
-  const shownTrips = placeTokens.length === 0
+  const matching = placeTokens.length === 0
     ? myTrips
     : myTrips.filter((t) => tripMatchesPlace(t, placeTokens) || done.has(t.id))
+
+  /** A trip that already ended — hardly anyone saves into one, so it sinks to
+   *  the bottom and is shown quietly. Same rule as the home dashboard's
+   *  Upcoming/Past split (ends before today = past). */
+  const isPast = (t: Trip) => {
+    if (!t.start_date) return false // undated trips are still being planned
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    return new Date(t.end_date || t.start_date).getTime() < today.getTime()
+  }
+  // upcoming/current first (soonest first), finished trips last (most recent first)
+  const shownTrips = useMemo(() => {
+    // undated trips sort last among the live ones (a dated trip coming up is the
+    // likelier target), never to the very top
+    const key = (t: Trip) => (t.start_date ? new Date(t.start_date).getTime() : Number.POSITIVE_INFINITY)
+    const live = matching.filter((t) => !isPast(t)).sort((a, b) => key(a) - key(b))
+    const done_ = matching.filter(isPast).sort((a, b) => key(b) - key(a))
+    return [...live, ...done_]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matching])
+  const firstPastId = shownTrips.find(isPast)?.id
 
   const branches = place?.branches ?? []
   const hasBranches = branches.length > 0
@@ -232,10 +252,21 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
             {shownTrips.map((t) => {
               const saved = done.has(t.id)
               const removable = saved && !!sourceExploreId // can only un-save explore-sourced copies
+              const past = isPast(t)
               return (
-                <button key={t.id} onClick={() => tapTrip(t.id)} disabled={busyId === t.id || (saved && !removable)}
+                <Fragment key={t.id}>
+                {/* finished trips sit below a quiet divider — rarely the target */}
+                {t.id === firstPastId && (
+                  <div className="flex items-center gap-2 pt-2 pb-0.5">
+                    <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
+                    <span className="text-[10.5px] text-ink-3">ทริปที่ผ่านไปแล้ว</span>
+                    <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
+                  </div>
+                )}
+                <button onClick={() => tapTrip(t.id)} disabled={busyId === t.id || (saved && !removable)}
                   title={removable ? 'แตะเพื่อเอาออกจากทริปนี้' : undefined}
-                  className="relative w-full flex items-center gap-2.5 card p-3 text-left enabled:hover:bg-surface-2/40">
+                  className={['relative w-full flex items-center gap-2.5 card p-3 text-left enabled:hover:bg-surface-2/40',
+                    past ? 'opacity-60' : ''].join(' ')}>
                   <span className="text-[20px] shrink-0">{t.flag || countryFlag(t.country)}</span>
                   <div className="min-w-0 flex-1">
                     <div className="text-[14px] font-medium truncate">{t.name}</div>
@@ -251,6 +282,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
                     : <span className="btn-link text-[12px]">เซฟที่นี่</span>}
                   {saved && !removable && <div className="absolute inset-0 rounded-[12px] pointer-events-none" style={{ background: 'rgba(120,118,110,0.16)' }} />}
                 </button>
+                </Fragment>
               )
             })}
           </div>
