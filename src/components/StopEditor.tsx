@@ -15,7 +15,8 @@ import type { StopInput } from '@/lib/mutations'
 // there's no frame-inside-a-frame. The two optional parts fold away into the
 // same SectionCard the other editors use, keeping the form one screen tall.
 const field = 'rounded-[11px] text-[13px] h-10 px-3 bg-surface-2 w-full outline-none border-0 focus:[box-shadow:inset_0_0_0_1.5px_var(--color-brand)]'
-const groupLabel = 'block text-[10px] font-extrabold tracking-[0.09em] uppercase text-ink-3 mb-1.5'
+// same size/weight as `lbl` in the place & Explore editors, so every form reads alike
+const groupLabel = 'block text-[11px] text-ink-3 mb-1.5'
 
 /** What tapping the stop's name does — also the folded section's summary. */
 const LINK_MODE_LABEL: Record<string, string> = {
