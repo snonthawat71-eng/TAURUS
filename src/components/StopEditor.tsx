@@ -161,11 +161,25 @@ export function StopEditor({
     if (url) { setMapUrl(url); setLinkMode('detail') }
   }
 
+  /** Undo everything picking a place filled in. Time and หลัก/สำรอง are the
+   *  user's own input, not the place's, so they stay. */
+  function clearPick() {
+    setPickedId(null)
+    setPlace('')
+    setMapUrl('')
+    setNote('')
+    setBranchIdx(null)
+    setLinkMode('map')
+    setAutoFilled(false)
+  }
+
   function pickPlanned(id: string) {
     if (drag.current.moved) return // ignore the click that ends a drag
     const p = inPlan.find((x) => x.id === id)
     if (!p) return
-    if (pickedId === id) { setPickedId(null); return } // tap again to deselect
+    // tap the selected card again to deselect — and clear what it filled in,
+    // otherwise the name/link/note of a place you just unpicked gets saved
+    if (pickedId === id) { clearPick(); return }
     setPickedId(id)
     setPlace(p.name ?? '')
     setMapUrl(planMapUrl(p) ?? '') // branch picked for the plan, else main
@@ -205,27 +219,25 @@ export function StopEditor({
       <div>
         {/* ── จากสถานที่ในแพลน ───────────────────────────────── */}
         <div className="pb-4">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className={groupLabel}>จากสถานที่ในแพลน</span>
-            {inPlan.length > 0 && (
-              <div className="ml-auto inline-flex p-0.5 rounded-full bg-surface-2 shrink-0">
+          <span className={groupLabel}>จากสถานที่ในแพลน</span>
+          {inPlan.length > 0 && (
+            <div className="flex items-center gap-2 mb-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
+              <div className="inline-flex p-0.5 rounded-full bg-surface-2 shrink-0">
                 {([['all', 'ทั้งหมด'], ['place', 'Places'], ['food', 'Food']] as const).map(([v, label]) => (
                   <button key={v} onClick={() => setGroupFilter(v)}
-                    className={['px-2.5 h-6 rounded-full text-[11px] font-semibold transition-colors',
+                    className={['px-3 h-7 rounded-full text-[12px] font-semibold transition-colors',
                       groupFilter === v ? 'bg-surface shadow-sm text-ink' : 'text-ink-3'].join(' ')}>
                     {label}
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-          {inPlan.length > 0 && cities.length > 0 && (
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-1.5 -mx-1 px-1">
-              {[{ key: 'all', label: 'ทั้งหมด' }, ...cities.map((c) => ({ key: c, label: c }))].map((c) => (
-                <button key={c.key} onClick={() => setCityFilter(c.key)}
-                  className={['px-2.5 h-6 rounded-full text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors',
-                    cityFilter === c.key ? 'bg-brand-soft text-brand-dark' : 'text-ink-3'].join(' ')}>
-                  {c.label}
+              {/* cities sit on the SAME row — each one toggles, so there's no
+                  second "ทั้งหมด" chip fighting the one in the group switch */}
+              {cities.map((c) => (
+                <button key={c} onClick={() => setCityFilter((cur) => (cur === c ? 'all' : c))}
+                  className={['px-3 h-7 rounded-full text-[12px] font-semibold whitespace-nowrap shrink-0 transition-colors',
+                    cityFilter === c ? 'bg-brand-soft text-brand-dark' : 'text-ink-3'].join(' ')}>
+                  {c}
                 </button>
               ))}
             </div>
