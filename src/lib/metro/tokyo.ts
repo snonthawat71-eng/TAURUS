@@ -4,10 +4,10 @@
 // รหัสเก็บแบบไม่มีขีด (G01, JY17) ตามที่ใช้บนป้ายจริง — วงกลมบนการ์ดจะได้แยก
 // "ตัวอักษร/ตัวเลข" ได้ถูก สถานีชื่อเดียวกันใช้ id เดียวกัน = จุดเปลี่ยนสาย
 //
-// กันออกจากไฟล์ต้นทาง 5 สาย เพราะข้อมูลขัดแย้งกันเอง: Ueno-Tokyo / Utsunomiya /
-// Takasaki (ใช้รหัส JU ชุดเดียวกันแต่คนละสถานี), Nambu (สถานีซ้ำ 3 คู่),
-// Sagami (門沢橋 ซ้ำ 2 แถว) — สายพวกนี้มีสถานีซ้ำ/ขัดกันในเนื้อข้อมูลเอง แก้ไม่ได้
-// โดยไม่เดา ส่วน Negishi เก็บไว้แบบไม่มีรหัส (ดูหมายเหตุที่ตัวสาย)
+// กันออกจากไฟล์ต้นทาง 4 สาย เพราะข้อมูลขัดแย้งกันเอง: Ueno-Tokyo / Utsunomiya /
+// Takasaki (ใช้รหัส JU ชุดเดียวกันแต่คนละสถานี), Sagami (門沢橋 ซ้ำ 2 แถว)
+// — แก้ไม่ได้โดยไม่เดา ส่วน Negishi เก็บไว้แบบไม่มีรหัส (ดูหมายเหตุที่ตัวสาย)
+// Nambu ใช้ชุดที่แก้แล้ว (JN01–JN26 ต่อเนื่อง ไม่มีสถานีซ้ำ)
 // หมายเหตุ: สาย Oedo ในต้นฉบับมี Tsukishima ซ้ำที่ E17 และ E19 — คงไว้ตามต้นฉบับ
 import type { MetroNetwork, LineStation } from './types'
 
@@ -252,6 +252,20 @@ export const TOKYO: MetroNetwork = {
         s('ishikawacho', 'Ishikawacho', ''), s('yamate', 'Yamate', ''), s('negishi', 'Negishi', ''),
         s('isogo', 'Isogo', ''), s('shin-sugita', 'Shin-Sugita', ''), s('yokodai', 'Yokodai', ''),
         s('konandai', 'Konandai', ''), s('hongodai', 'Hongodai', ''), s('ofuna', 'Ofuna', ''),
+      ],
+    },
+    {
+      id: 'JN-nambu-line', name: 'JN Nambu Line', color: '#FFD400',
+      stations: [
+        s('kawasaki', 'Kawasaki', 'JN01'), s('shitte', 'Shitte', 'JN02'), s('yako', 'Yako', 'JN03'),
+        s('kashimada', 'Kashimada', 'JN04'), s('hirama', 'Hirama', 'JN05'), s('mukogaoka-yuen', 'Mukogaoka-Yuen', 'JN06'),
+        s('musashi-kosugi', 'Musashi-Kosugi', 'JN07'), s('musashi-nakahara', 'Musashi-Nakahara', 'JN08'), s('musashi-shinjo', 'Musashi-Shinjo', 'JN09'),
+        s('musashi-mizonokuchi', 'Musashi-Mizonokuchi', 'JN10'), s('tsudayama', 'Tsudayama', 'JN11'), s('kuji', 'Kuji', 'JN12'),
+        s('shukugawara', 'Shukugawara', 'JN13'), s('noborito', 'Noborito', 'JN14'), s('nakanoshima', 'Nakanoshima', 'JN15'),
+        s('inadazutsumi', 'Inadazutsumi', 'JN16'), s('yanokuchi', 'Yanokuchi', 'JN17'), s('inagi-naganuma', 'Inagi-Naganuma', 'JN18'),
+        s('minami-tama', 'Minami-Tama', 'JN19'), s('fuchu-hommachi', 'Fuchu-Hommachi', 'JN20'), s('bubaigawara', 'Bubaigawara', 'JN21'),
+        s('nishi-fu', 'Nishi-Fu', 'JN22'), s('yaho', 'Yaho', 'JN23'), s('yagawa', 'Yagawa', 'JN24'),
+        s('nishi-kunitachi', 'Nishi-Kunitachi', 'JN25'), s('tachikawa', 'Tachikawa', 'JN26'),
       ],
     },
     {
