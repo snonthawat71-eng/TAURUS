@@ -30,9 +30,12 @@ export const TRIP_COVER_IMAGES: Record<string, string> = {
 
 // Cover images for the Explore "country" cards. Keyed by the CANONICAL country
 // name (see canonicalCountry in countries.ts) — e.g. 'Japan', not 'ญี่ปุ่น'.
-// Left empty on purpose: until a country gets its own photo here, its card
-// falls back to the photo of the city it has the most places in.
-export const COUNTRY_IMAGES: Record<string, string> = {}
+// A country without an entry here falls back to the photo of the city it has
+// the most places in.
+export const COUNTRY_IMAGES: Record<string, string> = {
+  'China': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1785145212/travelling-china_im6r2p.jpg',
+  'Japan': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1785145207/tommy-silver-cCw6KQVJnyU-unsplash_jpazah.jpg',
+}
 
 const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
 
