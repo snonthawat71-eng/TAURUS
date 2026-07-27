@@ -1,4 +1,5 @@
 import { catTabKey, FOOD_CATEGORIES } from './placeMeta'
+import { canonicalCountry } from './countries'
 import type { PopStat } from './exploreMutations'
 import type { ExplorePlace } from './database.types'
 
@@ -6,12 +7,16 @@ import type { ExplorePlace } from './database.types'
 export interface ExploreFilterState {
   group: 'all' | 'place' | 'food'
   cat: string
+  /** canonical country name ('all' = every country, '' = the "ไม่ระบุ" bucket).
+   *  Doubles as the browser's drill-down state: a country other than 'all' means
+   *  the city rail is showing that country's cities. */
+  country: string
   city: string
   sort: 'new' | 'old' | 'popular'
   q: string
 }
 
-export const initialExploreFilter: ExploreFilterState = { group: 'all', cat: 'all', city: 'all', sort: 'new', q: '' }
+export const initialExploreFilter: ExploreFilterState = { group: 'all', cat: 'all', country: 'all', city: 'all', sort: 'new', q: '' }
 
 /** Does an item match the chosen subcategory? Food filters by the *detailed*
  *  category (ร้านอาหาร, คาเฟ่, …); places by their category tab. */
@@ -30,6 +35,7 @@ export function filterExplore(items: ExplorePlace[], f: ExploreFilterState, pop:
   const filtered = items
     .filter((e) => f.group === 'all' || e.group_type === f.group)
     .filter((e) => matchCat(e, f))
+    .filter((e) => f.country === 'all' || canonicalCountry(e.country) === f.country)
     .filter((e) => f.city === 'all' || e.city === f.city)
     .filter((e) => !q || [e.name, e.note, e.city, e.country].some((v) => (v ?? '').toLowerCase().includes(q)))
   if (f.sort === 'popular') return [...filtered].sort((a, b) => (pop.get(b.id)?.score ?? 0) - (pop.get(a.id)?.score ?? 0))

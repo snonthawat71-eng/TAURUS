@@ -28,7 +28,22 @@ export const TRIP_COVER_IMAGES: Record<string, string> = {
   'Singapore': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1783503354/9_v5zwny.jpg',
 }
 
+// Cover images for the Explore "country" cards. Keyed by the CANONICAL country
+// name (see canonicalCountry in countries.ts) — e.g. 'Japan', not 'ญี่ปุ่น'.
+// Left empty on purpose: until a country gets its own photo here, its card
+// falls back to the photo of the city it has the most places in.
+export const COUNTRY_IMAGES: Record<string, string> = {}
+
 const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
+
+/** Country-card cover. `undefined` means "no dedicated photo yet" — the caller
+ *  falls back to a city photo from that country. */
+export function countryImage(name: string): string | undefined {
+  if (!name) return undefined
+  const target = norm(name)
+  const hit = Object.keys(COUNTRY_IMAGES).find((k) => norm(k) === target)
+  return hit ? COUNTRY_IMAGES[hit] : undefined
+}
 
 export function cityImage(name: string): string | undefined {
   if (!name) return undefined

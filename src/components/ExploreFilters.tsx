@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   IconWorldSearch, IconMapPin, IconFlame, IconSearch, IconX,
-  IconChevronDown, IconCheck, IconLayoutGrid,
+  IconChevronDown, IconChevronLeft, IconCheck, IconLayoutGrid,
   IconSortDescending2, IconSortAscending2,
 } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { hscroll } from '@/lib/hscroll'
-import { cityImage } from '@/lib/cityImages'
+import { cityImage, countryImage } from '@/lib/cityImages'
+import { canonicalCountry, countryFlag } from '@/lib/countries'
 import { PLACE_TABS, FOOD_GROUPS, CATEGORY, type CategoryTab } from '@/lib/placeMeta'
 import type { ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace } from '@/lib/database.types'
@@ -117,22 +118,59 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
 }) {
   const [seen, setSeen] = useState<Record<string, string>>(() => (userId ? loadSeen(userId) : {}))
 
-  const cities = useMemo(() => {
+  // Cities grouped under their canonical country — the browser shows countries
+  // first and drills into one country's cities. Insertion order is preserved,
+  // so both rails stay ordered newest-shared-first like the list itself.
+  const countries = useMemo(() => {
     const now = Date.now()
-    const m = new Map<string, { sample: ExplorePlace; fresh: boolean; newestAt: string }>()
+    type Agg = { sample: ExplorePlace; fresh: boolean; newestAt: string; count: number }
+    const byCountry = new Map<string, Map<string, Agg>>()
     for (const e of items) {
       if (!e.city) continue
+      const key = canonicalCountry(e.country)
       const at = e.created_at ?? ''
       const fresh = !!at && now - new Date(at).getTime() < NEW_CITY_WINDOW_MS
+      let m = byCountry.get(key)
+      if (!m) { m = new Map(); byCountry.set(key, m) }
       const cur = m.get(e.city)
-      if (!cur) m.set(e.city, { sample: e, fresh, newestAt: at })
-      else { if (fresh) cur.fresh = true; if (at > cur.newestAt) cur.newestAt = at }
+      if (!cur) m.set(e.city, { sample: e, fresh, newestAt: at, count: 1 })
+      else { if (fresh) cur.fresh = true; if (at > cur.newestAt) cur.newestAt = at; cur.count++ }
     }
-    return Array.from(m.entries()).map(([name, v]) => ({
-      name, photo: cityImage(name) ?? v.sample.photo_url, newestAt: v.newestAt,
-      isNew: v.fresh && (!seen[name] || v.newestAt > seen[name]),
-    }))
+    return Array.from(byCountry.entries()).map(([key, m]) => {
+      const cities = Array.from(m.entries()).map(([name, v]) => ({
+        name, photo: cityImage(name) ?? v.sample.photo_url, newestAt: v.newestAt, count: v.count,
+        isNew: v.fresh && (!seen[name] || v.newestAt > seen[name]),
+      }))
+      // no dedicated country photo yet → borrow the one from the city this
+      // country has the most places in (COUNTRY_IMAGES in cityImages.ts wins)
+      const top = [...cities].sort((a, b) => b.count - a.count)[0]
+      return {
+        key,
+        label: key || 'ไม่ระบุประเทศ',
+        flag: key ? countryFlag(key) : '🌍',
+        photo: (key ? countryImage(key) : undefined) ?? top?.photo,
+        // a country is "new" when any city inside it is — otherwise there'd be
+        // no way to tell which country to open to find the new places
+        isNew: cities.some((c) => c.isNew),
+        cities,
+      }
+    })
   }, [items, seen])
+
+  const current = f.country === 'all' ? null : countries.find((c) => c.key === f.country) ?? null
+  // a country with one city has nothing to drill into — tapping its card filters
+  // straight to that city and the rail stays on countries
+  const drilled = !!current && current.cities.length > 1
+  // hold the last opened country mounted so the city rail slides OUT with its
+  // cards still in it, instead of emptying the instant you tap back
+  const [lastKey, setLastKey] = useState<string | null>(null)
+  useEffect(() => { if (drilled && current) setLastKey(current.key) }, [drilled, current?.key]) // eslint-disable-line react-hooks/exhaustive-deps
+  // while closed, keep rendering the country we just left so its cards slide out
+  // with it — swapping to a different country mid-exit would look like a glitch
+  const openCountry = drilled ? current : countries.find((c) => c.key === lastKey) ?? null
+
+  const cardStyle = (on: boolean) => ({ border: `1.5px solid ${on ? 'var(--color-brand)' : 'var(--color-line)'}` })
+  const cardCls = 'relative shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface'
 
   function markSeen(name: string, newestAt: string) {
     if (!userId || !newestAt) return
@@ -176,7 +214,16 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
       {/* search */}
       <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
         <IconSearch size={16} className="text-ink-3" />
-        <input value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="ค้นหาสถานที่ / ร้าน / เมือง / โน้ต"
+        <input value={f.q}
+          onChange={(e) => {
+            const q = e.target.value
+            // starting a search while a country is open would hide the matches
+            // that live elsewhere — pop back to every country on the first
+            // character typed (drilling in again afterwards still works)
+            const opening = !f.q.trim() && !!q.trim() && f.country !== 'all'
+            set(opening ? { q, country: 'all', city: 'all' } : { q })
+          }}
+          placeholder="ค้นหาสถานที่ / ร้าน / เมือง / โน้ต"
           className="flex-1 bg-transparent text-[13px] outline-none" />
         {f.q && <button onClick={() => set({ q: '' })} aria-label="ล้างคำค้นหา" className="text-ink-3 hover:text-ink-2"><IconX size={15} /></button>}
       </div>
@@ -220,31 +267,91 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
         )}
       </div>
 
-      {/* city tabs (cards, inline) */}
-      {cities.length > 0 && (
-        <div ref={hscroll} className="flex gap-2.5 overflow-x-auto no-scrollbar mb-4 pb-1">
-          <button onClick={() => set({ city: 'all' })}
-            className="shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
-            style={{ border: `1.5px solid ${f.city === 'all' ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
-            <div className="h-20 grid place-items-center bg-surface-2"><IconWorldSearch size={24} className="text-ink-3" /></div>
-            <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">ทุกเมือง</div>
-          </button>
-          {cities.map((c) => (
-            <button key={c.name} onClick={() => { set({ city: c.name }); markSeen(c.name, c.newestAt) }}
-              className="relative shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
-              style={{ border: `1.5px solid ${f.city === c.name ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
-              {c.isNew && (
-                <span className="absolute top-1.5 right-1.5 z-10 inline-flex items-center rounded-full bg-[#EF4444] text-white text-[9px] font-semibold leading-none px-1.5 py-1 shadow">
-                  new
-                </span>
-              )}
-              <div className="h-20">
-                <SignedImage url={c.photo} alt={c.name} className="w-full h-full object-cover" width={240}
-                  fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconMapPin size={20} className="text-ink-3" /></div>} />
+      {/* Country → city browser. The two rails swap inside one slot: the country
+          rail slides out left, the city rail slides in from the right. The
+          country rail stays in flow (just hidden) so the row height never
+          changes and the list below never jumps. */}
+      {countries.length > 0 && (
+        <div className="relative overflow-hidden mb-4">
+          {/* countries */}
+          <div className={['rail-layer slide-left', drilled ? 'is-hidden' : ''].join(' ')}>
+            <div ref={hscroll} className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+              <button onClick={() => set({ country: 'all', city: 'all' })}
+                className={cardCls} style={cardStyle(f.country === 'all')}>
+                <div className="h-20 grid place-items-center bg-surface-2"><IconWorldSearch size={24} className="text-ink-3" /></div>
+                <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">ทุกประเทศ</div>
+              </button>
+              {countries.map((c) => {
+                const solo = c.cities.length === 1
+                const on = f.country === c.key
+                return (
+                  <button key={c.key}
+                    onClick={() => {
+                      // one city → no drill-down, tap filters that city directly
+                      // (and tapping again clears it); many cities → open the rail
+                      if (!solo) { set({ country: c.key, city: 'all' }); return }
+                      if (on) { set({ country: 'all', city: 'all' }); return }
+                      set({ country: c.key, city: c.cities[0].name })
+                      markSeen(c.cities[0].name, c.cities[0].newestAt)
+                    }}
+                    className={cardCls} style={cardStyle(on)}>
+                    {c.isNew && (
+                      <span className="absolute top-1.5 right-1.5 z-10 inline-flex items-center rounded-full bg-[#EF4444] text-white text-[9px] font-semibold leading-none px-1.5 py-1 shadow">
+                        new
+                      </span>
+                    )}
+                    <div className="h-20 relative">
+                      <SignedImage url={c.photo} alt={c.label} className="w-full h-full object-cover" width={240}
+                        fallback={<div className="w-full h-full grid place-items-center bg-surface-2 text-[26px] leading-none">{c.flag}</div>} />
+                      {/* flag corner — tells a country card apart from a city card
+                          while countries still borrow their cities' photos */}
+                      <span className="absolute bottom-1 left-1 text-[13px] leading-none"
+                        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.55))' }}>{c.flag}</span>
+                    </div>
+                    <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">{c.label}</div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* cities of the opened country — this layer is always mounted (empty
+              until the first drill) so the class flip has something to animate */}
+          <div className={['rail-layer slide-right absolute inset-0', drilled ? '' : 'is-hidden'].join(' ')}>
+            {openCountry && (
+              <div key={openCountry.key} ref={hscroll} className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+                {/* back to the country rail — carries the country's own name so
+                    there's no extra header row eating vertical space */}
+                <button onClick={() => set({ country: 'all', city: 'all' })}
+                  className="shrink-0 w-[68px] rounded-[12px] bg-surface flex flex-col items-center justify-center gap-1 text-ink-2 hover:bg-surface-2"
+                  style={{ border: '1.5px solid var(--color-line)' }}>
+                  <IconChevronLeft size={18} />
+                  <span className="text-[15px] leading-none">{openCountry.flag}</span>
+                  <span className="text-[10px] font-semibold leading-none truncate max-w-[60px] px-1">{openCountry.label}</span>
+                </button>
+                <button onClick={() => set({ city: 'all' })}
+                  className={cardCls} style={cardStyle(f.city === 'all')}>
+                  <div className="h-20 grid place-items-center bg-surface-2"><IconWorldSearch size={24} className="text-ink-3" /></div>
+                  <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">ทุกเมือง</div>
+                </button>
+                {openCountry.cities.map((c) => (
+                  <button key={c.name} onClick={() => { set({ city: c.name }); markSeen(c.name, c.newestAt) }}
+                    className={cardCls} style={cardStyle(f.city === c.name)}>
+                    {c.isNew && (
+                      <span className="absolute top-1.5 right-1.5 z-10 inline-flex items-center rounded-full bg-[#EF4444] text-white text-[9px] font-semibold leading-none px-1.5 py-1 shadow">
+                        new
+                      </span>
+                    )}
+                    <div className="h-20">
+                      <SignedImage url={c.photo} alt={c.name} className="w-full h-full object-cover" width={240}
+                        fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconMapPin size={20} className="text-ink-3" /></div>} />
+                    </div>
+                    <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">{c.name}</div>
+                  </button>
+                ))}
               </div>
-              <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">{c.name}</div>
-            </button>
-          ))}
+            )}
+          </div>
         </div>
       )}
     </>

@@ -262,6 +262,40 @@ html[data-theme='dark'] {
   }
 }
 
+/* Explore country → city browser (ExploreFilters): two card rails swapping in
+   one slot. The hidden rail keeps its space so the row height never changes.
+   `visibility` flips only once the slide has finished, so the outgoing rail
+   stays visible while it leaves but can't be tapped or tabbed into after. */
+.rail-layer {
+  transition:
+    transform 0.32s cubic-bezier(0.22, 0.9, 0.28, 1),
+    opacity 0.22s ease,
+    visibility 0s linear 0s;
+}
+.rail-layer.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 0.32s cubic-bezier(0.22, 0.9, 0.28, 1),
+    opacity 0.22s ease,
+    visibility 0s linear 0.32s;
+}
+.rail-layer.slide-left.is-hidden {
+  transform: translateX(-22%);
+}
+.rail-layer.slide-right.is-hidden {
+  transform: translateX(22%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-layer,
+  .rail-layer.is-hidden {
+    transition: none;
+    transform: none;
+  }
+}
+
 /* Hide scrollbars on horizontal tab strips while keeping scroll */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
