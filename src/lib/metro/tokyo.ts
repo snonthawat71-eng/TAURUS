@@ -4,9 +4,8 @@
 // รหัสเก็บแบบไม่มีขีด (G01, JY17) ตามที่ใช้บนป้ายจริง — วงกลมบนการ์ดจะได้แยก
 // "ตัวอักษร/ตัวเลข" ได้ถูก สถานีชื่อเดียวกันใช้ id เดียวกัน = จุดเปลี่ยนสาย
 //
-// กันออกสายเดียว: Ueno-Tokyo — เป็น
-// through-service ที่วิ่งทับสาย Utsunomiya/Takasaki (เป็น 'เส้นทาง' ไม่ใช่
-// ชุดสถานีของตัวเอง) และลำดับในต้นฉบับก็มี Omiya ซ้ำ 2 แถว
+// นำเข้าครบทุกสายจากไฟล์ต้นทาง · Ueno-Tokyo ใช้ช่วง JU01–JU07 จากตาราง
+// shared (ลิสต์เดิมของสายนี้มี Omiya ซ้ำและลำดับสับสน จึงไม่ใช้)
 // Nambu ใช้ชุดที่แก้แล้ว (JN01–JN26) · Negishi/Utsunomiya/Takasaki เก็บ
 // สถานีครบแต่ใส่รหัสเฉพาะช่วงที่ข้อมูลไม่ขัดกัน · JU ใช้ชุดที่แก้แล้ว
 // (ช่วงร่วม JU01–JU07 แล้วแยกสาขาที่ JU08) — JU20 Kogae ยืนยันโดยผู้ใช้ (ยังไม่มีชื่อ JP)
@@ -301,6 +300,17 @@ export const TOKYO: MetroNetwork = {
         s('kumagaya', 'Kumagaya', 'JU16'), s('kagohara', 'Kagohara', 'JU17'), s('fukaya', 'Fukaya', 'JU18'),
         s('okabe', 'Okabe', 'JU19'), s('honjo', 'Honjo', 'JU20'), s('jimbohara', 'Jimbohara', 'JU21'),
         s('shinmachi', 'Shinmachi', 'JU22'), s('kuragano', 'Kuragano', 'JU23'), s('takasaki', 'Takasaki', 'JU24'),
+      ],
+    },
+    {
+      // through-service ที่เชื่อม Tokyo↔Ueno แล้ววิ่งต่อเข้าสาย Utsunomiya/
+      // Takasaki — ช่วงของตัวเองคือ JU01–JU07 ตามตาราง shared ทุกสถานีอ้างถึง
+      // node เดิมที่สองสายนั้นใช้อยู่แล้ว จึงไม่เกิดสถานีซ้ำ (กฎข้อ 3)
+      id: 'JU-ju-ueno-tokyo-line', name: 'JU Ueno-Tokyo Line', color: '#F68B1E',
+      stations: [
+        s('tokyo', 'Tokyo', 'JU01'), s('ueno', 'Ueno', 'JU02'), s('oku', 'Oku', 'JU03'),
+        s('akabane', 'Akabane', 'JU04'), s('urawa', 'Urawa', 'JU05'), s('saitama-shintoshin', 'Saitama-Shintoshin', 'JU06'),
+        s('omiya', 'Omiya', 'JU07'),
       ],
     },
     {
