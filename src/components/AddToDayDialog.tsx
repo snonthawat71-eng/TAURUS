@@ -6,14 +6,16 @@ import { addStop } from '@/lib/mutations'
 import { setInPlan } from '@/lib/placeMutations'
 import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
+import { branchesOf, hasOwnLocation as placeHasOwnLocation } from '@/lib/branches'
 import type { Place } from '@/lib/database.types'
 
 /**
  * Pick which itinerary day to schedule a place on when adding it to the plan.
  * Choosing a day appends the place as a stop on that day (and flags it in_plan);
  * "ใส่ในแพลนเฉย ๆ" just flags it without scheduling a day.
- * Multi-branch places first ask WHICH branch — the choice is stored in
- * plan_branch so map links point at that branch, not the main location.
+ * Multi-branch places ask WHICH branch. The choice is stored on the STOP
+ * (branch_idx) so one place can be scheduled on several days at different
+ * branches, and mirrored to places.plan_branch as the default for next time.
  */
 export function AddToDayDialog({ place, open, onClose }: {
   place: Place | null
@@ -23,8 +25,8 @@ export function AddToDayDialog({ place, open, onClose }: {
   const { trip, days, stops, reload } = useTrip()
   const [busy, setBusy] = useState<string | null>(null)
 
-  const branches = place?.branches ?? []
-  const hasOwnLocation = !!(place && (place.map_url || place.station_name || place.station_line))
+  const branches = branchesOf(place)
+  const hasOwnLocation = placeHasOwnLocation(place)
   // which branch to plan; null = main location. Default: main when it exists,
   // else the first branch (same rule as the detail view).
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
@@ -45,7 +47,11 @@ export function AddToDayDialog({ place, open, onClose }: {
     const pos = stops.filter((s) => s.day_id === dayId).length
     await addStop(trip.id, dayId, pos, {
       place_name: place.name, map_url: selBranch?.map_url || place.map_url, note: place.note, link_mode: 'detail',
+      // per-VISIT branch: the same place can be scheduled on another day at a
+      // different branch without the two overwriting each other
+      branch_idx: branchIdx,
     })
+    // keep the place-level choice as the DEFAULT for the next visit
     await setInPlan(place.id, true, branchIdx)
     await reload()
     setBusy(null)

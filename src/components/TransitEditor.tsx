@@ -48,12 +48,15 @@ function routesOf(p: Place): ExploreRoute[] {
 }
 
 export function TransitEditor({
-  open, onClose, initial, placeName, onSave,
+  open, onClose, initial, placeName, branchIdx, onSave,
 }: {
   open: boolean
   onClose: () => void
   initial: Transit | null
   placeName?: string | null
+  /** which branch THIS visit goes to (from the stop) — the route should be
+   *  suggested for that branch, not for the place's default one */
+  branchIdx?: number | null
   onSave: (transit: Transit | null) => Promise<void>
 }) {
   const { trip, places } = useTrip()
@@ -221,7 +224,10 @@ export function TransitEditor({
               const mains = routesOf(p).map((r): Opt => ({
                 label: 'ที่ตั้งหลัก', sub: [r.line, r.station].filter(Boolean).join(' · '), color: r.color, r,
               }))
-              const li = p.plan_branch != null && branches[p.plan_branch] ? p.plan_branch : null
+              // this VISIT's branch wins over the place's default (a chain can be
+              // scheduled at different branches on different days)
+              const prefer = branchIdx ?? p.plan_branch
+              const li = prefer != null && branches[prefer] ? prefer : null
               if (li != null && p === matched) {
                 branchAsk = { listed: bOpts[li], others: [...bOpts.filter((_, bi) => bi !== li), ...mains] }
               }
@@ -253,12 +259,12 @@ export function TransitEditor({
                 <div className="card p-2 mt-1.5 space-y-1">
                   {branchAsk ? (
                     <>
-                      <div className={lbl}>ร้านนี้มีหลายสาขา — ไปสาขาที่เลือกไว้ในแพลนมั้ย?</div>
+                      <div className={lbl}>ร้านนี้มีหลายสาขา — ใช้สาขาที่เลือกไว้ของวันนี้มั้ย?</div>
                       <button onClick={() => applyRoute(branchAsk!.listed.r)}
                         className="w-full flex items-center gap-2 px-2 h-10 rounded-md text-[12.5px] text-left"
                         style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)', color: 'var(--color-brand-dark)' }}>
                         <span className="size-2.5 rounded-full shrink-0" style={{ background: branchAsk.listed.color ?? '#888780' }} />
-                        <span className="truncate font-semibold">ไปสาขาที่เลือกไว้ · {branchAsk.listed.label}</span>
+                        <span className="truncate font-semibold">สาขาของวันนี้ · {branchAsk.listed.label}</span>
                         {branchAsk.listed.sub && <span className="ml-auto text-[10.5px] truncate max-w-[120px] shrink-0 opacity-75">{branchAsk.listed.sub}</span>}
                       </button>
                       {branchAsk.others.length > 0 && (

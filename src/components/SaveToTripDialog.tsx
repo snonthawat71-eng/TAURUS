@@ -103,18 +103,22 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, sourceExploreId])
 
-  // which screen we're on — first unanswered question wins
+  // Which screen we're on — first unanswered question wins. NB the branch is
+  // asked only AFTER "เซฟลงแพลน": saving to the list is just collecting the
+  // place, and which branch you'll actually go to isn't known yet (it's decided
+  // per day, on the stop). Keeps a plain list-save at one tap.
+  const needBranch = wantPlan && hasBranches && branch === undefined
   const screen: 'trip' | 'branch' | 'mode' | 'day' =
     !tripId ? 'trip'
-      : hasBranches && branch === undefined ? 'branch'
-        : !wantPlan ? 'mode'
+      : !wantPlan ? 'mode'
+        : needBranch ? 'branch'
           : 'day'
 
   // the stepper only lists steps that actually apply to THIS save
   const steps = [
     { key: 'trip', label: 'ทริป' },
-    ...(hasBranches ? [{ key: 'branch', label: 'สาขา' }] : []),
     { key: 'mode', label: 'วิธีเซฟ' },
+    ...(wantPlan && hasBranches ? [{ key: 'branch', label: 'สาขา' }] : []),
     ...(wantPlan ? [{ key: 'day', label: 'วัน' }] : []),
   ]
   const curStep = steps.findIndex((s) => s.key === screen)
@@ -130,7 +134,10 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
       const br = b != null ? place.branches?.[b] : null
       const { count } = await supabase.from('itinerary_stops')
         .select('id', { count: 'exact', head: true }).eq('day_id', dayId)
-      await addStop(tripId, dayId, count ?? 0, { place_name: place.name, map_url: br?.map_url || place.map_url })
+      await addStop(tripId, dayId, count ?? 0, {
+        place_name: place.name, map_url: br?.map_url || place.map_url,
+        branch_idx: b, // per-visit, so other days can use another branch
+      })
     }
     if (sourceExploreId && user) logExploreEvent(sourceExploreId, user.id, 'save')
     setDone((prev) => new Set(prev).add(tripId))
@@ -173,13 +180,13 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   }
 
   function back() {
-    if (screen === 'day') { setWantPlan(false); setDays(null); return }
-    if (screen === 'mode') {
-      if (hasBranches) setBranch(undefined)
-      else setTripId(null)
-      return
+    // day → back to the branch question when there was one, else to วิธีเซฟ
+    if (screen === 'day') {
+      if (hasBranches) { setBranch(undefined); return }
+      setWantPlan(false); setDays(null); return
     }
-    if (screen === 'branch') { setTripId(null); setBranch(undefined) }
+    if (screen === 'branch') { setWantPlan(false); setDays(null); setBranch(undefined); return }
+    if (screen === 'mode') setTripId(null)
   }
 
   const savingTrip = tripId ? myTrips.find((t) => t.id === tripId) : null
@@ -254,6 +261,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
       {screen === 'branch' && (
         <div className="space-y-1.5">
           <div className="text-[13.5px] font-semibold mb-2">ไปสาขาไหน?</div>
+          <p className="text-[11px] text-ink-3 -mt-1 mb-1">เลือกสำหรับแพลนนี้ — วันอื่นเปลี่ยนเป็นสาขาอื่นได้</p>
           {hasOwnLocation && (
             <button onClick={() => setBranch(null)} disabled={busy} className={optionCard}>
               {optionIcon(<IconMapPin size={16} />)}

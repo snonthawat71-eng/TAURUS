@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconCheck, IconClock, IconCompass, IconLink, IconLoader2, IconNotes, IconTag, IconX } from '@tabler/icons-react'
+import { IconBuildingStore, IconCheck, IconClock, IconCompass, IconLink, IconLoader2, IconNotes, IconTag, IconX } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { QuickExplorePicker, type QuickPick } from './QuickExplorePicker'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
-import { planMapUrl } from '@/lib/branches'
+import { planMapUrl, branchesOf, hasOwnLocation } from '@/lib/branches'
 import { nameFromMapUrl, resolveMapName, isMapLink } from '@/lib/geo'
 import type { StopInput } from '@/lib/mutations'
 
@@ -42,6 +42,8 @@ export function StopEditor({
   const [groupFilter, setGroupFilter] = useState<'all' | 'place' | 'food'>('all')
   const [quickOpen, setQuickOpen] = useState(false)
   const [autoFilled, setAutoFilled] = useState(false)
+  // WHICH branch of a multi-branch place this visit goes to (null = main location)
+  const [branchIdx, setBranchIdx] = useState<number | null>(null)
 
   // places the group has already added to the plan (from Places/Food/All),
   // most recently saved first
@@ -77,6 +79,7 @@ export function StopEditor({
       setMapUrl(initial?.map_url ?? '')
       setLinkMode(initial?.link_mode ?? 'map')
       setRole(initial?.role === 'backup' ? 'backup' : 'main')
+      setBranchIdx(initial?.branch_idx ?? null)
       setPickedId(null)
       setCityFilter('all')
       setGroupFilter('all')
@@ -134,6 +137,24 @@ export function StopEditor({
   }
   function onRowUp() { drag.current.down = false }
 
+  // The place this stop refers to — the card just picked, else matched by name
+  // (a stop saved earlier only stores the name). Drives the branch chips below.
+  const stopPlace = useMemo(() => {
+    if (pickedId) return places.find((p) => p.id === pickedId) ?? null
+    const n = place.trim().toLowerCase()
+    if (!n) return null
+    return places.find((p) => (p.name ?? '').trim().toLowerCase() === n) ?? null
+  }, [places, pickedId, place])
+  const stopBranches = branchesOf(stopPlace)
+
+  /** Switch which branch THIS visit goes to — also swaps in that branch's map
+   *  link so navigation follows it (other days keep their own choice). */
+  function pickBranch(i: number | null) {
+    setBranchIdx(i)
+    const url = i == null ? (stopPlace?.map_url ?? '') : (stopBranches[i]?.map_url ?? stopPlace?.map_url ?? '')
+    if (url) { setMapUrl(url); setLinkMode('detail') }
+  }
+
   function pickPlanned(id: string) {
     if (drag.current.moved) return // ignore the click that ends a drag
     const p = inPlan.find((x) => x.id === id)
@@ -142,6 +163,7 @@ export function StopEditor({
     setPickedId(id)
     setPlace(p.name ?? '')
     setMapUrl(planMapUrl(p) ?? '') // branch picked for the plan, else main
+    setBranchIdx(p.plan_branch ?? null) // that place's default branch
     setNote(p.note ?? '')
     setLinkMode('detail')
     setAutoFilled(false)
@@ -151,6 +173,7 @@ export function StopEditor({
   // pre-select it for this stop so the user can save right away
   function onQuickPicked(pick: QuickPick) {
     setPickedId(pick.id)
+    setBranchIdx(null) // freshly collected — no branch chosen yet
     setPlace(pick.name ?? '')
     setMapUrl(pick.map_url ?? '')
     setNote(pick.note ?? '')
@@ -160,7 +183,12 @@ export function StopEditor({
 
   async function save() {
     setBusy(true)
-    await onSave({ time: time || null, place_name: place.trim() || null, note: note || null, map_url: mapUrl || null, link_mode: linkMode, role: role === 'backup' ? 'backup' : null })
+    await onSave({
+      time: time || null, place_name: place.trim() || null, note: note || null, map_url: mapUrl || null,
+      link_mode: linkMode, role: role === 'backup' ? 'backup' : null,
+      // only meaningful for a multi-branch place; null otherwise
+      branch_idx: stopPlace ? branchIdx : null,
+    })
     setBusy(false)
     onClose()
   }
@@ -248,6 +276,31 @@ export function StopEditor({
               onChange={(e) => { setPlace(e.target.value); setAutoFilled(false) }}
               placeholder="ชื่อสถานที่ / กิจกรรม" />
           </div>
+
+          {/* ร้านมีหลายสาขา — วันนี้ไปสาขาไหน (เก็บแยกต่อวัน วันอื่นไม่เปลี่ยนตาม) */}
+          {stopBranches.length > 0 && (
+            <div>
+              <div className="text-[11px] text-ink-3 mb-1.5 flex items-center gap-1">
+                <IconBuildingStore size={12} /> วันนี้ไปสาขาไหน?
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
+                {hasOwnLocation(stopPlace) && (
+                  <button type="button" onClick={() => pickBranch(null)}
+                    className={['chip shrink-0', branchIdx === null ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+                    style={branchIdx === null ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+                    {branchIdx === null && <IconCheck size={12} />} ที่ตั้งหลัก
+                  </button>
+                )}
+                {stopBranches.map((b, i) => (
+                  <button type="button" key={i} onClick={() => pickBranch(i)}
+                    className={['chip shrink-0', branchIdx === i ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
+                    style={branchIdx === i ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+                    {branchIdx === i && <IconCheck size={12} />} {b.label || `สาขา ${i + 1}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <div className="relative flex-1 min-w-0">
               <LeadIcon><IconClock size={15} /></LeadIcon>

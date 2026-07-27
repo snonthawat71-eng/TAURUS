@@ -48,6 +48,8 @@ export interface StopInput {
   role?: string | null
   done?: boolean | null
   done_at?: string | null
+  /** which branch of a multi-branch place THIS visit goes to (stop_branch.sql) */
+  branch_idx?: number | null
 }
 
 // link_mode column is optional (added by extra_columns.sql); strip it if absent
@@ -57,12 +59,12 @@ export async function addStop(trip_id: string, day_id: string, position: number,
     time: input.time ?? null, place_name: input.place_name ?? null,
     note: input.note ?? null, map_url: input.map_url ?? null,
     transit: input.transit ?? null, link_mode: input.link_mode ?? null,
-    role: input.role ?? null,
+    role: input.role ?? null, branch_idx: input.branch_idx ?? null,
   }
   return surfaced(runOrQueue(async () => {
     let res = await supabase.from('itinerary_stops').insert(payload)
     // optional columns (pre-migration) — strip whichever the error names, retry
-    for (const col of ['link_mode', 'role']) {
+    for (const col of ['link_mode', 'role', 'branch_idx']) {
       if (res.error && res.error.message.includes(col)) {
         delete (payload as Record<string, unknown>)[col]
         res = await supabase.from('itinerary_stops').insert(payload)
@@ -76,7 +78,7 @@ export async function updateStop(id: string, fields: StopInput, expectedVersion?
   return updateWithVersion('itinerary_stops', id, { ...fields }, expectedVersion, (p, msg) => {
     // optional columns may not exist yet — strip the whole group the error names and
     // retry (done/done_at ship together, so drop both at once)
-    const groups: string[][] = [['link_mode'], ['skip_transit'], ['role'], ['done', 'done_at']]
+    const groups: string[][] = [['link_mode'], ['skip_transit'], ['role'], ['branch_idx'], ['done', 'done_at']]
     const g = groups.find((cols) => cols.some((c) => msg.includes(c) && c in p))
     if (g) { const rest = { ...p }; for (const c of g) delete rest[c]; return rest }
     return null

@@ -251,6 +251,11 @@ export interface ItineraryStop {
   skip_transit?: boolean | null
   /** optional — present after stop_role.sql; null/'main' = แผนหลัก, 'backup' = แผนสำรอง */
   role?: string | null
+  /** optional — present after stop_branch.sql; WHICH branch of a multi-branch
+   *  place this particular visit goes to (index into the place's `branches`).
+   *  null = the place's main location, or "not recorded" for stops created
+   *  before the migration (those fall back to places.plan_branch). */
+  branch_idx?: number | null
   /** optional — present after itinerary_done.sql; the group checked this stop off */
   done?: boolean | null
   done_at?: string | null

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconCheck, IconLoader2, IconSearch, IconInfoCircle, IconBuildingStore, IconMapPin, IconChevronLeft } from '@tabler/icons-react'
+import { IconCheck, IconLoader2, IconSearch, IconInfoCircle } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SignedImage } from './SignedImage'
 import { ExploreDetail } from './ExploreDetail'
@@ -43,8 +43,6 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
   const [cityFilter, setCityFilter] = useState('all')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [detail, setDetail] = useState<ExplorePlace | null>(null)
-  // multi-branch place tapped — ask WHICH branch before copying it into the trip
-  const [branchFor, setBranchFor] = useState<ExplorePlace | null>(null)
 
   // Explore items already saved into this trip → mark them "เพิ่มแล้ว"
   const savedHere = useMemo(
@@ -54,7 +52,7 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
 
   useEffect(() => {
     if (!open) return
-    setQ(''); setGroupFilter(initialGroup ?? 'all'); setCityFilter('all'); setBusyId(null); setDetail(null); setBranchFor(null)
+    setQ(''); setGroupFilter(initialGroup ?? 'all'); setCityFilter('all'); setBusyId(null); setDetail(null)
     // refresh the trip so the "เพิ่มแล้ว" badge reflects the latest places
     // (e.g. after a place was deleted from Places/Food)
     reload()
@@ -97,11 +95,8 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
 
   function finishPick(pick: QuickPick) {
     onPicked?.(pick)
-    setBusyId(null); setDetail(null); setBranchFor(null); onClose()
+    setBusyId(null); setDetail(null); onClose()
   }
-
-  const branchesOf = (e: ExplorePlace) =>
-    (e.branches ?? []).filter((b) => b.label || b.map_url || b.line || b.station)
 
   async function pick(e: ExplorePlace) {
     if (!trip) return
@@ -115,21 +110,21 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
       finishPick({ id: existing.id, name: existing.name, map_url: planMapUrl(existing), note: existing.note })
       return
     }
-    // multi-branch: ask WHICH branch first (step 2 in the same drawer)
-    if (branchesOf(e).length > 0) { setBranchFor(e); setDetail(null); return }
-    await saveNew(e, null)
+    // A multi-branch place is saved WITHOUT asking which branch: at this point
+    // it's just being collected. Which branch you actually go to is decided per
+    // day, on the itinerary stop (see stop_branch.sql / StopEditor).
+    await saveNew(e)
   }
 
-  async function saveNew(e: ExplorePlace, branchIdx: number | null) {
+  async function saveNew(e: ExplorePlace) {
     if (!trip) return
     setBusyId(e.id)
     const id = crypto.randomUUID()
-    await copyPlaceToTrip(exploreAsPlace(e), trip.id, e.id, { inPlan: !multi, id, planBranch: branchIdx })
+    await copyPlaceToTrip(exploreAsPlace(e), trip.id, e.id, { inPlan: !multi, id, planBranch: null })
     if (user) logExploreEvent(e.id, user.id, 'save')
     await reload()
-    if (multi) { setBusyId(null); setBranchFor(null); return } // stay open for more; badge flips to "เพิ่มแล้ว"
-    const b = branchIdx != null ? (e.branches ?? [])[branchIdx] : null
-    finishPick({ id, name: e.name, map_url: b?.map_url || e.map_url, note: e.note })
+    if (multi) { setBusyId(null); return } // stay open for more; badge flips to "เพิ่มแล้ว"
+    finishPick({ id, name: e.name, map_url: e.map_url, note: e.note })
   }
 
   // tap an already-added item again → cancel: remove its copy from this trip
@@ -141,54 +136,6 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
     setBusyId(null)
   }
   const toggle = (e: ExplorePlace) => (savedHere.has(e.id) ? unpick(e) : pick(e))
-
-  if (branchFor) {
-    const hasOwn = !!(branchFor.map_url || branchFor.station_name || branchFor.station_line)
-    const bs = branchesOf(branchFor)
-    return (
-      <Drawer open={open} onClose={onClose} title="ไปสาขาไหน?">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-[13px] mb-2">
-            <IconBuildingStore size={15} className="text-brand shrink-0" />
-            <span className="font-medium truncate">{branchFor.name}</span>
-            <span className="text-[11px] text-ink-3 shrink-0 ml-auto">มีหลายสาขา</span>
-          </div>
-          {hasOwn && (
-            <button onClick={() => saveNew(branchFor, null)} disabled={!!busyId}
-              className="w-full flex items-center gap-2.5 card p-3 text-left enabled:hover:bg-surface-2/40">
-              <span className="size-8 rounded-[8px] grid place-items-center shrink-0"
-                style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)' }}><IconMapPin size={16} /></span>
-              <span className="text-[13.5px] font-medium flex-1 min-w-0 truncate">ที่ตั้งหลัก</span>
-              {busyId === branchFor.id ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
-                : <span className="btn-link text-[12px] shrink-0">เพิ่มสาขานี้</span>}
-            </button>
-          )}
-          {bs.map((b, i) => (
-            <button key={i} onClick={() => saveNew(branchFor, i)} disabled={!!busyId}
-              className="w-full flex items-center gap-2.5 card p-3 text-left enabled:hover:bg-surface-2/40">
-              <span className="size-8 rounded-[8px] grid place-items-center shrink-0"
-                style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)' }}><IconBuildingStore size={16} /></span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13.5px] font-medium truncate">{b.label || `สาขา ${i + 1}`}</div>
-                {(b.line || b.station) && (
-                  <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
-                    <span className="size-2 rounded-full shrink-0" style={{ background: b.color ?? '#888780' }} />
-                    <span className="truncate">{b.line}{b.station ? ` · ${b.station}` : ''}</span>
-                  </div>
-                )}
-              </div>
-              {busyId === branchFor.id ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
-                : <span className="btn-link text-[12px] shrink-0">เพิ่มสาขานี้</span>}
-            </button>
-          ))}
-          <button onClick={() => setBranchFor(null)} disabled={!!busyId}
-            className="w-full flex items-center justify-center gap-1 h-10 text-[12px] text-ink-3 hover:text-ink-2">
-            <IconChevronLeft size={14} /> กลับไปเลือกสถานที่
-          </button>
-        </div>
-      </Drawer>
-    )
-  }
 
   return (
     <Drawer open={open} onClose={onClose} title={title ?? 'เลือกด่วนจาก Explore'}>

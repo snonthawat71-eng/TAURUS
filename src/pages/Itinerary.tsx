@@ -9,7 +9,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid, IconCopy, IconClipboard, IconTarget, IconLayoutList, IconChevronRight,
+  IconGripVertical, IconPlus, IconMapPin, IconPencil, IconTrash, IconCalendarPlus, IconRoute, IconInfoCircle, IconChevronDown, IconCheck, IconLayoutGrid, IconCopy, IconClipboard, IconTarget, IconLayoutList, IconChevronRight, IconBuildingStore,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -28,7 +28,7 @@ import { offerUndo } from '@/lib/undo'
 import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
 import { setInPlan, toggleInterest } from '@/lib/placeMutations'
-import { planMapUrl } from '@/lib/branches'
+import { planMapUrl, branchLabel, stopBranchIdx } from '@/lib/branches'
 import { useWeather, tripCityCandidates, type DayWeather } from '@/lib/weather'
 import { tripTz } from '@/lib/segments'
 import { WeatherBadge } from '@/components/WeatherBadge'
@@ -129,6 +129,16 @@ function SortableStop({
               className="text-[14px] font-medium text-left leading-snug block enabled:hover:text-brand-mid">
               {stop.place_name}
             </button>
+            {/* which branch THIS day goes to — the same place on another day can
+                show a different one (branch_idx lives on the stop) */}
+            {(() => {
+              const bl = branchLabel(matchedPlace, stopBranchIdx(stop, matchedPlace))
+              return bl ? (
+                <div className="inline-flex items-center gap-1 text-[10.5px] text-ink-3 mt-0.5">
+                  <IconBuildingStore size={11} /> {bl}
+                </div>
+              ) : null
+            })()}
             {!done && (
               <>
                 <div className="flex items-center gap-2.5 flex-wrap">
@@ -597,7 +607,7 @@ export default function Itinerary() {
     if (!trip) return
     const mains = mainsOf(dayId)
     const pos = mains.length ? Math.max(...mains.map((s) => s.position)) + 1 : 0
-    await addStop(trip.id, dayId, pos, { place_name: p.name, map_url: planMapUrl(p) })
+    await addStop(trip.id, dayId, pos, { place_name: p.name, map_url: planMapUrl(p), branch_idx: p.plan_branch ?? null })
     await reload()
     toast.success(`เพิ่ม "${p.name}" เข้าวันแล้ว`)
   }
@@ -1203,7 +1213,8 @@ export default function Itinerary() {
 
       <StopEditor open={!!editor} onClose={() => setEditor(null)} initial={editor?.stop ?? null} onSave={saveStop} />
       <DayEditor open={!!dayEdit} onClose={() => setDayEdit(null)} initial={dayEdit} onSave={saveDay} />
-      <TransitEditor open={!!routeEdit} onClose={() => setRouteEdit(null)} initial={routeEdit?.transit ?? null} placeName={routeEdit?.place_name ?? null} onSave={saveRoute} />
+      <TransitEditor open={!!routeEdit} onClose={() => setRouteEdit(null)} initial={routeEdit?.transit ?? null} placeName={routeEdit?.place_name ?? null}
+        branchIdx={routeEdit ? stopBranchIdx(routeEdit, getMatchedPlace(routeEdit)) : null} onSave={saveRoute} />
 
       {(() => {
         if (!detailPlace) return null
