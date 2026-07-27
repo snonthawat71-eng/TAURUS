@@ -15,6 +15,7 @@ import { SHANGHAI } from './shanghai'
 import { SHENZHEN } from './shenzhen'
 import { TAIPEI } from './taipei'
 import { SINGAPORE } from './singapore'
+import { TOKYO } from './tokyo'
 import type { Trip } from '@/lib/database.types'
 
 export interface StationSuggest { name: string; num?: string }
@@ -36,6 +37,7 @@ const NETWORKS: RawNetwork[] = [
   { match: SHENZHEN.match, lines: SHENZHEN.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: TAIPEI.match, lines: TAIPEI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: SINGAPORE.match, lines: SINGAPORE.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
+  { match: TOKYO.match, lines: TOKYO.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
 ]
 
 /** Collect line/station suggestions only for the network(s) matching the given text. */
