@@ -8,7 +8,7 @@ import {
 import { SignedImage } from './SignedImage'
 import { hscroll } from '@/lib/hscroll'
 import { cityImage, countryImage } from '@/lib/cityImages'
-import { canonicalCountry, countryFlag } from '@/lib/countries'
+import { canonicalCountry } from '@/lib/countries'
 import { PLACE_TABS, FOOD_GROUPS, CATEGORY, type CategoryTab } from '@/lib/placeMeta'
 import type { ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace } from '@/lib/database.types'
@@ -147,7 +147,6 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
       return {
         key,
         label: key || 'ไม่ระบุประเทศ',
-        flag: key ? countryFlag(key) : '🌍',
         photo: (key ? countryImage(key) : undefined) ?? top?.photo,
         // a country is "new" when any city inside it is — otherwise there'd be
         // no way to tell which country to open to find the new places
@@ -300,13 +299,9 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
                         new
                       </span>
                     )}
-                    <div className="h-20 relative">
+                    <div className="h-20">
                       <SignedImage url={c.photo} alt={c.label} className="w-full h-full object-cover" width={240}
-                        fallback={<div className="w-full h-full grid place-items-center bg-surface-2 text-[26px] leading-none">{c.flag}</div>} />
-                      {/* flag corner — tells a country card apart from a city card
-                          while countries still borrow their cities' photos */}
-                      <span className="absolute bottom-1 left-1 text-[13px] leading-none"
-                        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.55))' }}>{c.flag}</span>
+                        fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconMapPin size={20} className="text-ink-3" /></div>} />
                     </div>
                     <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">{c.label}</div>
                   </button>
@@ -326,7 +321,6 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
                   className="shrink-0 w-[68px] rounded-[12px] bg-surface flex flex-col items-center justify-center gap-1 text-ink-2 hover:bg-surface-2"
                   style={{ border: '1.5px solid var(--color-line)' }}>
                   <IconChevronLeft size={18} />
-                  <span className="text-[15px] leading-none">{openCountry.flag}</span>
                   <span className="text-[10px] font-semibold leading-none truncate max-w-[60px] px-1">{openCountry.label}</span>
                 </button>
                 <button onClick={() => set({ city: 'all' })}
