@@ -3,7 +3,7 @@ import { updateWithVersion } from './concurrency'
 import { runOrQueue } from './offlineQueue'
 import { toastDbError } from './toast'
 import { latLngFromUrl, latLngFromUrlExact, isMapLink, resolveMapUrl } from './geo'
-import type { ItineraryStop, Place } from './database.types'
+import type { ItineraryStop, Place, PlaceBranch } from './database.types'
 
 export type PlaceInput = Partial<Omit<Place, 'id' | 'trip_id' | 'created_at'>>
 
@@ -98,6 +98,68 @@ export async function deletePlaceDeep(place: Place, known?: ItineraryStop[]): Pr
   }
   await deletePlace(place.id)
   return { stops }
+}
+
+/** How an edit rearranged a place's branch list. A branch choice is stored as a
+ *  POSITION (`places.plan_branch`, `itinerary_stops.branch_idx`), so deleting a
+ *  branch shifts every later one — without re-pointing them the plan silently
+ *  moves to a different branch, or falls back to the main location. */
+export interface BranchRemap {
+  /** index in the OLD list → index in the new one; missing = branch deleted */
+  map: Record<number, number>
+  /** the branch list as it was before the edit, to spot links left dangling */
+  before: PlaceBranch[]
+}
+
+/** Work out how an edited branch list refers back to the saved one.
+ *  `kept[n]` = where the n-th surviving row sat in the SAVED list (null = added
+ *  during this edit). Returns undefined when every branch stayed where it was —
+ *  then there is nothing to re-point and callers can skip the work entirely. */
+export function buildBranchRemap(before: PlaceBranch[], kept: (number | null)[]): BranchRemap | undefined {
+  const map: Record<number, number> = {}
+  kept.forEach((from, to) => { if (from != null) map[from] = to })
+  if (!before.some((_, i) => map[i] !== i)) return undefined
+  return { map, before }
+}
+
+/** Where a stored branch position lands after the edit — null = it was deleted,
+ *  so that choice falls back to the place's main location. */
+export function remappedBranch(remap: BranchRemap, i: number): number | null {
+  return remap.map[i] ?? null
+}
+
+/** Re-point every branch choice that refers to `places` after their branch list
+ *  was rearranged. A visit whose branch is gone falls back to the main location,
+ *  and its map link is reset too — but only when the link still points at the
+ *  branch that was deleted, so a hand-edited link is never clobbered.
+ *  Silent when plan_branch/branch_idx don't exist yet (nothing to re-point). */
+export async function remapBranchIndexes(places: Place[], remap: BranchRemap) {
+  const to = (i: number) => remappedBranch(remap, i)
+  for (const p of places) {
+    if (p.plan_branch != null) {
+      const next = to(p.plan_branch)
+      if (next !== p.plan_branch) await supabase.from('places').update({ plan_branch: next }).eq('id', p.id)
+    }
+    const stops = await stopsForPlace(p)
+    for (const s of stops) {
+      if (s.branch_idx == null) continue
+      const next = to(s.branch_idx)
+      if (next === s.branch_idx) continue
+      const fields: Record<string, unknown> = { branch_idx: next }
+      const goneUrl = remap.before[s.branch_idx]?.map_url
+      if (next == null && goneUrl && s.map_url === goneUrl) fields.map_url = p.map_url
+      await supabase.from('itinerary_stops').update(fields).eq('id', s.id)
+    }
+  }
+}
+
+/** Same, for every copy of an Explore item that lives in a trip I can write to.
+ *  Copies in other people's trips are left alone by RLS — same limit as
+ *  `updateExploreCopies`, which propagates the branch edit itself. */
+export async function remapExploreCopyBranches(exploreId: string, tripIds: string[], remap: BranchRemap) {
+  if (!tripIds.length) return
+  const { data } = await supabase.from('places').select('*').eq('source_explore_id', exploreId).in('trip_id', tripIds)
+  await remapBranchIndexes((data ?? []) as Place[], remap)
 }
 
 /** Copy a place (from a shared trip / Explore) into one of the user's own trips.

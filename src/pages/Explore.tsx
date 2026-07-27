@@ -11,7 +11,7 @@ import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { ExploreSuggestDialog } from '@/components/ExploreSuggestDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, type VoteStat, type PopStat } from '@/lib/exploreMutations'
-import { savedExploreIds, removeExploreCopiesDeep, updateExploreCopies, type PlaceInput } from '@/lib/placeMutations'
+import { savedExploreIds, removeExploreCopiesDeep, updateExploreCopies, remapExploreCopyBranches, type PlaceInput } from '@/lib/placeMutations'
 import { toast } from '@/lib/toast'
 import { confirmDialog } from '@/lib/confirm'
 import { useBack } from '@/lib/useBack'
@@ -215,13 +215,16 @@ export default function Explore() {
       </main>
 
       <ExploreEditor open={!!editor} initial={editor && editor !== 'new' ? editor : null} existing={items} onClose={() => setEditor(null)}
-        onSave={async (input) => {
+        onSave={async (input, remap) => {
           if (editor && editor !== 'new') {
             await updateExplore(editor.id, input)
             // keep places already saved into my trips in sync with this edit.
             // `country` isn't a `places` column — drop it before propagating.
             const { country, ...placeFields } = input // eslint-disable-line @typescript-eslint/no-unused-vars
             await updateExploreCopies(editor.id, placeFields as PlaceInput, editableTripIds)
+            // the copies just took the new branch list — re-point the branch
+            // each saved copy/plan had chosen, or they'd land on another branch
+            if (remap) await remapExploreCopyBranches(editor.id, editableTripIds, remap)
           }
           else if (user) await addExplore(user.id, input)
           // quiet reload (no full-page spinner) so the scroll position is kept

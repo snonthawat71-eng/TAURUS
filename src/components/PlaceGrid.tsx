@@ -8,7 +8,7 @@ import { PlaceDetail } from './PlaceDetail'
 import { SaveToTripDialog } from './SaveToTripDialog'
 import { AddToDayDialog } from './AddToDayDialog'
 import { QuickExplorePicker } from './QuickExplorePicker'
-import { addPlace, updatePlace, deletePlaceDeep, setInPlan, toggleInterest } from '@/lib/placeMutations'
+import { addPlace, updatePlace, deletePlaceDeep, setInPlan, toggleInterest, remapBranchIndexes } from '@/lib/placeMutations'
 import { addExplore, searchExploreSimilar, placeAsExploreInput } from '@/lib/exploreMutations'
 import { confirmDialog, alertDialog } from '@/lib/confirm'
 import { IconWorldShare, IconCircleCheck } from '@tabler/icons-react'
@@ -161,14 +161,17 @@ export function PlaceGrid({
     return n ? stops.filter((s) => (s.place_name ?? '').trim().toLowerCase() === n) : []
   }
 
-  async function remove(p: Place) {
+  /** The ONE delete path — used by the card menu and by the editor's delete
+   *  button alike, so both always warn about the itinerary stops that go with
+   *  the place and both offer the same undo. Returns false if backed out. */
+  async function remove(p: Place): Promise<boolean> {
     const planned = stopsOf(p).length
     if (!(await confirmDialog({
       message: planned
         ? `ลบรายการนี้? จะถูกเอาออกจาก Itinerary ${planned} จุดด้วย`
         : 'ลบรายการนี้?',
       danger: true, confirmLabel: 'ลบ',
-    }))) return
+    }))) return false
     patch((d) => ({ places: d.places.filter((x) => x.id !== p.id) })) // vanish instantly
     // deleting from Places/Food must clear it from the plan too, or the stop
     // lingers in the Itinerary pointing at something that no longer exists
@@ -179,6 +182,7 @@ export function PlaceGrid({
       [{ table: 'places', rows: [p] }, { table: 'itinerary_stops', rows: removed }],
       reload,
     )
+    return true
   }
   // Share a place we added into the public Explore pool — but first warn if the
   // same spot looks like it's already there, so we don't flood it with dupes.
@@ -386,15 +390,20 @@ export function PlaceGrid({
         // editing a cross-tab search hit: use ITS group so categories/menu match
         group={editor && editor !== 'new' ? groupOfPlace(editor) : group} tripId={trip?.id ?? ''}
         initial={editor && editor !== 'new' ? editor : null}
-        onSave={async (fields) => {
+        onSave={async (fields, remap) => {
           if (editor === 'new' || !editor) await addPlace(trip!.id, fields)
           else {
             const r = await updatePlace(editor.id, fields, editor.version)
             if (r.conflict) toast.error('มีคนอื่นแก้ไขรายการนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
+            // branches were deleted/reordered → re-point the plan's branch
+            // choices, or they'd silently land on a different branch. Merge the
+            // just-saved fields in so a link reset picks the NEW main map link;
+            // plan_branch isn't among them, so the old choice is still readable.
+            else if (remap) await remapBranchIndexes([{ ...editor, ...fields }], remap)
           }
           await reload()
         }}
-        onDelete={editor && editor !== 'new' ? async () => { await deletePlaceDeep(editor, stopsOf(editor)); await reload() } : undefined}
+        onDelete={editor && editor !== 'new' ? () => remove(editor) : undefined}
       />
 
       {(() => {

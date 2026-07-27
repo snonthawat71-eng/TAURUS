@@ -10,7 +10,6 @@ import { Combobox } from './Combobox'
 import { SignedImage } from './SignedImage'
 import { PhotoCropper } from './PhotoCropper'
 import { uploadImage } from '@/lib/files'
-import { confirmDialog } from '@/lib/confirm'
 import { useTrip } from '@/contexts/TripContext'
 import { getTransitSuggestions, findLine } from '@/lib/metro/suggest'
 import { cityImage } from '@/lib/cityImages'
@@ -18,7 +17,8 @@ import { optimizeImageUrl } from '@/lib/cloudinary'
 import { nameFromMapUrl, resolveMapName, isMapLink } from '@/lib/geo'
 import { catMeta, CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
 import type { Place, PlaceGroup, ExploreRoute, PlaceBranch } from '@/lib/database.types'
-import type { PlaceInput } from '@/lib/placeMutations'
+import { buildBranchRemap } from '@/lib/placeMutations'
+import type { BranchRemap, PlaceInput } from '@/lib/placeMutations'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
@@ -39,8 +39,13 @@ export function PlaceEditor({
   group: PlaceGroup
   tripId: string
   initial: Place | null
-  onSave: (fields: PlaceInput) => Promise<void>
-  onDelete?: () => Promise<void>
+  /** `remap` is set when branches were deleted/reordered — the caller must
+   *  re-point the plan's stored branch positions (see remapBranchIndexes) */
+  onSave: (fields: PlaceInput, remap?: BranchRemap) => Promise<void>
+  /** owns its own confirmation (it knows how many itinerary stops go with the
+   *  place, and offers the undo). Return false when the user backs out, so the
+   *  editor stays open. */
+  onDelete?: () => Promise<boolean | void>
 }) {
   const { trip, places } = useTrip()
   const editing = !!initial
@@ -62,6 +67,10 @@ export function PlaceEditor({
   const [customCat, setCustomCat] = useState('')
   const [routes, setRoutes] = useState<ExploreRoute[]>([emptyRoute()])
   const [branches, setBranches] = useState<PlaceBranch[]>([])
+  // where each row sat in the SAVED branch list (null = added in this session).
+  // Branch choices are stored as positions, so deleting a row has to renumber
+  // them — see BranchRemap / remapBranchIndexes.
+  const [branchFrom, setBranchFrom] = useState<(number | null)[]>([])
   const [multiBranch, setMultiBranch] = useState(false)
   const [mapUrl, setMapUrl] = useState('')
   const [note, setNote] = useState('')
@@ -89,6 +98,7 @@ export function PlaceEditor({
     setBranches(initial?.branches?.length
       ? initial.branches.map((b) => ({ label: b.label ?? '', map_url: b.map_url ?? '', line: b.line ?? '', color: b.color ?? '#185FA5', station: b.station ?? '' }))
       : [])
+    setBranchFrom(initial?.branches?.map((_, i) => i) ?? [])
     setMultiBranch(!!initial?.multi_branch)
     setMapUrl(initial?.map_url ?? '')
     setNote(initial?.note ?? '')
@@ -180,7 +190,15 @@ export function PlaceEditor({
     setBusy(true)
     const clean = routes.filter((r) => r.line || r.station)
     const first = clean[0]
-    const cleanBranches = branches.filter((b) => b.label || b.map_url || b.line || b.station)
+    // keep track of where every surviving branch USED to sit, so the caller can
+    // re-point the plan's branch choices (they're stored as positions)
+    const keptFrom: (number | null)[] = []
+    const cleanBranches = branches.filter((b, i) => {
+      const keep = !!(b.label || b.map_url || b.line || b.station)
+      if (keep) keptFrom.push(branchFrom[i] ?? null)
+      return keep
+    })
+    const remap = buildBranchRemap(initial?.branches ?? [], keptFrom)
     const finalCategory = category === 'other' ? (customCat.trim() || 'other') : category
     const cover = allPhotos[coverIdx] ?? allPhotos[0] ?? null
     const others = allPhotos.filter((p) => p !== cover)
@@ -196,14 +214,17 @@ export function PlaceEditor({
       photo_focus: cover ? photoFocus : null,
       photos: others.length ? others : null, city: city || null,
       menu_paths: group === 'food' && menuPaths.length ? menuPaths : null,
-    })
+    }, remap)
     setBusy(false)
     onClose()
   }
   const meta = catMeta(category === 'other' ? (customCat.trim() || 'other') : category)
   async function del() {
-    if (!onDelete || !(await confirmDialog({ message: 'ลบรายการนี้?', danger: true, confirmLabel: 'ลบ' }))) return
-    setBusy(true); await onDelete(); setBusy(false); onClose()
+    if (!onDelete) return
+    setBusy(true)
+    const ok = await onDelete()
+    setBusy(false)
+    if (ok !== false) onClose()
   }
 
   // ---- section states + summaries ----
@@ -304,7 +325,7 @@ export function PlaceEditor({
                     {multiBranch && <IconCheck size={14} />} มีหลายสาขา
                   </button>
                   {multiBranch
-                    ? <button onClick={() => setBranches((bs) => [...bs, emptyBranch()])} className="btn-link flex items-center gap-1.5"><IconPlus size={15} /> เพิ่มสาขา</button>
+                    ? <button onClick={() => { setBranches((bs) => [...bs, emptyBranch()]); setBranchFrom((o) => [...o, null]) }} className="btn-link flex items-center gap-1.5"><IconPlus size={15} /> เพิ่มสาขา</button>
                     : <span className="text-[10.5px] text-ink-3">กดถ้ามีหลายที่ — ใส่แค่ชื่อสาขาก็ได้</span>}
                 </div>
                 {multiBranch && branches.length > 0 && (
@@ -313,7 +334,7 @@ export function PlaceEditor({
                       <div key={i} className="rounded-[10px] hairline p-2.5 space-y-2 bg-canvas">
                         <div className="flex items-center gap-2">
                           <input className={field} value={b.label ?? ''} onChange={(e) => patchBranch(i, { label: e.target.value })} placeholder="ชื่อสาขา เช่น สาขาสยาม" />
-                          <button onClick={() => setBranches((bs) => bs.filter((_, idx) => idx !== i))} className="text-ink-3 hover:text-[#D85A30] shrink-0"><IconTrash size={15} /></button>
+                          <button onClick={() => { setBranches((bs) => bs.filter((_, idx) => idx !== i)); setBranchFrom((o) => o.filter((_, idx) => idx !== i)) }} className="text-ink-3 hover:text-[#D85A30] shrink-0"><IconTrash size={15} /></button>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Combobox className={field} value={b.line ?? ''} placeholder="สาย เช่น Line 1"
