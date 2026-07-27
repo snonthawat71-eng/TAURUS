@@ -4,10 +4,11 @@
 // รหัสเก็บแบบไม่มีขีด (G01, JY17) ตามที่ใช้บนป้ายจริง — วงกลมบนการ์ดจะได้แยก
 // "ตัวอักษร/ตัวเลข" ได้ถูก สถานีชื่อเดียวกันใช้ id เดียวกัน = จุดเปลี่ยนสาย
 //
-// กันออกจากไฟล์ต้นทาง 4 สาย เพราะข้อมูลขัดแย้งกันเอง: Ueno-Tokyo / Utsunomiya /
-// Takasaki (ใช้รหัส JU ชุดเดียวกันแต่คนละสถานี), Sagami (門沢橋 ซ้ำ 2 แถว)
-// — แก้ไม่ได้โดยไม่เดา ส่วน Negishi เก็บไว้แบบไม่มีรหัส (ดูหมายเหตุที่ตัวสาย)
-// Nambu ใช้ชุดที่แก้แล้ว (JN01–JN26 ต่อเนื่อง ไม่มีสถานีซ้ำ)
+// กันออก 2 สาย: Sagami (門沢橋 ซ้ำ 2 แถว) และ Ueno-Tokyo — ตัวหลังเป็น
+// through-service ที่วิ่งทับสาย Utsunomiya/Takasaki (เป็น 'เส้นทาง' ไม่ใช่
+// ชุดสถานีของตัวเอง) และลำดับในต้นฉบับก็มี Omiya ซ้ำ 2 แถว
+// Nambu ใช้ชุดที่แก้แล้ว (JN01–JN26) · Negishi/Utsunomiya/Takasaki เก็บ
+// สถานีครบแต่ใส่รหัสเฉพาะช่วงที่ข้อมูลไม่ขัดกัน
 // หมายเหตุ: สาย Oedo ในต้นฉบับมี Tsukishima ซ้ำที่ E17 และ E19 — คงไว้ตามต้นฉบับ
 import type { MetroNetwork, LineStation } from './types'
 
@@ -266,6 +267,33 @@ export const TOKYO: MetroNetwork = {
         s('minami-tama', 'Minami-Tama', 'JN19'), s('fuchu-hommachi', 'Fuchu-Hommachi', 'JN20'), s('bubaigawara', 'Bubaigawara', 'JN21'),
         s('nishi-fu', 'Nishi-Fu', 'JN22'), s('yaho', 'Yaho', 'JN23'), s('yagawa', 'Yagawa', 'JN24'),
         s('nishi-kunitachi', 'Nishi-Kunitachi', 'JN25'), s('tachikawa', 'Tachikawa', 'JN26'),
+      ],
+    },
+    {
+      // ใช้ระบบเลข JU ร่วมกับสายอื่น — เก็บรหัสเฉพาะช่วงที่ทุกแหล่งตรงกัน
+      // (JU01 Tokyo · JU02 Ueno · JU03 Omiya) ส่วนเหนือ Omiya ไฟล์ต้นทางให้
+      // เลขชุดเดียวกันกับอีกสาย แต่คนละสถานี จึงไม่ใส่รหัส ดีกว่าใส่ผิด
+      id: 'JU-ju-utsunomiya-line', name: 'JU Utsunomiya Line', color: '#F68B1E',
+      stations: [
+        s('tokyo', 'Tokyo', 'JU01'), s('ueno', 'Ueno', 'JU02'), s('omiya', 'Omiya', 'JU03'),
+        s('higashi-omiya', 'Higashi-Omiya', ''), s('hasuda', 'Hasuda', ''), s('shiraoka', 'Shiraoka', ''),
+        s('shin-shiraoka', 'Shin-Shiraoka', ''), s('kuki', 'Kuki', ''), s('higashi-washinomiya', 'Higashi-Washinomiya', ''),
+        s('koganei', 'Koganei', ''), s('koga', 'Koga', ''), s('oyama', 'Oyama', ''),
+        s('mamada', 'Mamada', ''), s('nogi', 'Nogi', ''), s('utsunomiya', 'Utsunomiya', ''),
+      ],
+    },
+    {
+      // ใช้ระบบเลข JU ร่วมกับสายอื่น — เก็บรหัสเฉพาะช่วงที่ทุกแหล่งตรงกัน
+      // (JU01 Tokyo · JU02 Ueno · JU03 Omiya) ส่วนเหนือ Omiya ไฟล์ต้นทางให้
+      // เลขชุดเดียวกันกับอีกสาย แต่คนละสถานี จึงไม่ใส่รหัส ดีกว่าใส่ผิด
+      id: 'JU-ju-takasaki-line', name: 'JU Takasaki Line', color: '#F68B1E',
+      stations: [
+        s('tokyo', 'Tokyo', 'JU01'), s('ueno', 'Ueno', 'JU02'), s('omiya', 'Omiya', 'JU03'),
+        s('miyahara', 'Miyahara', ''), s('ageo', 'Ageo', ''), s('kita-ageo', 'Kita-Ageo', ''),
+        s('okegawa', 'Okegawa', ''), s('kitamoto', 'Kitamoto', ''), s('konosu', 'Konosu', ''),
+        s('kita-konosu', 'Kita-Konosu', ''), s('fukiage', 'Fukiage', ''), s('kumagaya', 'Kumagaya', ''),
+        s('kagohara', 'Kagohara', ''), s('fukaya', 'Fukaya', ''), s('honjo', 'Honjo', ''),
+        s('takasaki', 'Takasaki', 'JU16'),
       ],
     },
     {
