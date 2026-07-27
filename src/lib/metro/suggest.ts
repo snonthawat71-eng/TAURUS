@@ -29,24 +29,30 @@ export interface TransitSuggest {
 const HK_MATCH = ['hong kong', 'hongkong', 'ฮ่องกง', ' hk', 'mtr']
 
 // Every built-in network normalised to a common { match, lines } shape.
-interface RawNetwork { match: string[]; lines: LineSuggest[] }
+// `match` = คำที่ชี้เมืองนั้นตรงๆ · `broad` = คำระดับประเทศ ใช้เป็นตัวสำรอง
+// เท่านั้น เพราะประเทศเดียวมีได้หลายเมือง (ญี่ปุ่น = โอซาก้า + โตเกียว) ถ้าเอา
+// คำประเทศไปไว้ใน match ทริปโตเกียวจะดึงสายโอซาก้ามาปนทันที
+interface RawNetwork { match: string[]; broad?: string[]; lines: LineSuggest[] }
+const JAPAN = ['japan', 'ญี่ปุ่น', '日本']
 const NETWORKS: RawNetwork[] = [
-  { match: OSAKA.match, lines: OSAKA.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
+  { match: OSAKA.match, broad: JAPAN, lines: OSAKA.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: HK_MATCH, lines: HK_NETWORK.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHANGHAI.match, lines: SHANGHAI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHENZHEN.match, lines: SHENZHEN.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: TAIPEI.match, lines: TAIPEI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: SINGAPORE.match, lines: SINGAPORE.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
-  { match: TOKYO.match, lines: TOKYO.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
+  { match: TOKYO.match, broad: JAPAN, lines: TOKYO.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
 ]
 
 /** Collect line/station suggestions only for the network(s) matching the given text. */
 export function suggestionsFromText(text: string): TransitSuggest {
   const h = ` ${text.toLowerCase()} `
-  const lines: LineSuggest[] = []
-  for (const n of NETWORKS) {
-    if (n.match.some((m) => h.includes(m.toLowerCase()))) lines.push(...n.lines)
-  }
+  const hit = (ks?: string[]) => !!ks?.some((m) => h.includes(m.toLowerCase()))
+  // เมืองที่ระบุชัดชนะเสมอ; ถ้าไม่เจอเมืองไหนเลยค่อยตกมาใช้คำระดับประเทศ
+  // (ทริปที่เขียนแค่ "ญี่ปุ่น" ยังได้ทั้งโอซาก้าและโตเกียว ซึ่งถูกต้องแล้ว)
+  let matched = NETWORKS.filter((n) => hit(n.match))
+  if (!matched.length) matched = NETWORKS.filter((n) => hit(n.broad))
+  const lines: LineSuggest[] = matched.flatMap((n) => n.lines)
 
   const set = new Set<string>()
   for (const l of lines) for (const s of l.stations) set.add(s.name)

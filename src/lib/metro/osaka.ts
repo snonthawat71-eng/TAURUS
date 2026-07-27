@@ -15,7 +15,9 @@ const s = (id: string, name: string, num: string): LineStation => ({ id, name, n
 export const OSAKA: MetroNetwork = {
   id: 'osaka',
   name: 'Osaka Metro',
-  match: ['osaka', 'โอซาก้า', 'โอซาก้า', 'japan', 'ญี่ปุ่น'],
+  // เฉพาะคำที่ชี้ 'โอซาก้า' เท่านั้น — คำระดับประเทศ (japan/ญี่ปุ่น) ย้ายไปเป็น
+  // ตัวสำรองใน suggest.ts ไม่งั้นทริปโตเกียวจะดึงสายโอซาก้ามาปนด้วย
+  match: ['osaka', 'โอซาก้า', '大阪'],
   lines: [
     {
       id: 'M', name: 'Midosuji', color: '#E5171F',
