@@ -8,7 +8,8 @@
 // through-service ที่วิ่งทับสาย Utsunomiya/Takasaki (เป็น 'เส้นทาง' ไม่ใช่
 // ชุดสถานีของตัวเอง) และลำดับในต้นฉบับก็มี Omiya ซ้ำ 2 แถว
 // Nambu ใช้ชุดที่แก้แล้ว (JN01–JN26) · Negishi/Utsunomiya/Takasaki เก็บ
-// สถานีครบแต่ใส่รหัสเฉพาะช่วงที่ข้อมูลไม่ขัดกัน
+// สถานีครบแต่ใส่รหัสเฉพาะช่วงที่ข้อมูลไม่ขัดกัน · JU ใช้ชุดที่แก้แล้ว
+// (ช่วงร่วม JU01–JU07 แล้วแยกสาขาที่ JU08) — ข้าม 'JU20 Kogae?' ที่ยังไม่สมบูรณ์
 // หมายเหตุ: สาย Oedo ในต้นฉบับมี Tsukishima ซ้ำที่ E17 และ E19 — คงไว้ตามต้นฉบับ
 import type { MetroNetwork, LineStation } from './types'
 
@@ -270,30 +271,36 @@ export const TOKYO: MetroNetwork = {
       ],
     },
     {
-      // ใช้ระบบเลข JU ร่วมกับสายอื่น — เก็บรหัสเฉพาะช่วงที่ทุกแหล่งตรงกัน
-      // (JU01 Tokyo · JU02 Ueno · JU03 Omiya) ส่วนเหนือ Omiya ไฟล์ต้นทางให้
-      // เลขชุดเดียวกันกับอีกสาย แต่คนละสถานี จึงไม่ใส่รหัส ดีกว่าใส่ผิด
+      // JU01–JU07 เป็นช่วงที่ Utsunomiya กับ Takasaki วิ่งร่วมกัน (Tokyo→Omiya)
+      // ทั้งสองสายอ้างถึงสถานีชุดเดียวกัน = node เดียวกัน จาก JU08 ขึ้นไปแยกสาขา
+      // ซึ่งเลขจะซ้ำกันข้ามสาขาตามระบบของ JR East — ไม่กำกวม เพราะการค้นรหัส
+      // ผูกกับ 'สาย + สถานี' เสมอ
       id: 'JU-ju-utsunomiya-line', name: 'JU Utsunomiya Line', color: '#F68B1E',
       stations: [
-        s('tokyo', 'Tokyo', 'JU01'), s('ueno', 'Ueno', 'JU02'), s('omiya', 'Omiya', 'JU03'),
-        s('higashi-omiya', 'Higashi-Omiya', ''), s('hasuda', 'Hasuda', ''), s('shiraoka', 'Shiraoka', ''),
-        s('shin-shiraoka', 'Shin-Shiraoka', ''), s('kuki', 'Kuki', ''), s('higashi-washinomiya', 'Higashi-Washinomiya', ''),
-        s('koganei', 'Koganei', ''), s('koga', 'Koga', ''), s('oyama', 'Oyama', ''),
-        s('mamada', 'Mamada', ''), s('nogi', 'Nogi', ''), s('utsunomiya', 'Utsunomiya', ''),
+        s('tokyo', 'Tokyo', 'JU01'), s('ueno', 'Ueno', 'JU02'), s('oku', 'Oku', 'JU03'),
+        s('akabane', 'Akabane', 'JU04'), s('urawa', 'Urawa', 'JU05'), s('saitama-shintoshin', 'Saitama-Shintoshin', 'JU06'),
+        s('omiya', 'Omiya', 'JU07'), s('higashi-omiya', 'Higashi-Omiya', 'JU08'), s('hasuda', 'Hasuda', 'JU09'),
+        s('shiraoka', 'Shiraoka', 'JU10'), s('shin-shiraoka', 'Shin-Shiraoka', 'JU11'), s('kuki', 'Kuki', 'JU12'),
+        s('higashi-washinomiya', 'Higashi-Washinomiya', 'JU13'), s('koganei', 'Koganei', 'JU14'), s('oyama', 'Oyama', 'JU15'),
+        s('mamada', 'Mamada', 'JU16'), s('nogi', 'Nogi', 'JU17'), s('koga', 'Koga', 'JU18'),
+        s('kurihashi', 'Kurihashi', 'JU19'),
       ],
     },
     {
-      // ใช้ระบบเลข JU ร่วมกับสายอื่น — เก็บรหัสเฉพาะช่วงที่ทุกแหล่งตรงกัน
-      // (JU01 Tokyo · JU02 Ueno · JU03 Omiya) ส่วนเหนือ Omiya ไฟล์ต้นทางให้
-      // เลขชุดเดียวกันกับอีกสาย แต่คนละสถานี จึงไม่ใส่รหัส ดีกว่าใส่ผิด
+      // JU01–JU07 เป็นช่วงที่ Utsunomiya กับ Takasaki วิ่งร่วมกัน (Tokyo→Omiya)
+      // ทั้งสองสายอ้างถึงสถานีชุดเดียวกัน = node เดียวกัน จาก JU08 ขึ้นไปแยกสาขา
+      // ซึ่งเลขจะซ้ำกันข้ามสาขาตามระบบของ JR East — ไม่กำกวม เพราะการค้นรหัส
+      // ผูกกับ 'สาย + สถานี' เสมอ
       id: 'JU-ju-takasaki-line', name: 'JU Takasaki Line', color: '#F68B1E',
       stations: [
-        s('tokyo', 'Tokyo', 'JU01'), s('ueno', 'Ueno', 'JU02'), s('omiya', 'Omiya', 'JU03'),
-        s('miyahara', 'Miyahara', ''), s('ageo', 'Ageo', ''), s('kita-ageo', 'Kita-Ageo', ''),
-        s('okegawa', 'Okegawa', ''), s('kitamoto', 'Kitamoto', ''), s('konosu', 'Konosu', ''),
-        s('kita-konosu', 'Kita-Konosu', ''), s('fukiage', 'Fukiage', ''), s('kumagaya', 'Kumagaya', ''),
-        s('kagohara', 'Kagohara', ''), s('fukaya', 'Fukaya', ''), s('honjo', 'Honjo', ''),
-        s('takasaki', 'Takasaki', 'JU16'),
+        s('tokyo', 'Tokyo', 'JU01'), s('ueno', 'Ueno', 'JU02'), s('oku', 'Oku', 'JU03'),
+        s('akabane', 'Akabane', 'JU04'), s('urawa', 'Urawa', 'JU05'), s('saitama-shintoshin', 'Saitama-Shintoshin', 'JU06'),
+        s('omiya', 'Omiya', 'JU07'), s('miyahara', 'Miyahara', 'JU08'), s('ageo', 'Ageo', 'JU09'),
+        s('kita-ageo', 'Kita-Ageo', 'JU10'), s('okegawa', 'Okegawa', 'JU11'), s('kitamoto', 'Kitamoto', 'JU12'),
+        s('konosu', 'Konosu', 'JU13'), s('kita-konosu', 'Kita-Konosu', 'JU14'), s('fukiage', 'Fukiage', 'JU15'),
+        s('kumagaya', 'Kumagaya', 'JU16'), s('kagohara', 'Kagohara', 'JU17'), s('fukaya', 'Fukaya', 'JU18'),
+        s('okabe', 'Okabe', 'JU19'), s('honjo', 'Honjo', 'JU20'), s('jimbohara', 'Jimbohara', 'JU21'),
+        s('shinmachi', 'Shinmachi', 'JU22'), s('kuragano', 'Kuragano', 'JU23'), s('takasaki', 'Takasaki', 'JU24'),
       ],
     },
     {
