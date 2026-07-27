@@ -319,6 +319,35 @@ async function resolveOnce(url, lang, amap, budgetMs) {
   return { coords, src, name, nativeName, address, bodyCoords, hops, body, status, finalUrl, interUrl }
 }
 
+// ---- opening-hours probe (debug only, ?debug=hours) --------------------
+// We don't know yet whether the fetched page carries opening hours at all, or
+// in what shape. Rather than guess a parser, report every signal that could
+// carry them plus a short excerpt around each hit, and design the real
+// extractor from what actually comes back. Nothing here runs in production.
+function hoursProbe(body) {
+  if (!body) return { note: 'empty body' }
+  const look = (re, keep = 3) => {
+    const rx = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g')
+    const ex = []
+    let m, n = 0
+    while ((m = rx.exec(body)) && n < 400) {
+      n++
+      if (ex.length < keep) ex.push(body.slice(Math.max(0, m.index - 70), m.index + 110).replace(/\s+/g, ' '))
+      if (m.index === rx.lastIndex) rx.lastIndex++
+    }
+    return n ? { n, ex } : { n: 0 }
+  }
+  return {
+    isPlacePage: /schema\.org\/Place/i.test(body),
+    schemaHours: look(/openingHours(?:Specification)?/i),
+    dayNamesEn: look(/\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/),
+    dayNamesLocal: look(/(?:จันทร์|อังคาร|月曜|火曜|星期一|週一|週日|월요일)/),
+    timeRanges: look(/\d{1,2}:\d{2}\s*(?:[–\-—~]|to|ถึง)\s*\d{1,2}:\d{2}/, 6),
+    openClosePhrases: look(/(?:Closes\s|Opens\s|Open\s*(?:⋅|·)|Closed\b|Temporarily closed|Permanently closed|เปิด\s*(?:⋅|·)|ปิด\s*(?:⋅|·))/, 6),
+    hoursLabel: look(/(?:営業時間|營業時間|营业时间|เวลาทำการ|เวลาเปิด|Opening hours|"Hours")/),
+  }
+}
+
 export default async function handler(req, res) {
   try {
     const url = req.query?.url
@@ -361,6 +390,27 @@ export default async function handler(req, res) {
       }
     }
     const { hops, body, status, finalUrl, interUrl, coords, src, name, nativeName, address, bodyCoords } = result
+
+    // ?debug=hours — is there anything that looks like opening hours in the
+    // pages we already download? Probes BOTH the search page and the place
+    // (cid) page, since they're different documents.
+    if (req.query?.debug === 'hours') {
+      let cid = null
+      for (const h of hops) {
+        const m = h.match(/[?&]ftid=0x[0-9a-f]+:0x([0-9a-f]+)/i)
+        if (m) { try { cid = BigInt('0x' + m[1]).toString() } catch { /* not a cid */ } break }
+      }
+      const placeUrl = cidUrl || (cid ? `https://www.google.com/maps?cid=${cid}` : null)
+      const out = {
+        ver: 'hours-probe-1', name, address, amap, placeUrl,
+        searchPage: { status, len: body.length, ...hoursProbe(body) },
+      }
+      if (placeUrl && Date.now() < deadline + 6000) {
+        const p = await walk(placeUrl, lang, 6000)
+        out.placePage = { status: p.status, len: p.body.length, ...hoursProbe(p.body) }
+      }
+      return res.json(out)
+    }
 
     if (req.query?.debug) {
       return res.json({ ver: 'cid-v4', hops, cidUrl, interUrl, status, len: body.length, coords: coords || null, src, name, nativeName, address, bodyCoords, snippet: body.slice(0, 600) })
