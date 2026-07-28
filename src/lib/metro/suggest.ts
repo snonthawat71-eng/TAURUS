@@ -12,6 +12,7 @@
 import { OSAKA } from './osaka'
 import { HK_NETWORK } from './hkNetwork'
 import { SHANGHAI } from './shanghai'
+import { BEIJING } from './beijing'
 import { SHENZHEN } from './shenzhen'
 import { TAIPEI } from './taipei'
 import { SINGAPORE } from './singapore'
@@ -38,6 +39,7 @@ const NETWORKS: RawNetwork[] = [
   { match: OSAKA.match, broad: JAPAN, lines: OSAKA.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: HK_MATCH, lines: HK_NETWORK.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHANGHAI.match, lines: SHANGHAI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
+  { match: BEIJING.match, lines: BEIJING.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHENZHEN.match, lines: SHENZHEN.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: TAIPEI.match, lines: TAIPEI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: SINGAPORE.match, lines: SINGAPORE.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
