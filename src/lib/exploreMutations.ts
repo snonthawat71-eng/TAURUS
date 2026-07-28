@@ -85,22 +85,51 @@ function stripUnknown(payload: Record<string, unknown>, msg: string) {
 export interface ExploreDupe { id: string; name: string | null; city: string | null; country: string | null }
 
 const normName = (s: string) => s.toLowerCase().normalize('NFKC').replace(/[^\p{L}\p{N}]+/gu, '')
+const words = (s: string) => s.toLowerCase().normalize('NFKC').split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+
 function bigrams(s: string): Set<string> {
   const out = new Set<string>()
   for (let i = 0; i < s.length - 1; i++) out.add(s.slice(i, i + 2))
   return out
 }
-/** Loose name match: exact/containment after stripping punctuation & case,
- *  or high bigram overlap (catches "Jenny Bakery" vs "Jenny's Bakery"). */
+/** How alike two strings are, 0–1 (Dice coefficient over letter pairs). */
+function overlap(a: string, b: string): number {
+  const A = bigrams(a), B = bigrams(b)
+  if (!A.size || !B.size) return a === b ? 1 : 0
+  let hit = 0
+  for (const g of A) if (B.has(g)) hit++
+  return (2 * hit) / (A.size + B.size)
+}
+/** Two words meaning the same thing — "jenny"/"jennys", "cafe"/"cafes".
+ *  Words shorter than 3 letters must match exactly; there isn't enough of them
+ *  to measure. */
+const sameWord = (a: string, b: string) =>
+  a === b || (a.length >= 3 && b.length >= 3 && overlap(a, b) >= 0.8)
+
+/**
+ * Do these two names look like the same place?
+ *
+ * Compared WORD BY WORD, not as one run of letters. Names that share a long
+ * opening and differ only at the end — "Tokyo Disneyland" vs "Tokyo DisneySea",
+ * "Universal Studios Singapore" vs "Universal Studios Japan" — overlap enough
+ * to pass any whole-string threshold, yet the word they differ on is exactly
+ * the one that identifies the place. So every word of the shorter name has to
+ * find a partner in the longer one; a word left without a partner means a
+ * different place.
+ *
+ * Still matched: one name contained in the other ("Ichiran" / "Ichiran
+ * Shibuya", "Osaka Castle" / "Osaka Castle Park"), punctuation and spacing
+ * differences ("Jenny's Bakery", "DinTaiFung"), and extra words on one side
+ * ("Ichiran Hong Kong, Causeway Bay" / "Ichiran Causeway Bay").
+ */
 function similarName(a: string, b: string): boolean {
   const x = normName(a), y = normName(b)
   if (!x || !y) return false
   if (x === y || x.includes(y) || y.includes(x)) return true
-  const bx = bigrams(x), by = bigrams(y)
-  if (!bx.size || !by.size) return false
-  let hit = 0
-  for (const g of bx) if (by.has(g)) hit++
-  return (2 * hit) / (bx.size + by.size) >= 0.72
+  const wa = words(a), wb = words(b)
+  if (!wa.length || !wb.length) return false
+  const [short, long] = wa.length <= wb.length ? [wa, wb] : [wb, wa]
+  return short.every((w) => long.some((u) => sameWord(w, u)))
 }
 
 /** Places in the shared pool (any user's) with a name similar to `name`,
