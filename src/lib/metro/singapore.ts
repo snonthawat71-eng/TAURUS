@@ -7,7 +7,8 @@
 // รวมช่วงที่ยังไม่เปิดให้บริการ ณ วันที่ทำข้อมูลไว้ด้วย — TEL Stage 5 (TE30 Bedok
 // South, TE31 Sungei Bedok) และ DTL3 Extension (DT36 Xilin, DT37 Sungei Bedok)
 // รหัสมาจากเอกสารต้นทางโดยตรง ไม่ได้เดา; Sungei Bedok เป็นสถานีเปลี่ยนสาย
-// TE↔DT จึงใช้ node เดียวกัน ส่วน LRT ยังไม่รวม
+// TE↔DT จึงใช้ node เดียวกัน
+// รวม LRT 3 ระบบ (Bukit Panjang / Sengkang / Punggol) และ Sentosa Express
 // สถานีที่อยู่หลายสายใช้ id เดียวกัน = interchange
 import type { MetroNetwork, LineStation } from './types'
 
@@ -107,6 +108,52 @@ export const SINGAPORE: MetroNetwork = {
         s('katong-park', 'Katong Park', 'TE24'), s('tanjong-katong', 'Tanjong Katong', 'TE25'), s('marine-parade', 'Marine Parade', 'TE26'),
         s('marine-terrace', 'Marine Terrace', 'TE27'), s('siglap', 'Siglap', 'TE28'), s('bayshore', 'Bayshore', 'TE29'),
         s('bedok-south', 'Bedok South', 'TE30'), s('sungei-bedok', 'Sungei Bedok', 'TE31'),
+      ],
+    },
+    {
+      // ── LRT + monorail ──────────────────────────────────────────────
+      // Separate systems from the MRT above, but they share their interchange
+      // stations' ids so a transfer is one physical place, not two.
+      id: 'BP', name: 'BP Bukit Panjang LRT', color: '#748BC2',
+      stations: [
+        s('choa-chu-kang', 'Choa Chu Kang', 'BP1'), s('south-view', 'South View', 'BP2'), s('keat-hong', 'Keat Hong', 'BP3'),
+        s('teck-whye', 'Teck Whye', 'BP4'), s('phoenix', 'Phoenix', 'BP5'), s('bukit-panjang', 'Bukit Panjang', 'BP6'),
+        s('petir', 'Petir', 'BP7'), s('pending', 'Pending', 'BP8'), s('bangkit', 'Bangkit', 'BP9'),
+        s('fajar', 'Fajar', 'BP10'), s('segar', 'Segar', 'BP11'), s('jelapang', 'Jelapang', 'BP12'),
+        s('senja', 'Senja', 'BP13'),
+      ],
+    },
+    {
+      // Two loops out of Sengkang (STC): west SW1-SW8, then east SE1-SE5.
+      // Listed as one line — the model has no loop concept and every station
+      // keeps its own official code, which is what the picker shows.
+      id: 'ST', name: 'ST Sengkang LRT', color: '#7A4FA3',
+      stations: [
+        s('sengkang', 'Sengkang', 'STC'), s('cheng-lim', 'Cheng Lim', 'SW1'), s('farmway', 'Farmway', 'SW2'),
+        s('kupang', 'Kupang', 'SW3'), s('thanggam', 'Thanggam', 'SW4'), s('fernvale', 'Fernvale', 'SW5'),
+        s('layar', 'Layar', 'SW6'), s('tongkang', 'Tongkang', 'SW7'), s('renjong', 'Renjong', 'SW8'),
+        s('compassvale', 'Compassvale', 'SE1'), s('rumbia', 'Rumbia', 'SE2'), s('bakau', 'Bakau', 'SE3'),
+        s('kangkar', 'Kangkar', 'SE4'), s('ranggung', 'Ranggung', 'SE5'),
+      ],
+    },
+    {
+      // Two loops out of Punggol (PTC): east PE1-PE7, then west PW1-PW7.
+      id: 'PT', name: 'PT Punggol LRT', color: '#E66A2C',
+      stations: [
+        s('punggol', 'Punggol', 'PTC'), s('cove', 'Cove', 'PE1'), s('meridian', 'Meridian', 'PE2'),
+        s('coral-edge', 'Coral Edge', 'PE3'), s('riviera', 'Riviera', 'PE4'), s('kadaloor', 'Kadaloor', 'PE5'),
+        s('oasis', 'Oasis', 'PE6'), s('damai', 'Damai', 'PE7'), s('sam-kee', 'Sam Kee', 'PW1'),
+        s('teck-lee', 'Teck Lee', 'PW2'), s('punggol-point', 'Punggol Point', 'PW3'), s('samudera', 'Samudera', 'PW4'),
+        s('nibong', 'Nibong', 'PW5'), s('sumang', 'Sumang', 'PW6'), s('soo-teck', 'Soo Teck', 'PW7'),
+      ],
+    },
+    {
+      // Monorail to Sentosa, not part of MRT/LRT. SX1 boards at VivoCity,
+      // which is the HarbourFront interchange complex — same id as NE1/CC29.
+      id: 'SX', name: 'SX Sentosa Express', color: '#00A6A6',
+      stations: [
+        s('harbourfront', 'VivoCity', 'SX1'), s('resorts-world', 'Resorts World', 'SX2'), s('imbiah', 'Imbiah', 'SX3'),
+        s('beach', 'Beach', 'SX4'),
       ],
     },
   ],
