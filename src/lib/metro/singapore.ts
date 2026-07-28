@@ -150,7 +150,10 @@ export const SINGAPORE: MetroNetwork = {
     {
       // Monorail to Sentosa, not part of MRT/LRT. SX1 boards at VivoCity,
       // which is the HarbourFront interchange complex — same id as NE1/CC29.
-      id: 'SX', name: 'SX Sentosa Express', color: '#00A6A6',
+      // Colour sampled off Google Maps (line badge, route and timeline all
+      // read #F29000); the source file's #00A6A6 was its own map colour, not
+      // an official one, and didn't match what riders actually see.
+      id: 'SX', name: 'SX Sentosa Express', color: '#F29000',
       stations: [
         s('harbourfront', 'VivoCity', 'SX1'), s('resorts-world', 'Resorts World', 'SX2'), s('imbiah', 'Imbiah', 'SX3'),
         s('beach', 'Beach', 'SX4'),
