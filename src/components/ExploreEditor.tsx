@@ -79,9 +79,9 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [dupes, setDupes] = useState<ExploreDupe[]>([])
   useEffect(() => {
     if (!open || name.trim().length < 3) { setDupes([]); return }
-    const t = setTimeout(async () => setDupes(await searchExploreSimilar(name, initial?.id)), 350)
+    const t = setTimeout(async () => setDupes(await searchExploreSimilar(name, initial?.id, country)), 350)
     return () => clearTimeout(t)
-  }, [name, open, initial?.id])
+  }, [name, open, initial?.id, country])
 
   // previously-used city/country pairs — for the quick city chips + comboboxes.
   const sugg = useMemo(() => {
@@ -251,7 +251,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   async function save() {
     setBusy(true)
     // กันกรอกซ้ำชั้นที่ 2: fresh fuzzy check right before writing
-    const conflicts = await searchExploreSimilar(name, initial?.id)
+    const conflicts = await searchExploreSimilar(name, initial?.id, country)
     if (conflicts.length > 0) {
       const first = conflicts[0]
       const where = [first.city, first.country].filter(Boolean).join(', ')

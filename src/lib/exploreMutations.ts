@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { canonicalCountry } from './countries'
 import { latLngFromUrl, latLngFromUrlExact, isMapLink, resolveMapUrl, resolvedLinkAddress, resolvedLinkName, geocodeSmart, localLang } from './geo'
 import type { ExplorePlace, ExploreSuggestion, SuggestionKind, Place, Profile } from './database.types'
 
@@ -104,8 +105,16 @@ function similarName(a: string, b: string): boolean {
 
 /** Places in the shared pool (any user's) with a name similar to `name`,
  *  excluding the row being edited. Used live while typing AND as the final
- *  confirm gate on save. */
-export async function searchExploreSimilar(name: string, excludeId?: string | null): Promise<ExploreDupe[]> {
+ *  confirm gate on save.
+ *
+ *  `country` (the one being added) rules out matches in a DIFFERENT country.
+ *  Name similarity alone can't tell "Universal Studios Singapore" from
+ *  "Universal Studios Japan" — they share a long prefix and score 0.727
+ *  against a 0.72 threshold, while the genuinely-related "Universal Studios
+ *  Osaka" scores 0.714 and doesn't. Two places on different continents are
+ *  never the same place, whatever their names look like. A candidate with no
+ *  country recorded still warns, so real duplicates aren't lost. */
+export async function searchExploreSimilar(name: string, excludeId?: string | null, country?: string | null): Promise<ExploreDupe[]> {
   const q = name.trim()
   if (q.length < 3) return []
   // broad candidate fetch on the longest word, then rank precisely client-side
@@ -115,8 +124,13 @@ export async function searchExploreSimilar(name: string, excludeId?: string | nu
     .select('id,name,city,country')
     .ilike('name', `%${token}%`)
     .limit(15)
+  const mine = canonicalCountry(country)
+  const elsewhere = (d: ExploreDupe) => {
+    const theirs = canonicalCountry(d.country)
+    return !!mine && !!theirs && mine !== theirs
+  }
   return ((data ?? []) as ExploreDupe[])
-    .filter((d) => d.id !== excludeId && similarName(d.name ?? '', q))
+    .filter((d) => d.id !== excludeId && !elsewhere(d) && similarName(d.name ?? '', q))
     .slice(0, 4)
 }
 

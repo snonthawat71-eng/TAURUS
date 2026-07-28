@@ -190,7 +190,9 @@ export function PlaceGrid({
     if (!user) return
     if (!p.name?.trim()) { toast.error('ตั้งชื่อสถานที่ก่อนแชร์'); return }
     // already in the pool → just say so and close; no duplicate sharing
-    const dupes = await searchExploreSimilar(p.name, null)
+    // the trip's country stands in for the place's own — a place inside a trip
+    // is in that trip's country, so a same-named spot abroad isn't a duplicate
+    const dupes = await searchExploreSimilar(p.name, null, p.country ?? trip?.country)
     if (dupes.length > 0) {
       await alertDialog({
         icon: <IconCircleCheck size={26} />,
