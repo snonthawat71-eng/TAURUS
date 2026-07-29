@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconMessageCircle, IconBuildingStore, IconZoomScan, IconMessageReport } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconMessageCircle, IconBuildingStore, IconZoomScan, IconMessageReport, IconStarFilled } from '@tabler/icons-react'
 import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
-import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
 import { stationCode } from '@/lib/metro/suggest'
@@ -55,6 +54,18 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
           {gallery.length > 0 && (
             <span className="absolute bottom-1.5 right-1.5 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
           )}
+          {/* REAL star average (explore_ratings), overlaid on the photo so it
+              costs the text column no height. Absent — not "ยังไม่มีคะแนน" —
+              until somebody actually rates, or every card would carry an empty
+              row. Never a score derived from like counts. */}
+          {!!rating?.count && (
+            <span className="absolute bottom-1.5 left-1.5 z-10 inline-flex items-center gap-0.5 rounded-full pl-1 pr-1.5 h-[19px] text-[11px] font-bold text-white pointer-events-none"
+              title={`${rating.avg.toFixed(1)} จาก 5 · ${rating.count} คน`}
+              style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
+              <IconStarFilled size={11} style={{ color: '#F5A623' }} />
+              <span className="tabular-nums">{rating.avg.toFixed(1)}</span>
+            </span>
+          )}
           {popular && (
             <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 rounded-full pl-1.5 pr-2 py-0.5 text-[10px] font-semibold text-white shadow-sm"
               style={{ background: 'linear-gradient(90deg,#FB7022,#EF4444)' }}>
@@ -76,14 +87,6 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
             )}
           </div>
           <div className="text-[15px] font-medium leading-snug line-clamp-2 mt-1.5">{e.name}</div>
-          {/* REAL star average (explore_ratings) — hollow stars until somebody
-              actually rates, never a score derived from like counts */}
-          <div className="flex items-center gap-1.5 mt-1">
-            <StarRating rating={rating?.avg ?? 0} size={13} empty={!rating?.count} />
-            {rating?.count
-              ? <><span className="text-[12px] font-bold tabular-nums">{rating.avg.toFixed(1)}</span><span className="text-[11px] text-ink-3">({rating.count})</span></>
-              : <span className="text-[11px] text-ink-3">ยังไม่มีคะแนน</span>}
-          </div>
           {/* city + open-in-maps link (moved up to replace the old rating row) */}
           <div className="flex items-center gap-2 flex-wrap mt-1.5">
             {e.city && <span className="chip !py-0.5">{e.city}</span>}
