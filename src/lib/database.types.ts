@@ -436,6 +436,10 @@ export interface ExploreRating {
   vibe?: number | null
   /** คิว — 5 = ไม่ต้องรอเลย */
   queue?: number | null
+  /** optional — the written review */
+  body?: string | null
+  /** optional — photos attached to the review (public URLs) */
+  photos?: string[] | null
   author_name?: string | null
   author_color?: string | null
   author_photo?: string | null

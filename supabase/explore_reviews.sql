@@ -41,6 +41,10 @@ create index if not exists explore_ratings_explore_idx on explore_ratings (explo
 -- เผื่อเคยรันเวอร์ชันแรกที่ stars เป็น smallint — ขยายให้เก็บทศนิยมได้
 alter table explore_ratings alter column stars type numeric(3,2);
 
+-- ข้อความรีวิว + รูปที่แนบมากับรีวิว (public URL เหมือนรูป Explore)
+alter table explore_ratings add column if not exists body   text;
+alter table explore_ratings add column if not exists photos text[];
+
 alter table explore_ratings enable row level security;
 
 drop policy if exists "explore ratings read"   on explore_ratings;

@@ -1,31 +1,40 @@
-import { useEffect, useMemo, useState } from 'react'
-import { IconTrash, IconLoader2, IconCheck, IconArrowLeft, IconThumbUp, IconThumbUpFilled, IconPlus } from '@tabler/icons-react'
-import { Drawer } from './Drawer'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  IconX, IconTrash, IconLoader2, IconCheck, IconArrowLeft, IconThumbUp, IconThumbUpFilled,
+  IconPlus, IconPhotoPlus, IconStarFilled, IconSearch,
+} from '@tabler/icons-react'
 import { StarRating } from './StarRating'
 import { StarInput } from './StarInput'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
+import { uploadPublicImage } from '@/lib/files'
 import { toast } from '@/lib/toast'
 import { confirmDialog } from '@/lib/confirm'
 import {
   aspectsFor, tagsFor, tagDef, overallOf, draftFrom, draftComplete, isFood,
   saveReview, clearRating, emptyDraft, emptyMenuDraft, saveMenuPicks, getMenu,
+  REVIEW_PHOTO_MAX,
   type ReviewDraft, type MenuDraft, type AspectKey, type MenuRow,
 } from '@/lib/exploreReviews'
 import type { ExplorePlace, ExploreRating } from '@/lib/database.types'
 
-type StepKey = 'score' | 'tags' | 'menu'
+const BODY_MAX = 2000
 
 /**
- * The review form, as a short wizard: score → tags → dishes → send. Nothing is
- * written until the last button, so backing out of a half-filled review leaves
- * no trace.
+ * The review form — a full-screen flow, not a bottom sheet, because it's a
+ * task you finish rather than a field you tweak.
  *
- * There is deliberately no "overall stars" control. The big star row at the top
- * of step 1 is the RESULT — the mean of the four aspects — and fills in as you
- * answer them. You can't hand a place 5★ overall while calling every aspect
- * terrible.
+ *   1. tap the big star row once → the four aspects and the tags drop in
+ *      underneath, pre-filled with what you tapped so one tap is a complete
+ *      answer and adjusting a single aspect only refines it
+ *   2. write the review, attach photos, recommend dishes
+ *   3. a thank-you screen
+ *
+ * Nothing is written until "ส่งรีวิว", so backing out leaves no trace. The
+ * headline score is never typed in directly: it's the mean of the four
+ * aspects, which is why a 5★ overall can't sit on top of four bad ones.
  */
 export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
   e: ExplorePlace
@@ -41,22 +50,24 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
   const food = isFood(e.group_type)
   const aspects = useMemo(() => aspectsFor(e.group_type), [e.group_type])
   const catalog = useMemo(() => tagsFor(e.group_type), [e.group_type])
-  const STEPS: StepKey[] = useMemo(() => (food ? ['score', 'tags', 'menu'] : ['score', 'tags']), [food])
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(0)          // 0 = score, 1 = write, 2 = done
   const [draft, setDraft] = useState<ReviewDraft>(emptyDraft)
   const [menu, setMenu] = useState<MenuRow[]>([])
   const [menuDraft, setMenuDraft] = useState<MenuDraft>(emptyMenuDraft)
   const [newDish, setNewDish] = useState('')
+  const [dishQuery, setDishQuery] = useState('')
+  const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
+  const photoInput = useRef<HTMLInputElement>(null)
 
-  // reset to what's stored every time the sheet opens — an abandoned edit must
+  // reset to what's stored every time the flow opens — an abandoned edit must
   // not leak into the next one
   useEffect(() => {
     if (!open) return
     setStep(0)
     setDraft(draftFrom(mine, myTags))
-    setNewDish('')
+    setNewDish(''); setDishQuery('')
     if (!food || !user) { setMenu([]); setMenuDraft(emptyMenuDraft()); return }
     getMenu(e.id, user.id).then((rows) => {
       setMenu(rows)
@@ -64,15 +75,22 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
     })
   }, [open, mine?.user_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // lock the page behind the overlay so it can't scroll under us
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
   const overall = overallOf(draft)
   const complete = draftComplete(draft)
-  const scored = ([draft.taste, draft.worth, draft.vibe, draft.queue] as (number | null)[]).filter(Boolean).length
-  const key = STEPS[step]
-  const last = step === STEPS.length - 1
   const meta = catMeta(e.category)
   const Icon = meta.icon
   const prevVotes = useMemo(() => menu.filter((r) => r.mine).map((r) => r.id), [menu])
 
+  /** One tap on the big row answers every aspect at once — the fast path. */
+  const setAll = (n: number) => setDraft((d) => ({ ...d, taste: n, worth: n, vibe: n, queue: n }))
   const setAspect = (k: AspectKey, v: number) => setDraft((d) => ({ ...d, [k]: v }))
   const toggleTag = (tag: string) => setDraft((d) => ({
     ...d, tags: d.tags.includes(tag) ? d.tags.filter((t) => t !== tag) : [...d.tags, tag],
@@ -80,6 +98,7 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
   const toggleDish = (id: string) => setMenuDraft((m) => ({
     ...m, votes: m.votes.includes(id) ? m.votes.filter((v) => v !== id) : [...m.votes, id],
   }))
+
   function addDish() {
     const name = newDish.trim()
     if (!name) return
@@ -88,6 +107,21 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
     if (dupe) { setNewDish(''); return }
     setMenuDraft((m) => ({ ...m, added: [...m.added, name] }))
     setNewDish('')
+  }
+
+  async function onPickPhotos(ev: React.ChangeEvent<HTMLInputElement>) {
+    const input = ev.target
+    const files = Array.from(input.files ?? [])
+    if (!files.length) return
+    setUploading(true)
+    let room = REVIEW_PHOTO_MAX - draft.photos.length
+    for (const file of files) {
+      if (room <= 0) break
+      const { url } = await uploadPublicImage(file)
+      if (url) { setDraft((d) => ({ ...d, photos: [...d.photos, url] })); room-- }
+    }
+    setUploading(false)
+    input.value = ''
   }
 
   async function submit() {
@@ -103,19 +137,20 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
     if (food) await saveMenuPicks(e.id, user.id, prevVotes, menuDraft)
     setBusy(false)
     await onSaved()
-    onClose()
-    toast.success(mine ? 'แก้ไขรีวิวแล้ว' : 'ขอบคุณสำหรับรีวิว!')
+    setStep(2)
   }
 
   async function remove() {
     if (!user || !mine || busy) return
-    if (!(await confirmDialog({ message: 'ลบรีวิวของคุณออกจากที่นี่? แท็กที่คุณเลือกไว้จะถูกลบไปด้วย', danger: true, confirmLabel: 'ลบรีวิว' }))) return
+    if (!(await confirmDialog({ message: 'ลบรีวิวของคุณออกจากที่นี่? แท็กและรูปที่แนบไว้จะถูกลบไปด้วย', danger: true, confirmLabel: 'ลบรีวิว' }))) return
     setBusy(true)
     await clearRating(e.id, user.id)
     setBusy(false)
     await onSaved()
     onClose()
   }
+
+  if (!open) return null
 
   const thumb = (
     <span className="rounded-[12px] overflow-hidden bg-surface-2 grid place-items-center shrink-0 w-full h-full">
@@ -125,165 +160,261 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
     </span>
   )
 
-  return (
-    <Drawer open={open} onClose={onClose} title={mine ? 'แก้ไขรีวิว' : 'เขียนรีวิว'}>
-      {/* progress — same tappable segments as the expense wizard. Steps after
-          the score can only be reached once the score is done. */}
-      <div className="flex gap-1 mb-4">
-        {STEPS.map((s, i) => (
-          <button key={s} onClick={() => (i === 0 || complete) && setStep(i)} aria-label={`ขั้นที่ ${i + 1}`}
-            className="flex-1 h-1.5 rounded-full transition-colors"
-            style={{ background: i <= step ? 'var(--color-brand)' : 'var(--color-surface-2)' }} />
-        ))}
-      </div>
+  const dishes = menu.filter((r) => !dishQuery.trim() || r.name.toLowerCase().includes(dishQuery.trim().toLowerCase()))
 
-      {key === 'score' ? (
-        /* ── 1. the four aspects, with the derived score as the hero ── */
-        <div className="text-center">
-          <div className="size-[84px] mx-auto">{thumb}</div>
-          <div className="text-[14px] font-medium mt-2.5 truncate">{e.name}</div>
-          <div className="mt-2.5 flex justify-center"><StarRating rating={overall} size={30} empty={!overall} /></div>
-          <div className="text-[11.5px] text-ink-3 mt-2">
-            {complete
-              ? <>คะแนนรวม <b className="text-ink tabular-nums">{overall.toFixed(1)}</b> — เฉลี่ยจากทั้ง 4 ด้าน</>
-              : `ให้ดาวทีละด้าน แล้วคะแนนรวมคิดให้เอง · เหลืออีก ${4 - scored} ด้าน`}
-          </div>
-
-          <div className="card overflow-hidden mt-4 text-left">
-            {aspects.map((a, i) => (
-              <div key={a.key} className="flex items-center gap-2 pl-3.5 pr-2 py-2"
-                style={i > 0 ? { borderTop: '0.5px solid var(--color-line)' } : undefined}>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13.5px] font-medium leading-tight">{a.label}</div>
-                  <div className="text-[10.5px] text-ink-3 leading-tight mt-0.5">{a.hint}</div>
-                </div>
-                <StarInput value={draft[a.key]} onChange={(n) => setAspect(a.key, n)} size={21} label={a.label} />
-              </div>
+  // ── the thank-you screen ────────────────────────────────────────────────
+  if (step === 2) {
+    return createPortal(
+      <div className="fixed inset-0 z-[700] bg-canvas overflow-y-auto">
+        <button onClick={onClose} aria-label="ปิด"
+          className="absolute z-10 size-9 rounded-full bg-surface grid place-items-center text-ink-2 shadow-sm"
+          style={{ top: 'calc(env(safe-area-inset-top,0px) + 12px)', left: 14 }}>
+          <IconX size={18} />
+        </button>
+        <div className="max-w-[440px] mx-auto px-6 text-center" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 90px)' }}>
+          <div className="relative mx-auto w-[180px] h-[130px]">
+            {/* confetti — plain dots, no artwork to ship */}
+            {[['12%', '18%', '#FB7022'], ['84%', '10%', '#0270FB'], ['6%', '62%', '#2F8F6B'], ['90%', '58%', '#C24E7C'], ['46%', '4%', '#F5A623'], ['70%', '80%', '#7F77DD']].map(([l, t, c], i) => (
+              <span key={i} className="absolute rounded-full animate-[slideup_.5s_ease]" style={{ left: l, top: t, width: 9, height: 9, background: c, animationDelay: `${i * 60}ms` }} />
             ))}
+            <span className="absolute inset-0 grid place-items-center animate-[slideup_.35s_ease]">
+              <IconStarFilled size={86} style={{ color: '#F5A623' }} />
+            </span>
           </div>
-        </div>
-      ) : (
-        /* every later step keeps a compact reminder of what's being reviewed */
-        <>
-          <div className="flex items-center gap-2.5 mb-4">
-            <span className="size-10 shrink-0">{thumb}</span>
-            <div className="min-w-0">
+          <div className="text-[21px] font-extrabold mt-5">ขอบคุณสำหรับรีวิว</div>
+          <div className="text-[13px] text-ink-3 mt-1.5">รีวิวของคุณช่วยให้คนอื่นตัดสินใจได้ง่ายขึ้น</div>
+
+          <div className="card p-3.5 flex items-center gap-3 mt-6 text-left">
+            <span className="size-12 shrink-0">{thumb}</span>
+            <div className="min-w-0 flex-1">
               <div className="text-[13.5px] font-medium truncate">{e.name}</div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <StarRating rating={overall} size={12} />
-                <span className="text-[11px] font-bold tabular-nums">{overall.toFixed(1)}</span>
+              <div className="flex items-center gap-1.5 mt-1">
+                <StarRating rating={overall} size={13} />
+                <span className="text-[12px] font-bold tabular-nums">{overall.toFixed(1)}</span>
               </div>
             </div>
           </div>
 
-          {key === 'tags' ? (
-            /* ── 2. one-tap tags ── */
-            <>
-              <div className="text-[15px] font-semibold mb-0.5">ที่นี่เป็นยังไง?</div>
-              <div className="text-[11.5px] text-ink-3 mb-3">เลือกได้หลายอัน · ข้ามได้ถ้าไม่มีอะไรตรง</div>
-              <div className="flex flex-wrap gap-1.5">
-                {catalog.map((t) => {
-                  const on = draft.tags.includes(t.key)
-                  return (
-                    <button key={t.key} type="button" onClick={() => toggleTag(t.key)}
-                      className="inline-flex items-center gap-1 rounded-full px-3 h-9 text-[12.5px] font-medium transition"
-                      style={on
-                        ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '1px solid var(--color-brand)' }
-                        : { background: 'var(--color-surface)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line-2)' }}>
-                      {t.label}{on && <IconCheck size={13} />}
-                    </button>
-                  )
-                })}
-                {/* tags I picked before that are no longer in the catalog */}
-                {draft.tags.filter((k) => !catalog.some((t) => t.key === k)).map((k) => (
-                  <button key={k} type="button" onClick={() => toggleTag(k)}
-                    className="inline-flex items-center gap-1 rounded-full px-3 h-9 text-[12.5px] font-medium"
-                    style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '1px solid var(--color-brand)' }}>
-                    {tagDef(k).label}<IconCheck size={13} />
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            /* ── 3. dishes worth ordering (restaurants only) ── */
-            <>
-              <div className="text-[15px] font-semibold mb-0.5">มีเมนูไหนที่อยากแนะนำ?</div>
-              <div className="text-[11.5px] text-ink-3 mb-3">คนอื่นจะเห็นเป็นอันดับ “สั่งอะไรดี” ของร้านนี้</div>
+          <button onClick={onClose} className="btn-primary w-full h-12 mt-6">เสร็จสิ้น</button>
+        </div>
+      </div>,
+      document.body,
+    )
+  }
 
-              <div className="space-y-1.5">
-                {menu.map((row) => {
-                  const on = menuDraft.votes.includes(row.id)
-                  return (
-                    <button key={row.id} type="button" onClick={() => toggleDish(row.id)}
-                      className="w-full flex items-center gap-2 px-3 h-12 rounded-[11px] text-left transition"
-                      style={on
-                        ? { background: 'var(--color-brand-soft)', border: '1px solid var(--color-brand)' }
-                        : { background: 'var(--color-surface)', border: '0.5px solid var(--color-line-2)' }}>
-                      <span className="flex-1 min-w-0 truncate text-[13px] font-medium">{row.name}</span>
-                      <span className="text-[11px] text-ink-3 tabular-nums shrink-0">{row.votes}</span>
-                      <span className="shrink-0" style={{ color: on ? 'var(--color-brand)' : 'var(--color-ink-3)' }}>
-                        {on ? <IconThumbUpFilled size={18} /> : <IconThumbUp size={18} />}
-                      </span>
-                    </button>
-                  )
-                })}
-                {menuDraft.added.map((name) => (
-                  <div key={name} className="w-full flex items-center gap-2 px-3 h-12 rounded-[11px]"
-                    style={{ background: 'var(--color-brand-soft)', border: '1px solid var(--color-brand)' }}>
-                    <span className="flex-1 min-w-0 truncate text-[13px] font-medium">{name}</span>
-                    <span className="text-[10.5px] text-ink-3 shrink-0">เพิ่มใหม่</span>
-                    <button type="button" aria-label="เอาออก" className="shrink-0 text-ink-3"
-                      onClick={() => setMenuDraft((m) => ({ ...m, added: m.added.filter((n) => n !== name) }))}>
-                      <IconTrash size={15} />
+  // ── the form ────────────────────────────────────────────────────────────
+  return createPortal(
+    <div className="fixed inset-0 z-[700] bg-canvas flex flex-col">
+      {/* top bar — the place identity collapses in here after the score step */}
+      <div className="shrink-0 flex items-center gap-2.5 px-3.5 bg-canvas"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 10px)', paddingBottom: 10, borderBottom: step > 0 ? '0.5px solid var(--color-line)' : undefined }}>
+        <button onClick={step > 0 ? () => setStep(step - 1) : onClose} aria-label={step > 0 ? 'ย้อนกลับ' : 'ปิด'}
+          className="size-9 rounded-full grid place-items-center text-ink-2 shrink-0 hover:bg-surface-2">
+          {step > 0 ? <IconArrowLeft size={20} /> : <IconX size={20} />}
+        </button>
+        {step > 0 && (
+          <div className="min-w-0 flex-1">
+            <div className="text-[14px] font-semibold truncate leading-tight">{e.name}</div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <StarRating rating={overall} size={11} />
+              <span className="text-[11px] font-bold tabular-nums">{overall.toFixed(1)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-[480px] mx-auto px-5 pb-6">
+          {step === 0 ? (
+            <div className="text-center pt-6">
+              <div className="size-[104px] mx-auto">{thumb}</div>
+              <div className="text-[14px] text-ink-2 mt-3 truncate">{e.name}</div>
+              <div className="text-[19px] font-extrabold mt-3">
+                {food ? 'ให้คะแนนร้านนี้' : 'ให้คะแนนที่นี่'}
+              </div>
+
+              <div className="mt-3 flex justify-center">
+                {/* shows the derived overall; tapping it re-answers all four */}
+                <StarInput value={overall ? Math.round(overall) : null}
+                  onChange={setAll} size={38} label={`ให้คะแนน ${e.name ?? 'ที่นี่'}`} />
+              </div>
+              {overall > 0 && (
+                <div className="text-[11.5px] text-ink-3 mt-1">
+                  คะแนนรวม <b className="text-ink tabular-nums">{overall.toFixed(1)}</b> — เฉลี่ยจากทั้ง 4 ด้านด้านล่าง
+                </div>
+              )}
+
+              {/* everything below drops in only after the first tap */}
+              {overall > 0 && (
+                <div className="animate-[revealdown_.28s_ease] text-left mt-7">
+                  <div className="text-[15px] font-extrabold text-center mb-3">ปรับคะแนนแต่ละด้านได้</div>
+                  <div className="card overflow-hidden">
+                    {aspects.map((a, i) => (
+                      <div key={a.key} className="flex items-center gap-2 pl-3.5 pr-2 py-2"
+                        style={i > 0 ? { borderTop: '0.5px solid var(--color-line)' } : undefined}>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13.5px] font-medium leading-tight">{a.label}</div>
+                          <div className="text-[10.5px] text-ink-3 leading-tight mt-0.5">{a.hint}</div>
+                        </div>
+                        <StarInput value={draft[a.key]} onChange={(n) => setAspect(a.key, n)} size={21} label={a.label} />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="text-[15px] font-extrabold text-center mt-7 mb-3">คุณประทับใจสิ่งใด?</div>
+                  <div className="flex flex-wrap gap-1.5 justify-center">
+                    {catalog.map((t) => {
+                      const on = draft.tags.includes(t.key)
+                      return (
+                        <button key={t.key} type="button" onClick={() => toggleTag(t.key)}
+                          className="inline-flex items-center gap-1 rounded-full px-3 h-9 text-[12.5px] font-medium transition"
+                          style={on
+                            ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '1px solid var(--color-brand)' }
+                            : { background: 'var(--color-surface)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line-2)' }}>
+                          {t.label}{on && <IconCheck size={13} />}
+                        </button>
+                      )
+                    })}
+                    {draft.tags.filter((k) => !catalog.some((t) => t.key === k)).map((k) => (
+                      <button key={k} type="button" onClick={() => toggleTag(k)}
+                        className="inline-flex items-center gap-1 rounded-full px-3 h-9 text-[12.5px] font-medium"
+                        style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '1px solid var(--color-brand)' }}>
+                        {tagDef(k).label}<IconCheck size={13} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="pt-5">
+              {/* ── write ── */}
+              <div className="text-[15px] font-extrabold">เขียนรีวิว</div>
+              {draft.tags.length > 0 && (
+                <div className="text-[11.5px] text-ink-3 mt-1">
+                  หัวข้อแนะนำ: {draft.tags.map((k) => tagDef(k).label).join(' · ')}
+                </div>
+              )}
+              <div className="relative mt-2">
+                <textarea value={draft.body} rows={6} maxLength={BODY_MAX}
+                  onChange={(ev) => setDraft((d) => ({ ...d, body: ev.target.value }))}
+                  placeholder="เล่าให้ฟังหน่อยว่าเป็นยังไงบ้าง…"
+                  className="w-full resize-none rounded-[12px] bg-surface px-3.5 py-3 pb-7 text-[13.5px] outline-none focus:ring-1 focus:ring-brand"
+                  style={{ border: '0.5px solid var(--color-line-2)' }} />
+                <span className="absolute bottom-2.5 right-3.5 text-[11px] text-ink-3 tabular-nums pointer-events-none">
+                  {draft.body.length}/{BODY_MAX}
+                </span>
+              </div>
+
+              {/* ── photos ── */}
+              <div className="text-[15px] font-extrabold mt-6">แชร์โมเมนต์ดีๆ</div>
+              <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar">
+                {draft.photos.map((url) => (
+                  <div key={url} className="relative shrink-0 w-24 h-24 rounded-[12px] overflow-hidden bg-surface-2">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button type="button" aria-label="เอารูปออก"
+                      onClick={() => setDraft((d) => ({ ...d, photos: d.photos.filter((p) => p !== url) }))}
+                      className="absolute top-1 right-1 size-6 rounded-full bg-black/55 text-white grid place-items-center">
+                      <IconX size={13} />
                     </button>
                   </div>
                 ))}
-                {menu.length === 0 && menuDraft.added.length === 0 && (
-                  <div className="text-[12px] text-ink-3 py-1">ยังไม่มีใครบอกว่าเมนูไหนเด็ด — เพิ่มเมนูแรกเลย</div>
+                {draft.photos.length < REVIEW_PHOTO_MAX && (
+                  <label htmlFor="review-photo-input"
+                    className="shrink-0 w-24 h-24 rounded-[12px] grid place-items-center cursor-pointer text-ink-3"
+                    style={{ border: '1.5px dashed var(--color-line-2)' }}>
+                    <span className="flex flex-col items-center gap-1">
+                      {uploading ? <IconLoader2 size={20} className="animate-spin" /> : <IconPhotoPlus size={20} />}
+                      <span className="text-[10.5px]">{draft.photos.length} จาก {REVIEW_PHOTO_MAX}</span>
+                    </span>
+                  </label>
                 )}
+                <input id="review-photo-input" ref={photoInput} type="file" accept="image/*" multiple hidden onChange={onPickPhotos} />
               </div>
 
-              <div className="flex gap-2 mt-2.5">
-                <input value={newDish} onChange={(ev) => setNewDish(ev.target.value)}
-                  onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); addDish() } }}
-                  placeholder="พิมพ์ชื่อเมนู…" maxLength={60}
-                  className="flex-1 min-w-0 h-11 rounded-[10px] bg-surface-2 px-3 text-[13px] outline-none focus:ring-1 focus:ring-brand" />
-                <button type="button" onClick={addDish} disabled={!newDish.trim()}
-                  className="inline-flex items-center gap-1 h-11 px-3.5 rounded-[10px] bg-brand text-white text-[12.5px] font-medium disabled:opacity-40 shrink-0">
-                  <IconPlus size={15} /> เพิ่ม
+              {/* ── dishes worth ordering ── */}
+              {food && (
+                <>
+                  <div className="text-[15px] font-extrabold mt-6">สิ่งที่อยากแนะนำ</div>
+                  <div className="text-[11.5px] text-ink-3 mt-0.5 mb-2">คนอื่นจะเห็นเป็นอันดับ “สั่งอะไรดี” ของร้านนี้</div>
+
+                  {menu.length > 4 && (
+                    <div className="flex items-center gap-2 h-10 rounded-[10px] bg-surface-2 px-3 mb-2">
+                      <IconSearch size={15} className="text-ink-3 shrink-0" />
+                      <input value={dishQuery} onChange={(ev) => setDishQuery(ev.target.value)} placeholder="ค้นหารายการ"
+                        className="flex-1 bg-transparent text-[13px] outline-none" />
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    {dishes.map((row) => {
+                      const on = menuDraft.votes.includes(row.id)
+                      return (
+                        <button key={row.id} type="button" onClick={() => toggleDish(row.id)}
+                          className="w-full flex items-center gap-2 px-3 h-12 rounded-[11px] text-left transition"
+                          style={on
+                            ? { background: 'var(--color-brand-soft)', border: '1px solid var(--color-brand)' }
+                            : { background: 'var(--color-surface)', border: '0.5px solid var(--color-line-2)' }}>
+                          <span className="flex-1 min-w-0 truncate text-[13px] font-medium">{row.name}</span>
+                          <span className="text-[11px] text-ink-3 tabular-nums shrink-0">{row.votes}</span>
+                          <span className="shrink-0" style={{ color: on ? 'var(--color-brand)' : 'var(--color-ink-3)' }}>
+                            {on ? <IconThumbUpFilled size={18} /> : <IconThumbUp size={18} />}
+                          </span>
+                        </button>
+                      )
+                    })}
+                    {menuDraft.added.map((name) => (
+                      <div key={name} className="w-full flex items-center gap-2 px-3 h-12 rounded-[11px]"
+                        style={{ background: 'var(--color-brand-soft)', border: '1px solid var(--color-brand)' }}>
+                        <span className="flex-1 min-w-0 truncate text-[13px] font-medium">{name}</span>
+                        <span className="text-[10.5px] text-ink-3 shrink-0">เพิ่มใหม่</span>
+                        <button type="button" aria-label="เอาออก" className="shrink-0 text-ink-3"
+                          onClick={() => setMenuDraft((m) => ({ ...m, added: m.added.filter((n) => n !== name) }))}>
+                          <IconTrash size={15} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2 mt-2">
+                    <input value={newDish} onChange={(ev) => setNewDish(ev.target.value)}
+                      onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); addDish() } }}
+                      placeholder="พิมพ์ชื่อเมนูที่อยากแนะนำ…" maxLength={60}
+                      className="flex-1 min-w-0 h-11 rounded-[10px] bg-surface-2 px-3 text-[13px] outline-none focus:ring-1 focus:ring-brand" />
+                    <button type="button" onClick={addDish} disabled={!newDish.trim()}
+                      className="inline-flex items-center gap-1 h-11 px-3.5 rounded-[10px] bg-brand text-white text-[12.5px] font-medium disabled:opacity-40 shrink-0">
+                      <IconPlus size={15} /> เพิ่ม
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <div className="text-[11px] text-ink-3 text-center mt-6">รีวิวของคุณจะแสดงให้ทุกคนเห็น</div>
+
+              {mine && (
+                <button onClick={remove} disabled={busy}
+                  className="w-full h-10 flex items-center justify-center gap-1.5 text-[12.5px] mt-2" style={{ color: '#D85A30' }}>
+                  <IconTrash size={14} /> ลบรีวิวของฉัน
                 </button>
-              </div>
-            </>
+              )}
+            </div>
           )}
-        </>
-      )}
+        </div>
+      </div>
 
-      {/* sticky action bar — the primary button stays reachable on every step */}
-      <div className="sticky bottom-0 -mx-5 -mb-5 px-5 pt-3 pb-5 mt-5 bg-surface">
-        <div className="flex items-center gap-2">
-          {step > 0 && (
-            <button onClick={() => setStep(step - 1)}
-              className="h-11 px-4 rounded-full inline-flex items-center gap-1 text-[13px] font-medium text-ink-2 shrink-0"
-              style={{ background: 'var(--color-surface-2)' }}>
-              <IconArrowLeft size={16} /> ย้อนกลับ
-            </button>
-          )}
-          {last ? (
-            <button onClick={submit} disabled={!complete || busy} className="btn-primary flex-1 h-11 disabled:opacity-50">
-              {busy ? <IconLoader2 size={16} className="animate-spin" /> : mine ? 'บันทึกการแก้ไข' : 'ส่งรีวิว'}
-            </button>
+      {/* sticky action bar */}
+      <div className="shrink-0 px-5 pt-3 bg-canvas" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 14px)', boxShadow: '0 -10px 16px -12px rgba(0,0,0,.14)' }}>
+        <div className="max-w-[480px] mx-auto">
+          {step === 0 ? (
+            <button onClick={() => setStep(1)} disabled={!complete} className="btn-primary w-full h-12 disabled:opacity-40">ต่อไป</button>
           ) : (
-            <button onClick={() => setStep(step + 1)} disabled={!complete} className="btn-primary flex-1 h-11 disabled:opacity-50">
-              {complete ? 'ต่อไป' : `ให้ดาวอีก ${4 - scored} ด้าน`}
+            <button onClick={submit} disabled={!complete || busy || uploading} className="btn-primary w-full h-12 disabled:opacity-40">
+              {busy ? <IconLoader2 size={17} className="animate-spin" /> : mine ? 'บันทึกการแก้ไข' : 'ส่งรีวิว'}
             </button>
           )}
         </div>
-        {mine && last && (
-          <button onClick={remove} disabled={busy} className="w-full h-9 flex items-center justify-center gap-1.5 text-[12.5px] mt-1" style={{ color: '#D85A30' }}>
-            <IconTrash size={14} /> ลบรีวิวของฉัน
-          </button>
-        )}
       </div>
-    </Drawer>
+    </div>,
+    document.body,
   )
 }

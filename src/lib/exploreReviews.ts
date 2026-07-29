@@ -183,6 +183,9 @@ export interface RatingAuthor {
   focus?: string | null
 }
 
+/** How many photos one review may carry. */
+export const REVIEW_PHOTO_MAX = 5
+
 /** What the review form holds while it's being filled in. */
 export interface ReviewDraft {
   taste: number | null
@@ -190,9 +193,12 @@ export interface ReviewDraft {
   vibe: number | null
   queue: number | null
   tags: string[]
+  body: string
+  photos: string[]
 }
 
-export const emptyDraft = (): ReviewDraft => ({ taste: null, worth: null, vibe: null, queue: null, tags: [] })
+export const emptyDraft = (): ReviewDraft =>
+  ({ taste: null, worth: null, vibe: null, queue: null, tags: [], body: '', photos: [] })
 
 /** Seed the form from what I submitted last time (or blank for a new review). */
 export function draftFrom(mine: ExploreRating | null, myTags: Iterable<string>): ReviewDraft {
@@ -202,6 +208,8 @@ export function draftFrom(mine: ExploreRating | null, myTags: Iterable<string>):
     vibe: mine?.vibe ?? null,
     queue: mine?.queue ?? null,
     tags: [...myTags],
+    body: mine?.body ?? '',
+    photos: mine?.photos ?? [],
   }
 }
 
@@ -227,11 +235,20 @@ export async function saveReview(
   const row: Record<string, unknown> = {
     explore_id: exploreId, user_id: userId, stars,
     taste: draft.taste, worth: draft.worth, vibe: draft.vibe, queue: draft.queue,
+    body: draft.body.trim() || null,
+    photos: draft.photos.length ? draft.photos : null,
     author_name: author.name ?? null, author_color: author.color ?? null,
     author_photo: author.photo ?? null, author_focus: author.focus ?? null,
     updated_at: new Date().toISOString(),
   }
-  const res = await supabase.from('explore_ratings').upsert(row, { onConflict: 'explore_id,user_id' })
+  let res = await supabase.from('explore_ratings').upsert(row, { onConflict: 'explore_id,user_id' })
+  // `body`/`photos` were added after the first version of the migration — drop
+  // whichever the schema reports as missing and keep the score (repo-wide
+  // graceful-degradation pattern)
+  if (res.error && /body|photos/.test(res.error.message)) {
+    const { body, photos, ...rest } = row // eslint-disable-line @typescript-eslint/no-unused-vars
+    res = await supabase.from('explore_ratings').upsert(rest, { onConflict: 'explore_id,user_id' })
+  }
   if (res.error) { probe(res.error); return res }
   probe(null)
 

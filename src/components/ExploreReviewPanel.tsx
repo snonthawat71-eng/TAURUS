@@ -5,6 +5,7 @@ import {
 } from '@tabler/icons-react'
 import { StarRating } from './StarRating'
 import { ReviewEditor } from './ReviewEditor'
+import { Avatar } from './Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { confirmDialog } from '@/lib/confirm'
 import {
@@ -13,6 +14,16 @@ import {
   type ReviewData, type TagData, type MenuRow,
 } from '@/lib/exploreReviews'
 import type { ExplorePlace } from '@/lib/database.types'
+
+/** "3 วันที่แล้ว" — kept local so this file doesn't import ExploreDetail, which
+ *  imports this one back. */
+function sinceText(iso: string) {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 3600) return 'เมื่อสักครู่'
+  if (s < 86400) return `${Math.floor(s / 3600)} ชม.ที่แล้ว`
+  if (s < 604800) return `${Math.floor(s / 86400)} วันที่แล้ว`
+  return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+}
 
 /** Horizontal 0–5 meter used for the per-aspect averages. */
 function AspectBar({ label, value, count }: { label: string; value: number; count: number }) {
@@ -53,6 +64,7 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
   const [tags, setTags] = useState<TagData>({ counts: [], mine: new Set() })
   const [menu, setMenu] = useState<MenuRow[]>([])
   const [showAllTags, setShowAllTags] = useState(false)
+  const [showAllWritten, setShowAllWritten] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [helped, setHelped] = useState(0)
 
@@ -97,6 +109,11 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
   const anyAspect = aspects.some((a) => stat.aspects[a.key].count > 0)
   const shownTags = showAllTags ? tags.counts : tags.counts.slice(0, 6)
   const topDish = menu[0]
+  // only reviews that actually say something get a card; a bare score already
+  // shows up in the distribution above. Mine leads the list so I can see how
+  // it reads publicly.
+  const written = rows.filter((r) => r.body?.trim() || r.photos?.length)
+    .sort((a, b) => Number(b.user_id === user?.id) - Number(a.user_id === user?.id))
 
   return (
     <div>
@@ -248,6 +265,56 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── what people wrote — otherwise the review body and photos the form
+             collects would never be seen by anyone ── */}
+      {written.length > 0 && (
+        <div className={gap}>
+          <div className="text-[13px] font-semibold text-ink-2 mb-2">
+            สิ่งที่คนรีวิวเขียนไว้ <span className="text-ink-3 font-normal">· {written.length}</span>
+          </div>
+          <div className="space-y-3">
+            {written.slice(0, showAllWritten ? undefined : 3).map((r) => (
+              <div key={r.user_id} className="card p-3.5">
+                <div className="flex items-center gap-2">
+                  <Avatar name={r.author_name} color={r.author_color} photo={r.author_photo} photoFocus={r.author_focus} size={28} ring={false} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[12.5px] font-medium truncate">{r.author_name ?? 'ผู้ใช้'}</span>
+                      {r.user_id === user?.id && (
+                        <span className="shrink-0 rounded-full px-1.5 text-[10px] font-semibold" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>ของคุณ</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <StarRating rating={Number(r.stars)} size={10} />
+                      <span className="text-[10.5px] text-ink-3">{sinceText(r.updated_at ?? r.created_at)}</span>
+                    </div>
+                  </div>
+                  {r.user_id === user?.id && (
+                    <button onClick={() => setEditorOpen(true)} aria-label="แก้ไขรีวิว" className="shrink-0 text-ink-3 hover:text-brand">
+                      <IconPencil size={14} />
+                    </button>
+                  )}
+                </div>
+                {r.body && <p className="text-[13px] text-ink whitespace-pre-wrap break-words mt-2">{r.body}</p>}
+                {!!r.photos?.length && (
+                  <div className="flex gap-1.5 mt-2 overflow-x-auto no-scrollbar">
+                    {r.photos.map((url) => (
+                      <img key={url} src={url} alt="" className="shrink-0 w-[72px] h-[72px] rounded-[9px] object-cover bg-surface-2" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {!showAllWritten && written.length > 3 && (
+              <button onClick={() => setShowAllWritten(true)}
+                className="w-full flex items-center justify-center gap-1 py-1.5 text-[12px] font-medium text-ink-3 hover:text-ink-2">
+                อีก {written.length - 3} รีวิว <IconChevronDown size={14} />
+              </button>
+            )}
+          </div>
         </div>
       )}
 

@@ -199,6 +199,19 @@ html[data-theme='dark'] {
   }
 }
 
+/* The review form's follow-up questions dropping in under the star row once
+   it's been tapped — they grow the sheet downward rather than popping. */
+@keyframes revealdown {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 /* Map pins (Leaflet divIcon) — teardrop with a photo/colour, ring by category */
 /* circular photo pin (Airbnb-style) — anchored at its centre, so the CSS
    growth on selection stays symmetric with no drift like a bottom-anchored
