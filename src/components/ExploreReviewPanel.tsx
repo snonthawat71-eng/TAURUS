@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   IconStarFilled, IconPlus, IconTrash, IconLoader2, IconTrophy, IconSparkles,
-  IconChevronDown, IconToolsKitchen2, IconUsers, IconCheck,
+  IconChevronDown, IconToolsKitchen2, IconTag, IconUsers, IconCheck,
 } from '@tabler/icons-react'
 import { StarRating } from './StarRating'
 import { StarInput } from './StarInput'
@@ -295,6 +295,7 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
       {/* ── one-tap tags ── */}
       <div className={gap}>
         <div className="flex items-center gap-1.5 mb-2">
+          <IconTag size={14} className="text-brand" />
           <span className="text-[13px] font-semibold text-ink-2">ที่นี่เป็นยังไง</span>
           <span className="text-[11px] text-ink-3">· แตะเพื่อเห็นด้วย</span>
         </div>
@@ -309,7 +310,7 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
                 style={on
                   ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }
                   : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)', border: '0.5px solid transparent' }}>
-                <span aria-hidden>{def.emoji}</span> {def.label}
+                {def.label}
                 {n > 0 && <span className="tabular-nums text-[11px] opacity-70">{n}</span>}
                 {on && <IconCheck size={12} />}
               </button>

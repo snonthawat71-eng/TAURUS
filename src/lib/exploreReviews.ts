@@ -39,41 +39,40 @@ function probe(error: { message?: string } | null): boolean {
 export interface TagDef {
   key: string
   label: string
-  emoji: string
   /** which kinds of place this tag makes sense for */
   groups: ('food' | 'place')[]
 }
 
 export const TAGS: TagDef[] = [
-  { key: 'mustgo', label: 'ห้ามพลาด', emoji: '🔥', groups: ['food', 'place'] },
-  { key: 'queue', label: 'ต้องต่อคิว', emoji: '🕒', groups: ['food', 'place'] },
-  { key: 'photogenic', label: 'ถ่ายรูปสวย', emoji: '📸', groups: ['food', 'place'] },
-  { key: 'cheap', label: 'ราคาน่ารัก', emoji: '💸', groups: ['food', 'place'] },
-  { key: 'booking', label: 'ต้องจองล่วงหน้า', emoji: '📅', groups: ['food', 'place'] },
-  { key: 'nearstation', label: 'ใกล้สถานี', emoji: '🚉', groups: ['food', 'place'] },
+  { key: 'mustgo', label: 'ห้ามพลาด', groups: ['food', 'place'] },
+  { key: 'queue', label: 'ต้องต่อคิว', groups: ['food', 'place'] },
+  { key: 'photogenic', label: 'ถ่ายรูปสวย', groups: ['food', 'place'] },
+  { key: 'cheap', label: 'ราคาน่ารัก', groups: ['food', 'place'] },
+  { key: 'booking', label: 'ต้องจองล่วงหน้า', groups: ['food', 'place'] },
+  { key: 'nearstation', label: 'ใกล้สถานี', groups: ['food', 'place'] },
   // food only
-  { key: 'spicy', label: 'เผ็ดจัด', emoji: '🌶️', groups: ['food'] },
-  { key: 'bigportion', label: 'พอร์ชั่นใหญ่', emoji: '🍚', groups: ['food'] },
-  { key: 'fewseats', label: 'ที่นั่งน้อย', emoji: '🪑', groups: ['food'] },
-  { key: 'englishmenu', label: 'มีเมนูอังกฤษ', emoji: '🔤', groups: ['food'] },
-  { key: 'veggie', label: 'มีเมนูเจ/มังสวิรัติ', emoji: '🥗', groups: ['food'] },
-  { key: 'lateopen', label: 'เปิดดึก', emoji: '🌙', groups: ['food'] },
-  { key: 'cashonly', label: 'รับเงินสดอย่างเดียว', emoji: '💵', groups: ['food'] },
+  { key: 'spicy', label: 'เผ็ดจัด', groups: ['food'] },
+  { key: 'bigportion', label: 'พอร์ชั่นใหญ่', groups: ['food'] },
+  { key: 'fewseats', label: 'ที่นั่งน้อย', groups: ['food'] },
+  { key: 'englishmenu', label: 'มีเมนูอังกฤษ', groups: ['food'] },
+  { key: 'veggie', label: 'มีเมนูเจ/มังสวิรัติ', groups: ['food'] },
+  { key: 'lateopen', label: 'เปิดดึก', groups: ['food'] },
+  { key: 'cashonly', label: 'รับเงินสดอย่างเดียว', groups: ['food'] },
   // place only
-  { key: 'freeentry', label: 'เข้าฟรี', emoji: '🎟️', groups: ['place'] },
-  { key: 'walklot', label: 'เดินเยอะ', emoji: '👟', groups: ['place'] },
-  { key: 'kidfriendly', label: 'ไปกับเด็กได้', emoji: '🧒', groups: ['place'] },
-  { key: 'crowded', label: 'คนเยอะ', emoji: '👥', groups: ['place'] },
-  { key: 'halfday', label: 'ใช้เวลาครึ่งวัน', emoji: '⏳', groups: ['place'] },
-  { key: 'rainok', label: 'ฝนตกก็เที่ยวได้', emoji: '☔', groups: ['place'] },
-  { key: 'nightview', label: 'วิวกลางคืนสวย', emoji: '🌃', groups: ['place'] },
+  { key: 'freeentry', label: 'เข้าฟรี', groups: ['place'] },
+  { key: 'walklot', label: 'เดินเยอะ', groups: ['place'] },
+  { key: 'kidfriendly', label: 'ไปกับเด็กได้', groups: ['place'] },
+  { key: 'crowded', label: 'คนเยอะ', groups: ['place'] },
+  { key: 'halfday', label: 'ใช้เวลาครึ่งวัน', groups: ['place'] },
+  { key: 'rainok', label: 'ฝนตกก็เที่ยวได้', groups: ['place'] },
+  { key: 'nightview', label: 'วิวกลางคืนสวย', groups: ['place'] },
 ]
 
 const TAG_BY_KEY = new Map(TAGS.map((t) => [t.key, t]))
 
 /** A tag someone voted that isn't in the catalog any more still needs a label. */
 export function tagDef(key: string): TagDef {
-  return TAG_BY_KEY.get(key) ?? { key, label: key, emoji: '🏷️', groups: ['food', 'place'] }
+  return TAG_BY_KEY.get(key) ?? { key, label: key, groups: ['food', 'place'] }
 }
 
 export const isFood = (groupType: string | null | undefined) => groupType === 'food'
