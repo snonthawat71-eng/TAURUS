@@ -421,6 +421,47 @@ export interface ExploreVote {
   created_at: string
 }
 
+/** A REAL 1–5 star rating on an Explore item (explore_ratings table —
+ *  supabase/explore_reviews.sql). One row per user per place; the four
+ *  sub-scores are optional and null until the rater fills them in. */
+export interface ExploreRating {
+  explore_id: string
+  user_id: string
+  stars: number
+  /** รสชาติ / ความน่าสนใจ */
+  taste?: number | null
+  /** คุ้มราคา */
+  worth?: number | null
+  /** บรรยากาศ */
+  vibe?: number | null
+  /** คิว — 5 = ไม่ต้องรอเลย */
+  queue?: number | null
+  author_name?: string | null
+  author_color?: string | null
+  author_photo?: string | null
+  author_focus?: string | null
+  created_at: string
+  updated_at?: string | null
+}
+
+/** One person's one-tap tag on an Explore item (explore_tags table).
+ *  `tag` is a stable key from TAGS in src/lib/exploreReviews.ts. */
+export interface ExploreTagVote {
+  explore_id: string
+  user_id: string
+  tag: string
+  created_at: string
+}
+
+/** A dish someone added to an Explore restaurant (explore_menu_items table) */
+export interface ExploreMenuItem {
+  id: string
+  explore_id: string
+  name: string
+  created_by: string | null
+  created_at: string
+}
+
 export interface PlaceInterest {
   place_id: string
   user_id: string

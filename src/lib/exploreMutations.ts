@@ -281,46 +281,16 @@ export async function deleteComment(id: string) {
 }
 
 // ---- Votes (recommend / not recommend) ------------------------------------
-
-/** All votes for an item → { up, down, mine } where mine ∈ {1, -1, 0}. */
-export async function getVotes(exploreId: string, userId?: string) {
-  const { data } = await supabase.from('explore_votes').select('user_id,vote').eq('explore_id', exploreId)
-  const rows = data ?? []
-  const up = rows.filter((r) => r.vote === 1).length
-  const down = rows.filter((r) => r.vote === -1).length
-  const mine = userId ? (rows.find((r) => r.user_id === userId)?.vote ?? 0) : 0
-  return { up, down, mine }
-}
-
-export interface VoteStat { up: number; down: number; rating: number; count: number }
-
-/** A 0–5 star rating from like/unlike counts (share of likes × 5). */
-export function ratingFrom(up: number, down: number): number {
-  const total = up + down
-  if (!total) return 0
-  return Math.round((up / total) * 5 * 10) / 10
-}
-
-/** Aggregate votes for every Explore item → Map<explore_id, VoteStat>. */
-export async function allVoteStats() {
-  const map = new Map<string, VoteStat>()
-  const { data } = await supabase.from('explore_votes').select('explore_id,vote')
-  for (const r of data ?? []) {
-    const s = map.get(r.explore_id) ?? { up: 0, down: 0, rating: 0, count: 0 }
-    if (r.vote === 1) s.up++; else if (r.vote === -1) s.down++
-    map.set(r.explore_id, s)
-  }
-  for (const s of map.values()) { s.count = s.up + s.down; s.rating = ratingFrom(s.up, s.down) }
-  return map
-}
-
-/** Set my vote; sending the same value again clears it (toggle off). */
-export async function setVote(exploreId: string, userId: string, vote: 1 | -1, current: number) {
-  if (current === vote) {
-    return supabase.from('explore_votes').delete().eq('explore_id', exploreId).eq('user_id', userId)
-  }
-  return supabase.from('explore_votes').upsert({ explore_id: exploreId, user_id: userId, vote }, { onConflict: 'explore_id,user_id' })
-}
+//
+// `explore_votes` is no longer something people click. Stars replaced it: the
+// 1–5 rating in src/lib/exploreReviews.ts mirrors itself onto this table (4–5★
+// = recommend, 1–2★ = not, 3★ = no opinion), so the POPULAR ranking below and
+// the owner's like notifications keep working off one action instead of two.
+//
+// The star average shown across the app now comes from `explore_ratings` and
+// ONLY from there. It used to be computed here as `up / (up + down) × 5`,
+// which handed a place with 3 likes and 0 dislikes a perfect 5.0 without a
+// single person ever giving it a star.
 
 // ---- Notifications (likes / comments on MY explore items) -----------------
 

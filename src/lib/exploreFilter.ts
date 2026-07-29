@@ -12,7 +12,7 @@ export interface ExploreFilterState {
    *  the city rail is showing that country's cities. */
   country: string
   city: string
-  sort: 'new' | 'old' | 'popular'
+  sort: 'new' | 'old' | 'popular' | 'rating'
   q: string
 }
 
@@ -29,8 +29,12 @@ function matchCat(e: ExplorePlace, f: ExploreFilterState): boolean {
   return catTabKey(e.category, f.group) === f.cat
 }
 
-/** Apply the group/category/city/text filters, then order the result. */
-export function filterExplore(items: ExplorePlace[], f: ExploreFilterState, pop: Map<string, PopStat>): ExplorePlace[] {
+/** Apply the group/category/city/text filters, then order the result.
+ *  `ratings` (real star averages) is only needed for the 'rating' sort. */
+export function filterExplore(
+  items: ExplorePlace[], f: ExploreFilterState, pop: Map<string, PopStat>,
+  ratings?: Map<string, { avg: number; count: number }>,
+): ExplorePlace[] {
   const q = f.q.trim().toLowerCase()
   const filtered = items
     .filter((e) => f.group === 'all' || e.group_type === f.group)
@@ -39,6 +43,15 @@ export function filterExplore(items: ExplorePlace[], f: ExploreFilterState, pop:
     .filter((e) => f.city === 'all' || e.city === f.city)
     .filter((e) => !q || [e.name, e.note, e.city, e.country].some((v) => (v ?? '').toLowerCase().includes(q)))
   if (f.sort === 'popular') return [...filtered].sort((a, b) => (pop.get(b.id)?.score ?? 0) - (pop.get(a.id)?.score ?? 0))
+  if (f.sort === 'rating') {
+    // unrated places sink to the bottom; among equal averages the one more
+    // people agreed on wins, so a lone 5★ can't outrank a well-reviewed 4.8
+    const key = (id: string) => ratings?.get(id) ?? { avg: 0, count: 0 }
+    return [...filtered].sort((a, b) => {
+      const x = key(a.id), y = key(b.id)
+      return y.avg - x.avg || y.count - x.count
+    })
+  }
   if (f.sort === 'old') return [...filtered].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))
   return filtered // 'new' — items already arrive newest-first from the query
 }

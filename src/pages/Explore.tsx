@@ -10,7 +10,8 @@ import { ExploreNotifications } from '@/components/ExploreNotifications'
 import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { ExploreSuggestDialog } from '@/components/ExploreSuggestDialog'
-import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allVoteStats, allPopularity, popularSet, type VoteStat, type PopStat } from '@/lib/exploreMutations'
+import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allPopularity, popularSet, type PopStat } from '@/lib/exploreMutations'
+import { allRatingStats } from '@/lib/exploreReviews'
 import { savedExploreIds, removeExploreCopiesDeep, updateExploreCopies, remapExploreCopyBranches, type PlaceInput } from '@/lib/placeMutations'
 import { toast } from '@/lib/toast'
 import { confirmDialog } from '@/lib/confirm'
@@ -27,8 +28,8 @@ import type { ExplorePlace, Place } from '@/lib/database.types'
 let cachedItems: ExplorePlace[] | null = null
 let cachedFilter: ExploreFilterState | null = null
 let cachedScroll = 0
-let cachedStats: Map<string, VoteStat> | null = null
 let cachedPop: Map<string, PopStat> | null = null
+let cachedRatings: Map<string, { avg: number; count: number }> | null = null
 
 export default function Explore() {
   const { user } = useAuth()
@@ -44,17 +45,17 @@ export default function Explore() {
   const [fav, setFav] = useState<Place | null>(null)
   const [suggest, setSuggest] = useState<ExplorePlace | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
-  const [stats, setStats] = useState<Map<string, VoteStat>>(cachedStats ?? new Map())
   const [pop, setPop] = useState<Map<string, PopStat>>(cachedPop ?? new Map())
+  const [ratings, setRatings] = useState<Map<string, { avg: number; count: number }>>(cachedRatings ?? new Map())
   const [live, setLive] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const popular = useMemo(() => popularSet(pop), [pop])
 
   async function refreshStats() {
     // fetch both BEFORE setting state — one atomic re-render, no partial sort
-    const [s, p] = await Promise.all([allVoteStats(), allPopularity()])
-    cachedStats = s; cachedPop = p
-    setStats(s); setPop(p)
+    const [p, r] = await Promise.all([allPopularity(), allRatingStats()])
+    cachedPop = p; cachedRatings = r
+    setPop(p); setRatings(r)
   }
 
   // quiet reload of the items list (no full-page spinner)
@@ -158,10 +159,15 @@ export default function Explore() {
     }
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'explore_places' }, bumpItems)
     ch.subscribe((status) => setLive(status === 'SUBSCRIBED'))
-    return () => { clearTimeout(st); clearTimeout(it); setLive(false); supabase.removeChannel(ch) }
+    // ratings live on their own channel: explore_reviews.sql is optional, and a
+    // subscription to a table that isn't there yet must not kill the rest
+    const rch = supabase.channel('explore-live-ratings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'explore_ratings' }, bumpStats)
+    rch.subscribe()
+    return () => { clearTimeout(st); clearTimeout(it); setLive(false); supabase.removeChannel(ch); supabase.removeChannel(rch) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const shown = useMemo(() => filterExplore(items, filter, pop), [items, filter, pop])
+  const shown = useMemo(() => filterExplore(items, filter, pop, ratings), [items, filter, pop, ratings])
 
   return (
     <div className="min-h-dvh bg-canvas">
@@ -203,7 +209,7 @@ export default function Explore() {
         ) : (
           <div className="space-y-3">
             {shown.map((e) => (
-              <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)} stat={stats.get(e.id)} popular={popular.has(e.id)} pop={pop.get(e.id)}
+              <ExploreCard key={e.id} e={e} isOwner={e.created_by === user?.id} saved={savedSet.has(e.id)} rating={ratings.get(e.id)} popular={popular.has(e.id)} pop={pop.get(e.id)}
                 onOpen={() => openDetail(e)}
                 onFav={() => toggleFav(e)}
                 onEdit={() => setEditor(e)}

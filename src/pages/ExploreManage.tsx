@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconThumbUp, IconMessageCircle, IconMapPin, IconMapPins, IconLoader2 } from '@tabler/icons-react'
+import { IconArrowLeft, IconPlus, IconEye, IconHeart, IconStarFilled, IconMessageCircle, IconMapPin, IconMapPins, IconLoader2 } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { useBack } from '@/lib/useBack'
@@ -12,8 +12,9 @@ import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import {
   listMyExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, syncExploreCoord,
-  allVoteStats, allPopularity, type VoteStat, type PopStat,
+  allPopularity, type PopStat,
 } from '@/lib/exploreMutations'
+import { allRatingStats } from '@/lib/exploreReviews'
 import { savedExploreIds, removeExploreCopiesDeep } from '@/lib/placeMutations'
 import { toast } from '@/lib/toast'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -26,8 +27,8 @@ import type { ExplorePlace, Place } from '@/lib/database.types'
 let cachedItems: ExplorePlace[] | null = null
 let cachedFilter: ExploreFilterState | null = null
 let cachedScroll = 0
-let cachedStats: Map<string, VoteStat> | null = null
 let cachedPop: Map<string, PopStat> | null = null
+let cachedRatings: Map<string, { avg: number; count: number }> | null = null
 let cachedUserId: string | null = null
 
 /** Management view: only the places the current user has shared, with their
@@ -45,8 +46,8 @@ export default function ExploreManage() {
   const [editor, setEditor] = useState<ExplorePlace | 'new' | null>(null)
   const [fav, setFav] = useState<Place | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
-  const [stats, setStats] = useState<Map<string, VoteStat>>((hasCache && cachedStats) || new Map())
   const [pop, setPop] = useState<Map<string, PopStat>>((hasCache && cachedPop) || new Map())
+  const [ratings, setRatings] = useState<Map<string, { avg: number; count: number }>>((hasCache && cachedRatings) || new Map())
   const [filter, setFilter] = useState<ExploreFilterState>((hasCache && cachedFilter) || initialExploreFilter)
   const setF = (patch: Partial<ExploreFilterState>) => setFilter((s) => ({ ...s, ...patch }))
 
@@ -79,9 +80,9 @@ export default function ExploreManage() {
 
   async function refreshStats() {
     // fetch both BEFORE setting state — one atomic re-render, no partial sort
-    const [s, p] = await Promise.all([allVoteStats(), allPopularity()])
-    cachedStats = s; cachedPop = p
-    setStats(s); setPop(p)
+    const [p, r] = await Promise.all([allPopularity(), allRatingStats()])
+    cachedPop = p; cachedRatings = r
+    setPop(p); setRatings(r)
   }
   async function refreshSaved() {
     setSavedSet(await savedExploreIds(myTripIds))
@@ -125,7 +126,12 @@ export default function ExploreManage() {
       ch.on('postgres_changes', { event: '*', schema: 'public', table }, bump)
     }
     ch.subscribe()
-    return () => { clearTimeout(t); supabase.removeChannel(ch) }
+    // separate channel — explore_reviews.sql is optional and must not be able
+    // to take the rest of the live updates down with it
+    const rch = supabase.channel('explore-manage-ratings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'explore_ratings' }, bump)
+    rch.subscribe()
+    return () => { clearTimeout(t); supabase.removeChannel(ch); supabase.removeChannel(rch) }
   }, [])
 
   // stash scroll + filter so "back" from the detail lands right here
@@ -150,15 +156,18 @@ export default function ExploreManage() {
 
   // headline totals across all of my shared places
   const totals = useMemo(() => {
-    let views = 0, saves = 0, likes = 0, comments = 0
+    let views = 0, saves = 0, comments = 0, starSum = 0, starN = 0
     for (const e of items) {
       const p = pop.get(e.id)
-      if (p) { views += p.views; saves += p.saves; likes += p.likes; comments += p.comments }
+      if (p) { views += p.views; saves += p.saves; comments += p.comments }
+      const r = ratings.get(e.id)
+      // weight by how many people rated, so one 5★ place doesn't skew the mean
+      if (r) { starSum += r.avg * r.count; starN += r.count }
     }
-    return { views, saves, likes, comments }
-  }, [items, pop])
+    return { views, saves, comments, stars: starN ? starSum / starN : 0, starN }
+  }, [items, pop, ratings])
 
-  const shown = useMemo(() => filterExplore(items, filter, pop), [items, filter, pop])
+  const shown = useMemo(() => filterExplore(items, filter, pop, ratings), [items, filter, pop, ratings])
 
   return (
     <div className="min-h-dvh bg-canvas">
@@ -178,7 +187,12 @@ export default function ExploreManage() {
         {/* engagement summary */}
         {!loading && !error && items.length > 0 && (
           <div className="grid grid-cols-4 gap-2 mb-5">
-            {([['ยอดคลิก', totals.views, IconEye], ['ยอดเซฟ', totals.saves, IconHeart], ['ยอดไลก์', totals.likes, IconThumbUp], ['คอมเมนต์', totals.comments, IconMessageCircle]] as const).map(([label, n, Icon]) => (
+            {([
+              ['ยอดคลิก', String(totals.views), IconEye],
+              ['ยอดเซฟ', String(totals.saves), IconHeart],
+              [totals.starN ? `คะแนน · ${totals.starN} คน` : 'คะแนนเฉลี่ย', totals.starN ? totals.stars.toFixed(1) : '–', IconStarFilled],
+              ['คอมเมนต์', String(totals.comments), IconMessageCircle],
+            ] as const).map(([label, n, Icon]) => (
               <div key={label} className="card p-2.5 text-center">
                 <Icon size={16} className="mx-auto text-brand" />
                 <div className="text-[16px] font-semibold tabular-nums mt-1">{n}</div>
@@ -211,7 +225,7 @@ export default function ExploreManage() {
         ) : (
           <div className="space-y-3">
             {shown.map((e) => (
-              <ExploreCard key={e.id} e={e} isOwner saved={savedSet.has(e.id)} stat={stats.get(e.id)} pop={pop.get(e.id)}
+              <ExploreCard key={e.id} e={e} isOwner saved={savedSet.has(e.id)} rating={ratings.get(e.id)} pop={pop.get(e.id)}
                 onOpen={() => openDetail(e)}
                 onFav={() => toggleFav(e)}
                 onEdit={() => setEditor(e)}

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import {
-  IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
-  IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
+  IconHeart, IconHeartFilled, IconMapPin,
+  IconSend, IconTrash, IconLoader2, IconArrowBackUp,
   IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconPhoto, IconChevronDown,
   IconMessageReport, IconRoute, IconPencil, IconFlag, IconCheck, IconX,
 } from '@tabler/icons-react'
@@ -9,13 +9,14 @@ import { Drawer } from './Drawer'
 import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { Avatar } from './Avatar'
-import { StarRating } from './StarRating'
+import { ExploreReviewPanel } from './ExploreReviewPanel'
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
 import { openMap } from '@/lib/maps'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
-import { listComments, addComment, deleteComment, getVotes, setVote, ratingFrom, listSuggestions, resolveSuggestion, suggestionToInput, updateExplore } from '@/lib/exploreMutations'
+import { listComments, addComment, deleteComment, listSuggestions, resolveSuggestion, suggestionToInput, updateExplore } from '@/lib/exploreMutations'
+import { getReviews, emptyStat, type ReviewData } from '@/lib/exploreReviews'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toast'
 import { SignedImage } from './SignedImage'
@@ -103,7 +104,7 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
   const [suggestions, setSuggestions] = useState<ExploreSuggestion[]>([])
   const [busySug, setBusySug] = useState<string | null>(null)
   const [comments, setComments] = useState<ExploreComment[]>([])
-  const [votes, setVotes] = useState({ up: 0, down: 0, mine: 0 })
+  const [reviews, setReviews] = useState<ReviewData>({ rows: [], stat: emptyStat(), mine: null })
   const [text, setText] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
@@ -151,12 +152,14 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
 
   async function refresh() {
     if (!e) return
-    const [cRes, v] = await Promise.all([listComments(e.id), getVotes(e.id, user?.id)])
+    const [cRes, r] = await Promise.all([listComments(e.id), getReviews(e.id, user?.id)])
     setComments((cRes.data ?? []) as ExploreComment[])
-    setVotes(v)
+    setReviews(r)
     if (isOwner) setSuggestions(await listSuggestions(e.id))
     setLoading(false)
   }
+  /** only the star data — used after rating so the drawer doesn't re-fetch it all */
+  async function refreshReviews() { if (e) setReviews(await getReviews(e.id, user?.id)) }
 
   // reset the owner-edit override (and pending list) when the item itself changes
   useEffect(() => { setOverride(null); setSuggestions([]) }, [eProp?.id])
@@ -190,12 +193,6 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
     refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, e?.id])
-
-  async function vote(v: 1 | -1) {
-    if (!e || !user) return
-    await setVote(e.id, user.id, v, votes.mine)
-    setVotes(await getVotes(e.id, user.id))
-  }
 
   async function send(body: string, parentId?: string | null) {
     if (!e || !user || !body.trim()) return
@@ -393,31 +390,9 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
         </div>
       )}
 
-      {/* star rating summary (from likes / unlikes) */}
-      <div className="flex items-center gap-2 mt-4">
-        <span className="text-[20px] font-semibold tabular-nums">{ratingFrom(votes.up, votes.down).toFixed(1)}</span>
-        <StarRating rating={ratingFrom(votes.up, votes.down)} size={17} />
-        <span className="text-[12px] text-ink-3">
-          {votes.up + votes.down > 0 ? `จาก ${votes.up + votes.down} รีวิว` : 'ยังไม่มีรีวิว'}
-        </span>
-      </div>
-
-      {/* recommend / not recommend */}
-      <div className="flex gap-2 mt-2.5">
-        <button onClick={() => vote(1)}
-          className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[10px] text-[13px] font-medium transition"
-          style={votes.mine === 1
-            ? { background: 'var(--color-brand)', color: '#fff' }
-            : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
-          {votes.mine === 1 ? <IconThumbUpFilled size={17} /> : <IconThumbUp size={17} />} แนะนำ · {votes.up}
-        </button>
-        <button onClick={() => vote(-1)}
-          className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[10px] text-[13px] font-medium transition"
-          style={votes.mine === -1
-            ? { background: '#D85A30', color: '#fff' }
-            : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
-          {votes.mine === -1 ? <IconThumbDownFilled size={17} /> : <IconThumbDown size={17} />} ไม่แนะนำ · {votes.down}
-        </button>
+      {/* ดาวจริง + คะแนนแยกด้าน + แท็ก + โหวตเมนู */}
+      <div className="mt-4">
+        <ExploreReviewPanel e={e} data={reviews} onChanged={refreshReviews} compact />
       </div>
 
       {/* non-owner: raise a hand to help edit / report */}

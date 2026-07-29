@@ -2,20 +2,22 @@ import { useState } from 'react'
 import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconMessageCircle, IconBuildingStore, IconZoomScan, IconMessageReport } from '@tabler/icons-react'
 import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
+import { StarRating } from './StarRating'
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
 import { stationCode } from '@/lib/metro/suggest'
 import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
-import type { VoteStat, PopStat } from '@/lib/exploreMutations'
+import type { PopStat } from '@/lib/exploreMutations'
 
-export function ExploreCard({ e, isOwner, saved, popular, pop, onFav, onDelete, onEdit, onOpen, onSuggest }: {
+export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, onDelete, onEdit, onOpen, onSuggest }: {
   e: ExplorePlace
   isOwner: boolean
   saved: boolean
-  stat?: VoteStat
   popular?: boolean
   pop?: PopStat
+  /** real star average from explore_ratings (undefined = nobody rated yet) */
+  rating?: { avg: number; count: number }
   onFav: () => void
   onDelete: () => void
   onEdit: () => void
@@ -74,6 +76,14 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, onFav, onDelete, 
             )}
           </div>
           <div className="text-[15px] font-medium leading-snug line-clamp-2 mt-1.5">{e.name}</div>
+          {/* REAL star average (explore_ratings) — hollow stars until somebody
+              actually rates, never a score derived from like counts */}
+          <div className="flex items-center gap-1.5 mt-1">
+            <StarRating rating={rating?.avg ?? 0} size={13} empty={!rating?.count} />
+            {rating?.count
+              ? <><span className="text-[12px] font-bold tabular-nums">{rating.avg.toFixed(1)}</span><span className="text-[11px] text-ink-3">({rating.count})</span></>
+              : <span className="text-[11px] text-ink-3">ยังไม่มีคะแนน</span>}
+          </div>
           {/* city + open-in-maps link (moved up to replace the old rating row) */}
           <div className="flex items-center gap-2 flex-wrap mt-1.5">
             {e.city && <span className="chip !py-0.5">{e.city}</span>}

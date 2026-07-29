@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   IconWorldSearch, IconMapPin, IconFlame, IconSearch, IconX,
   IconChevronDown, IconChevronLeft, IconCheck, IconLayoutGrid,
-  IconSortDescending2, IconSortAscending2,
+  IconSortDescending2, IconSortAscending2, IconStarFilled,
 } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { hscroll } from '@/lib/hscroll'
@@ -34,6 +34,7 @@ const FOOD_DETAIL_TABS: CategoryTab[] = [
 const SORT_OPTS = [
   { key: 'new', label: 'ล่าสุด (ใหม่ → เก่า)', icon: IconSortDescending2 },
   { key: 'old', label: 'เก่า → ใหม่', icon: IconSortAscending2 },
+  { key: 'rating', label: 'คะแนนสูงสุด', icon: IconStarFilled },
 ] as const
 
 /** A pill button with a dropdown menu portalled to <body>, so it can't be
@@ -230,7 +231,7 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
       {/* one flat scrolling row: เรียงตาม · ทั้งหมด · Places▾ · Food▾ … 🔥 ยอดนิยม */}
       <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">
         {/* sort dropdown — keeps the original line filter icon, no ▾ chevron */}
-        <Dropdown applied={f.sort === 'old'} width={210} chevron={false}
+        <Dropdown applied={f.sort === 'old' || f.sort === 'rating'} width={210} chevron={false}
           label={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="text-ink"><path d="M4 6h16M7 12h10M10 18h4" /></svg>}>
           {(close) => SORT_OPTS.map((o) => {
             const on = f.sort === o.key

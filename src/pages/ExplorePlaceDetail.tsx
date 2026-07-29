@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  IconArrowLeft, IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
-  IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
+  IconArrowLeft, IconHeart, IconHeartFilled, IconMapPin,
+  IconSend, IconTrash, IconLoader2, IconArrowBackUp,
   IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconPhoto, IconMessageReport,
   IconCheck, IconX, IconInfoCircle, IconLocation,
 } from '@tabler/icons-react'
@@ -10,6 +10,7 @@ import { PhotoCarousel } from '@/components/PhotoCarousel'
 import { Lightbox, type PhotoRef } from '@/components/Lightbox'
 import { Avatar } from '@/components/Avatar'
 import { StarRating } from '@/components/StarRating'
+import { ExploreReviewPanel } from '@/components/ExploreReviewPanel'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { ExploreSuggestDialog } from '@/components/ExploreSuggestDialog'
 import { SUG_META, sugSummary, timeAgo, NearbyCard } from '@/components/ExploreDetail'
@@ -21,10 +22,11 @@ import { openMap } from '@/lib/maps'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import {
-  listComments, addComment, deleteComment, getVotes, setVote, ratingFrom,
+  listComments, addComment, deleteComment,
   listSuggestions, resolveSuggestion, suggestionToInput, updateExplore,
   exploreAsPlace, logExploreEvent,
 } from '@/lib/exploreMutations'
+import { getReviews, emptyStat, type ReviewData } from '@/lib/exploreReviews'
 import { savedExploreIds, removeExploreCopiesDeep } from '@/lib/placeMutations'
 import { confirmDialog } from '@/lib/confirm'
 import { supabase } from '@/lib/supabase'
@@ -80,7 +82,7 @@ export default function ExplorePlaceDetail() {
   const [lightbox, setLightbox] = useState<number | null>(null)
 
   const [comments, setComments] = useState<ExploreComment[]>([])
-  const [votes, setVotes] = useState({ up: 0, down: 0, mine: 0 })
+  const [reviews, setReviews] = useState<ReviewData>({ rows: [], stat: emptyStat(), mine: null })
   const [suggestions, setSuggestions] = useState<ExploreSuggestion[]>([])
   const [busySug, setBusySug] = useState<string | null>(null)
   const [nearby, setNearby] = useState<ExplorePlace[]>([])
@@ -138,11 +140,13 @@ export default function ExplorePlaceDetail() {
 
   async function refresh() {
     if (!e) return
-    const [cRes, v] = await Promise.all([listComments(e.id), getVotes(e.id, user?.id)])
+    const [cRes, r] = await Promise.all([listComments(e.id), getReviews(e.id, user?.id)])
     setComments((cRes.data ?? []) as ExploreComment[])
-    setVotes(v)
+    setReviews(r)
     if (isOwner) setSuggestions(await listSuggestions(e.id))
   }
+  /** only the star data — used after rating so the whole page doesn't re-fetch */
+  async function refreshReviews() { if (e) setReviews(await getReviews(e.id, user?.id)) }
   useEffect(() => { if (e) refresh() }, [e?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // nearby — same station in the same city first, else the whole city
@@ -163,11 +167,6 @@ export default function ExplorePlaceDetail() {
     return () => { active = false }
   }, [e?.id, e?.city])
 
-  async function vote(v: 1 | -1) {
-    if (!e || !user) return
-    await setVote(e.id, user.id, v, votes.mine)
-    setVotes(await getVotes(e.id, user.id))
-  }
   async function send(body: string, parentId?: string | null) {
     if (!e || !user || !body.trim()) return
     setSending(true)
@@ -276,13 +275,15 @@ export default function ExplorePlaceDetail() {
     ? [{ line: sel.line, color: sel.color, station: sel.station }]
     : (e.routes && e.routes.length) ? e.routes
       : (e.station_line || e.station_name) ? [{ line: e.station_line, color: e.station_color, station: e.station_name }] : []
-  const rating = ratingFrom(votes.up, votes.down)
+  // the REAL average — what people gave in explore_ratings, not a like ratio
+  const rating = reviews.stat.avg
+  const rated = reviews.stat.count
   const multiBranch = e.multi_branch || !!e.branches?.length
 
   const TABS: { key: Tab; label: string; n?: number }[] = [
     { key: 'info', label: 'ข้อมูล' },
     { key: 'nearby', label: 'ใกล้เคียง', n: nearby.length || undefined },
-    { key: 'reviews', label: 'รีวิว', n: comments.length || undefined },
+    { key: 'reviews', label: 'รีวิว', n: rated || comments.length || undefined },
   ]
 
   return (
@@ -335,10 +336,10 @@ export default function ExplorePlaceDetail() {
             <div className="flex-1 flex items-center min-w-0">
               <div className="min-w-0">
                 <div className="flex items-center gap-1 leading-none">
-                  <StarRating rating={rating} size={13} empty={votes.up + votes.down === 0} />
-                  {votes.up + votes.down > 0 && <span className="text-[12px] font-bold">{rating.toFixed(1)}</span>}
+                  <StarRating rating={rating} size={13} empty={rated === 0} />
+                  {rated > 0 && <span className="text-[12px] font-bold">{rating.toFixed(1)}</span>}
                 </div>
-                <div className="text-[9.5px] mt-1.5 text-white/75">คะแนน</div>
+                <div className="text-[9.5px] mt-1.5 text-white/75">{rated > 0 ? `คะแนน · ${rated} คน` : 'ยังไม่มีคะแนน'}</div>
               </div>
             </div>
             <div className="flex-1 flex items-center min-w-0">
@@ -517,28 +518,7 @@ export default function ExplorePlaceDetail() {
         {/* ══ REVIEWS ══ */}
         {tab === 'reviews' && (
           <div>
-            <div className="card p-4 flex items-center gap-4">
-              <div className="text-center shrink-0">
-                <div className="text-[34px] font-extrabold leading-none tabular-nums" style={votes.up + votes.down === 0 ? { color: 'var(--color-ink-3)' } : undefined}>{votes.up + votes.down === 0 ? '–' : rating.toFixed(1)}</div>
-                <StarRating rating={rating} size={15} empty={votes.up + votes.down === 0} />
-                <div className="text-[11px] text-ink-3 mt-1">{votes.up + votes.down > 0 ? `${votes.up + votes.down} รีวิว` : 'ยังไม่มีรีวิว'}</div>
-              </div>
-              <div className="flex-1 min-w-0 space-y-1.5">
-                <div className="flex items-center gap-2 text-[12px]"><IconThumbUp size={14} className="text-brand shrink-0" /><span className="flex-1">แนะนำ</span><span className="font-semibold tabular-nums">{votes.up}</span></div>
-                <div className="flex items-center gap-2 text-[12px]"><IconThumbDown size={14} className="text-[#D85A30] shrink-0" /><span className="flex-1">ไม่แนะนำ</span><span className="font-semibold tabular-nums">{votes.down}</span></div>
-              </div>
-            </div>
-            <div className="text-[12px] text-ink-3 mt-4 mb-2">คุณคิดว่าที่นี่เป็นยังไง?</div>
-            <div className="flex gap-2">
-              <button onClick={() => vote(1)} className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-[10px] text-[13px] font-medium transition"
-                style={votes.mine === 1 ? { background: 'var(--color-brand)', color: '#fff' } : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
-                {votes.mine === 1 ? <IconThumbUpFilled size={17} /> : <IconThumbUp size={17} />} แนะนำ · {votes.up}
-              </button>
-              <button onClick={() => vote(-1)} className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-[10px] text-[13px] font-medium transition"
-                style={votes.mine === -1 ? { background: '#D85A30', color: '#fff' } : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
-                {votes.mine === -1 ? <IconThumbDownFilled size={17} /> : <IconThumbDown size={17} />} ไม่แนะนำ · {votes.down}
-              </button>
-            </div>
+            <ExploreReviewPanel e={e} data={reviews} onChanged={refreshReviews} />
 
             {/* ── discussion / comments (same topic as reviews) ── */}
             <div className="mt-7 pt-5" style={{ borderTop: '0.5px solid var(--color-line)' }}>
