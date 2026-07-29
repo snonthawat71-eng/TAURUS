@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  IconStarFilled, IconPlus, IconTrash, IconLoader2, IconTrophy, IconPencil,
+  IconStarFilled, IconTrash, IconTrophy, IconPencil, IconThumbUp,
   IconToolsKitchen2, IconTag, IconUsers, IconChevronDown,
 } from '@tabler/icons-react'
 import { StarRating } from './StarRating'
 import { ReviewEditor } from './ReviewEditor'
 import { useAuth } from '@/contexts/AuthContext'
-import { toast } from '@/lib/toast'
 import { confirmDialog } from '@/lib/confirm'
 import {
-  getTags, getMenu, addMenuItem, deleteMenuItem, toggleMenuVote,
+  getTags, getMenu, deleteMenuItem,
   helpedCount, aspectsFor, tagDef, isFood, reviewsReady,
   type ReviewData, type TagData, type MenuRow,
 } from '@/lib/exploreReviews'
@@ -32,10 +31,12 @@ function AspectBar({ label, value, count }: { label: string; value: number; coun
 }
 
 /**
- * The reviews tab, read-side. Everything here is a summary — the only way to
- * change your own review is the form in `ReviewEditor`, which commits once.
- * The exception is the "สั่งอะไรดี" menu poll, which is a community ranking
- * rather than part of anyone's review, so it stays tap-to-vote.
+ * The reviews tab, read-side. Everything here is a summary: the star breakdown,
+ * the tag roll-up and the "สั่งอะไรดี" ranking are all read-only. The one way
+ * to change any of it is `ReviewEditor`, the wizard this opens, which commits
+ * the whole review in one submit. The only write left here is a dish deletion,
+ * available to whoever added it and to the place's owner — moderation, not
+ * voting.
  */
 export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
   e: ExplorePlace
@@ -53,8 +54,6 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
   const [menu, setMenu] = useState<MenuRow[]>([])
   const [showAllTags, setShowAllTags] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
-  const [newDish, setNewDish] = useState('')
-  const [adding, setAdding] = useState(false)
   const [helped, setHelped] = useState(0)
 
   async function loadSide() {
@@ -77,25 +76,7 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
 
   async function afterSave() { await Promise.all([onChanged(), loadSide()]) }
 
-  async function tapDish(row: MenuRow) {
-    if (!user) return
-    const on = !row.mine
-    setMenu((xs) => xs.map((x) => (x.id === row.id ? { ...x, mine: on, votes: x.votes + (on ? 1 : -1) } : x)))
-    const res = await toggleMenuVote(row.id, user.id, on)
-    if (res.error) { toast.error('โหวตไม่สำเร็จ'); loadSide() }
-    else setMenu((xs) => [...xs].sort((a, b) => b.votes - a.votes || (a.created_at ?? '').localeCompare(b.created_at ?? '')))
-  }
-
-  async function addDish() {
-    if (!user || !newDish.trim() || adding) return
-    setAdding(true)
-    const res = await addMenuItem(e.id, user.id, newDish)
-    setAdding(false)
-    if (res.error) { toast.error('เพิ่มเมนูไม่สำเร็จ'); return }
-    setNewDish('')
-    await loadSide()
-  }
-
+  /** moderation only — voting for a dish happens inside the review form */
   async function removeDish(row: MenuRow) {
     if (!(await confirmDialog({ message: `ลบ "${row.name}" ออกจากรายการเมนู?`, danger: true, confirmLabel: 'ลบ' }))) return
     await deleteMenuItem(row.id)
@@ -237,9 +218,12 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
           </div>
 
           {menu.length === 0 ? (
-            <div className="text-[12px] text-ink-3 mb-2">ยังไม่มีใครบอกว่าเมนูไหนเด็ด — เพิ่มเมนูแรกเลย</div>
+            <button onClick={() => setEditorOpen(true)} disabled={!user}
+              className="text-[12px] text-ink-3 text-left disabled:opacity-60">
+              ยังไม่มีใครบอกว่าเมนูไหนเด็ด — <span className="text-brand font-medium">เขียนรีวิวแล้วแนะนำเมนูแรก</span>
+            </button>
           ) : (
-            <div className="space-y-1.5 mb-2">
+            <div className="space-y-1.5">
               {menu.map((row, i) => {
                 const share = topDish?.votes ? (row.votes / topDish.votes) * 100 : 0
                 return (
@@ -254,31 +238,14 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
                           <IconTrash size={13} />
                         </button>
                       )}
-                      <button onClick={() => tapDish(row)} disabled={!user}
-                        className="inline-flex items-center gap-1 h-8 px-2.5 rounded-full text-[12px] font-semibold shrink-0 disabled:opacity-50"
-                        style={row.mine
-                          ? { background: 'var(--color-brand)', color: '#fff' }
-                          : { background: 'var(--color-surface)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
-                        <IconStarFilled size={12} style={row.mine ? undefined : { color: '#F5A623' }} />
-                        <span className="tabular-nums">{row.votes}</span>
-                      </button>
+                      <span className="inline-flex items-center gap-1 text-[12px] font-semibold shrink-0"
+                        style={{ color: row.mine ? 'var(--color-brand)' : 'var(--color-ink-3)' }}>
+                        <IconThumbUp size={14} /><span className="tabular-nums">{row.votes}</span>
+                      </span>
                     </div>
                   </div>
                 )
               })}
-            </div>
-          )}
-
-          {user && (
-            <div className="flex gap-2">
-              <input value={newDish} onChange={(ev) => setNewDish(ev.target.value)}
-                onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); addDish() } }}
-                placeholder="เมนูที่คุณว่าเด็ด…" maxLength={60}
-                className="flex-1 min-w-0 h-10 rounded-[10px] bg-surface-2 px-3 text-[13px] outline-none focus:ring-1 focus:ring-brand" />
-              <button onClick={addDish} disabled={!newDish.trim() || adding}
-                className="inline-flex items-center gap-1 h-10 px-3.5 rounded-[10px] bg-brand text-white text-[12.5px] font-medium disabled:opacity-40 shrink-0">
-                {adding ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlus size={15} />} เพิ่ม
-              </button>
             </div>
           )}
         </div>

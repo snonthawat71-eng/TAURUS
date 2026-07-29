@@ -379,6 +379,33 @@ export async function toggleMenuVote(itemId: string, userId: string, on: boolean
   return supabase.from('explore_menu_votes').delete().eq('item_id', itemId).eq('user_id', userId)
 }
 
+/** What dishes I picked while filling the review form. */
+export interface MenuDraft {
+  /** ids of dishes already on the list that I'm recommending */
+  votes: string[]
+  /** dishes I typed in that don't exist yet */
+  added: string[]
+}
+
+export const emptyMenuDraft = (): MenuDraft => ({ votes: [], added: [] })
+
+/** Commit the menu step of the review form: create the dishes I typed, then
+ *  reconcile my votes on the ones that were already listed. */
+export async function saveMenuPicks(exploreId: string, userId: string, prev: Iterable<string>, draft: MenuDraft) {
+  for (const name of draft.added) await addMenuItem(exploreId, userId, name)
+  const before = new Set(prev)
+  const after = new Set(draft.votes)
+  const on = [...after].filter((id) => !before.has(id))
+  const off = [...before].filter((id) => !after.has(id))
+  if (on.length) {
+    await supabase.from('explore_menu_votes')
+      .upsert(on.map((item_id) => ({ item_id, user_id: userId })), { onConflict: 'item_id,user_id' })
+  }
+  if (off.length) {
+    await supabase.from('explore_menu_votes').delete().eq('user_id', userId).in('item_id', off)
+  }
+}
+
 // ── "your review helped N people" ───────────────────────────────────────────
 
 /**
