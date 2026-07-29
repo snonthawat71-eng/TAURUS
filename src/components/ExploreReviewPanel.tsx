@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   IconStarFilled, IconPlus, IconTrash, IconLoader2, IconTrophy, IconSparkles,
-  IconChevronDown, IconToolsKitchen2, IconTag, IconUsers, IconCheck,
+  IconChevronDown, IconToolsKitchen2, IconUsers, IconCheck,
 } from '@tabler/icons-react'
 import { StarRating } from './StarRating'
 import { StarInput } from './StarInput'
@@ -295,7 +295,6 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
       {/* ── one-tap tags ── */}
       <div className={gap}>
         <div className="flex items-center gap-1.5 mb-2">
-          <IconTag size={14} className="text-brand" />
           <span className="text-[13px] font-semibold text-ink-2">ที่นี่เป็นยังไง</span>
           <span className="text-[11px] text-ink-3">· แตะเพื่อเห็นด้วย</span>
         </div>
