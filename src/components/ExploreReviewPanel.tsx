@@ -156,52 +156,26 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
         )}
       </div>
 
-      {/* ── my review: a card I open a form to change, never edit in place ── */}
+      {/* ── my review: a quiet footnote under the summary once it's submitted.
+             The whole row opens the form again; the breakdown lives in there,
+             so nothing here competes with the place's own score. ── */}
       {user && (mine ? (
-        <div className={`card p-4 ${gap}`}>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[13px] font-semibold text-ink-2">รีวิวของคุณ</span>
-            {firstReviewer && (
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
-                style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>
-                <IconTrophy size={11} /> คนแรกที่รีวิว
-              </span>
+        <div className="mt-2.5">
+          <button onClick={() => setEditorOpen(true)} className="w-full flex items-center gap-1.5 px-1 py-1.5 text-left">
+            <span className="text-[11.5px] text-ink-3 shrink-0">รีวิวของคุณ</span>
+            <span className="text-[12.5px] font-bold tabular-nums shrink-0">{Number(mine.stars).toFixed(1)}</span>
+            <StarRating rating={Number(mine.stars)} size={11} />
+            {tags.mine.size > 0 && (
+              <span className="text-[11px] text-ink-3 truncate min-w-0">· {[...tags.mine].map((k) => tagDef(k).label).join(', ')}</span>
             )}
-            <button onClick={() => setEditorOpen(true)}
-              className="ml-auto inline-flex items-center gap-1 h-8 px-3 rounded-full text-[12px] font-semibold shrink-0"
-              style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
-              <IconPencil size={13} /> แก้ไข
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3.5">
-            <div className="text-[30px] font-extrabold leading-none tabular-nums w-[62px] shrink-0 text-center">
-              {Number(mine.stars).toFixed(1)}
-            </div>
-            <div className="flex-1 min-w-0 space-y-1.5">
-              {aspects.map((a) => (
-                <div key={a.key} className="flex items-center gap-2">
-                  <span className="w-[68px] shrink-0 text-[11.5px] text-ink-3 truncate">{a.label}</span>
-                  {mine[a.key]
-                    ? <StarRating rating={mine[a.key] as number} size={12} />
-                    : <span className="text-[11px] text-ink-3">ไม่ได้ให้</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {tags.mine.size > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3 pt-3" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-              {[...tags.mine].map((k) => (
-                <span key={k} className="inline-flex items-center rounded-full px-2.5 h-7 text-[11.5px] font-medium"
-                  style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>{tagDef(k).label}</span>
-              ))}
-            </div>
-          )}
-
-          {helped > 0 && (
-            <div className="mt-3 pt-3 text-[11.5px] text-ink-2 inline-flex items-center gap-1.5" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-              <IconUsers size={13} className="text-brand" /> รีวิวของคุณช่วยคนที่เปิดดูที่นี่ <b className="tabular-nums">{helped}</b> คน
+            <span className="ml-auto inline-flex items-center gap-1 text-[11.5px] font-medium text-brand shrink-0">
+              <IconPencil size={12} /> แก้ไข
+            </span>
+          </button>
+          {(firstReviewer || helped > 0) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-1 text-[10.5px] text-ink-3">
+              {firstReviewer && <span className="inline-flex items-center gap-1"><IconTrophy size={11} /> คนแรกที่รีวิวที่นี่</span>}
+              {helped > 0 && <span className="inline-flex items-center gap-1"><IconUsers size={11} /> ช่วยคนที่เปิดดูแล้ว {helped} คน</span>}
             </div>
           )}
         </div>
