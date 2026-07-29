@@ -88,16 +88,30 @@ export function tagsFor(groupType: string | null | undefined): TagDef[] {
 
 export type AspectKey = 'taste' | 'worth' | 'vibe' | 'queue'
 
-export interface AspectDef { key: AspectKey; label: string; hint?: string }
+export const ASPECT_KEYS: AspectKey[] = ['taste', 'worth', 'vibe', 'queue']
+
+export interface AspectDef { key: AspectKey; label: string; hint: string }
 
 export function aspectsFor(groupType: string | null | undefined): AspectDef[] {
   const food = isFood(groupType)
   return [
-    { key: 'taste', label: food ? 'รสชาติ' : 'ความน่าสนใจ' },
-    { key: 'worth', label: 'คุ้มราคา' },
-    { key: 'vibe', label: 'บรรยากาศ' },
+    { key: 'taste', label: food ? 'รสชาติ' : 'ความน่าสนใจ', hint: food ? 'อร่อยแค่ไหน' : 'น่าไปแค่ไหน' },
+    { key: 'worth', label: 'คุ้มราคา', hint: 'จ่ายเท่านี้คุ้มไหม' },
+    { key: 'vibe', label: 'บรรยากาศ', hint: food ? 'ร้านนั่งสบายไหม' : 'ที่นี่บรรยากาศดีไหม' },
     { key: 'queue', label: 'คิว', hint: '5 ดาว = แทบไม่ต้องรอ' },
   ]
+}
+
+/**
+ * The overall score is NOT something anyone taps — it's the mean of the four
+ * aspects, to 2 decimals. Handing people a separate overall control let them
+ * give 5★ overall while marking every aspect terrible; deriving it makes that
+ * contradiction impossible to express. 0 = not enough aspects scored yet.
+ */
+export function overallOf(a: Partial<Record<AspectKey, number | null>>): number {
+  const vals = ASPECT_KEYS.map((k) => a[k]).filter((v): v is number => typeof v === 'number' && v >= 1)
+  if (!vals.length) return 0
+  return Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100) / 100
 }
 
 // ── aggregation ─────────────────────────────────────────────────────────────
@@ -127,17 +141,19 @@ export function summarise(rows: ExploreRating[]): RatingStat {
     taste: { sum: 0, n: 0 }, worth: { sum: 0, n: 0 }, vibe: { sum: 0, n: 0 }, queue: { sum: 0, n: 0 },
   }
   for (const r of rows) {
-    const stars = Math.min(5, Math.max(1, Math.round(r.stars)))
-    total += stars
-    s.dist[stars - 1]++
-    for (const k of ['taste', 'worth', 'vibe', 'queue'] as AspectKey[]) {
+    // `stars` is a computed mean, so it's fractional — average the raw value
+    // but bucket the histogram by the nearest whole star
+    const raw = Math.min(5, Math.max(1, Number(r.stars) || 0))
+    total += raw
+    s.dist[Math.round(raw) - 1]++
+    for (const k of ASPECT_KEYS) {
       const v = r[k]
       if (typeof v === 'number' && v >= 1) { acc[k].sum += v; acc[k].n++ }
     }
   }
   s.count = rows.length
   s.avg = round1(total / rows.length)
-  for (const k of ['taste', 'worth', 'vibe', 'queue'] as AspectKey[]) {
+  for (const k of ASPECT_KEYS) {
     s.aspects[k] = { avg: acc[k].n ? round1(acc[k].sum / acc[k].n) : 0, count: acc[k].n }
   }
   return s
@@ -167,56 +183,92 @@ export interface RatingAuthor {
   focus?: string | null
 }
 
-export type RatingPatch = { stars?: number } & Partial<Record<AspectKey, number | null>>
+/** What the review form holds while it's being filled in. */
+export interface ReviewDraft {
+  taste: number | null
+  worth: number | null
+  vibe: number | null
+  queue: number | null
+  tags: string[]
+}
+
+export const emptyDraft = (): ReviewDraft => ({ taste: null, worth: null, vibe: null, queue: null, tags: [] })
+
+/** Seed the form from what I submitted last time (or blank for a new review). */
+export function draftFrom(mine: ExploreRating | null, myTags: Iterable<string>): ReviewDraft {
+  return {
+    taste: mine?.taste ?? null,
+    worth: mine?.worth ?? null,
+    vibe: mine?.vibe ?? null,
+    queue: mine?.queue ?? null,
+    tags: [...myTags],
+  }
+}
+
+/** A review only counts once every aspect has a score — that's what makes the
+ *  computed overall comparable between places. */
+export const draftComplete = (d: ReviewDraft) => ASPECT_KEYS.every((k) => !!d[k])
 
 /**
- * Write my rating for a place. Sends only what changed on top of what's already
- * stored, so tapping a sub-score never wipes the overall stars (and vice versa).
+ * Submit the whole review in one go: the four aspects, the derived overall and
+ * my tag selection. Nothing here writes as you tap — the form commits once,
+ * which is why tags moved inside it.
  *
- * The overall stars ALSO drive the legacy 👍/👎 row: 4–5★ counts as a
- * recommendation, 1–2★ as a not-recommendation, 3★ clears it. That keeps the
- * POPULAR ranking and the owner's like notifications working off one action
- * instead of asking for a thumb and a star separately.
+ * The overall ALSO drives the legacy 👍/👎 row (≥3.5 recommend, ≤2.5 not, in
+ * between clears) so the POPULAR ranking and the owner's like notifications
+ * keep working without asking for a separate thumb.
  */
-export async function setRating(
-  exploreId: string, userId: string, current: ExploreRating | null,
-  patch: RatingPatch, author: RatingAuthor = {},
+export async function saveReview(
+  exploreId: string, userId: string, draft: ReviewDraft,
+  prevTags: Iterable<string>, author: RatingAuthor = {},
 ) {
-  const stars = patch.stars ?? current?.stars
-  if (!stars) return { error: { message: 'no stars' } }
+  const stars = overallOf(draft)
+  if (!stars) return { error: { message: 'no score' } }
   const row: Record<string, unknown> = {
     explore_id: exploreId, user_id: userId, stars,
-    taste: 'taste' in patch ? patch.taste : current?.taste ?? null,
-    worth: 'worth' in patch ? patch.worth : current?.worth ?? null,
-    vibe: 'vibe' in patch ? patch.vibe : current?.vibe ?? null,
-    queue: 'queue' in patch ? patch.queue : current?.queue ?? null,
-    author_name: author.name ?? current?.author_name ?? null,
-    author_color: author.color ?? current?.author_color ?? null,
-    author_photo: author.photo ?? current?.author_photo ?? null,
-    author_focus: author.focus ?? current?.author_focus ?? null,
+    taste: draft.taste, worth: draft.worth, vibe: draft.vibe, queue: draft.queue,
+    author_name: author.name ?? null, author_color: author.color ?? null,
+    author_photo: author.photo ?? null, author_focus: author.focus ?? null,
     updated_at: new Date().toISOString(),
   }
   const res = await supabase.from('explore_ratings').upsert(row, { onConflict: 'explore_id,user_id' })
   if (res.error) { probe(res.error); return res }
   probe(null)
+
+  // tags are part of the same submit — write only the difference
+  const before = new Set(prevTags)
+  const after = new Set(draft.tags)
+  const added = [...after].filter((t) => !before.has(t))
+  const removed = [...before].filter((t) => !after.has(t))
+  if (added.length) {
+    await supabase.from('explore_tags')
+      .upsert(added.map((tag) => ({ explore_id: exploreId, user_id: userId, tag })), { onConflict: 'explore_id,user_id,tag' })
+  }
+  if (removed.length) {
+    await supabase.from('explore_tags').delete()
+      .eq('explore_id', exploreId).eq('user_id', userId).in('tag', removed)
+  }
+
   await syncVote(exploreId, userId, stars)
   return res
 }
 
-/** Mirror an overall star score onto the legacy recommend/not-recommend vote. */
+/** Mirror an overall score onto the legacy recommend/not-recommend vote. */
 async function syncVote(exploreId: string, userId: string, stars: number) {
   try {
-    if (stars === 3) {
+    if (stars > 2.5 && stars < 3.5) {
       await supabase.from('explore_votes').delete().eq('explore_id', exploreId).eq('user_id', userId)
     } else {
       await supabase.from('explore_votes')
-        .upsert({ explore_id: exploreId, user_id: userId, vote: stars >= 4 ? 1 : -1 }, { onConflict: 'explore_id,user_id' })
+        .upsert({ explore_id: exploreId, user_id: userId, vote: stars >= 3.5 ? 1 : -1 }, { onConflict: 'explore_id,user_id' })
     }
-  } catch { /* votes are a secondary signal — never block the rating on them */ }
+  } catch { /* votes are a secondary signal — never block the review on them */ }
 }
 
+/** Withdraw my review — score and my tags go together. */
 export async function clearRating(exploreId: string, userId: string) {
   const res = await supabase.from('explore_ratings').delete().eq('explore_id', exploreId).eq('user_id', userId)
+  await supabase.from('explore_tags').delete().eq('explore_id', exploreId).eq('user_id', userId)
   await supabase.from('explore_votes').delete().eq('explore_id', exploreId).eq('user_id', userId)
   return res
 }
@@ -232,7 +284,7 @@ export async function allRatingStats(): Promise<Map<string, { avg: number; count
   for (const r of data ?? []) {
     const id = r.explore_id as string
     const a = acc.get(id) ?? { sum: 0, n: 0 }
-    a.sum += r.stars as number; a.n++
+    a.sum += Number(r.stars) || 0; a.n++
     acc.set(id, a)
   }
   for (const [id, a] of acc) out.set(id, { avg: round1(a.sum / a.n), count: a.n })
@@ -263,17 +315,9 @@ export async function getTags(exploreId: string, userId?: string): Promise<TagDa
   return { counts, mine }
 }
 
-export async function toggleTag(exploreId: string, userId: string, tag: string, on: boolean) {
-  if (on) {
-    return supabase.from('explore_tags').upsert({ explore_id: exploreId, user_id: userId, tag }, { onConflict: 'explore_id,user_id,tag' })
-  }
-  return supabase.from('explore_tags').delete().eq('explore_id', exploreId).eq('user_id', userId).eq('tag', tag)
-}
-
-/** Top tags for a place in one shot, for compact card/summary use. */
-export async function topTags(exploreId: string, limit = 3) {
-  return (await getTags(exploreId)).counts.slice(0, limit)
-}
+// Tags are written by `saveReview` as part of the review submit — there is no
+// standalone tap-a-tag write, so the reviews tab has exactly one way to change
+// your own opinion about a place.
 
 // ── menu voting ─────────────────────────────────────────────────────────────
 

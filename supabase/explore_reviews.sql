@@ -15,11 +15,13 @@
 -- ============================================================
 
 -- ── 1) ดาวจริง 1–5 + คะแนนแยกด้าน ───────────────────────────
+-- `stars` ไม่ได้กดเอง — เป็น "ค่าเฉลี่ยของ 4 ด้าน" ที่คำนวณให้ตอนบันทึก
+-- (จึงเป็นทศนิยม) กันเคสให้ 5 ดาวรวมทั้งที่ทุกด้านแย่
 create table if not exists explore_ratings (
   explore_id   uuid references explore_places on delete cascade,
   user_id      uuid references auth.users on delete cascade,
-  stars        smallint not null check (stars between 1 and 5),
-  -- คะแนนแยกด้าน (ไม่บังคับ · null = ไม่ได้ให้)
+  stars        numeric(3,2) not null check (stars between 1 and 5),
+  -- คะแนนแยกด้าน (แถวเก่าอาจเป็น null ได้ · ฟอร์มปัจจุบันบังคับให้ครบ 4 ด้าน)
   taste        smallint check (taste between 1 and 5),   -- รสชาติ / ความน่าสนใจ
   worth        smallint check (worth between 1 and 5),   -- คุ้มราคา
   vibe         smallint check (vibe between 1 and 5),    -- บรรยากาศ
@@ -35,6 +37,9 @@ create table if not exists explore_ratings (
 );
 
 create index if not exists explore_ratings_explore_idx on explore_ratings (explore_id);
+
+-- เผื่อเคยรันเวอร์ชันแรกที่ stars เป็น smallint — ขยายให้เก็บทศนิยมได้
+alter table explore_ratings alter column stars type numeric(3,2);
 
 alter table explore_ratings enable row level security;
 
