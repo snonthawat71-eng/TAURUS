@@ -87,7 +87,7 @@ export interface ExploreDupe {
   name: string | null
   city: string | null
   country: string | null
-  /** cover + extra photos, so a new branch of a chain (ICHIRAN, Hey Tea …) can
+  /** cover + extra photos, so a new branch of a chain (ICHIRAN, HEYTEA …) can
    *  offer to reuse the photos the first branch already has */
   photo_url?: string | null
   photos?: string[] | null

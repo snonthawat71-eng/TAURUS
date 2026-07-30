@@ -516,7 +516,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
             </div>
           ) : (
             <div className="space-y-2">
-              {/* สาขาใหม่ของร้านเดิม (ICHIRAN, Hey Tea …) — เสนอรูปที่สาขาก่อนหน้า
+              {/* สาขาใหม่ของร้านเดิม (ICHIRAN, HEYTEA …) — เสนอรูปที่สาขาก่อนหน้า
                   มีอยู่แล้ว จะได้ไม่ต้องหารูปใหม่ทุกครั้ง */}
               {allPhotos.length < 4 && chainPhotos.length > 0 && (
                 <div className="rounded-[12px] p-2.5" style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
