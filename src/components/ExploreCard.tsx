@@ -36,6 +36,9 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
   const routes = (e.routes && e.routes.length)
     ? e.routes
     : (e.station_line || e.station_name) ? [{ line: e.station_line, color: e.station_color, station: e.station_name }] : []
+  // how many locations this place has: the extra branch rows plus its own spot
+  const hasOwnLocation = !!(e.map_url || e.station_name || e.station_line)
+  const branchCount = (e.branches?.length ?? 0) + (hasOwnLocation ? 1 : 0)
 
   return (
     <div className="card relative overflow-hidden">
@@ -86,7 +89,12 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
               </span>
             )}
           </div>
-          <div className="text-[15px] font-medium leading-snug line-clamp-2 mt-1.5">{e.name}</div>
+          <div className="text-[15px] font-medium leading-snug line-clamp-2 mt-1.5">
+            {e.name}
+            {branchCount > 1 && (
+              <span className="text-[12px] font-semibold text-ink-3 ml-1.5 whitespace-nowrap tabular-nums">· {branchCount} สาขา</span>
+            )}
+          </div>
           {/* city + open-in-maps link (moved up to replace the old rating row) */}
           <div className="flex items-center gap-2 flex-wrap mt-1.5">
             {e.city && <span className="chip !py-0.5">{e.city}</span>}
