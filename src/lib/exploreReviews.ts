@@ -215,10 +215,12 @@ export interface ReviewDraft {
   photos: string[]
   /** post without a name or avatar attached to the row */
   anonymous: boolean
+  /** which branch this review is about; null = the place's main location */
+  branchIdx: number | null
 }
 
 export const emptyDraft = (): ReviewDraft =>
-  ({ overall: null, taste: null, worth: null, vibe: null, queue: null, tags: [], body: '', photos: [], anonymous: false })
+  ({ overall: null, taste: null, worth: null, vibe: null, queue: null, tags: [], body: '', photos: [], anonymous: false, branchIdx: null })
 
 /** Seed the form from what I submitted last time (or blank for a new review). */
 export function draftFrom(mine: ExploreRating | null, myTags: Iterable<string>): ReviewDraft {
@@ -232,6 +234,7 @@ export function draftFrom(mine: ExploreRating | null, myTags: Iterable<string>):
     body: mine?.body ?? '',
     photos: mine?.photos ?? [],
     anonymous: !!mine?.anonymous,
+    branchIdx: mine?.branch_idx ?? null,
   }
 }
 
@@ -263,6 +266,7 @@ export async function saveReview(
     body: draft.body.trim() || null,
     photos: draft.photos.length ? draft.photos : null,
     anonymous: anon,
+    branch_idx: draft.branchIdx,
     author_name: anon ? null : author.name ?? null,
     author_color: anon ? null : author.color ?? null,
     author_photo: anon ? null : author.photo ?? null,
@@ -270,11 +274,11 @@ export async function saveReview(
     updated_at: new Date().toISOString(),
   }
   let res = await supabase.from('explore_ratings').upsert(row, { onConflict: 'explore_id,user_id' })
-  // `body`/`photos`/`anonymous` were added after the first version of the
-  // migration — drop whichever the schema reports as missing and keep the score
-  // (repo-wide graceful-degradation pattern)
-  if (res.error && /body|photos|anonymous/.test(res.error.message)) {
-    const { body, photos, anonymous, ...rest } = row // eslint-disable-line @typescript-eslint/no-unused-vars
+  // `body`/`photos`/`anonymous`/`branch_idx` were added after the first version
+  // of the migration — drop whichever the schema reports as missing and keep the
+  // score (repo-wide graceful-degradation pattern)
+  if (res.error && /body|photos|anonymous|branch_idx/.test(res.error.message)) {
+    const { body, photos, anonymous, branch_idx, ...rest } = row // eslint-disable-line @typescript-eslint/no-unused-vars
     res = await supabase.from('explore_ratings').upsert(rest, { onConflict: 'explore_id,user_id' })
   }
   if (res.error) { probe(res.error); return res }

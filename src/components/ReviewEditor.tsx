@@ -58,6 +58,9 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
   const [menuDraft, setMenuDraft] = useState<MenuDraft>(emptyMenuDraft)
   const [newDish, setNewDish] = useState('')
   const [dishQuery, setDishQuery] = useState('')
+  // multi-branch places must say WHICH branch — null is a real answer ("the
+  // main location"), so "not answered yet" needs its own flag
+  const [branchPicked, setBranchPicked] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
@@ -68,6 +71,7 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
     if (!open) return
     setStep(0)
     setDraft(draftFrom(mine, myTags))
+    setBranchPicked(!!mine)
     setNewDish(''); setDishQuery('')
     if (!food || !user) { setMenu([]); setMenuDraft(emptyMenuDraft()); return }
     getMenu(e.id, user.id).then((rows) => {
@@ -85,11 +89,18 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
   }, [open])
 
   const overall = overallOf(draft)
-  const complete = draftComplete(draft)
   const scored = aspectsScored(draft)
   const meta = catMeta(e.category)
   const Icon = meta.icon
   const prevVotes = useMemo(() => menu.filter((r) => r.mine).map((r) => r.id), [menu])
+  // every location this place has, in the same order the branch pickers use
+  const branchList = useMemo(() => {
+    const rows = (e.branches ?? []).map((b, i) => ({ idx: i as number | null, label: b.label || `สาขา ${i + 1}` }))
+    const hasOwn = !!(e.map_url || e.station_name || e.station_line)
+    return hasOwn ? [{ idx: null as number | null, label: e.branch_label?.trim() || 'ที่ตั้งหลัก' }, ...rows] : rows
+  }, [e.branches, e.map_url, e.station_name, e.station_line, e.branch_label])
+  const needsBranch = branchList.length > 1 && !branchPicked
+  const complete = draftComplete(draft) && !needsBranch
   const myName = profile?.nickname ?? user?.email?.split('@')[0] ?? 'ผู้ใช้'
 
   /** The big row is the whole review on its own — it deliberately does NOT
@@ -247,6 +258,32 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
               {/* everything below drops in only after the first tap */}
               {overall > 0 && (
                 <div className="animate-[revealdown_.28s_ease] text-left mt-7">
+                  {/* which branch — a review of one shop in a chain says nothing
+                      about the others, so ask before anything else */}
+                  {branchList.length > 1 && (
+                    <div className="mb-7">
+                      <div className="text-center mb-3">
+                        <div className="text-[15px] font-extrabold">รีวิวสาขาไหน?</div>
+                        <div className="text-[11px] text-ink-3 mt-0.5">ร้านนี้มี {branchList.length} สาขา</div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 justify-center">
+                        {branchList.map((b) => {
+                          const on = draft.branchIdx === b.idx
+                          return (
+                            <button key={b.idx ?? 'own'} type="button"
+                              onClick={() => { setDraft((d) => ({ ...d, branchIdx: b.idx })); setBranchPicked(true) }}
+                              className="inline-flex items-center gap-1 rounded-full px-3.5 h-9 text-[12.5px] font-semibold transition"
+                              style={on
+                                ? { background: 'var(--color-brand)', color: '#fff', border: '1px solid transparent' }
+                                : { background: 'var(--color-surface)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line-2)' }}>
+                              {b.label}{on && <IconCheck size={13} />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="text-center mb-3">
                     <div className="text-[15px] font-extrabold">ให้คะแนนแยกด้าน</div>
                     <div className="text-[11px] text-ink-3 mt-0.5">ไม่บังคับ · ด้านที่ให้ไว้จะกลายเป็นคะแนนรวมแทน</div>
@@ -428,7 +465,9 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
       <div className="shrink-0 px-5 pt-3 bg-canvas" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 14px)', boxShadow: '0 -10px 16px -12px rgba(0,0,0,.14)' }}>
         <div className="max-w-[480px] mx-auto">
           {step === 0 ? (
-            <button onClick={() => setStep(1)} disabled={!complete} className="btn-primary w-full h-12 disabled:opacity-40">ต่อไป</button>
+            <button onClick={() => setStep(1)} disabled={!complete} className="btn-primary w-full h-12 disabled:opacity-40">
+              {overall > 0 && needsBranch ? 'เลือกสาขาก่อน' : 'ต่อไป'}
+            </button>
           ) : (
             <button onClick={submit} disabled={!complete || busy || uploading} className="btn-primary w-full h-12 disabled:opacity-40">
               {busy ? <IconLoader2 size={17} className="animate-spin" /> : mine ? 'บันทึกการแก้ไข' : 'ส่งรีวิว'}

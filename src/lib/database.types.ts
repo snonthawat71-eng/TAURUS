@@ -449,6 +449,8 @@ export interface ExploreRating {
   photos?: string[] | null
   /** optional — posted without an identity; the author_* fields are then null */
   anonymous?: boolean | null
+  /** optional — which branch this review is about; null = the main location */
+  branch_idx?: number | null
   author_name?: string | null
   author_color?: string | null
   author_photo?: string | null

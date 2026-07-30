@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   IconStarFilled, IconTrash, IconTrophy, IconPencil, IconThumbUp, IconUser,
-  IconToolsKitchen2, IconTag, IconUsers, IconChevronDown,
+  IconToolsKitchen2, IconTag, IconUsers, IconChevronDown, IconBuildingStore,
 } from '@tabler/icons-react'
 import { StarRating } from './StarRating'
 import { ReviewEditor } from './ReviewEditor'
@@ -67,6 +67,16 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
   const [showAllWritten, setShowAllWritten] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [helped, setHelped] = useState(0)
+
+  /** Which branch a review is about. Only worth showing when the place has
+   *  more than one location — otherwise it just repeats the place name. */
+  const branchName = (i: number | null | undefined) => {
+    const hasOwn = !!(e.map_url || e.station_name || e.station_line)
+    const total = (e.branches?.length ?? 0) + (hasOwn ? 1 : 0)
+    if (total < 2) return null
+    if (i == null) return e.branch_label?.trim() || 'ที่ตั้งหลัก'
+    return e.branches?.[i]?.label || `สาขา ${i + 1}`
+  }
 
   async function loadSide() {
     const [t, m] = await Promise.all([getTags(e.id, user?.id), food ? getMenu(e.id, user?.id) : Promise.resolve([])])
@@ -291,10 +301,15 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <StarRating rating={Number(r.stars)} size={11} />
                         <span className="text-[11px] font-bold tabular-nums">{Number(r.stars).toFixed(1)}</span>
                         <span className="text-[10.5px] text-ink-3">· {sinceText(r.updated_at ?? r.created_at)}</span>
+                        {branchName(r.branch_idx) && (
+                          <span className="inline-flex items-center gap-0.5 text-[10.5px] text-ink-3">
+                            · <IconBuildingStore size={10} /> {branchName(r.branch_idx)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     {isMine && (

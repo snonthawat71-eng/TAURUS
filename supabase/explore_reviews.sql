@@ -54,6 +54,11 @@ alter table explore_ratings add column if not exists photos text[];
 -- src/lib/exploreReviews.ts)
 alter table explore_ratings add column if not exists anonymous boolean;
 
+-- ร้านที่มีหลายสาขา: รีวิวนี้พูดถึงสาขาไหน
+--   null = ที่ตั้งหลักของร้าน (หรือร้านที่มีสาขาเดียว)
+--   0,1,2… = ตำแหน่งในลิสต์ branches ของ explore_places
+alter table explore_ratings add column if not exists branch_idx smallint;
+
 alter table explore_ratings enable row level security;
 
 drop policy if exists "explore ratings read"   on explore_ratings;
