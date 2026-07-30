@@ -447,6 +447,8 @@ export interface ExploreRating {
   body?: string | null
   /** optional — photos attached to the review (public URLs) */
   photos?: string[] | null
+  /** optional — posted without an identity; the author_* fields are then null */
+  anonymous?: boolean | null
   author_name?: string | null
   author_color?: string | null
   author_photo?: string | null

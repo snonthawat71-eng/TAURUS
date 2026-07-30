@@ -335,6 +335,17 @@ export async function getExploreNotifs(userId: string): Promise<ExploreNotif[]> 
   const votes = vRes.data ?? []
   const suggestions = sRes.error ? [] : (sRes.data ?? [])
 
+  // A star rating mirrors itself onto explore_votes, so an anonymous review
+  // would otherwise reach the owner's bell with the reviewer's real profile
+  // name attached — the one person they most likely wanted to stay hidden
+  // from. Collect those pairs and show them nameless.
+  const anon = new Set<string>()
+  {
+    const { data, error } = await supabase.from('explore_ratings')
+      .select('explore_id,user_id').in('explore_id', ids).eq('anonymous', true)
+    if (!error) for (const r of data ?? []) anon.add(`${r.explore_id}:${r.user_id}`)
+  }
+
   // resolve voter display names from profiles (votes don't store a name)
   const voterIds = [...new Set(votes.map((v) => v.user_id).filter(Boolean) as string[])]
   const profById = new Map<string, Profile>()
@@ -360,11 +371,13 @@ export async function getExploreNotifs(userId: string): Promise<ExploreNotif[]> 
     })
   }
   for (const v of votes) {
-    const p = v.user_id ? profById.get(v.user_id as string) : undefined
+    const hidden = anon.has(`${v.explore_id}:${v.user_id}`)
+    const p = !hidden && v.user_id ? profById.get(v.user_id as string) : undefined
     out.push({
       id: `v:${v.explore_id}:${v.user_id}`, kind: 'like', exploreId: v.explore_id as string,
       placeName: nameById.get(v.explore_id as string) ?? '',
-      who: p?.nickname || p?.full_name || 'ใครบางคน', whoColor: p?.avatar_color ?? null,
+      who: hidden ? 'ไม่ระบุตัวตน' : (p?.nickname || p?.full_name || 'ใครบางคน'),
+      whoColor: hidden ? null : p?.avatar_color ?? null,
       at: (v.created_at as string) ?? new Date(0).toISOString(),
     })
   }

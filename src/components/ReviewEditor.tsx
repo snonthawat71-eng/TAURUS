@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   IconX, IconTrash, IconLoader2, IconCheck, IconArrowLeft, IconThumbUp, IconThumbUpFilled,
-  IconPlus, IconPhotoPlus, IconStarFilled, IconSearch,
+  IconPlus, IconPhotoPlus, IconStarFilled, IconSearch, IconEyeOff, IconUser,
 } from '@tabler/icons-react'
 import { StarRating } from './StarRating'
 import { StarInput } from './StarInput'
@@ -90,6 +90,7 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
   const meta = catMeta(e.category)
   const Icon = meta.icon
   const prevVotes = useMemo(() => menu.filter((r) => r.mine).map((r) => r.id), [menu])
+  const myName = profile?.nickname ?? user?.email?.split('@')[0] ?? 'ผู้ใช้'
 
   /** The big row is the whole review on its own — it deliberately does NOT
    *  copy itself into the four aspect columns, so an aspect only ever holds a
@@ -134,7 +135,7 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
     if (!user || !complete || busy) return
     setBusy(true)
     const res = await saveReview(e.id, user.id, draft, myTags, {
-      name: profile?.nickname ?? user.email?.split('@')[0] ?? 'ผู้ใช้',
+      name: myName,
       color: profile?.avatar_color ?? null,
       photo: profile?.avatar_url ?? null,
       focus: profile?.avatar_focus ?? null,
@@ -395,7 +396,29 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
                 </>
               )}
 
-              <div className="text-[11px] text-ink-3 text-center mt-6">รีวิวของคุณจะแสดงให้ทุกคนเห็น</div>
+              {/* ── post without a name ── */}
+              <div className="flex items-center gap-3 mt-6 py-1">
+                <span className="size-9 rounded-[10px] grid place-items-center shrink-0"
+                  style={{ background: draft.anonymous ? 'var(--color-brand-soft)' : 'var(--color-surface-2)', color: draft.anonymous ? 'var(--color-brand)' : 'var(--color-ink-3)' }}>
+                  {draft.anonymous ? <IconEyeOff size={18} /> : <IconUser size={18} />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13.5px] font-medium leading-tight">รีวิวแบบไม่ระบุตัวตน</div>
+                  <div className="text-[11px] text-ink-3 leading-tight mt-0.5">
+                    {draft.anonymous ? 'จะไม่เก็บชื่อและรูปโปรไฟล์ของคุณไว้กับรีวิวนี้' : `แสดงเป็น ${myName}`}
+                  </div>
+                </div>
+                <button type="button" role="switch" aria-checked={draft.anonymous}
+                  aria-label="รีวิวแบบไม่ระบุตัวตน"
+                  onClick={() => setDraft((d) => ({ ...d, anonymous: !d.anonymous }))}
+                  className="relative shrink-0 w-11 h-6 rounded-full transition-colors"
+                  style={{ background: draft.anonymous ? 'var(--color-brand)' : 'var(--color-line-2)' }}>
+                  <span className="absolute top-0.5 size-5 rounded-full bg-white shadow transition-all"
+                    style={{ left: draft.anonymous ? '22px' : '2px' }} />
+                </button>
+              </div>
+
+              <div className="text-[11px] text-ink-3 text-center mt-4">รีวิวของคุณจะแสดงให้ทุกคนเห็น</div>
             </div>
           )}
         </div>

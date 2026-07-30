@@ -45,6 +45,15 @@ alter table explore_ratings alter column stars type numeric(3,2);
 alter table explore_ratings add column if not exists body   text;
 alter table explore_ratings add column if not exists photos text[];
 
+-- โหมดไม่ระบุตัวตน: true = ไม่เก็บชื่อ/สี/รูปโปรไฟล์ลงแถวนี้เลย (author_* เป็น
+-- null) แล้วหน้าเว็บจะขึ้นว่า "ไม่ระบุตัวตน"
+--
+-- ⚠️ ยังไม่ใช่การปิดบังระดับฐานข้อมูล — `user_id` เป็น primary key ของตารางนี้
+-- และ policy อ่านเปิดให้คน login ทุกคน ใครที่ query ตรงเป็นก็ยังโยงกลับได้
+-- ถ้าอยากให้ปิดจริง ต้องซ่อน user_id หลัง view/RPC (ดูหมายเหตุใน
+-- src/lib/exploreReviews.ts)
+alter table explore_ratings add column if not exists anonymous boolean;
+
 alter table explore_ratings enable row level security;
 
 drop policy if exists "explore ratings read"   on explore_ratings;

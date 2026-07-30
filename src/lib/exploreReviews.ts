@@ -2,6 +2,12 @@
  * Explore reviews — real 1–5 star ratings, per-aspect sub-scores, one-tap tags
  * and "what should I order" menu voting.
  *
+ * NOTE on the anonymous toggle: it stops the name/avatar being written to the
+ * row, which is what every reader of the app sees. It is NOT database-level
+ * anonymity — `user_id` is part of this table's primary key and the read policy
+ * lets any signed-in client select it. Making it real needs the raw table
+ * hidden behind a view/RPC that drops user_id for anonymous rows.
+ *
  * Backed by supabase/explore_reviews.sql. Like every other optional migration
  * in this repo the client degrades gracefully: if the tables aren't there yet
  * every read returns empty and `reviewsReady()` flips to false so the UI can
@@ -207,10 +213,12 @@ export interface ReviewDraft {
   tags: string[]
   body: string
   photos: string[]
+  /** post without a name or avatar attached to the row */
+  anonymous: boolean
 }
 
 export const emptyDraft = (): ReviewDraft =>
-  ({ overall: null, taste: null, worth: null, vibe: null, queue: null, tags: [], body: '', photos: [] })
+  ({ overall: null, taste: null, worth: null, vibe: null, queue: null, tags: [], body: '', photos: [], anonymous: false })
 
 /** Seed the form from what I submitted last time (or blank for a new review). */
 export function draftFrom(mine: ExploreRating | null, myTags: Iterable<string>): ReviewDraft {
@@ -223,6 +231,7 @@ export function draftFrom(mine: ExploreRating | null, myTags: Iterable<string>):
     tags: [...myTags],
     body: mine?.body ?? '',
     photos: mine?.photos ?? [],
+    anonymous: !!mine?.anonymous,
   }
 }
 
@@ -245,21 +254,27 @@ export async function saveReview(
 ) {
   const stars = overallOf(draft)
   if (!stars) return { error: { message: 'no score' } }
+  // anonymous reviews don't just hide the name at render time — the identity
+  // never reaches the row in the first place
+  const anon = draft.anonymous
   const row: Record<string, unknown> = {
     explore_id: exploreId, user_id: userId, stars,
     taste: draft.taste, worth: draft.worth, vibe: draft.vibe, queue: draft.queue,
     body: draft.body.trim() || null,
     photos: draft.photos.length ? draft.photos : null,
-    author_name: author.name ?? null, author_color: author.color ?? null,
-    author_photo: author.photo ?? null, author_focus: author.focus ?? null,
+    anonymous: anon,
+    author_name: anon ? null : author.name ?? null,
+    author_color: anon ? null : author.color ?? null,
+    author_photo: anon ? null : author.photo ?? null,
+    author_focus: anon ? null : author.focus ?? null,
     updated_at: new Date().toISOString(),
   }
   let res = await supabase.from('explore_ratings').upsert(row, { onConflict: 'explore_id,user_id' })
-  // `body`/`photos` were added after the first version of the migration — drop
-  // whichever the schema reports as missing and keep the score (repo-wide
-  // graceful-degradation pattern)
-  if (res.error && /body|photos/.test(res.error.message)) {
-    const { body, photos, ...rest } = row // eslint-disable-line @typescript-eslint/no-unused-vars
+  // `body`/`photos`/`anonymous` were added after the first version of the
+  // migration — drop whichever the schema reports as missing and keep the score
+  // (repo-wide graceful-degradation pattern)
+  if (res.error && /body|photos|anonymous/.test(res.error.message)) {
+    const { body, photos, anonymous, ...rest } = row // eslint-disable-line @typescript-eslint/no-unused-vars
     res = await supabase.from('explore_ratings').upsert(rest, { onConflict: 'explore_id,user_id' })
   }
   if (res.error) { probe(res.error); return res }

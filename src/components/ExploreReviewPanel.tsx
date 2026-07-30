@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  IconStarFilled, IconTrash, IconTrophy, IconPencil, IconThumbUp,
+  IconStarFilled, IconTrash, IconTrophy, IconPencil, IconThumbUp, IconUser,
   IconToolsKitchen2, IconTag, IconUsers, IconChevronDown,
 } from '@tabler/icons-react'
 import { StarRating } from './StarRating'
@@ -272,10 +272,14 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
                 <div key={r.user_id} className="card p-3.5"
                   style={isMine ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
                   <div className="flex items-center gap-2">
-                    <Avatar name={r.author_name} color={r.author_color} photo={r.author_photo} photoFocus={r.author_focus} size={30} ring={false} />
+                    {r.anonymous
+                      ? <span className="size-[30px] rounded-full grid place-items-center shrink-0" style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-3)' }}><IconUser size={16} /></span>
+                      : <Avatar name={r.author_name} color={r.author_color} photo={r.author_photo} photoFocus={r.author_focus} size={30} ring={false} />}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1 flex-wrap">
-                        <span className="text-[12.5px] font-medium truncate max-w-full">{r.author_name ?? 'ผู้ใช้'}</span>
+                        <span className={['text-[12.5px] truncate max-w-full', r.anonymous ? 'text-ink-3' : 'font-medium'].join(' ')}>
+                          {r.anonymous ? 'ไม่ระบุตัวตน' : r.author_name ?? 'ผู้ใช้'}
+                        </span>
                         {isMine && (
                           <span className="shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold"
                             style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>ของคุณ</span>
