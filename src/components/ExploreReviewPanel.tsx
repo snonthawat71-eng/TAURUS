@@ -9,7 +9,7 @@ import { Avatar } from './Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { confirmDialog } from '@/lib/confirm'
 import {
-  getTags, getMenu, deleteMenuItem,
+  getTags, getMenu, deleteMenuItem, clearRating,
   helpedCount, aspectsFor, tagDef, isFood, reviewsReady,
   type ReviewData, type TagData, type MenuRow,
 } from '@/lib/exploreReviews'
@@ -88,6 +88,15 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
     : null
 
   async function afterSave() { await Promise.all([onChanged(), loadSide()]) }
+
+  /** Withdraw my review. Confirmed first — unlike a comment this also takes the
+   *  tags and any attached photos with it. */
+  async function removeMine() {
+    if (!user || !mine) return
+    if (!(await confirmDialog({ message: 'ลบรีวิวของคุณออกจากที่นี่? แท็กและรูปที่แนบไว้จะถูกลบไปด้วย', danger: true, confirmLabel: 'ลบรีวิว' }))) return
+    await clearRating(e.id, user.id)
+    await afterSave()
+  }
 
   /** moderation only — voting for a dish happens inside the review form */
   async function removeDish(row: MenuRow) {
@@ -285,11 +294,18 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
                       </div>
                     </div>
                     {isMine && (
-                      <button onClick={() => setEditorOpen(true)}
-                        className="shrink-0 inline-flex items-center gap-1 h-9 px-3.5 rounded-full text-[12.5px] font-semibold"
-                        style={{ background: 'var(--color-brand)', color: '#fff' }}>
-                        <IconPencil size={14} /> แก้ไข
-                      </button>
+                      <>
+                        <button onClick={() => setEditorOpen(true)}
+                          className="shrink-0 inline-flex items-center gap-1 h-9 px-3.5 rounded-full text-[12.5px] font-semibold"
+                          style={{ background: 'var(--color-brand)', color: '#fff' }}>
+                          <IconPencil size={14} /> แก้ไข
+                        </button>
+                        {/* same affordance as deleting one of my comments below */}
+                        <button onClick={removeMine} aria-label="ลบรีวิว"
+                          className="shrink-0 text-ink-3 hover:text-booking">
+                          <IconTrash size={14} />
+                        </button>
+                      </>
                     )}
                   </div>
                   {r.body && <p className="text-[13px] text-ink whitespace-pre-wrap break-words mt-2.5">{r.body}</p>}

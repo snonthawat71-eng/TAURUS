@@ -11,10 +11,9 @@ import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { uploadPublicImage } from '@/lib/files'
 import { toast } from '@/lib/toast'
-import { confirmDialog } from '@/lib/confirm'
 import {
   aspectsFor, tagsFor, tagDef, overallOf, aspectsScored, draftFrom, draftComplete, isFood,
-  saveReview, clearRating, emptyDraft, emptyMenuDraft, saveMenuPicks, getMenu,
+  saveReview, emptyDraft, emptyMenuDraft, saveMenuPicks, getMenu,
   REVIEW_PHOTO_MAX,
   type ReviewDraft, type MenuDraft, type AspectKey, type MenuRow,
 } from '@/lib/exploreReviews'
@@ -145,16 +144,6 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
     setBusy(false)
     await onSaved()
     setStep(2)
-  }
-
-  async function remove() {
-    if (!user || !mine || busy) return
-    if (!(await confirmDialog({ message: 'ลบรีวิวของคุณออกจากที่นี่? แท็กและรูปที่แนบไว้จะถูกลบไปด้วย', danger: true, confirmLabel: 'ลบรีวิว' }))) return
-    setBusy(true)
-    await clearRating(e.id, user.id)
-    setBusy(false)
-    await onSaved()
-    onClose()
   }
 
   if (!open) return null
@@ -407,13 +396,6 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
               )}
 
               <div className="text-[11px] text-ink-3 text-center mt-6">รีวิวของคุณจะแสดงให้ทุกคนเห็น</div>
-
-              {mine && (
-                <button onClick={remove} disabled={busy}
-                  className="w-full h-10 flex items-center justify-center gap-1.5 text-[12.5px] mt-2" style={{ color: '#D85A30' }}>
-                  <IconTrash size={14} /> ลบรีวิวของฉัน
-                </button>
-              )}
             </div>
           )}
         </div>
