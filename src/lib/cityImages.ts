@@ -4,6 +4,8 @@
 export const CITY_IMAGES: Record<string, string> = {
   'Tokyo': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781508673/cherry-blossoms-sensoji-temple-asakusa-tokyo-japan_wjrbpb.jpg',
   'Osaka': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781508518/ken-cheung-p8xPxD92T98-unsplash_hj0n1q.jpg',
+  'Sapporo': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1785382685/sung-jin-cho-lvuXpa6Glc0-unsplash_fg8cq6.jpg',
+  'Nagano': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1785382684/steven-diaz-Shuj-9LqHwk-unsplash_ri5kzg.jpg',
   'Beijing': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781508519/di-weng-5lBGmd27OOw-unsplash_i26m7y.jpg',
   'Hongkong': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781508519/boat-hong-kong_kfswe5.jpg',
   'Shanghai': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781508518/edward-he-uKyzXEc2k_s-unsplash_rlmdbs.jpg',
