@@ -82,9 +82,10 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
     return () => { active = false }
   }, [e.id, user?.id, mine?.created_at]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // am I the earliest review on this place?
-  const firstReviewer = !!mine && rows.length > 0 &&
-    rows.every((r) => r.user_id === user?.id || (r.created_at ?? '') >= (mine.created_at ?? ''))
+  // whoever got here first — earns the badge on their own card, mine or not
+  const firstReviewerId = rows.length
+    ? rows.reduce((a, b) => ((a.created_at ?? '') <= (b.created_at ?? '') ? a : b)).user_id
+    : null
 
   async function afterSave() { await Promise.all([onChanged(), loadSide()]) }
 
@@ -109,10 +110,10 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
   const anyAspect = aspects.some((a) => stat.aspects[a.key].count > 0)
   const shownTags = showAllTags ? tags.counts : tags.counts.slice(0, 6)
   const topDish = menu[0]
-  // only reviews that actually say something get a card; a bare score already
-  // shows up in the distribution above. Mine leads the list so I can see how
-  // it reads publicly.
-  const written = rows.filter((r) => r.body?.trim() || r.photos?.length)
+  // Other people only get a card when they actually wrote something — a bare
+  // score already shows in the distribution above. MINE always gets one, even
+  // score-only, because that card carries the edit button.
+  const written = rows.filter((r) => r.user_id === user?.id || r.body?.trim() || r.photos?.length)
     .sort((a, b) => Number(b.user_id === user?.id) - Number(a.user_id === user?.id))
 
   return (
@@ -154,30 +155,9 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
         )}
       </div>
 
-      {/* ── my review: a quiet footnote under the summary once it's submitted.
-             The whole row opens the form again; the breakdown lives in there,
-             so nothing here competes with the place's own score. ── */}
-      {user && (mine ? (
-        <div className="mt-2.5">
-          <button onClick={() => setEditorOpen(true)} className="w-full flex items-center gap-1.5 px-1 py-1.5 text-left">
-            <span className="text-[11.5px] text-ink-3 shrink-0">รีวิวของคุณ</span>
-            <span className="text-[12.5px] font-bold tabular-nums shrink-0">{Number(mine.stars).toFixed(1)}</span>
-            <StarRating rating={Number(mine.stars)} size={11} />
-            {tags.mine.size > 0 && (
-              <span className="text-[11px] text-ink-3 truncate min-w-0">· {[...tags.mine].map((k) => tagDef(k).label).join(', ')}</span>
-            )}
-            <span className="ml-auto inline-flex items-center gap-1 text-[11.5px] font-medium text-brand shrink-0">
-              <IconPencil size={12} /> แก้ไข
-            </span>
-          </button>
-          {(firstReviewer || helped > 0) && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-1 text-[10.5px] text-ink-3">
-              {firstReviewer && <span className="inline-flex items-center gap-1"><IconTrophy size={11} /> คนแรกที่รีวิวที่นี่</span>}
-              {helped > 0 && <span className="inline-flex items-center gap-1"><IconUsers size={11} /> ช่วยคนที่เปิดดูแล้ว {helped} คน</span>}
-            </div>
-          )}
-        </div>
-      ) : (
+      {/* ── nothing about my own review here any more: it's the first card in
+             the list below, badges and edit button included ── */}
+      {user && !mine && (
         <button onClick={() => setEditorOpen(true)}
           className={`card w-full p-4 flex items-center gap-3 text-left ${gap}`}
           style={{ border: '0.5px solid var(--color-brand-border)' }}>
@@ -192,7 +172,7 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
           </span>
           <span className="text-[12px] font-semibold text-brand shrink-0">เริ่มเลย</span>
         </button>
-      ))}
+      )}
 
       {/* ── what people said about it (read-only roll-up of everyone's tags) ── */}
       {tags.counts.length > 0 && (
@@ -273,41 +253,69 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
       {written.length > 0 && (
         <div className={gap}>
           <div className="text-[13px] font-semibold text-ink-2 mb-2">
-            สิ่งที่คนรีวิวเขียนไว้ <span className="text-ink-3 font-normal">· {written.length}</span>
+            รีวิว <span className="text-ink-3 font-normal">· {written.length}</span>
           </div>
           <div className="space-y-3">
-            {written.slice(0, showAllWritten ? undefined : 3).map((r) => (
-              <div key={r.user_id} className="card p-3.5">
-                <div className="flex items-center gap-2">
-                  <Avatar name={r.author_name} color={r.author_color} photo={r.author_photo} photoFocus={r.author_focus} size={28} ring={false} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[12.5px] font-medium truncate">{r.author_name ?? 'ผู้ใช้'}</span>
-                      {r.user_id === user?.id && (
-                        <span className="shrink-0 rounded-full px-1.5 text-[10px] font-semibold" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>ของคุณ</span>
-                      )}
+            {written.slice(0, showAllWritten ? undefined : 3).map((r) => {
+              const isMine = r.user_id === user?.id
+              const isFirst = r.user_id === firstReviewerId
+              return (
+                <div key={r.user_id} className="card p-3.5"
+                  style={isMine ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
+                  <div className="flex items-center gap-2">
+                    <Avatar name={r.author_name} color={r.author_color} photo={r.author_photo} photoFocus={r.author_focus} size={30} ring={false} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="text-[12.5px] font-medium truncate max-w-full">{r.author_name ?? 'ผู้ใช้'}</span>
+                        {isMine && (
+                          <span className="shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold"
+                            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>ของคุณ</span>
+                        )}
+                        {isFirst && (
+                          <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-semibold"
+                            style={{ background: '#FDF3E0', color: '#9A7320' }}>
+                            <IconTrophy size={10} /> คนแรกที่รีวิว
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <StarRating rating={Number(r.stars)} size={11} />
+                        <span className="text-[11px] font-bold tabular-nums">{Number(r.stars).toFixed(1)}</span>
+                        <span className="text-[10.5px] text-ink-3">· {sinceText(r.updated_at ?? r.created_at)}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <StarRating rating={Number(r.stars)} size={10} />
-                      <span className="text-[10.5px] text-ink-3">{sinceText(r.updated_at ?? r.created_at)}</span>
-                    </div>
+                    {isMine && (
+                      <button onClick={() => setEditorOpen(true)}
+                        className="shrink-0 inline-flex items-center gap-1 h-9 px-3.5 rounded-full text-[12.5px] font-semibold"
+                        style={{ background: 'var(--color-brand)', color: '#fff' }}>
+                        <IconPencil size={14} /> แก้ไข
+                      </button>
+                    )}
                   </div>
-                  {r.user_id === user?.id && (
-                    <button onClick={() => setEditorOpen(true)} aria-label="แก้ไขรีวิว" className="shrink-0 text-ink-3 hover:text-brand">
-                      <IconPencil size={14} />
-                    </button>
+                  {r.body && <p className="text-[13px] text-ink whitespace-pre-wrap break-words mt-2.5">{r.body}</p>}
+                  {!!r.photos?.length && (
+                    <div className="flex gap-1.5 mt-2.5 overflow-x-auto no-scrollbar">
+                      {r.photos.map((url) => (
+                        <img key={url} src={url} alt="" className="shrink-0 w-[72px] h-[72px] rounded-[9px] object-cover bg-surface-2" />
+                      ))}
+                    </div>
+                  )}
+                  {isMine && tags.mine.size > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2.5">
+                      {[...tags.mine].map((k) => (
+                        <span key={k} className="inline-flex items-center rounded-full px-2 h-6 text-[11px] font-medium"
+                          style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>{tagDef(k).label}</span>
+                      ))}
+                    </div>
+                  )}
+                  {isMine && helped > 0 && (
+                    <div className="text-[10.5px] text-ink-3 mt-2.5 inline-flex items-center gap-1">
+                      <IconUsers size={11} /> ช่วยคนที่เปิดดูแล้ว {helped} คน
+                    </div>
                   )}
                 </div>
-                {r.body && <p className="text-[13px] text-ink whitespace-pre-wrap break-words mt-2">{r.body}</p>}
-                {!!r.photos?.length && (
-                  <div className="flex gap-1.5 mt-2 overflow-x-auto no-scrollbar">
-                    {r.photos.map((url) => (
-                      <img key={url} src={url} alt="" className="shrink-0 w-[72px] h-[72px] rounded-[9px] object-cover bg-surface-2" />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+              )
+            })}
             {!showAllWritten && written.length > 3 && (
               <button onClick={() => setShowAllWritten(true)}
                 className="w-full flex items-center justify-center gap-1 py-1.5 text-[12px] font-medium text-ink-3 hover:text-ink-2">
