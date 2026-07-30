@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconMessageCircle, IconBuildingStore, IconZoomScan, IconMessageReport, IconStarFilled } from '@tabler/icons-react'
+import { IconHeart, IconHeartFilled, IconMapPin, IconTrash, IconPencil, IconFlame, IconEye, IconMessageCircle, IconBuildingStore, IconZoomScan, IconMessageReport, IconStarFilled, IconPlus } from '@tabler/icons-react'
 import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
@@ -8,6 +8,9 @@ import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
 import type { PopStat } from '@/lib/exploreMutations'
+
+/** How many route roundels a card prints before collapsing the rest into "+". */
+const ROUTES_ON_CARD = 3
 
 export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, onDelete, onEdit, onOpen, onSuggest }: {
   e: ExplorePlace
@@ -147,19 +150,36 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
               )
             }
             // multiple lines: all roundels together in a row + the station name
-            // trailing; the line names then list in order underneath
+            // trailing; the line names then list in order underneath.
+            //
+            // The card shows at most ROUTES_ON_CARD of them — a place reachable
+            // six ways would otherwise grow a wall of circles. Anything past the
+            // cap collapses into one "+" bubble meaning "there are more ways to
+            // get here"; the full list lives on the detail page.
+            const shown = routes.slice(0, ROUTES_ON_CARD)
+            const names = [...new Set(routes.map((r) => r.line || modeMeta('mode' in r ? r.mode : undefined).label))]
             return (
               <div className="mt-2 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  {routes.map((r, i) => roundel(r, i))}
+                  {shown.map((r, i) => roundel(r, i))}
+                  {routes.length > ROUTES_ON_CARD && (
+                    <span title={`เดินทางได้ ${routes.length} เส้นทาง`}
+                      className="w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-ink-2"
+                      style={{ background: 'var(--color-surface-2)', border: '0.5px solid var(--color-line-2)' }}>
+                      <IconPlus size={15} />
+                    </span>
+                  )}
                   {cleanStation(r0) && <span className="text-[12.5px] font-medium text-ink-2 truncate ml-1">{cleanStation(r0)}</span>}
                 </div>
                 {/* one row per line NAME, not per route — a place sitting on the
                     same line at two stations used to print it twice */}
                 <div className="mt-1.5 flex flex-col gap-px">
-                  {[...new Set(routes.map((r) => r.line || modeMeta('mode' in r ? r.mode : undefined).label))].map((name) => (
+                  {names.slice(0, ROUTES_ON_CARD).map((name) => (
                     <span key={name} className="text-[10.5px] text-ink-3 truncate">{name}</span>
                   ))}
+                  {names.length > ROUTES_ON_CARD && (
+                    <span className="text-[10.5px] text-ink-3">และอีก {names.length - ROUTES_ON_CARD} เส้นทาง</span>
+                  )}
                 </div>
               </div>
             )
