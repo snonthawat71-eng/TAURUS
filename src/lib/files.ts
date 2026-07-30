@@ -94,16 +94,34 @@ export async function uploadImage(tripId: string, prefix: string, file: File): P
   return { path, error: null }
 }
 
-/** Upload an image for the public Explore pool and return a permanent URL
- *  (Cloudinary CDN if configured, else the Supabase public bucket). */
-export async function uploadPublicImage(file: File): Promise<{ url: string | null; error: string | null }> {
+/** Where a public image lands. Each kind gets its own folder on Cloudinary and
+ *  its own prefix in the Supabase bucket, so the shared Explore photos and the
+ *  photos people attach to a review never end up in the same pile.
+ *
+ *  Adding a kind here is all it takes — Cloudinary creates folders on upload,
+ *  and the Supabase bucket needs no policy change (the prefix is just a path). */
+export const PUBLIC_IMAGE_FOLDERS = {
+  /** a place's own photos in the shared Explore pool */
+  explore: { cloudinary: 'taurus/explore', bucket: 'explore' },
+  /** photos somebody attached to their review of a place */
+  review: { cloudinary: 'taurus/explore-reviews', bucket: 'explore-reviews' },
+} as const
+
+export type PublicImageKind = keyof typeof PUBLIC_IMAGE_FOLDERS
+
+/** Upload a publicly-readable image and return a permanent URL (Cloudinary CDN
+ *  if configured, else the Supabase public bucket). */
+export async function uploadPublicImage(
+  file: File, kind: PublicImageKind = 'explore',
+): Promise<{ url: string | null; error: string | null }> {
+  const dest = PUBLIC_IMAGE_FOLDERS[kind]
   if (isCloudinaryConfigured) {
-    const res = await uploadToCloudinary(file, 'taurus/explore')
+    const res = await uploadToCloudinary(file, dest.cloudinary)
     if (res.error) toast.error(`อัปโหลดรูปไม่สำเร็จ: ${res.error}`)
     return res
   }
   const ext = file.name.split('.').pop() ?? 'jpg'
-  const path = `explore/${crypto.randomUUID()}.${ext}`
+  const path = `${dest.bucket}/${crypto.randomUUID()}.${ext}`
   const up = await supabase.storage.from('explore-photos').upload(path, file, { upsert: false })
   if (up.error) { toast.error(`อัปโหลดรูปไม่สำเร็จ: ${up.error.message}`); return { url: null, error: up.error.message } }
   const { data } = supabase.storage.from('explore-photos').getPublicUrl(path)

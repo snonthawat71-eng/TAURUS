@@ -123,7 +123,8 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
     let room = REVIEW_PHOTO_MAX - draft.photos.length
     for (const file of files) {
       if (room <= 0) break
-      const { url } = await uploadPublicImage(file)
+      // 'review' keeps these out of the place's own photo folder
+      const { url } = await uploadPublicImage(file, 'review')
       if (url) { setDraft((d) => ({ ...d, photos: [...d.photos, url] })); room-- }
     }
     setUploading(false)
