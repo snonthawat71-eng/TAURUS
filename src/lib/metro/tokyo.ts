@@ -13,9 +13,10 @@
 // ไม่ใช่ Tsukishima ซ้ำ, E28 คือ Shinjuku) วงแหวนบรรจบที่ Tochomae แล้วต่อหาง
 // E29–E38 ไป Hikarigaoka — Tochomae จึงปรากฏสองครั้งในลิสต์โดยตั้งใจ
 // สาย Yurikamome (U01–U16) เป็นของบริษัท Yurikamome ไม่ใช่ Metro/Toei
-// ลำดับสายในลิสต์เรียงตามชื่อ (A–Z) เพื่อให้ dropdown หาสายง่าย — ลำดับนี้ไม่มี
-// ผลกับการคำนวณเส้นทาง (ใช้ลำดับสถานีในแต่ละสายเท่านั้น) เพิ่มสายใหม่ให้แทรก
-// ตามตัวอักษรด้วย
+// ลำดับสายในลิสต์: รหัสตัวอักษรเดียว (Metro/Toei/Yurikamome) เรียง A–Z ก่อน แล้ว
+// ตามด้วยรหัสสองตัว (JR) เรียง A–Z และสายที่ไม่มีรหัสไว้ท้ายสุด — เพื่อให้
+// dropdown หาสายง่าย ลำดับนี้ไม่มีผลกับการคำนวณเส้นทาง (ใช้ลำดับสถานีในแต่ละ
+// สายเท่านั้น) เพิ่มสายใหม่ให้แทรกตามกฎเดียวกัน
 import type { MetroNetwork, LineStation } from './types'
 
 const s = (id: string, name: string, num: string): LineStation => ({ id, name, num })
@@ -46,17 +47,6 @@ export const TOKYO: MetroNetwork = {
         s('nijubashimae', 'Nijubashimae', 'C10'), s('otemachi', 'Otemachi', 'C11'), s('shin-ochanomizu', 'Shin-ochanomizu', 'C12'),
         s('yushima', 'Yushima', 'C13'), s('nezu', 'Nezu', 'C14'), s('sendagi', 'Sendagi', 'C15'),
         s('nishi-nippori', 'Nishi-nippori', 'C16'), s('machiya', 'Machiya', 'C17'), s('kita-senju', 'Kita-senju', 'C18'),
-      ],
-    },
-    {
-      // หมายเหตุ: ต้นฉบับให้ชื่อญี่ปุ่น 門沢橋 ซ้ำที่ CA06 และ CA07 — ชื่ออังกฤษ
-      // ต่างกันและเราเก็บเฉพาะอังกฤษ จึงไม่กระทบ (CA06 Motosamukawa ยังน่าสงสัย)
-      id: 'CA-sagami-line', name: 'CA Sagami Line', color: '#009879',
-      stations: [
-        s('chigasaki', 'Chigasaki', 'CA01'), s('kita-chigasaki', 'Kita-Chigasaki', 'CA02'), s('kagawa', 'Kagawa', 'CA03'),
-        s('miyayama', 'Miyayama', 'CA04'), s('kurami', 'Kurami', 'CA05'), s('motosamukawa', 'Motosamukawa', 'CA06'),
-        s('kadosawabashi', 'Kadosawabashi', 'CA07'), s('atsugi', 'Atsugi', 'CA08'), s('ebina', 'Ebina', 'CA09'),
-        s('harataima', 'Harataima', 'CA10'), s('hashimoto', 'Hashimoto', 'CA11'),
       ],
     },
     {
@@ -117,14 +107,6 @@ export const TOKYO: MetroNetwork = {
       ],
     },
     {
-      id: '—-hachiko-line', name: 'Hachiko Line', color: '#A8A8A8',
-      stations: [
-        s('hachioji', 'Hachioji', ''), s('kita-hachioji', 'Kita-Hachioji', ''), s('komiya', 'Komiya', ''),
-        s('haijima', 'Haijima', ''), s('higashi-fussa', 'Higashi-Fussa', ''), s('hakonegasaki', 'Hakonegasaki', ''),
-        s('komagawa', 'Komagawa', ''),
-      ],
-    },
-    {
       id: 'I-mita-line', name: 'I Mita Line', color: '#0079C2',
       stations: [
         s('meguro', 'Meguro', 'I01'), s('shirokanedai', 'Shirokanedai', 'I02'), s('shirokane-takanawa', 'Shirokane-takanawa', 'I03'),
@@ -136,6 +118,103 @@ export const TOKYO: MetroNetwork = {
         s('motohasunuma', 'Motohasunuma', 'I19'), s('shimura-sakaue', 'Shimura-sakaue', 'I20'), s('shimura-sanchome', 'Shimura-sanchome', 'I21'),
         s('hasune', 'Hasune', 'I22'), s('nishidai', 'Nishidai', 'I23'), s('takashimadaira', 'Takashimadaira', 'I24'),
         s('shin-takashimadaira', 'Shin-takashimadaira', 'I25'), s('nishi-takashimadaira', 'Nishi-takashimadaira', 'I26'),
+      ],
+    },
+    {
+      id: 'M-marunouchi-line', name: 'M Marunouchi Line', color: '#F62E36',
+      stations: [
+        s('ogikubo', 'Ogikubo', 'M01'), s('minami-asagaya', 'Minami-asagaya', 'M02'), s('shin-koenji', 'Shin-koenji', 'M03'),
+        s('higashi-koenji', 'Higashi-koenji', 'M04'), s('shin-nakano', 'Shin-nakano', 'M05'), s('nakano-sakaue', 'Nakano-sakaue', 'M06'),
+        s('nishi-shinjuku', 'Nishi-shinjuku', 'M07'), s('shinjuku', 'Shinjuku', 'M08'), s('shinjuku-sanchome', 'Shinjuku-sanchome', 'M09'),
+        s('shinjuku-gyoemmae', 'Shinjuku-gyoemmae', 'M10'), s('yotsuya-sanchome', 'Yotsuya-sanchome', 'M11'), s('yotsuya', 'Yotsuya', 'M12'),
+        s('akasaka-mitsuke', 'Akasaka-mitsuke', 'M13'), s('kokkai-gijidomae', 'Kokkai-gijidomae', 'M14'), s('kasumigaseki', 'Kasumigaseki', 'M15'),
+        s('ginza', 'Ginza', 'M16'), s('tokyo', 'Tokyo', 'M17'), s('otemachi', 'Otemachi', 'M18'),
+        s('awajicho', 'Awajicho', 'M19'), s('ochanomizu', 'Ochanomizu', 'M20'), s('hongo-sanchome', 'Hongo-sanchome', 'M21'),
+        s('korakuen', 'Korakuen', 'M22'), s('myogadani', 'Myogadani', 'M23'), s('shin-otsuka', 'Shin-otsuka', 'M24'),
+        s('ikebukuro', 'Ikebukuro', 'M25'),
+      ],
+    },
+    {
+      id: 'N-namboku-line', name: 'N Namboku Line', color: '#00ADA9',
+      stations: [
+        s('meguro', 'Meguro', 'N01'), s('shirokanedai', 'Shirokanedai', 'N02'), s('shirokane-takanawa', 'Shirokane-takanawa', 'N03'),
+        s('azabu-juban', 'Azabu-juban', 'N04'), s('roppongi-itchome', 'Roppongi-itchome', 'N05'), s('tameike-sanno', 'Tameike-sanno', 'N06'),
+        s('nagatacho', 'Nagatacho', 'N07'), s('yotsuya', 'Yotsuya', 'N08'), s('ichigaya', 'Ichigaya', 'N09'),
+        s('iidabashi', 'Iidabashi', 'N10'), s('korakuen', 'Korakuen', 'N11'), s('todaimae', 'Todaimae', 'N12'),
+        s('hon-komagome', 'Hon-komagome', 'N13'), s('komagome', 'Komagome', 'N14'), s('nishigahara', 'Nishigahara', 'N15'),
+        s('oji', 'Oji', 'N16'), s('oji-kamiya', 'Oji-kamiya', 'N17'), s('shimo', 'Shimo', 'N18'),
+        s('akabane-iwabuchi', 'Akabane-iwabuchi', 'N19'),
+      ],
+    },
+    {
+      id: 'S-shinjuku-line', name: 'S Shinjuku Line', color: '#6CBB5A',
+      stations: [
+        s('shinjuku', 'Shinjuku', 'S01'), s('shinjuku-sanchome', 'Shinjuku-sanchome', 'S02'), s('akebonobashi', 'Akebonobashi', 'S03'),
+        s('ichigaya', 'Ichigaya', 'S04'), s('kudanshita', 'Kudanshita', 'S05'), s('jimbocho', 'Jimbocho', 'S06'),
+        s('ogawamachi', 'Ogawamachi', 'S07'), s('iwamotocho', 'Iwamotocho', 'S08'), s('bakuro-yokoyama', 'Bakuro-yokoyama', 'S09'),
+        s('hamacho', 'Hamacho', 'S10'), s('morishita', 'Morishita', 'S11'), s('kikukawa', 'Kikukawa', 'S12'),
+        s('sumiyoshi', 'Sumiyoshi', 'S13'), s('nishi-ojima', 'Nishi-ojima', 'S14'), s('ojima', 'Ojima', 'S15'),
+        s('higashi-ojima', 'Higashi-ojima', 'S16'), s('funabori', 'Funabori', 'S17'), s('ichinoe', 'Ichinoe', 'S18'),
+        s('mizue', 'Mizue', 'S19'), s('shinozaki', 'Shinozaki', 'S20'), s('motoyawata', 'Motoyawata', 'S21'),
+      ],
+    },
+    {
+      id: 'T-tozai-line', name: 'T Tozai Line', color: '#009BBF',
+      stations: [
+        s('nakano', 'Nakano', 'T01'), s('ochiai', 'Ochiai', 'T02'), s('takadanobaba', 'Takadanobaba', 'T03'),
+        s('waseda', 'Waseda', 'T04'), s('kagurazaka', 'Kagurazaka', 'T05'), s('iidabashi', 'Iidabashi', 'T06'),
+        s('kudanshita', 'Kudanshita', 'T07'), s('takebashi', 'Takebashi', 'T08'), s('otemachi', 'Otemachi', 'T09'),
+        s('nihombashi', 'Nihombashi', 'T10'), s('kayabacho', 'Kayabacho', 'T11'), s('monzennakacho', 'Monzennakacho', 'T12'),
+        s('kiba', 'Kiba', 'T13'), s('toyocho', 'Toyocho', 'T14'), s('minami-sunamachi', 'Minami-sunamachi', 'T15'),
+        s('nishi-kasai', 'Nishi-kasai', 'T16'), s('kasai', 'Kasai', 'T17'), s('urayasu', 'Urayasu', 'T18'),
+        s('minami-gyotoku', 'Minami-gyotoku', 'T19'), s('gyotoku', 'Gyotoku', 'T20'), s('myoden', 'Myoden', 'T21'),
+        s('baraki-nakayama', 'Baraki-nakayama', 'T22'), s('nishi-funabashi', 'Nishi-funabashi', 'T23'),
+      ],
+    },
+    {
+      // รถไฟฟ้าไร้คนขับยกระดับ Shimbashi ↔ Odaiba/Toyosu (บริษัท Yurikamome, ไม่ใช่ Metro/Toei)
+      id: 'U-yurikamome-line', name: 'U Yurikamome Line', color: '#45B1E8',
+      stations: [
+        s('shimbashi', 'Shimbashi', 'U01'), s('shiodome', 'Shiodome', 'U02'), s('takeshiba', 'Takeshiba', 'U03'),
+        s('hinode', 'Hinode', 'U04'), s('shibaura-futo', 'Shibaura-futo', 'U05'), s('odaiba-kaihinkoen', 'Odaiba-kaihinkoen', 'U06'),
+        s('daiba', 'Daiba', 'U07'), s('tokyo-cruise-terminal', 'Tokyo International Cruise Terminal', 'U08'), s('telecom-center', 'Telecom Center', 'U09'),
+        s('aomi', 'Aomi', 'U10'), s('tokyo-big-sight', 'Tokyo Big Sight', 'U11'), s('ariake', 'Ariake', 'U12'),
+        s('ariake-tennis-no-mori', 'Ariake-tennis-no-mori', 'U13'), s('shijo-mae', 'Shijo-mae', 'U14'), s('shin-toyosu', 'Shin-toyosu', 'U15'),
+        s('toyosu', 'Toyosu', 'U16'),
+      ],
+    },
+    {
+      id: 'Y-yurakucho-line', name: 'Y Yurakucho Line', color: '#C1A470',
+      stations: [
+        s('wakoshi', 'Wakoshi', 'Y01'), s('chikatetsu-narimasu', 'Chikatetsu-narimasu', 'Y02'), s('chikatetsu-akatsuka', 'Chikatetsu-akatsuka', 'Y03'),
+        s('heiwadai', 'Heiwadai', 'Y04'), s('hikawadai', 'Hikawadai', 'Y05'), s('kotake-mukaihara', 'Kotake-mukaihara', 'Y06'),
+        s('senkawa', 'Senkawa', 'Y07'), s('kanamecho', 'Kanamecho', 'Y08'), s('ikebukuro', 'Ikebukuro', 'Y09'),
+        s('higashi-ikebukuro', 'Higashi-ikebukuro', 'Y10'), s('gokokuji', 'Gokokuji', 'Y11'), s('edogawabashi', 'Edogawabashi', 'Y12'),
+        s('iidabashi', 'Iidabashi', 'Y13'), s('ichigaya', 'Ichigaya', 'Y14'), s('kojimachi', 'Kojimachi', 'Y15'),
+        s('nagatacho', 'Nagatacho', 'Y16'), s('sakuradamon', 'Sakuradamon', 'Y17'), s('yurakucho', 'Yurakucho', 'Y18'),
+        s('ginza-itchome', 'Ginza-itchome', 'Y19'), s('shintomicho', 'Shintomicho', 'Y20'), s('tsukishima', 'Tsukishima', 'Y21'),
+        s('toyosu', 'Toyosu', 'Y22'), s('tatsumi', 'Tatsumi', 'Y23'), s('shin-kiba', 'Shin-kiba', 'Y24'),
+      ],
+    },
+    {
+      id: 'Z-hanzomon-line', name: 'Z Hanzomon Line', color: '#8F76D6',
+      stations: [
+        s('shibuya', 'Shibuya', 'Z01'), s('omotesando', 'Omotesando', 'Z02'), s('aoyama-itchome', 'Aoyama-itchome', 'Z03'),
+        s('nagatacho', 'Nagatacho', 'Z04'), s('hanzomon', 'Hanzomon', 'Z05'), s('kudanshita', 'Kudanshita', 'Z06'),
+        s('jimbocho', 'Jimbocho', 'Z07'), s('otemachi', 'Otemachi', 'Z08'), s('mitsukoshimae', 'Mitsukoshimae', 'Z09'),
+        s('suitengumae', 'Suitengumae', 'Z10'), s('kiyosumi-shirakawa', 'Kiyosumi-shirakawa', 'Z11'), s('sumiyoshi', 'Sumiyoshi', 'Z12'),
+        s('kinshicho', 'Kinshicho', 'Z13'), s('oshiage', 'Oshiage', 'Z14'),
+      ],
+    },
+    {
+      // หมายเหตุ: ต้นฉบับให้ชื่อญี่ปุ่น 門沢橋 ซ้ำที่ CA06 และ CA07 — ชื่ออังกฤษ
+      // ต่างกันและเราเก็บเฉพาะอังกฤษ จึงไม่กระทบ (CA06 Motosamukawa ยังน่าสงสัย)
+      id: 'CA-sagami-line', name: 'CA Sagami Line', color: '#009879',
+      stations: [
+        s('chigasaki', 'Chigasaki', 'CA01'), s('kita-chigasaki', 'Kita-Chigasaki', 'CA02'), s('kagawa', 'Kagawa', 'CA03'),
+        s('miyayama', 'Miyayama', 'CA04'), s('kurami', 'Kurami', 'CA05'), s('motosamukawa', 'Motosamukawa', 'CA06'),
+        s('kadosawabashi', 'Kadosawabashi', 'CA07'), s('atsugi', 'Atsugi', 'CA08'), s('ebina', 'Ebina', 'CA09'),
+        s('harataima', 'Harataima', 'CA10'), s('hashimoto', 'Hashimoto', 'CA11'),
       ],
     },
     {
@@ -392,89 +471,11 @@ export const TOKYO: MetroNetwork = {
       ],
     },
     {
-      id: 'M-marunouchi-line', name: 'M Marunouchi Line', color: '#F62E36',
+      id: '—-hachiko-line', name: 'Hachiko Line', color: '#A8A8A8',
       stations: [
-        s('ogikubo', 'Ogikubo', 'M01'), s('minami-asagaya', 'Minami-asagaya', 'M02'), s('shin-koenji', 'Shin-koenji', 'M03'),
-        s('higashi-koenji', 'Higashi-koenji', 'M04'), s('shin-nakano', 'Shin-nakano', 'M05'), s('nakano-sakaue', 'Nakano-sakaue', 'M06'),
-        s('nishi-shinjuku', 'Nishi-shinjuku', 'M07'), s('shinjuku', 'Shinjuku', 'M08'), s('shinjuku-sanchome', 'Shinjuku-sanchome', 'M09'),
-        s('shinjuku-gyoemmae', 'Shinjuku-gyoemmae', 'M10'), s('yotsuya-sanchome', 'Yotsuya-sanchome', 'M11'), s('yotsuya', 'Yotsuya', 'M12'),
-        s('akasaka-mitsuke', 'Akasaka-mitsuke', 'M13'), s('kokkai-gijidomae', 'Kokkai-gijidomae', 'M14'), s('kasumigaseki', 'Kasumigaseki', 'M15'),
-        s('ginza', 'Ginza', 'M16'), s('tokyo', 'Tokyo', 'M17'), s('otemachi', 'Otemachi', 'M18'),
-        s('awajicho', 'Awajicho', 'M19'), s('ochanomizu', 'Ochanomizu', 'M20'), s('hongo-sanchome', 'Hongo-sanchome', 'M21'),
-        s('korakuen', 'Korakuen', 'M22'), s('myogadani', 'Myogadani', 'M23'), s('shin-otsuka', 'Shin-otsuka', 'M24'),
-        s('ikebukuro', 'Ikebukuro', 'M25'),
-      ],
-    },
-    {
-      id: 'N-namboku-line', name: 'N Namboku Line', color: '#00ADA9',
-      stations: [
-        s('meguro', 'Meguro', 'N01'), s('shirokanedai', 'Shirokanedai', 'N02'), s('shirokane-takanawa', 'Shirokane-takanawa', 'N03'),
-        s('azabu-juban', 'Azabu-juban', 'N04'), s('roppongi-itchome', 'Roppongi-itchome', 'N05'), s('tameike-sanno', 'Tameike-sanno', 'N06'),
-        s('nagatacho', 'Nagatacho', 'N07'), s('yotsuya', 'Yotsuya', 'N08'), s('ichigaya', 'Ichigaya', 'N09'),
-        s('iidabashi', 'Iidabashi', 'N10'), s('korakuen', 'Korakuen', 'N11'), s('todaimae', 'Todaimae', 'N12'),
-        s('hon-komagome', 'Hon-komagome', 'N13'), s('komagome', 'Komagome', 'N14'), s('nishigahara', 'Nishigahara', 'N15'),
-        s('oji', 'Oji', 'N16'), s('oji-kamiya', 'Oji-kamiya', 'N17'), s('shimo', 'Shimo', 'N18'),
-        s('akabane-iwabuchi', 'Akabane-iwabuchi', 'N19'),
-      ],
-    },
-    {
-      id: 'S-shinjuku-line', name: 'S Shinjuku Line', color: '#6CBB5A',
-      stations: [
-        s('shinjuku', 'Shinjuku', 'S01'), s('shinjuku-sanchome', 'Shinjuku-sanchome', 'S02'), s('akebonobashi', 'Akebonobashi', 'S03'),
-        s('ichigaya', 'Ichigaya', 'S04'), s('kudanshita', 'Kudanshita', 'S05'), s('jimbocho', 'Jimbocho', 'S06'),
-        s('ogawamachi', 'Ogawamachi', 'S07'), s('iwamotocho', 'Iwamotocho', 'S08'), s('bakuro-yokoyama', 'Bakuro-yokoyama', 'S09'),
-        s('hamacho', 'Hamacho', 'S10'), s('morishita', 'Morishita', 'S11'), s('kikukawa', 'Kikukawa', 'S12'),
-        s('sumiyoshi', 'Sumiyoshi', 'S13'), s('nishi-ojima', 'Nishi-ojima', 'S14'), s('ojima', 'Ojima', 'S15'),
-        s('higashi-ojima', 'Higashi-ojima', 'S16'), s('funabori', 'Funabori', 'S17'), s('ichinoe', 'Ichinoe', 'S18'),
-        s('mizue', 'Mizue', 'S19'), s('shinozaki', 'Shinozaki', 'S20'), s('motoyawata', 'Motoyawata', 'S21'),
-      ],
-    },
-    {
-      id: 'T-tozai-line', name: 'T Tozai Line', color: '#009BBF',
-      stations: [
-        s('nakano', 'Nakano', 'T01'), s('ochiai', 'Ochiai', 'T02'), s('takadanobaba', 'Takadanobaba', 'T03'),
-        s('waseda', 'Waseda', 'T04'), s('kagurazaka', 'Kagurazaka', 'T05'), s('iidabashi', 'Iidabashi', 'T06'),
-        s('kudanshita', 'Kudanshita', 'T07'), s('takebashi', 'Takebashi', 'T08'), s('otemachi', 'Otemachi', 'T09'),
-        s('nihombashi', 'Nihombashi', 'T10'), s('kayabacho', 'Kayabacho', 'T11'), s('monzennakacho', 'Monzennakacho', 'T12'),
-        s('kiba', 'Kiba', 'T13'), s('toyocho', 'Toyocho', 'T14'), s('minami-sunamachi', 'Minami-sunamachi', 'T15'),
-        s('nishi-kasai', 'Nishi-kasai', 'T16'), s('kasai', 'Kasai', 'T17'), s('urayasu', 'Urayasu', 'T18'),
-        s('minami-gyotoku', 'Minami-gyotoku', 'T19'), s('gyotoku', 'Gyotoku', 'T20'), s('myoden', 'Myoden', 'T21'),
-        s('baraki-nakayama', 'Baraki-nakayama', 'T22'), s('nishi-funabashi', 'Nishi-funabashi', 'T23'),
-      ],
-    },
-    {
-      // รถไฟฟ้าไร้คนขับยกระดับ Shimbashi ↔ Odaiba/Toyosu (บริษัท Yurikamome, ไม่ใช่ Metro/Toei)
-      id: 'U-yurikamome-line', name: 'U Yurikamome Line', color: '#45B1E8',
-      stations: [
-        s('shimbashi', 'Shimbashi', 'U01'), s('shiodome', 'Shiodome', 'U02'), s('takeshiba', 'Takeshiba', 'U03'),
-        s('hinode', 'Hinode', 'U04'), s('shibaura-futo', 'Shibaura-futo', 'U05'), s('odaiba-kaihinkoen', 'Odaiba-kaihinkoen', 'U06'),
-        s('daiba', 'Daiba', 'U07'), s('tokyo-cruise-terminal', 'Tokyo International Cruise Terminal', 'U08'), s('telecom-center', 'Telecom Center', 'U09'),
-        s('aomi', 'Aomi', 'U10'), s('tokyo-big-sight', 'Tokyo Big Sight', 'U11'), s('ariake', 'Ariake', 'U12'),
-        s('ariake-tennis-no-mori', 'Ariake-tennis-no-mori', 'U13'), s('shijo-mae', 'Shijo-mae', 'U14'), s('shin-toyosu', 'Shin-toyosu', 'U15'),
-        s('toyosu', 'Toyosu', 'U16'),
-      ],
-    },
-    {
-      id: 'Y-yurakucho-line', name: 'Y Yurakucho Line', color: '#C1A470',
-      stations: [
-        s('wakoshi', 'Wakoshi', 'Y01'), s('chikatetsu-narimasu', 'Chikatetsu-narimasu', 'Y02'), s('chikatetsu-akatsuka', 'Chikatetsu-akatsuka', 'Y03'),
-        s('heiwadai', 'Heiwadai', 'Y04'), s('hikawadai', 'Hikawadai', 'Y05'), s('kotake-mukaihara', 'Kotake-mukaihara', 'Y06'),
-        s('senkawa', 'Senkawa', 'Y07'), s('kanamecho', 'Kanamecho', 'Y08'), s('ikebukuro', 'Ikebukuro', 'Y09'),
-        s('higashi-ikebukuro', 'Higashi-ikebukuro', 'Y10'), s('gokokuji', 'Gokokuji', 'Y11'), s('edogawabashi', 'Edogawabashi', 'Y12'),
-        s('iidabashi', 'Iidabashi', 'Y13'), s('ichigaya', 'Ichigaya', 'Y14'), s('kojimachi', 'Kojimachi', 'Y15'),
-        s('nagatacho', 'Nagatacho', 'Y16'), s('sakuradamon', 'Sakuradamon', 'Y17'), s('yurakucho', 'Yurakucho', 'Y18'),
-        s('ginza-itchome', 'Ginza-itchome', 'Y19'), s('shintomicho', 'Shintomicho', 'Y20'), s('tsukishima', 'Tsukishima', 'Y21'),
-        s('toyosu', 'Toyosu', 'Y22'), s('tatsumi', 'Tatsumi', 'Y23'), s('shin-kiba', 'Shin-kiba', 'Y24'),
-      ],
-    },
-    {
-      id: 'Z-hanzomon-line', name: 'Z Hanzomon Line', color: '#8F76D6',
-      stations: [
-        s('shibuya', 'Shibuya', 'Z01'), s('omotesando', 'Omotesando', 'Z02'), s('aoyama-itchome', 'Aoyama-itchome', 'Z03'),
-        s('nagatacho', 'Nagatacho', 'Z04'), s('hanzomon', 'Hanzomon', 'Z05'), s('kudanshita', 'Kudanshita', 'Z06'),
-        s('jimbocho', 'Jimbocho', 'Z07'), s('otemachi', 'Otemachi', 'Z08'), s('mitsukoshimae', 'Mitsukoshimae', 'Z09'),
-        s('suitengumae', 'Suitengumae', 'Z10'), s('kiyosumi-shirakawa', 'Kiyosumi-shirakawa', 'Z11'), s('sumiyoshi', 'Sumiyoshi', 'Z12'),
-        s('kinshicho', 'Kinshicho', 'Z13'), s('oshiage', 'Oshiage', 'Z14'),
+        s('hachioji', 'Hachioji', ''), s('kita-hachioji', 'Kita-Hachioji', ''), s('komiya', 'Komiya', ''),
+        s('haijima', 'Haijima', ''), s('higashi-fussa', 'Higashi-Fussa', ''), s('hakonegasaki', 'Hakonegasaki', ''),
+        s('komagawa', 'Komagawa', ''),
       ],
     },
   ],
