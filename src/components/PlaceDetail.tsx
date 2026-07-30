@@ -5,6 +5,7 @@ import { AvatarStack } from './Avatar'
 import { SignedImage } from './SignedImage'
 import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
+import { BranchPicker } from './BranchPicker'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import { getSignedUrl } from '@/lib/files'
@@ -112,23 +113,7 @@ export function PlaceDetail({
         {/* branch picker — for chains with multiple locations */}
         {branches.length > 0 && (
           <div className="mt-3">
-            <div className="text-[11px] text-ink-3 mb-1.5">เลือกสาขา ({branches.length})</div>
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-              {hasOwnLocation && (
-                <button onClick={() => setBranchIdx(null)}
-                  className={['chip shrink-0', branchIdx === null ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
-                  style={branchIdx === null ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
-                  {branchIdx === null && <IconCheck size={12} />} ที่ตั้งหลัก
-                </button>
-              )}
-              {branches.map((b, i) => (
-                <button key={i} onClick={() => setBranchIdx(i)}
-                  className={['chip shrink-0', branchIdx === i ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
-                  style={branchIdx === i ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
-                  {branchIdx === i && <IconCheck size={12} />} {b.label || `สาขา ${i + 1}`}
-                </button>
-              ))}
-            </div>
+            <BranchPicker branches={branches} value={branchIdx} onChange={setBranchIdx} hasOwnLocation={hasOwnLocation} compact />
           </div>
         )}
 
