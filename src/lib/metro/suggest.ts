@@ -88,6 +88,19 @@ export function stationCode(line: string | null | undefined, station: string | n
   return null
 }
 
+/** Official colour for a known line name, scanning every built-in network.
+ *  Display code prefers this over the colour stored on the row, so fixing a
+ *  wrong line colour here also fixes places that were saved earlier. */
+export function lineColorFor(line: string | null | undefined): string | null {
+  if (!line) return null
+  const ln = line.trim().toLowerCase()
+  for (const n of NETWORKS) {
+    const l = n.lines.find((x) => x.name.toLowerCase() === ln)
+    if (l?.color) return l.color
+  }
+  return null
+}
+
 /** Find a suggested line by its (case-insensitive) name. */
 export function findLine(sug: TransitSuggest, name: string): LineSuggest | undefined {
   const n = name.trim().toLowerCase()

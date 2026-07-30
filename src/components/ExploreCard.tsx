@@ -4,7 +4,7 @@ import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
-import { stationCode } from '@/lib/metro/suggest'
+import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 import { openMap } from '@/lib/maps'
 import type { ExplorePlace } from '@/lib/database.types'
 import type { PopStat } from '@/lib/exploreMutations'
@@ -108,7 +108,7 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
               const mm = code?.match(/^([A-Za-z]+)\s*(\d.*)$/)
               return (
                 <span key={i} title={[r.line, r.station].filter(Boolean).join(' · ') || m.label}
-                  className="w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-white leading-none" style={{ background: r.color ?? '#888780' }}>
+                  className="w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-white leading-none" style={{ background: lineColorFor(r.line) ?? r.color ?? '#888780' }}>
                   {code
                     ? (mm
                         ? <span className="flex flex-col items-center leading-[1.0]"><span className="text-[9px] font-extrabold tracking-tight">{mm[1]}</span><span className="text-[12.5px] font-extrabold tracking-tight">{mm[2]}</span></span>

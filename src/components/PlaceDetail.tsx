@@ -9,7 +9,7 @@ import { BranchPicker } from './BranchPicker'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import { getSignedUrl } from '@/lib/files'
-import { stationCode } from '@/lib/metro/suggest'
+import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 
 const isPdfRef = (ref: string) => /\.pdf($|\?)/i.test(ref)
 /** Open a stored menu file (Cloudinary URL as-is, private path via signed URL). */
@@ -64,7 +64,7 @@ export function PlaceDetail({
   const extraBase = hasPhoto ? 1 : 0
   const branches = place.branches ?? []
   const sel = branchIdx != null ? branches[branchIdx] : null
-  const lineColor = sel ? sel.color : place.station_color
+  const lineColor = lineColorFor(sel ? sel.line : place.station_line) ?? (sel ? sel.color : place.station_color)
   const lineText = sel ? sel.line : place.station_line
   const stationText = sel ? sel.station : place.station_name
   const mapUrl = sel?.map_url || place.map_url

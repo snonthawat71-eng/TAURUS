@@ -3,6 +3,7 @@ import { IconWalk, IconDoorExit, IconPencil, IconCoin } from '@tabler/icons-reac
 import { modeMeta } from '@/lib/transitModes'
 import { useTrip } from '@/contexts/TripContext'
 import type { Transit, TransitLeg } from '@/lib/database.types'
+import { lineColorFor } from '@/lib/metro/suggest'
 
 /**
  * AMap-style metro route.
@@ -48,7 +49,7 @@ function BoardContent({ leg, currency }: { leg: TransitLeg; currency?: string | 
     <>
       <div className="text-[13px] font-medium leading-tight">{leg.from}</div>
       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[11px] text-ink-3">
-        <span className="inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 font-medium text-white" style={{ background: leg.color }}>
+        <span className="inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 font-medium text-white" style={{ background: lineColorFor(leg.line) ?? leg.color }}>
           <MIcon size={11} />
           {leg.line || m.label}
         </span>

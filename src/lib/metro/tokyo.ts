@@ -86,7 +86,7 @@ export const TOKYO: MetroNetwork = {
       ],
     },
     {
-      id: 'Y-yurakucho-line', name: 'Y Yurakucho Line', color: '#C1A2D0',
+      id: 'Y-yurakucho-line', name: 'Y Yurakucho Line', color: '#C1A470',
       stations: [
         s('wakoshi', 'Wakoshi', 'Y01'), s('chikatetsu-narimasu', 'Chikatetsu-narimasu', 'Y02'), s('chikatetsu-akatsuka', 'Chikatetsu-akatsuka', 'Y03'),
         s('heiwadai', 'Heiwadai', 'Y04'), s('hikawadai', 'Hikawadai', 'Y05'), s('kotake-mukaihara', 'Kotake-mukaihara', 'Y06'),
