@@ -101,10 +101,28 @@ function overlap(a: string, b: string): number {
   return (2 * hit) / (A.size + B.size)
 }
 /** Two words meaning the same thing — "jenny"/"jennys", "cafe"/"cafes".
- *  Words shorter than 3 letters must match exactly; there isn't enough of them
- *  to measure. */
-const sameWord = (a: string, b: string) =>
-  a === b || (a.length >= 3 && b.length >= 3 && overlap(a, b) >= 0.8)
+ *
+ *  A plain letter-pair score is far too generous on short words: "sand" and
+ *  "and" score exactly 0.8, so "Ginza Sand" matched "Glitch Coffee and
+ *  Roasters GINZA". So the only cheap match allowed is a suffix of at most two
+ *  letters on an otherwise identical word (plural/possessive); anything else
+ *  has to be near the same length AND overlap almost completely. */
+const sameWord = (a: string, b: string) => {
+  if (a === b) return true
+  if (a.length < 3 || b.length < 3) return false
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a]
+  if (long.startsWith(short) && long.length - short.length <= 2) return true
+  return long.length - short.length <= 1 && overlap(a, b) >= 0.9
+}
+
+/** Filler words that never identify a place on their own. Dropped before
+ *  matching so they can't stand in as a partner for a real word. */
+const STOPWORDS = new Set(['and', 'the', 'of', 'at', 'in', 'on', 'de', 'la', 'le', 'el', 'no', 'ya'])
+const keyWords = (s: string) => {
+  const w = words(s)
+  const strong = w.filter((x) => !STOPWORDS.has(x))
+  return strong.length ? strong : w
+}
 
 /**
  * Do these two names look like the same place?
@@ -126,7 +144,7 @@ function similarName(a: string, b: string): boolean {
   const x = normName(a), y = normName(b)
   if (!x || !y) return false
   if (x === y || x.includes(y) || y.includes(x)) return true
-  const wa = words(a), wb = words(b)
+  const wa = keyWords(a), wb = keyWords(b)
   if (!wa.length || !wb.length) return false
   const [short, long] = wa.length <= wb.length ? [wa, wb] : [wb, wa]
   return short.every((w) => long.some((u) => sameWord(w, u)))
