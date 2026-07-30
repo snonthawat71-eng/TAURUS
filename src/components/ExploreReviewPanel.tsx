@@ -188,7 +188,7 @@ export function ExploreReviewPanel({ e, data, onChanged, compact = false }: {
             <span className="block text-[13.5px] font-semibold">
               {stat.count === 0 ? 'เป็นคนแรกที่รีวิวที่นี่' : 'เขียนรีวิวของคุณ'}
             </span>
-            <span className="block text-[11.5px] text-ink-3 mt-0.5">ให้ดาว 4 ด้าน แล้วคิดคะแนนรวมให้อัตโนมัติ</span>
+            <span className="block text-[11.5px] text-ink-3 mt-0.5">แตะดาวครั้งเดียวก็พอ · อยากละเอียดค่อยให้แยกด้าน</span>
           </span>
           <span className="text-[12px] font-semibold text-brand shrink-0">เริ่มเลย</span>
         </button>

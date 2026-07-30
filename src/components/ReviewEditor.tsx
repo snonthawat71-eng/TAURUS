@@ -13,7 +13,7 @@ import { uploadPublicImage } from '@/lib/files'
 import { toast } from '@/lib/toast'
 import { confirmDialog } from '@/lib/confirm'
 import {
-  aspectsFor, tagsFor, tagDef, overallOf, draftFrom, draftComplete, isFood,
+  aspectsFor, tagsFor, tagDef, overallOf, aspectsScored, draftFrom, draftComplete, isFood,
   saveReview, clearRating, emptyDraft, emptyMenuDraft, saveMenuPicks, getMenu,
   REVIEW_PHOTO_MAX,
   type ReviewDraft, type MenuDraft, type AspectKey, type MenuRow,
@@ -26,15 +26,17 @@ const BODY_MAX = 2000
  * The review form — a full-screen flow, not a bottom sheet, because it's a
  * task you finish rather than a field you tweak.
  *
- *   1. tap the big star row once → the four aspects and the tags drop in
- *      underneath, pre-filled with what you tapped so one tap is a complete
- *      answer and adjusting a single aspect only refines it
+ *   1. tap the big star row once → the aspects and the tags drop in underneath.
+ *      That one tap is already a complete review; the aspects stay blank and
+ *      optional, because copying the tap into all four columns would invent
+ *      per-aspect scores nobody gave. Score any of them and they take over as
+ *      the headline number.
  *   2. write the review, attach photos, recommend dishes
  *   3. a thank-you screen
  *
- * Nothing is written until "ส่งรีวิว", so backing out leaves no trace. The
- * headline score is never typed in directly: it's the mean of the four
- * aspects, which is why a 5★ overall can't sit on top of four bad ones.
+ * Nothing is written until "ส่งรีวิว", so backing out leaves no trace. A 5★
+ * overall can never sit on top of four bad aspects, because the moment any
+ * aspect is scored the headline becomes the mean of the scored ones.
  */
 export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
   e: ExplorePlace
@@ -85,13 +87,17 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
 
   const overall = overallOf(draft)
   const complete = draftComplete(draft)
+  const scored = aspectsScored(draft)
   const meta = catMeta(e.category)
   const Icon = meta.icon
   const prevVotes = useMemo(() => menu.filter((r) => r.mine).map((r) => r.id), [menu])
 
-  /** One tap on the big row answers every aspect at once — the fast path. */
-  const setAll = (n: number) => setDraft((d) => ({ ...d, taste: n, worth: n, vibe: n, queue: n }))
+  /** The big row is the whole review on its own — it deliberately does NOT
+   *  copy itself into the four aspect columns, so an aspect only ever holds a
+   *  score somebody actually gave it. */
+  const setOverall = (n: number) => setDraft((d) => ({ ...d, overall: n }))
   const setAspect = (k: AspectKey, v: number) => setDraft((d) => ({ ...d, [k]: v }))
+  const clearAspect = (k: AspectKey) => setDraft((d) => ({ ...d, [k]: null }))
   const toggleTag = (tag: string) => setDraft((d) => ({
     ...d, tags: d.tags.includes(tag) ? d.tags.filter((t) => t !== tag) : [...d.tags, tag],
   }))
@@ -233,21 +239,27 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
                 {food ? 'ให้คะแนนร้านนี้' : 'ให้คะแนนที่นี่'}
               </div>
 
-              <div className="mt-3 flex justify-center">
-                {/* shows the derived overall; tapping it re-answers all four */}
-                <StarInput value={overall ? Math.round(overall) : null}
-                  onChange={setAll} size={38} label={`ให้คะแนน ${e.name ?? 'ที่นี่'}`} />
+              <div className="mt-3 flex justify-center" style={{ minHeight: 46 }}>
+                {/* once any aspect is scored the breakdown owns the score, so
+                    the big row stops being an input and just reports it */}
+                {scored > 0
+                  ? <StarRating rating={overall} size={34} />
+                  : <StarInput value={draft.overall} onChange={setOverall} size={38} label={`ให้คะแนน ${e.name ?? 'ที่นี่'}`} />}
               </div>
               {overall > 0 && (
                 <div className="text-[11.5px] text-ink-3 mt-1">
-                  คะแนนรวม <b className="text-ink tabular-nums">{overall.toFixed(1)}</b> — เฉลี่ยจากทั้ง 4 ด้านด้านล่าง
+                  คะแนนรวม <b className="text-ink tabular-nums">{overall.toFixed(1)}</b>
+                  {scored > 0 ? ` — เฉลี่ยจาก ${scored} ด้านที่ให้ไว้` : ' — ให้แยกด้านข้างล่างก็ได้ ถ้าอยากละเอียดกว่านี้'}
                 </div>
               )}
 
               {/* everything below drops in only after the first tap */}
               {overall > 0 && (
                 <div className="animate-[revealdown_.28s_ease] text-left mt-7">
-                  <div className="text-[15px] font-extrabold text-center mb-3">ปรับคะแนนแต่ละด้านได้</div>
+                  <div className="text-center mb-3">
+                    <div className="text-[15px] font-extrabold">ให้คะแนนแยกด้าน</div>
+                    <div className="text-[11px] text-ink-3 mt-0.5">ไม่บังคับ · ด้านที่ให้ไว้จะกลายเป็นคะแนนรวมแทน</div>
+                  </div>
                   <div className="card overflow-hidden">
                     {aspects.map((a, i) => (
                       <div key={a.key} className="flex items-center gap-2 pl-3.5 pr-2 py-2"
@@ -256,6 +268,10 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
                           <div className="text-[13.5px] font-medium leading-tight">{a.label}</div>
                           <div className="text-[10.5px] text-ink-3 leading-tight mt-0.5">{a.hint}</div>
                         </div>
+                        {draft[a.key] != null && (
+                          <button type="button" onClick={() => clearAspect(a.key)}
+                            className="text-[10.5px] text-ink-3 hover:text-booking shrink-0">ล้าง</button>
+                        )}
                         <StarInput value={draft[a.key]} onChange={(n) => setAspect(a.key, n)} size={21} label={a.label} />
                       </div>
                     ))}

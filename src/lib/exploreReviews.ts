@@ -103,16 +103,26 @@ export function aspectsFor(groupType: string | null | undefined): AspectDef[] {
 }
 
 /**
- * The overall score is NOT something anyone taps — it's the mean of the four
- * aspects, to 2 decimals. Handing people a separate overall control let them
- * give 5★ overall while marking every aspect terrible; deriving it makes that
- * contradiction impossible to express. 0 = not enough aspects scored yet.
+ * The headline score, to 2 decimals. 0 = nothing scored yet.
+ *
+ * Two ways in, and the per-aspect scores always win:
+ *   - score any aspect → the overall is the mean of the aspects you scored
+ *   - score none → the overall is whatever you tapped on the big star row
+ *
+ * So a single tap never writes a value into all four aspect columns (that would
+ * fabricate per-aspect data nobody gave and skew every aspect average), and an
+ * overall can never contradict the breakdown, because once a breakdown exists
+ * the overall is computed from it.
  */
-export function overallOf(a: Partial<Record<AspectKey, number | null>>): number {
+export function overallOf(a: { overall?: number | null } & Partial<Record<AspectKey, number | null>>): number {
   const vals = ASPECT_KEYS.map((k) => a[k]).filter((v): v is number => typeof v === 'number' && v >= 1)
-  if (!vals.length) return 0
+  if (!vals.length) return a.overall && a.overall >= 1 ? Math.round(a.overall * 100) / 100 : 0
   return Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 100) / 100
 }
+
+/** How many of the four aspects actually carry a score. */
+export const aspectsScored = (a: Partial<Record<AspectKey, number | null>>) =>
+  ASPECT_KEYS.filter((k) => !!a[k]).length
 
 // ── aggregation ─────────────────────────────────────────────────────────────
 
@@ -188,6 +198,8 @@ export const REVIEW_PHOTO_MAX = 5
 
 /** What the review form holds while it's being filled in. */
 export interface ReviewDraft {
+  /** the big star row — only used when no aspect is scored (see overallOf) */
+  overall: number | null
   taste: number | null
   worth: number | null
   vibe: number | null
@@ -198,11 +210,12 @@ export interface ReviewDraft {
 }
 
 export const emptyDraft = (): ReviewDraft =>
-  ({ taste: null, worth: null, vibe: null, queue: null, tags: [], body: '', photos: [] })
+  ({ overall: null, taste: null, worth: null, vibe: null, queue: null, tags: [], body: '', photos: [] })
 
 /** Seed the form from what I submitted last time (or blank for a new review). */
 export function draftFrom(mine: ExploreRating | null, myTags: Iterable<string>): ReviewDraft {
   return {
+    overall: mine ? Number(mine.stars) || null : null,
     taste: mine?.taste ?? null,
     worth: mine?.worth ?? null,
     vibe: mine?.vibe ?? null,
@@ -213,14 +226,14 @@ export function draftFrom(mine: ExploreRating | null, myTags: Iterable<string>):
   }
 }
 
-/** A review only counts once every aspect has a score — that's what makes the
- *  computed overall comparable between places. */
-export const draftComplete = (d: ReviewDraft) => ASPECT_KEYS.every((k) => !!d[k])
+/** Submittable as soon as there's a score at all — one tap is a valid review. */
+export const draftComplete = (d: ReviewDraft) => overallOf(d) > 0
 
 /**
- * Submit the whole review in one go: the four aspects, the derived overall and
- * my tag selection. Nothing here writes as you tap — the form commits once,
- * which is why tags moved inside it.
+ * Submit the whole review in one go: the score, whichever aspects were actually
+ * filled in (the rest stay null rather than inheriting the overall) and my tag
+ * selection. Nothing here writes as you tap — the form commits once, which is
+ * why tags moved inside it.
  *
  * The overall ALSO drives the legacy 👍/👎 row (≥3.5 recommend, ≤2.5 not, in
  * between clears) so the POPULAR ranking and the owner's like notifications
