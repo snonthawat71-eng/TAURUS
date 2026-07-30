@@ -9,7 +9,10 @@
 // Nambu ใช้ชุดที่แก้แล้ว (JN01–JN26) · Negishi/Utsunomiya/Takasaki เก็บ
 // สถานีครบแต่ใส่รหัสเฉพาะช่วงที่ข้อมูลไม่ขัดกัน · JU ใช้ชุดที่แก้แล้ว
 // (ช่วงร่วม JU01–JU07 แล้วแยกสาขาที่ JU08) — JU20 Kogae ยืนยันโดยผู้ใช้ (ยังไม่มีชื่อ JP)
-// หมายเหตุ: สาย Oedo ในต้นฉบับมี Tsukishima ซ้ำที่ E17 และ E19 — คงไว้ตามต้นฉบับ
+// หมายเหตุ: สาย Oedo แก้ให้ครบ 38 สถานีตามข้อมูลทางการ (E19 คือ Tsukijishijo
+// ไม่ใช่ Tsukishima ซ้ำ, E28 คือ Shinjuku) วงแหวนบรรจบที่ Tochomae แล้วต่อหาง
+// E29–E38 ไป Hikarigaoka — Tochomae จึงปรากฏสองครั้งในลิสต์โดยตั้งใจ
+// สาย Yurikamome (U01–U16) เป็นของบริษัท Yurikamome ไม่ใช่ Metro/Toei
 import type { MetroNetwork, LineStation } from './types'
 
 const s = (id: string, name: string, num: string): LineStation => ({ id, name, num })
@@ -175,10 +178,28 @@ export const TOKYO: MetroNetwork = {
         s('ueno-okachimachi', 'Ueno-okachimachi', 'E10'), s('shin-okachimachi', 'Shin-okachimachi', 'E11'), s('kuramae', 'Kuramae', 'E12'),
         s('ryogoku', 'Ryogoku', 'E13'), s('morishita', 'Morishita', 'E14'), s('kiyosumi-shirakawa', 'Kiyosumi-shirakawa', 'E15'),
         s('monzennakacho', 'Monzennakacho', 'E16'), s('tsukishima', 'Tsukishima', 'E17'), s('kachidoki', 'Kachidoki', 'E18'),
-        s('tsukishima', 'Tsukishima', 'E19'), s('shiodome', 'Shiodome', 'E20'), s('daimon', 'Daimon', 'E21'),
+        s('tsukijishijo', 'Tsukijishijo', 'E19'), s('shiodome', 'Shiodome', 'E20'), s('daimon', 'Daimon', 'E21'),
         s('akabanebashi', 'Akabanebashi', 'E22'), s('azabu-juban', 'Azabu-juban', 'E23'), s('roppongi', 'Roppongi', 'E24'),
         s('aoyama-itchome', 'Aoyama-itchome', 'E25'), s('kokuritsu-kyogijo', 'Kokuritsu-kyogijo', 'E26'), s('yoyogi', 'Yoyogi', 'E27'),
-        s('tochomae', 'Tochomae', 'E28'),
+        s('shinjuku', 'Shinjuku', 'E28'),
+        // วงแหวนบรรจบที่ Tochomae แล้วต่อ "หาง" ไป Hikarigaoka
+        s('tochomae', 'Tochomae', 'E01'),
+        s('nishi-shinjuku-gochome', 'Nishi-shinjuku-gochome', 'E29'), s('nakano-sakaue', 'Nakano-sakaue', 'E30'), s('higashi-nakano', 'Higashi-nakano', 'E31'),
+        s('nakai', 'Nakai', 'E32'), s('ochiai-minami-nagasaki', 'Ochiai-minami-nagasaki', 'E33'), s('shin-egota', 'Shin-egota', 'E34'),
+        s('nerima', 'Nerima', 'E35'), s('toshimaen', 'Toshimaen', 'E36'), s('nerima-kasugacho', 'Nerima-kasugacho', 'E37'),
+        s('hikarigaoka', 'Hikarigaoka', 'E38'),
+      ],
+    },
+    {
+      // รถไฟฟ้าไร้คนขับยกระดับ Shimbashi ↔ Odaiba/Toyosu (บริษัท Yurikamome, ไม่ใช่ Metro/Toei)
+      id: 'U-yurikamome-line', name: 'U Yurikamome Line', color: '#45B1E8',
+      stations: [
+        s('shimbashi', 'Shimbashi', 'U01'), s('shiodome', 'Shiodome', 'U02'), s('takeshiba', 'Takeshiba', 'U03'),
+        s('hinode', 'Hinode', 'U04'), s('shibaura-futo', 'Shibaura-futo', 'U05'), s('odaiba-kaihinkoen', 'Odaiba-kaihinkoen', 'U06'),
+        s('daiba', 'Daiba', 'U07'), s('tokyo-cruise-terminal', 'Tokyo International Cruise Terminal', 'U08'), s('telecom-center', 'Telecom Center', 'U09'),
+        s('aomi', 'Aomi', 'U10'), s('tokyo-big-sight', 'Tokyo Big Sight', 'U11'), s('ariake', 'Ariake', 'U12'),
+        s('ariake-tennis-no-mori', 'Ariake-tennis-no-mori', 'U13'), s('shijo-mae', 'Shijo-mae', 'U14'), s('shin-toyosu', 'Shin-toyosu', 'U15'),
+        s('toyosu', 'Toyosu', 'U16'),
       ],
     },
     {
