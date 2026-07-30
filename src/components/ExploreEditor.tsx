@@ -238,6 +238,23 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     setUrlDraft('')
   }
 
+  // รูปที่สาขาอื่นของร้านชื่อเดียวกันมีอยู่แล้ว (ยังไม่ได้เพิ่มในร่างนี้)
+  const chainPhotos = useMemo(() => {
+    const seen = new Set(allPhotos)
+    const out: { url: string; from: string }[] = []
+    for (const d of dupes) {
+      for (const url of [d.photo_url, ...(d.photos ?? [])]) {
+        if (!url || seen.has(url)) continue
+        seen.add(url)
+        out.push({ url, from: d.name ?? 'สาขาก่อนหน้า' })
+      }
+    }
+    return out.slice(0, 8)
+  }, [dupes, allPhotos])
+
+  const usePhoto = (url: string) => setAllPhotos((prev) => (prev.length >= 4 || prev.includes(url) ? prev : [...prev, url]))
+  const useAllChainPhotos = () => setAllPhotos((prev) => [...prev, ...chainPhotos.map((c) => c.url)].slice(0, 4))
+
   async function onPickMenu(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.target
     const files = Array.from(input.files ?? [])
@@ -487,7 +504,9 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
         {/* ข้อ 7 — รูปภาพ: dropzone + อัปทีเดียว 4 รูป + ติ๊กเลือกปก */}
         <SectionCard open={openCard === 'photos'} done={allPhotos.length > 0} onToggle={() => toggle('photos')}
           icon={<IconPhoto size={15} />} title="รูปภาพ" sub="สูงสุด 4 รูป — เลือกพร้อมกันได้เลย"
-          summary={`${allPhotos.length} รูป${allPhotos.length > 1 ? ' · เลือกปกแล้ว' : ''}`}>
+          summary={allPhotos.length === 0 && chainPhotos.length > 0
+            ? 'มีรูปเดิมของร้านนี้ให้ใช้'
+            : `${allPhotos.length} รูป${allPhotos.length > 1 ? ' · เลือกปกแล้ว' : ''}`}>
           {cropping && cover ? (
             <div className="space-y-2">
               <div className={lbl}>ลากเพื่อจัดตำแหน่ง / เลื่อนเพื่อซูม</div>
@@ -497,6 +516,28 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
             </div>
           ) : (
             <div className="space-y-2">
+              {/* สาขาใหม่ของร้านเดิม (ICHIRAN, Hey Tea …) — เสนอรูปที่สาขาก่อนหน้า
+                  มีอยู่แล้ว จะได้ไม่ต้องหารูปใหม่ทุกครั้ง */}
+              {allPhotos.length < 4 && chainPhotos.length > 0 && (
+                <div className="rounded-[12px] p-2.5" style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
+                  <div className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-brand-dark)' }}>
+                    <IconPhoto size={13} /> ใช้รูปเดิมของร้านนี้มั้ย?
+                  </div>
+                  <div className="text-[11px] text-ink-3 mt-0.5">
+                    “{chainPhotos[0].from}” มีรูปอยู่แล้ว — แตะรูปเพื่อใช้เลย
+                  </div>
+                  <div className="flex gap-1.5 mt-2 overflow-x-auto no-scrollbar">
+                    {chainPhotos.map((c) => (
+                      <button key={c.url} onClick={() => usePhoto(c.url)} title={`ใช้รูปจาก ${c.from}`}
+                        className="relative size-16 rounded-[9px] overflow-hidden shrink-0 hairline bg-surface-2">
+                        <img src={optimizeImageUrl(c.url, 200) ?? c.url} alt="" className="w-full h-full object-cover" />
+                        <span className="absolute inset-x-0 bottom-0 text-[8.5px] font-bold text-white py-px" style={{ background: 'rgba(0,0,0,.45)' }}>ใช้รูปนี้</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={useAllChainPhotos} className="btn-link text-[11px] mt-1.5">ใช้ทั้งหมด</button>
+                </div>
+              )}
               {allPhotos.length < 4 && (
                 <label htmlFor="exp-photo-input" aria-disabled={uploading}
                   className="block rounded-[12px] text-center py-5 px-3 cursor-pointer aria-disabled:opacity-50 aria-disabled:pointer-events-none [-webkit-tap-highlight-color:transparent]"

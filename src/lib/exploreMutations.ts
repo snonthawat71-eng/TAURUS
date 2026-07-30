@@ -82,7 +82,16 @@ function stripUnknown(payload: Record<string, unknown>, msg: string) {
 
 // ---------- duplicate detection (เตือนตอนพิมพ์ + ด่านยืนยันตอนบันทึก) ----------
 
-export interface ExploreDupe { id: string; name: string | null; city: string | null; country: string | null }
+export interface ExploreDupe {
+  id: string
+  name: string | null
+  city: string | null
+  country: string | null
+  /** cover + extra photos, so a new branch of a chain (ICHIRAN, Hey Tea …) can
+   *  offer to reuse the photos the first branch already has */
+  photo_url?: string | null
+  photos?: string[] | null
+}
 
 const normName = (s: string) => s.toLowerCase().normalize('NFKC').replace(/[^\p{L}\p{N}]+/gu, '')
 const words = (s: string) => s.toLowerCase().normalize('NFKC').split(/[^\p{L}\p{N}]+/u).filter(Boolean)
@@ -168,7 +177,7 @@ export async function searchExploreSimilar(name: string, excludeId?: string | nu
   const token = (q.split(/\s+/).sort((a, b) => b.length - a.length)[0] ?? q).replace(/[%,()]/g, '')
   if (token.length < 2) return []
   const { data } = await supabase.from('explore_places')
-    .select('id,name,city,country')
+    .select('id,name,city,country,photo_url,photos')
     .ilike('name', `%${token}%`)
     .limit(15)
   const mine = canonicalCountry(country)
