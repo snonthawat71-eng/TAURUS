@@ -146,40 +146,19 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
                 </div>
               )
             }
-            /* Several routes. Two things used to clutter this: a place sitting on
-               the same line at two stations drew two identical roundels, and the
-               line names listed one per row underneath — "Line 15 / Line 15 /
-               Line 5" three rows deep.
-
-               So: roundels collapse to one per distinct code (or per line where
-               the network has no codes), the stations read across a single row,
-               and the line names only appear when the roundels can't already say
-               it — a coded roundel IS the line name. */
-            const infos = routes.map((r) => ({
-              r,
-              code: stationCode(r.line, r.station),
-              station: cleanStation(r),
-              line: (r.line ?? '').trim() || modeMeta('mode' in r ? r.mode : undefined).label,
-            }))
-            const uniqueBy = <T,>(xs: T[], key: (x: T) => string) => {
-              const seen = new Set<string>()
-              return xs.filter((x) => { const k = key(x); if (!k || seen.has(k)) return false; seen.add(k); return true })
-            }
-            const pins = uniqueBy(infos, (i) => i.code || i.line || i.station)
-            const stations = uniqueBy(infos, (i) => i.station).map((i) => i.station)
-            const lines = uniqueBy(infos, (i) => i.line).map((i) => i.line)
-            const allCoded = infos.every((i) => !!i.code)
+            // multiple lines: all roundels together in a row + the station name
+            // trailing; the line names then list in order underneath
             return (
               <div className="mt-2 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  {pins.map((p, i) => roundel(p.r, i))}
-                  {stations.length > 0 && (
-                    <span className="text-[12.5px] font-medium text-ink-2 truncate ml-1">{stations.join(' · ')}</span>
-                  )}
+                  {routes.map((r, i) => roundel(r, i))}
+                  {cleanStation(r0) && <span className="text-[12.5px] font-medium text-ink-2 truncate ml-1">{cleanStation(r0)}</span>}
                 </div>
-                {!allCoded && lines.length > 0 && (
-                  <div className="text-[10.5px] text-ink-3 truncate mt-1.5">{lines.join(' · ')}</div>
-                )}
+                <div className="mt-1.5 flex flex-col gap-px">
+                  {routes.map((r, i) => (
+                    <span key={i} className="text-[10.5px] text-ink-3 truncate">{r.line || modeMeta('mode' in r ? r.mode : undefined).label}</span>
+                  ))}
+                </div>
               </div>
             )
           })()}
