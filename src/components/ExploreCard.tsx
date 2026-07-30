@@ -154,9 +154,11 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
                   {routes.map((r, i) => roundel(r, i))}
                   {cleanStation(r0) && <span className="text-[12.5px] font-medium text-ink-2 truncate ml-1">{cleanStation(r0)}</span>}
                 </div>
+                {/* one row per line NAME, not per route — a place sitting on the
+                    same line at two stations used to print it twice */}
                 <div className="mt-1.5 flex flex-col gap-px">
-                  {routes.map((r, i) => (
-                    <span key={i} className="text-[10.5px] text-ink-3 truncate">{r.line || modeMeta('mode' in r ? r.mode : undefined).label}</span>
+                  {[...new Set(routes.map((r) => r.line || modeMeta('mode' in r ? r.mode : undefined).label))].map((name) => (
+                    <span key={name} className="text-[10.5px] text-ink-3 truncate">{name}</span>
                   ))}
                 </div>
               </div>
