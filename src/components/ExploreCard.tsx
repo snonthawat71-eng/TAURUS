@@ -112,14 +112,22 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
               line name. Extra lines trail as more roundels — code+colour identify
               each, so their long names never fight for width on the card. */}
           {routes.length > 0 && (() => {
-            const roundel = (r: (typeof routes)[number], i: number) => {
+            /** `stack` tucks a plain (code-less) circle under the one before it,
+             *  the way stacked avatars read — networks without station codes draw
+             *  the same train glyph every time, so a row of them is noise. Coded
+             *  circles always stand apart: their code is the information. */
+            const roundel = (r: (typeof routes)[number], i: number, stack = false) => {
               const m = modeMeta('mode' in r ? r.mode : undefined)
               const MIcon = m.icon
               const code = stationCode(r.line, r.station)
               const mm = code?.match(/^([A-Za-z]+)\s*(\d.*)$/)
               return (
                 <span key={i} title={[r.line, r.station].filter(Boolean).join(' · ') || m.label}
-                  className="w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-white leading-none" style={{ background: lineColorFor(r.line) ?? r.color ?? '#888780' }}>
+                  className={['w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-white leading-none', stack ? '-ml-3' : i > 0 ? 'ml-1.5' : ''].join(' ')}
+                  style={{
+                    background: lineColorFor(r.line) ?? r.color ?? '#888780',
+                    ...(stack ? { boxShadow: '0 0 0 2px var(--color-surface)' } : {}),
+                  }}>
                   {code
                     ? (mm
                         ? <span className="flex flex-col items-center leading-[1.0]"><span className="text-[9px] font-extrabold tracking-tight">{mm[1]}</span><span className="text-[12.5px] font-extrabold tracking-tight">{mm[2]}</span></span>
@@ -160,16 +168,20 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
             const names = [...new Set(routes.map((r) => r.line || modeMeta('mode' in r ? r.mode : undefined).label))]
             return (
               <div className="mt-2 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  {shown.map((r, i) => roundel(r, i))}
+                <div className="flex items-center flex-wrap min-w-0">
+                  {shown.map((r, i) => {
+                    const plain = !stationCode(r.line, r.station)
+                    const prevPlain = i > 0 && !stationCode(shown[i - 1].line, shown[i - 1].station)
+                    return roundel(r, i, plain && prevPlain)
+                  })}
                   {routes.length > ROUTES_ON_CARD && (
                     <span title={`เดินทางได้ ${routes.length} เส้นทาง`}
-                      className="w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-ink-2"
+                      className="w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-ink-2 ml-1.5"
                       style={{ background: 'var(--color-surface-2)', border: '0.5px solid var(--color-line-2)' }}>
                       <IconPlus size={15} />
                     </span>
                   )}
-                  {cleanStation(r0) && <span className="text-[12.5px] font-medium text-ink-2 truncate ml-1">{cleanStation(r0)}</span>}
+                  {cleanStation(r0) && <span className="text-[12.5px] font-medium text-ink-2 truncate ml-2">{cleanStation(r0)}</span>}
                 </div>
                 {/* one row per line NAME, not per route — a place sitting on the
                     same line at two stations used to print it twice */}
