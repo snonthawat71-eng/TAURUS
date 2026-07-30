@@ -18,7 +18,7 @@ import { cityImage } from '@/lib/cityImages'
 import { optimizeImageUrl } from '@/lib/cloudinary'
 import { nameFromMapUrl, resolveMapName, isMapLink } from '@/lib/geo'
 import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
-import { searchExploreSimilar, type ExploreDupe } from '@/lib/exploreMutations'
+import { searchExploreSimilar, findChainPhotos, type ExploreDupe } from '@/lib/exploreMutations'
 import { confirmDialog } from '@/lib/confirm'
 import type { ExploreInput } from '@/lib/exploreMutations'
 import { buildBranchRemap } from '@/lib/placeMutations'
@@ -84,6 +84,16 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     const t = setTimeout(async () => setDupes(await searchExploreSimilar(name, initial?.id, country)), 350)
     return () => clearTimeout(t)
   }, [name, open, initial?.id, country])
+
+  // รูปที่สาขาอื่นของร้านชื่อเดียวกันมีอยู่แล้ว — ไม่ผูกกับประเทศ ต่างจากคำเตือน
+  // ซ้ำ เพราะเชนหนึ่งย่อมมีสาขาข้ามประเทศอยู่แล้ว
+  const [chainPool, setChainPool] = useState<{ url: string; from: string }[]>([])
+  useEffect(() => {
+    if (!open || name.trim().length < 3) { setChainPool([]); return }
+    const t = setTimeout(async () => setChainPool(await findChainPhotos(name, initial?.id)), 350)
+    return () => clearTimeout(t)
+  }, [name, open, initial?.id])
+  const chainPhotos = useMemo(() => chainPool.filter((c) => !allPhotos.includes(c.url)), [chainPool, allPhotos])
 
   // previously-used city/country pairs — for the quick city chips + comboboxes.
   const sugg = useMemo(() => {
@@ -237,20 +247,6 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     setAllPhotos((prev) => (prev.length >= 4 ? prev : [...prev, u]))
     setUrlDraft('')
   }
-
-  // รูปที่สาขาอื่นของร้านชื่อเดียวกันมีอยู่แล้ว (ยังไม่ได้เพิ่มในร่างนี้)
-  const chainPhotos = useMemo(() => {
-    const seen = new Set(allPhotos)
-    const out: { url: string; from: string }[] = []
-    for (const d of dupes) {
-      for (const url of [d.photo_url, ...(d.photos ?? [])]) {
-        if (!url || seen.has(url)) continue
-        seen.add(url)
-        out.push({ url, from: d.name ?? 'สาขาก่อนหน้า' })
-      }
-    }
-    return out.slice(0, 8)
-  }, [dupes, allPhotos])
 
   const usePhoto = (url: string) => setAllPhotos((prev) => (prev.length >= 4 || prev.includes(url) ? prev : [...prev, url]))
   const useAllChainPhotos = () => setAllPhotos((prev) => [...prev, ...chainPhotos.map((c) => c.url)].slice(0, 4))

@@ -159,6 +159,54 @@ function similarName(a: string, b: string): boolean {
   return short.every((w) => long.some((u) => sameWord(w, u)))
 }
 
+/** Broad candidate fetch, ranked precisely client-side afterwards.
+ *
+ *  Matching on the longest word alone misses the same name written with
+ *  different spacing — "HEYTEA" never finds "Hey Tea", because `ilike
+ *  '%HEYTEA%'` needs the letters adjacent. So a single-word name is also
+ *  looked up letter-by-letter with anything allowed between ("h%e%y%t%e%a"),
+ *  which catches every spelling of it. Extra noise is harmless: similarName()
+ *  throws it away. */
+async function fetchSimilarCandidates(q: string): Promise<ExploreDupe[] | null> {
+  if (q.length < 3) return null
+  const token = (q.split(/\s+/).sort((a, b) => b.length - a.length)[0] ?? q).replace(/[%_,()]/g, '')
+  if (token.length < 2) return null
+  const flat = normName(q) // letters/digits only — safe to use in a pattern
+  const patterns = [`%${token}%`]
+  if (flat.length >= 4 && flat.length <= 24) patterns.push(`%${flat.split('').join('%')}%`)
+
+  const results = await Promise.all(patterns.map((p) => supabase.from('explore_places')
+    .select('id,name,city,country,photo_url,photos')
+    .ilike('name', p)
+    .limit(20)))
+  const rows = new Map<string, ExploreDupe>()
+  for (const r of results) for (const d of ((r.data ?? []) as ExploreDupe[])) rows.set(d.id, d)
+  return [...rows.values()]
+}
+
+/** Photos already on file for the SAME place under another name/branch —
+ *  offered when adding a new branch of a chain (ICHIRAN, HEYTEA …).
+ *
+ *  Unlike the duplicate warning this ignores the country: a chain's branches
+ *  live in different countries by definition, and the shopfront photo is just
+ *  as good for the Tokyo branch as the Shenzhen one. */
+export async function findChainPhotos(name: string, excludeId?: string | null): Promise<{ url: string; from: string }[]> {
+  const q = name.trim()
+  const data = await fetchSimilarCandidates(q)
+  if (!data) return []
+  const seen = new Set<string>()
+  const out: { url: string; from: string }[] = []
+  for (const d of data) {
+    if (d.id === excludeId || !similarName(d.name ?? '', q)) continue
+    for (const url of [d.photo_url, ...(d.photos ?? [])]) {
+      if (!url || seen.has(url)) continue
+      seen.add(url)
+      out.push({ url, from: d.name ?? 'สาขาก่อนหน้า' })
+    }
+  }
+  return out.slice(0, 8)
+}
+
 /** Places in the shared pool (any user's) with a name similar to `name`,
  *  excluding the row being edited. Used live while typing AND as the final
  *  confirm gate on save.
@@ -172,14 +220,8 @@ function similarName(a: string, b: string): boolean {
  *  country recorded still warns, so real duplicates aren't lost. */
 export async function searchExploreSimilar(name: string, excludeId?: string | null, country?: string | null): Promise<ExploreDupe[]> {
   const q = name.trim()
-  if (q.length < 3) return []
-  // broad candidate fetch on the longest word, then rank precisely client-side
-  const token = (q.split(/\s+/).sort((a, b) => b.length - a.length)[0] ?? q).replace(/[%,()]/g, '')
-  if (token.length < 2) return []
-  const { data } = await supabase.from('explore_places')
-    .select('id,name,city,country,photo_url,photos')
-    .ilike('name', `%${token}%`)
-    .limit(15)
+  const data = await fetchSimilarCandidates(q)
+  if (!data) return []
   const mine = canonicalCountry(country)
   const elsewhere = (d: ExploreDupe) => {
     const theirs = canonicalCountry(d.country)
