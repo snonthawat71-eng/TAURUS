@@ -72,6 +72,8 @@ export function PlaceEditor({
   // them — see BranchRemap / remapBranchIndexes.
   const [branchFrom, setBranchFrom] = useState<(number | null)[]>([])
   const [multiBranch, setMultiBranch] = useState(false)
+  // name of the place's OWN location once it's one of several branches
+  const [branchLabel, setBranchLabel] = useState('')
   const [mapUrl, setMapUrl] = useState('')
   const [note, setNote] = useState('')
   // photos: up to 4 (storage paths or http URLs); one is the cover
@@ -100,6 +102,7 @@ export function PlaceEditor({
       : [])
     setBranchFrom(initial?.branches?.map((_, i) => i) ?? [])
     setMultiBranch(!!initial?.multi_branch)
+    setBranchLabel(initial?.branch_label ?? '')
     setMapUrl(initial?.map_url ?? '')
     setNote(initial?.note ?? '')
     setAllPhotos([initial?.photo_path || initial?.photo_url, ...(initial?.photos ?? [])].filter(Boolean) as string[])
@@ -208,6 +211,7 @@ export function PlaceEditor({
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
       multi_branch: multiBranch ? true : null,
+      branch_label: multiBranch && branchLabel.trim() ? branchLabel.trim() : null,
       map_url: mapUrl, note,
       photo_path: cover && !isHttp(cover) ? cover : null,
       photo_url: cover && isHttp(cover) ? cover : null,
@@ -328,6 +332,16 @@ export function PlaceEditor({
                     ? <button onClick={() => { setBranches((bs) => [...bs, emptyBranch()]); setBranchFrom((o) => [...o, null]) }} className="btn-link flex items-center gap-1.5"><IconPlus size={15} /> เพิ่มสาขา</button>
                     : <span className="text-[10.5px] text-ink-3">กดถ้ามีหลายที่ — ใส่แค่ชื่อสาขาก็ได้</span>}
                 </div>
+                {/* the location typed into this form IS one of the branches, so
+                    it needs a name too — otherwise the picker offers a
+                    meaningless "ที่ตั้งหลัก" next to real branch names */}
+                {multiBranch && (
+                  <div className="mt-2.5">
+                    <div className={lbl}>ชื่อสาขาของที่ตั้งด้านบน</div>
+                    <input className={field} value={branchLabel} onChange={(e) => setBranchLabel(e.target.value)}
+                      placeholder="เช่น สาขาสยาม (ที่ตั้ง/ลิงก์แผนที่ที่กรอกไว้ข้างบน)" />
+                  </div>
+                )}
                 {multiBranch && branches.length > 0 && (
                   <div className="space-y-2 mt-2">
                     {branches.map((b, i) => (

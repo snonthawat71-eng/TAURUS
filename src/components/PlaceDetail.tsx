@@ -113,7 +113,7 @@ export function PlaceDetail({
         {/* branch picker — for chains with multiple locations */}
         {branches.length > 0 && (
           <div className="mt-3">
-            <BranchPicker branches={branches} value={branchIdx} onChange={setBranchIdx} hasOwnLocation={hasOwnLocation} />
+            <BranchPicker branches={branches} value={branchIdx} onChange={setBranchIdx} hasOwnLocation={hasOwnLocation} ownLabel={place.branch_label} />
           </div>
         )}
 

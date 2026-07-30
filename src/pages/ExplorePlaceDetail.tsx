@@ -385,7 +385,7 @@ export default function ExplorePlaceDetail() {
         {/* ══ INFO ══ */}
         {tab === 'info' && (
           <div className="space-y-4">
-            <BranchPicker branches={branches} value={branchIdx} onChange={setBranchIdx} hasOwnLocation={hasOwnLocation} />
+            <BranchPicker branches={branches} value={branchIdx} onChange={setBranchIdx} hasOwnLocation={hasOwnLocation} ownLabel={e.branch_label} />
 
             {/* location & routes */}
             <div className="card p-3.5">

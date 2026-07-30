@@ -283,6 +283,10 @@ export interface Place {
   /** optional — present after branches.sql; just flags "has many branches" for a
    *  card label, without requiring per-branch detail */
   multi_branch?: boolean | null
+  /** optional — present after branches.sql; the name of THIS location when the
+   *  place is one of several branches, so the picker can show "สาขาสยาม"
+   *  instead of the generic "ที่ตั้งหลัก" */
+  branch_label?: string | null
   /** optional — present after plan_branch.sql; which branch was picked when the
    *  place was added to the plan (index into `branches`, null = main location) */
   plan_branch?: number | null
@@ -356,6 +360,9 @@ export interface ExplorePlace {
   branches?: PlaceBranch[] | null
   /** optional — flags "has many branches" for a card label (no per-branch detail) */
   multi_branch?: boolean | null
+  /** optional — the name of THIS location when the item is one of several
+   *  branches (see branches.sql); falls back to "ที่ตั้งหลัก" when empty */
+  branch_label?: string | null
   /** optional — menu images/PDFs for restaurants (public URLs) */
   menu_paths?: string[] | null
   map_url: string | null

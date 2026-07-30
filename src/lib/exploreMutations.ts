@@ -15,7 +15,7 @@ export async function listMyExplore(userId: string) {
 }
 
 // `routes`/`branches` are optional (added later) — strip on a "column does not exist" error.
-const OPTIONAL = ['routes', 'branches', 'multi_branch', 'menu_paths', 'photo_focus', 'photos', 'lat', 'lng']
+const OPTIONAL = ['routes', 'branches', 'multi_branch', 'branch_label', 'menu_paths', 'photo_focus', 'photos', 'lat', 'lng']
 
 /** Persist an Explore item's resolved coordinate. Silent if the lat/lng columns
  *  don't exist yet (explore_coords.sql not run). */
@@ -443,6 +443,7 @@ export function placeAsExploreInput(p: Place, country?: string | null): ExploreI
     city: p.city ?? null, country: country ?? null,
     station_line: p.station_line, station_color: p.station_color, station_name: p.station_name,
     routes: p.routes ?? null, branches: p.branches ?? null, multi_branch: p.multi_branch ?? null,
+    branch_label: p.branch_label ?? null,
     menu_paths: menu.length ? menu : null,
     map_url: p.map_url, note: p.note,
     photo_url: cover, photo_focus: cover ? (p.photo_focus ?? null) : null,
@@ -456,6 +457,7 @@ export function exploreAsPlace(e: ExplorePlace): Place {
     id: e.id, trip_id: '', group_type: e.group_type, category: e.category, name: e.name,
     station_line: e.station_line, station_color: e.station_color, station_name: e.station_name,
     routes: e.routes ?? null, branches: e.branches ?? null, multi_branch: e.multi_branch ?? null,
+    branch_label: e.branch_label ?? null,
     menu_paths: e.menu_paths ?? null,
     map_url: e.map_url, note: e.note, in_plan: false, photo_path: null, photo_url: e.photo_url,
     photo_focus: e.photo_focus ?? null, photos: e.photos ?? null,

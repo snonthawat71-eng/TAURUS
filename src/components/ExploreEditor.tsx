@@ -57,6 +57,8 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [country, setCountry] = useState('')
   const [routes, setRoutes] = useState<ExploreRoute[]>([emptyRoute()])
   const [branches, setBranches] = useState<PlaceBranch[]>([])
+  // name of the item's OWN location once it's one of several branches
+  const [branchLabel, setBranchLabel] = useState('')
   // where each row sat in the SAVED branch list (null = added in this session).
   // Branch choices are stored as positions, so deleting a row has to renumber
   // them — see BranchRemap / remapExploreCopyBranches.
@@ -139,6 +141,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
       : [])
     setBranchFrom(initial?.branches?.map((_, i) => i) ?? [])
     setMultiBranch(!!initial?.multi_branch)
+    setBranchLabel(initial?.branch_label ?? '')
     setMapUrl(initial?.map_url ?? '')
     setAllPhotos([initial?.photo_url, ...(initial?.photos ?? [])].filter(Boolean) as string[])
     setCoverIdx(0)
@@ -283,6 +286,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
       multi_branch: multiBranch ? true : null,
+      branch_label: multiBranch && branchLabel.trim() ? branchLabel.trim() : null,
       menu_paths: group === 'food' && menuPaths.length ? menuPaths : null,
       map_url: mapUrl || null, photo_url: cover, photo_focus: cover ? photoFocus : null, photos: others.length ? others : null, note: note || null,
     }, remap)
@@ -440,6 +444,16 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
                     ? <button onClick={() => { setBranches((bs) => [...bs, emptyBranch()]); setBranchFrom((o) => [...o, null]) }} className="btn-link flex items-center gap-1.5"><IconPlus size={15} /> เพิ่มสาขา</button>
                     : <span className="text-[10.5px] text-ink-3">กดถ้ามีหลายที่ — ใส่แค่ชื่อสาขาก็ได้</span>}
                 </div>
+                {/* the location typed into this form IS one of the branches, so
+                    it needs a name too — otherwise the picker offers a
+                    meaningless "ที่ตั้งหลัก" next to real branch names */}
+                {multiBranch && (
+                  <div className="mt-2.5">
+                    <div className={lbl}>ชื่อสาขาของที่ตั้งด้านบน</div>
+                    <input className={field} value={branchLabel} onChange={(e) => setBranchLabel(e.target.value)}
+                      placeholder="เช่น สาขาสยาม (ที่ตั้ง/ลิงก์แผนที่ที่กรอกไว้ข้างบน)" />
+                  </div>
+                )}
                 {multiBranch && branches.length > 0 && (
                   <div className="space-y-2 mt-2">
                     {branches.map((b, i) => {
