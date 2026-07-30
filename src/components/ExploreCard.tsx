@@ -112,10 +112,11 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
               line name. Extra lines trail as more roundels — code+colour identify
               each, so their long names never fight for width on the card. */}
           {routes.length > 0 && (() => {
-            /** `stack` tucks a plain (code-less) circle under the one before it,
-             *  the way stacked avatars read — networks without station codes draw
-             *  the same train glyph every time, so a row of them is noise. Coded
-             *  circles always stand apart: their code is the information. */
+            /** `stack` tucks a circle under the one before it, the way stacked
+             *  avatars read. Only ever applied to two neighbours that would look
+             *  identical anyway — same colour AND no station code, i.e. the same
+             *  line drawn as the same train glyph twice. A different colour or a
+             *  code is information, and information gets its own space. */
             const roundel = (r: (typeof routes)[number], i: number, stack = false) => {
               const m = modeMeta('mode' in r ? r.mode : undefined)
               const MIcon = m.icon
@@ -170,9 +171,11 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
               <div className="mt-2 min-w-0">
                 <div className="flex items-center flex-wrap min-w-0">
                   {shown.map((r, i) => {
+                    const p = shown[i - 1]
                     const plain = !stationCode(r.line, r.station)
-                    const prevPlain = i > 0 && !stationCode(shown[i - 1].line, shown[i - 1].station)
-                    return roundel(r, i, plain && prevPlain)
+                    const sameColour = !!p && (lineColorFor(r.line) ?? r.color) === (lineColorFor(p.line) ?? p.color)
+                    const prevPlain = !!p && !stationCode(p.line, p.station)
+                    return roundel(r, i, plain && prevPlain && sameColour)
                   })}
                   {routes.length > ROUTES_ON_CARD && (
                     <span title={`เดินทางได้ ${routes.length} เส้นทาง`}
