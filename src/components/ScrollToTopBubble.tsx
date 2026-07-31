@@ -10,15 +10,18 @@ import { IconArrowUp } from '@tabler/icons-react'
  * it), hides again the moment you resume scrolling down, and never appears near
  * the top where it would be pointless.
  */
-export function ScrollToTopBubble({ showAfter = 700, upThreshold = 90 }: {
+export function ScrollToTopBubble({ showAfter = 600, upThreshold = 80, downThreshold = 140 }: {
   /** how far down the page has to be before the bubble is ever offered */
   showAfter?: number
   /** how far you must scroll back up before it appears */
   upThreshold?: number
+  /** how far you must scroll back down before it goes away */
+  downThreshold?: number
 }) {
   const [show, setShow] = useState(false)
   const lastY = useRef(0)
   const upRun = useRef(0)
+  const downRun = useRef(0)
 
   useEffect(() => {
     lastY.current = window.scrollY
@@ -26,18 +29,31 @@ export function ScrollToTopBubble({ showAfter = 700, upThreshold = 90 }: {
       const y = window.scrollY
       const dy = y - lastY.current
       lastY.current = y
+      // Momentum scrolling doesn't decelerate cleanly: the tail of an upward
+      // flick throws off a few small downward deltas, and rubber-banding throws
+      // off more. Hiding on the first of those made the bubble flash and vanish
+      // the moment it appeared, so each direction has to earn its switch — and
+      // sub-pixel noise is ignored outright.
+      if (Math.abs(dy) < 2) return
+      if (y < showAfter) { upRun.current = 0; downRun.current = 0; setShow(false); return }
 
-      if (y < showAfter) { upRun.current = 0; setShow(false); return }
-      if (dy > 0) { upRun.current = 0; setShow(false); return } // scrolling down again
-      upRun.current += -dy
-      if (upRun.current >= upThreshold) setShow(true)
+      if (dy < 0) {
+        downRun.current = 0
+        upRun.current += -dy
+        if (upRun.current >= upThreshold) setShow(true)
+      } else {
+        upRun.current = 0
+        downRun.current += dy
+        if (downRun.current >= downThreshold) setShow(false)
+      }
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [showAfter, upThreshold])
+  }, [showAfter, upThreshold, downThreshold])
 
   function toTop() {
     upRun.current = 0
+    downRun.current = 0
     setShow(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
