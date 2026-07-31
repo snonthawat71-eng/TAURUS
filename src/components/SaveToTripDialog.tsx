@@ -288,9 +288,6 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
       {/* ── ขั้น 2: ใส่ลงวันเลยมั้ย (ข้ามได้ — เซฟลงทริปอยู่แล้ว) ── */}
       {screen === 'day' && (
         <div className="space-y-1.5">
-          <div className="text-[13.5px] font-semibold">ใส่ลงวันเลยมั้ย?</div>
-          <p className="text-[11px] text-ink-3 mb-2.5">เลือกวันตอนนี้ก็ได้ ไว้ทีหลังก็ได้</p>
-
           {/* the plain save is the primary action — most saves are just
               collecting a place, so it leads and looks like the main button */}
           <button onClick={() => chooseDay(null)} disabled={busy}
