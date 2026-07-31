@@ -211,68 +211,15 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
 
   return (
     <>
-      {/* search */}
-      <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
-        <IconSearch size={16} className="text-ink-3" />
-        <input value={f.q}
-          onChange={(e) => {
-            const q = e.target.value
-            // starting a search while a country is open would hide the matches
-            // that live elsewhere — pop back to every country on the first
-            // character typed (drilling in again afterwards still works)
-            const opening = !f.q.trim() && !!q.trim() && f.country !== 'all'
-            set(opening ? { q, country: 'all', city: 'all' } : { q })
-          }}
-          placeholder="ค้นหาสถานที่ / ร้าน / เมือง / โน้ต"
-          className="flex-1 bg-transparent text-[13px] outline-none" />
-        {f.q && <button onClick={() => set({ q: '' })} aria-label="ล้างคำค้นหา" className="text-ink-3 hover:text-ink-2"><IconX size={15} /></button>}
-      </div>
-
-      {/* one flat scrolling row: เรียงตาม · ทั้งหมด · Places▾ · Food▾ … 🔥 ยอดนิยม */}
-      <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-        {/* sort dropdown — keeps the original line filter icon, no ▾ chevron */}
-        <Dropdown applied={f.sort === 'old' || f.sort === 'rating'} width={210} chevron={false}
-          label={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="text-ink"><path d="M4 6h16M7 12h10M10 18h4" /></svg>}>
-          {(close) => SORT_OPTS.map((o) => {
-            const on = f.sort === o.key
-            return (
-              <button key={o.key} onClick={() => { set({ sort: o.key }); close() }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[13px] hover:bg-surface-2 border-b border-line last:border-0">
-                <o.icon size={17} className="text-ink-3 shrink-0" />
-                <span className={on ? 'font-semibold text-brand-dark' : ''}>{o.label}</span>
-                {on && <IconCheck size={16} className="ml-auto text-brand shrink-0" />}
-              </button>
-            )
-          })}
-        </Dropdown>
-
-        {/* ทั้งหมด — clears the group/category filter */}
-        <button onClick={() => set({ group: 'all', cat: 'all' })}
-          className={['h-8 px-3.5 rounded-full text-[12px] font-semibold whitespace-nowrap shrink-0 border',
-            f.group === 'all' ? 'bg-ink text-white border-ink' : 'bg-surface text-ink-2 border-line-2'].join(' ')}>
-          ทั้งหมด
-        </button>
-
-        {groupMenu('place', 'Places', PLACE_TABS)}
-        {groupMenu('food', 'Food', FOOD_DETAIL_TABS)}
-
-        {/* prominent popularity toggle — hugs the right, one tap */}
-        {showSort && (
-          <button onClick={() => set({ sort: f.sort === 'popular' ? 'new' : 'popular' })}
-            className={['ml-auto inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-[12px] font-bold whitespace-nowrap shrink-0 border',
-              f.sort === 'popular' ? 'text-white border-transparent' : 'bg-surface text-ink-2 border-line-2'].join(' ')}
-            style={f.sort === 'popular' ? { background: 'linear-gradient(90deg,#FB7022,#EF4444)', boxShadow: '0 3px 10px rgba(239,68,68,.3)' } : undefined}>
-            <IconFlame size={14} /> ยอดนิยม
-          </button>
-        )}
-      </div>
-
       {/* Country → city browser. The two rails swap inside one slot: the country
           rail slides out left, the city rail slides in from the right. The
           country rail stays in flow (just hidden) so the row height never
-          changes and the list below never jumps. */}
+          changes and the list below never jumps.
+
+          Sits above the search box: picking where you're going is the first
+          thing anyone does here, and searching is the fallback. */}
       {countries.length > 0 && (
-        <div className="relative overflow-hidden mb-4">
+        <div className="relative overflow-hidden mb-3">
           {/* countries */}
           <div className={['rail-layer slide-left', drilled ? 'is-hidden' : ''].join(' ')}>
             <div ref={hscroll} className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
@@ -349,6 +296,63 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
           </div>
         </div>
       )}
+
+      {/* search */}
+      <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
+        <IconSearch size={16} className="text-ink-3" />
+        <input value={f.q}
+          onChange={(e) => {
+            const q = e.target.value
+            // starting a search while a country is open would hide the matches
+            // that live elsewhere — pop back to every country on the first
+            // character typed (drilling in again afterwards still works)
+            const opening = !f.q.trim() && !!q.trim() && f.country !== 'all'
+            set(opening ? { q, country: 'all', city: 'all' } : { q })
+          }}
+          placeholder="ค้นหาสถานที่ / ร้าน / เมือง / โน้ต"
+          className="flex-1 bg-transparent text-[13px] outline-none" />
+        {f.q && <button onClick={() => set({ q: '' })} aria-label="ล้างคำค้นหา" className="text-ink-3 hover:text-ink-2"><IconX size={15} /></button>}
+      </div>
+
+      {/* one flat scrolling row: เรียงตาม · ทั้งหมด · Places▾ · Food▾ … 🔥 ยอดนิยม */}
+      <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">
+        {/* sort dropdown — keeps the original line filter icon, no ▾ chevron */}
+        <Dropdown applied={f.sort === 'old' || f.sort === 'rating'} width={210} chevron={false}
+          label={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="text-ink"><path d="M4 6h16M7 12h10M10 18h4" /></svg>}>
+          {(close) => SORT_OPTS.map((o) => {
+            const on = f.sort === o.key
+            return (
+              <button key={o.key} onClick={() => { set({ sort: o.key }); close() }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[13px] hover:bg-surface-2 border-b border-line last:border-0">
+                <o.icon size={17} className="text-ink-3 shrink-0" />
+                <span className={on ? 'font-semibold text-brand-dark' : ''}>{o.label}</span>
+                {on && <IconCheck size={16} className="ml-auto text-brand shrink-0" />}
+              </button>
+            )
+          })}
+        </Dropdown>
+
+        {/* ทั้งหมด — clears the group/category filter */}
+        <button onClick={() => set({ group: 'all', cat: 'all' })}
+          className={['h-8 px-3.5 rounded-full text-[12px] font-semibold whitespace-nowrap shrink-0 border',
+            f.group === 'all' ? 'bg-ink text-white border-ink' : 'bg-surface text-ink-2 border-line-2'].join(' ')}>
+          ทั้งหมด
+        </button>
+
+        {groupMenu('place', 'Places', PLACE_TABS)}
+        {groupMenu('food', 'Food', FOOD_DETAIL_TABS)}
+
+        {/* prominent popularity toggle — hugs the right, one tap */}
+        {showSort && (
+          <button onClick={() => set({ sort: f.sort === 'popular' ? 'new' : 'popular' })}
+            className={['ml-auto inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-[12px] font-bold whitespace-nowrap shrink-0 border',
+              f.sort === 'popular' ? 'text-white border-transparent' : 'bg-surface text-ink-2 border-line-2'].join(' ')}
+            style={f.sort === 'popular' ? { background: 'linear-gradient(90deg,#FB7022,#EF4444)', boxShadow: '0 3px 10px rgba(239,68,68,.3)' } : undefined}>
+            <IconFlame size={14} /> ยอดนิยม
+          </button>
+        )}
+      </div>
+
     </>
   )
 }

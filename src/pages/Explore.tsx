@@ -183,11 +183,10 @@ export default function Explore() {
       </header>
 
       <main className="max-w-[640px] mx-auto px-4 sm:px-6 py-5">
-        <div className="flex items-center gap-1.5 mb-1">
+        <div className="flex items-center gap-1.5 mb-2">
           <IconWorldSearch size={20} className="text-brand" />
           <h1 className="text-[20px] font-medium">Explore</h1>
         </div>
-        <p className="text-[13px] text-ink-3 mb-2">รวมสถานที่/ร้านที่ทุกคนแชร์ — กด ♥ เพื่อเซฟเข้าทริปของคุณ</p>
 
         {/* realtime status + manual refresh (in case realtime isn't delivering) */}
         <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mb-4">
