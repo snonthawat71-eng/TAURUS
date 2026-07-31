@@ -3,19 +3,20 @@ import { IconLoader2, IconCheck, IconMapPin, IconBuildingStore, IconPlus, IconCa
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
 import { addStop } from '@/lib/mutations'
-import { setInPlan } from '@/lib/placeMutations'
+import { setPlanBranch } from '@/lib/placeMutations'
 import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
 import { branchesOf, hasOwnLocation as placeHasOwnLocation } from '@/lib/branches'
 import type { Place } from '@/lib/database.types'
 
 /**
- * Pick which itinerary day to schedule a place on when adding it to the plan.
- * Choosing a day appends the place as a stop on that day (and flags it in_plan);
- * "ใส่ในแพลนเฉย ๆ" just flags it without scheduling a day.
+ * Pick which itinerary day to put a place on. Choosing a day appends it as a
+ * stop there, which is also what puts it "in the plan" — there is no separate
+ * flag to set and no way to be in the plan without a day.
+ *
  * Multi-branch places ask WHICH branch. The choice is stored on the STOP
- * (branch_idx) so one place can be scheduled on several days at different
- * branches, and mirrored to places.plan_branch as the default for next time.
+ * (branch_idx) so one place can sit on several days at different branches, and
+ * mirrored to places.plan_branch as the default for next time.
  */
 export function AddToDayDialog({ place, open, onClose }: {
   place: Place | null
@@ -52,24 +53,15 @@ export function AddToDayDialog({ place, open, onClose }: {
       branch_idx: branchIdx,
     })
     // keep the place-level choice as the DEFAULT for the next visit
-    await setInPlan(place.id, true, branchIdx)
+    await setPlanBranch(place.id, branchIdx)
     await reload()
     setBusy(null)
     toast.success(`เพิ่ม "${place.name}"${branchNote} ลง Day ${dayNo} แล้ว`)
     onClose()
   }
 
-  async function justPlan() {
-    if (!place) return
-    setBusy('plan')
-    await setInPlan(place.id, true, branchIdx)
-    await reload()
-    setBusy(null)
-    onClose()
-  }
-
   return (
-    <Drawer open={open} onClose={onClose} title="เพิ่มเข้าแพลน">
+    <Drawer open={open} onClose={onClose} title="ใส่ลงวัน">
       <div className="space-y-3">
         {/* which place (and branch) we're adding */}
         <div className="flex items-center gap-2 text-[13px]">
@@ -102,9 +94,8 @@ export function AddToDayDialog({ place, open, onClose }: {
           </div>
         )}
 
-        {/* ── choice 1: schedule it on a specific day (moved up, primary) ── */}
         <div className="text-[12px] font-medium text-ink-2 flex items-center gap-1.5">
-          <IconCalendarPlus size={14} className="text-brand" /> เพิ่มลงวัน
+          <IconCalendarPlus size={14} className="text-brand" /> เลือกวันที่จะไป
         </div>
 
         {days.length === 0 ? (
@@ -137,22 +128,6 @@ export function AddToDayDialog({ place, open, onClose }: {
           </div>
         )}
 
-        {/* ── or: choice 2 — keep it in the plan without picking a day yet ── */}
-        <div className="flex items-center gap-2 pt-0.5">
-          <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
-          <span className="text-[11px] text-ink-3">หรือ</span>
-          <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
-        </div>
-
-        <button onClick={justPlan} disabled={!!busy}
-          className="w-full rounded-[12px] py-3 flex flex-col items-center justify-center disabled:opacity-60"
-          style={{ background: 'var(--color-brand-soft)', border: '0.5px solid var(--color-brand-border)' }}>
-          <span className="text-[15px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-brand-dark)' }}>
-            {busy === 'plan' && <IconLoader2 size={16} className="animate-spin" />}
-            เพิ่มลงแพลน
-          </span>
-          <span className="text-[11.5px] text-ink-3 mt-0.5">แบบไม่ระบุวัน</span>
-        </button>
       </div>
     </Drawer>
   )

@@ -50,6 +50,8 @@ Supabase is the entire backend (auth + Postgres + storage + realtime). There is 
 
 **Mutation pattern:** components never embed Supabase write calls directly for domain data — they call helpers in `src/lib/*Mutations.ts` (`tripMutations`, `placeMutations`, `budgetMutations`, `mutations` for itinerary), then call `reload()` from `TripContext`. There is no client cache; reads always come from `TripContext`.
 
+**"In the plan" is derived, never toggled.** A place is in the plan exactly when the trip's itinerary has a stop whose `place_name` matches it — `TripContext` computes that and overwrites `in_plan` on every place it hands out, so all the screens reading `p.in_plan` stay correct from one source of truth. The `places.in_plan` column still exists but nothing writes it meaningfully and nothing reads it directly. Saving from Explore always lands in the trip's Location list; the only follow-up asked is which day (optional), and a branch when a day was picked.
+
 **Permissions drive both UI and DB.** `canEdit`/`myPermission` from `TripContext` gate add/edit/delete affordances across pages; RLS independently blocks writes. `visibleNav(permission)` in `layout/nav.ts` hides pages for `places`-only members (they see only Places/Food/All plans and get a ⭐ "pin to my trip" copy action instead of editing).
 
 **Routing** (`App.tsx`, react-router v7):

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   IconCheck, IconLoader2, IconHeartFilled, IconX, IconBuildingStore, IconChevronLeft, IconMapPin,
-  IconBookmark, IconClipboardCheck,
+  IconBookmark,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
@@ -69,8 +69,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   const [done, setDone] = useState<Set<string>>(new Set())
   // the answers so far — each unanswered value marks the current step
   const [tripId, setTripId] = useState<string | null>(null)
-  const [branch, setBranch] = useState<number | null | undefined>(undefined) // undefined = not asked yet, null = main location
-  const [wantPlan, setWantPlan] = useState<boolean>(false)
+  const [dayId, setDayId] = useState<string | null | undefined>(undefined) // undefined = not asked yet, null = no day
   const [days, setDays] = useState<ItineraryDay[] | null>(null)
 
   // any trip the user can reach — owned OR shared in (RLS blocks the write if the
@@ -114,8 +113,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
     setBusyId(null)
     setDone(new Set())
     setTripId(null)
-    setBranch(undefined)
-    setWantPlan(false)
+    setDayId(undefined)
     setDays(null)
     if (sourceExploreId) {
       exploreSavedInTrips(sourceExploreId, myTrips.map((t) => t.id)).then((ids) => setDone(new Set(ids)))
@@ -123,38 +121,33 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, sourceExploreId])
 
-  // Which screen we're on — first unanswered question wins. NB the branch is
-  // asked only AFTER "เซฟลงแพลน": saving to the list is just collecting the
-  // place, and which branch you'll actually go to isn't known yet (it's decided
-  // per day, on the stop). Keeps a plain list-save at one tap.
-  const needBranch = wantPlan && hasBranches && branch === undefined
-  const screen: 'trip' | 'branch' | 'mode' | 'day' =
+  // Saving always lands in the trip's Location list — that question is gone.
+  // The only follow-up is which day (optional), and a branch when a day was
+  // actually picked, because that's the visit the branch belongs to.
+  const screen: 'trip' | 'day' | 'branch' =
     !tripId ? 'trip'
-      : !wantPlan ? 'mode'
-        : needBranch ? 'branch'
-          : 'day'
+      : dayId === undefined ? 'day'
+        : 'branch'
 
   // the stepper only lists steps that actually apply to THIS save
   const steps = [
     { key: 'trip', label: 'ทริป' },
-    { key: 'mode', label: 'วิธีเซฟ' },
-    ...(wantPlan && hasBranches ? [{ key: 'branch', label: 'สาขา' }] : []),
-    ...(wantPlan ? [{ key: 'day', label: 'วัน' }] : []),
+    { key: 'day', label: 'วัน' },
+    ...(dayId && hasBranches ? [{ key: 'branch', label: 'สาขา' }] : []),
   ]
   const curStep = steps.findIndex((s) => s.key === screen)
 
-  /** Final write. mode: 'list' = just saved (Location page), 'plan' = also
-   *  ticked ในแพลน, 'day' = ในแพลน + an itinerary stop in the chosen day. */
-  async function finalSave(mode: 'list' | 'plan' | 'day', dayId?: string) {
+  /** Final write: copy the place into the trip, and when a day was picked also
+   *  add it as a stop on that day (which is what puts it in the plan). */
+  async function finalSave(day: string | null, b: number | null) {
     if (!place || !tripId) return
-    const b = branch ?? null
     setBusyId(tripId)
-    await copyPlaceToTrip(place, tripId, sourceExploreId, { inPlan: mode !== 'list', planBranch: b })
-    if (mode === 'day' && dayId) {
+    await copyPlaceToTrip(place, tripId, sourceExploreId, { planBranch: day ? b : null })
+    if (day) {
       const br = b != null ? place.branches?.[b] : null
       const { count } = await supabase.from('itinerary_stops')
-        .select('id', { count: 'exact', head: true }).eq('day_id', dayId)
-      await addStop(tripId, dayId, count ?? 0, {
+        .select('id', { count: 'exact', head: true }).eq('day_id', day)
+      await addStop(tripId, day, count ?? 0, {
         place_name: place.name, map_url: br?.map_url || place.map_url,
         branch_idx: b, // per-visit, so other days can use another branch
       })
@@ -166,15 +159,20 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
     if (tripId === currentTrip?.id) void reload() // Location/Itinerary ของทริปที่เปิดอยู่เห็นผลทันที
     // done — fold the drawer away and confirm with a toast
     onClose()
-    toast.success(mode === 'list' ? 'เซฟลงลิสต์แล้ว' : mode === 'plan' ? 'เซฟลงแพลนแล้ว' : 'เซฟลงแพลน + ใส่ลงวันแล้ว')
+    toast.success(day ? 'เซฟแล้ว · ใส่ลงวันให้ด้วย' : 'เซฟลงทริปแล้ว')
   }
 
-  /** "เซฟลงแพลน" → fetch the target trip's days, then ask which day (or none). */
-  async function pickPlan() {
-    if (!tripId) return
-    setWantPlan(true)
+  /** Chose a day: ask the branch first when there is one, else write now. */
+  function chooseDay(day: string | null) {
+    setDayId(day)
+    if (!day || !hasBranches) void finalSave(day, null)
+  }
+
+  /** A trip was chosen → load its days so the next screen can offer them. */
+  async function loadDays(id: string) {
+    setDays(null)
     const { data } = await supabase.from('itinerary_days')
-      .select('*').eq('trip_id', tripId).order('position')
+      .select('*').eq('trip_id', id).order('position')
     setDays((data as ItineraryDay[] | null) ?? [])
   }
 
@@ -197,16 +195,12 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
       return
     }
     setTripId(id)
+    void loadDays(id)
   }
 
   function back() {
-    // day → back to the branch question when there was one, else to วิธีเซฟ
-    if (screen === 'day') {
-      if (hasBranches) { setBranch(undefined); return }
-      setWantPlan(false); setDays(null); return
-    }
-    if (screen === 'branch') { setWantPlan(false); setDays(null); setBranch(undefined); return }
-    if (screen === 'mode') setTripId(null)
+    if (screen === 'branch') { setDayId(undefined); return }
+    if (screen === 'day') { setTripId(null); setDays(null) }
   }
 
   const savingTrip = tripId ? myTrips.find((t) => t.id === tripId) : null
@@ -289,20 +283,57 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
         )
       )}
 
-      {/* ── ขั้น 2 (เฉพาะร้านหลายสาขา): ไปสาขาไหน ── */}
+      {/* ── ขั้น 2: ใส่ลงวันเลยมั้ย (ข้ามได้ — เซฟลงทริปอยู่แล้ว) ── */}
+      {screen === 'day' && (
+        <div className="space-y-1.5">
+          <div className="text-[13.5px] font-semibold">ใส่ลงวันเลยมั้ย?</div>
+          <p className="text-[11px] text-ink-3 mb-2">เซฟเข้าหน้า Location ให้อยู่แล้ว — เลือกวันตอนนี้ก็ได้ ไว้ทีหลังก็ได้</p>
+          {days == null ? (
+            <div className="py-4 grid place-items-center text-ink-3"><IconLoader2 size={18} className="animate-spin" /></div>
+          ) : days.length > 0 ? (
+            days.map((d, i) => (
+              <button key={d.id} onClick={() => chooseDay(d.id)} disabled={busy} className={optionCard}>
+                <span className="size-8 rounded-[8px] grid place-items-center shrink-0 text-[13px] font-bold"
+                  style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)' }}>{i + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13.5px] font-medium truncate">{d.day_date ? formatLongDate(d.day_date) : `Day ${i + 1}`}</div>
+                  {d.label && <div className="text-[11px] text-ink-3 truncate mt-0.5">{d.label}</div>}
+                </div>
+                {busy ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
+                  : <span className="btn-link text-[12px] shrink-0">ใส่วันนี้</span>}
+              </button>
+            ))
+          ) : (
+            <div className="card p-4 text-center text-[12px] text-ink-3">
+              ทริปนี้ยังไม่มีวันในแผน — เซฟไว้ก่อน แล้วไปเพิ่มวันในหน้า Itinerary
+            </div>
+          )}
+          <button onClick={() => chooseDay(null)} disabled={busy} className={optionCard}>
+            {optionIcon(<IconBookmark size={16} />)}
+            <div className="min-w-0 flex-1">
+              <div className="text-[13.5px] font-medium">ยังไม่ใส่วัน</div>
+              <div className="text-[11px] text-ink-3 mt-0.5">เก็บไว้ในหน้า Location ก่อน</div>
+            </div>
+            {busy && <IconLoader2 size={16} className="animate-spin text-ink-3" />}
+          </button>
+          {backBtn}
+        </div>
+      )}
+
+      {/* ── ขั้น 3 (เฉพาะร้านหลายสาขา ที่เลือกวันแล้ว): ไปสาขาไหน ── */}
       {screen === 'branch' && (
         <div className="space-y-1.5">
           <div className="text-[13.5px] font-semibold mb-2">ไปสาขาไหน?</div>
-          <p className="text-[11px] text-ink-3 -mt-1 mb-1">เลือกสำหรับแพลนนี้ — วันอื่นเปลี่ยนเป็นสาขาอื่นได้</p>
+          <p className="text-[11px] text-ink-3 -mt-1 mb-1">เลือกสำหรับวันนี้ — วันอื่นเปลี่ยนเป็นสาขาอื่นได้</p>
           {hasOwnLocation && (
-            <button onClick={() => setBranch(null)} disabled={busy} className={optionCard}>
+            <button onClick={() => void finalSave(dayId ?? null, null)} disabled={busy} className={optionCard}>
               {optionIcon(<IconMapPin size={16} />)}
               <span className="text-[13.5px] font-medium flex-1 min-w-0 truncate">ที่ตั้งหลัก</span>
               <span className="btn-link text-[12px] shrink-0">เลือก</span>
             </button>
           )}
           {branches.map((b, i) => (
-            <button key={i} onClick={() => setBranch(i)} disabled={busy} className={optionCard}>
+            <button key={i} onClick={() => void finalSave(dayId ?? null, i)} disabled={busy} className={optionCard}>
               {optionIcon(<IconBuildingStore size={16} />)}
               <div className="min-w-0 flex-1">
                 <div className="text-[13.5px] font-medium truncate">{b.label || `สาขา ${i + 1}`}</div>
@@ -320,61 +351,6 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
         </div>
       )}
 
-      {/* ── ขั้น 3: จะเซฟแบบไหน — คำถามเดียว 2 ทาง ── */}
-      {screen === 'mode' && (
-        <div className="space-y-1.5">
-          <div className="text-[13.5px] font-semibold mb-2">จะเซฟแบบไหน?</div>
-          <button onClick={() => finalSave('list')} disabled={busy} className={optionCard}>
-            {optionIcon(<IconBookmark size={16} />)}
-            <div className="min-w-0 flex-1">
-              <div className="text-[13.5px] font-medium">เซฟลงลิสต์</div>
-              <div className="text-[11px] text-ink-3 mt-0.5">เก็บไว้ในหน้า Location ก่อน ยังไม่เข้าแพลน</div>
-            </div>
-            {busy && <IconLoader2 size={16} className="animate-spin text-ink-3" />}
-          </button>
-          <button onClick={pickPlan} disabled={busy} className={optionCard}>
-            {optionIcon(<IconClipboardCheck size={16} />)}
-            <div className="min-w-0 flex-1">
-              <div className="text-[13.5px] font-medium">เซฟลงแพลน</div>
-              <div className="text-[11px] text-ink-3 mt-0.5">ติ๊ก "ในแพลน" ให้เลย — เลือกวันได้ในขั้นถัดไป</div>
-            </div>
-          </button>
-          {backBtn}
-        </div>
-      )}
-
-      {/* ── ขั้น 4: ใส่ลงวันไหน (หรือยังไม่เลือกวัน) ── */}
-      {screen === 'day' && (
-        <div className="space-y-1.5">
-          <div className="text-[13.5px] font-semibold mb-2">ใส่ลงวันไหน?</div>
-          <button onClick={() => finalSave('plan')} disabled={busy}
-            className="btn-primary w-full h-11 text-[13px] disabled:opacity-50">
-            {busy ? 'กำลังเซฟ...' : 'ใส่ในแพลนไว้ก่อน (ยังไม่เลือกวัน)'}
-          </button>
-          {days == null ? (
-            <div className="py-4 grid place-items-center text-ink-3"><IconLoader2 size={18} className="animate-spin" /></div>
-          ) : days.length > 0 ? (
-            <>
-              <div className="text-[11px] text-ink-3 pt-1.5">หรือเลือกวันที่จะไปเลย — จะเพิ่มเป็นจุดแวะในวันนั้นให้ด้วย</div>
-              {days.map((d, i) => (
-                <button key={d.id} onClick={() => finalSave('day', d.id)} disabled={busy} className={optionCard}>
-                  <span className="size-8 rounded-[8px] grid place-items-center shrink-0 text-[13px] font-bold"
-                    style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)' }}>{i + 1}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13.5px] font-medium truncate">{d.day_date ? formatLongDate(d.day_date) : `Day ${i + 1}`}</div>
-                    {d.label && <div className="text-[11px] text-ink-3 truncate mt-0.5">{d.label}</div>}
-                  </div>
-                  {busy ? <IconLoader2 size={16} className="animate-spin text-ink-3" />
-                    : <span className="btn-link text-[12px] shrink-0">ใส่วันนี้</span>}
-                </button>
-              ))}
-            </>
-          ) : (
-            <div className="text-[11px] text-ink-3 text-center py-2">ทริปนี้ยังไม่มีวันในแผน — ใส่ในแพลนไว้ก่อน แล้วไปเพิ่มวันในหน้า Itinerary</div>
-          )}
-          {backBtn}
-        </div>
-      )}
     </Drawer>
   )
 }

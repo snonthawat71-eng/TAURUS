@@ -62,9 +62,10 @@ export function TransitEditor({
   onSave: (transit: Transit | null) => Promise<void>
 }) {
   const { trip, places } = useTrip()
-  // station/line of THIS stop's place (if it matches one in the plan); fall back
-  // to all in-plan places only when this stop isn't linked to a known place.
-  const withStation = places.filter((p) => p.in_plan && (p.station_line || p.station_name || p.routes?.length))
+  // station/line of THIS stop's place (if it matches one saved in the trip);
+  // fall back to every saved place with a station when this stop isn't linked
+  // to a known one
+  const withStation = places.filter((p) => p.station_line || p.station_name || p.routes?.length)
   const matched = placeName
     ? withStation.find((p) => (p.name ?? '').trim().toLowerCase() === placeName.trim().toLowerCase())
     : undefined

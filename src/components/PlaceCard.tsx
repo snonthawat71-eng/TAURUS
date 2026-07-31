@@ -15,14 +15,14 @@ export interface Interested { name: string; color?: string }
 export type CardMode = 'edit' | 'pin' | 'view'
 
 export function PlaceCard({
-  place, interested, mine, mode = 'edit', onOpen, onTogglePlan, onToggleInterest, onEdit, onDelete, onPin, onShare,
+  place, interested, mine, mode = 'edit', onOpen, onAddToDay, onToggleInterest, onEdit, onDelete, onPin, onShare,
 }: {
   place: Place
   interested: Interested[]
   mine: boolean
   mode?: CardMode
   onOpen: () => void
-  onTogglePlan: () => void
+  onAddToDay: () => void
   onToggleInterest: () => void
   onEdit: () => void
   onDelete: () => void
@@ -66,15 +66,21 @@ export function PlaceCard({
           </span>
         )}
 
-        {mode === 'edit' && (
-          <button onClick={onTogglePlan} aria-label="เพิ่มในแพลน"
+        {/* "ในแพลน" is a status now, not a switch — a place is in the plan
+            because it sits on a day in the itinerary. So it reads as a badge,
+            and the only action offered is putting it on a day. */}
+        {mode === 'edit' && (place.in_plan ? (
+          <span className="absolute top-2 right-2 h-7 px-2.5 rounded-full inline-flex items-center gap-1 shadow-sm text-[11px] font-medium z-20 pointer-events-none"
+            style={{ background: 'var(--color-brand)', color: '#fff' }}>
+            <IconCheck size={14} /> ในแพลน
+          </span>
+        ) : (
+          <button onClick={onAddToDay} aria-label="ใส่ลงวัน"
             className="absolute top-2 right-2 h-7 px-2.5 rounded-full inline-flex items-center gap-1 shadow-sm transition-colors text-[11px] font-medium z-20"
-            style={place.in_plan
-              ? { background: 'var(--color-brand)', color: '#fff' }
-              : { background: 'rgba(255,255,255,.92)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
-            {place.in_plan ? <><IconCheck size={14} /> ในแพลน</> : <><IconPlus size={14} /> เพิ่ม</>}
+            style={{ background: 'rgba(255,255,255,.92)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
+            <IconPlus size={14} /> ใส่ลงวัน
           </button>
-        )}
+        ))}
         {mode === 'pin' && (
           <button onClick={onPin} aria-label="พิน/เซฟไปทริปของฉัน" title="เซฟไปทริปของฉัน"
             className="absolute top-2 right-2 size-8 rounded-full grid place-items-center shadow-sm z-20"

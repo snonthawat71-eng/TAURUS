@@ -44,7 +44,8 @@ export function suggestForStop(
   const near: { p: Place; distM: number }[] = []
   const scored: { p: Place; score: number }[] = []
   for (const p of places) {
-    if (p.id === anchor.id || !p.in_plan || !p.name || scheduledNames.has(norm(p.name))) continue
+    // saved but not on a day yet — a place already scheduled needs no suggesting
+    if (p.id === anchor.id || !p.name || scheduledNames.has(norm(p.name))) continue
     const c = coords?.get(p.id)
     if (aC && c) {
       const d = haversineM(aC, c)

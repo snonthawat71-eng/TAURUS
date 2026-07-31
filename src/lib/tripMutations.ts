@@ -85,7 +85,7 @@ export async function duplicateTrip(source: Trip, ownerId: string): Promise<{ id
     const rows = places.map((p) => ({
       id: crypto.randomUUID(), trip_id: id, group_type: p.group_type, category: p.category,
       name: p.name, station_line: p.station_line, station_color: p.station_color, station_name: p.station_name,
-      map_url: p.map_url, note: p.note, in_plan: p.in_plan,
+      map_url: p.map_url, note: p.note, in_plan: false, // a copy has no itinerary yet, so nothing is in its plan
       ...Object.fromEntries(OPTIONAL.map((c) => [c, p[c] ?? null])),
     }))
     let res = await supabase.from('places').insert(rows)

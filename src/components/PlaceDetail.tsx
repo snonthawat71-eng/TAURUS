@@ -22,7 +22,7 @@ import type { Interested } from './PlaceCard'
 import type { Place } from '@/lib/database.types'
 
 export function PlaceDetail({
-  place, interested, mine, open, canEdit = true, onClose, onTogglePlan, onToggleInterest, onEdit, onPin, onShare,
+  place, interested, mine, open, canEdit = true, onClose, onAddToDay, onToggleInterest, onEdit, onPin, onShare,
 }: {
   place: Place | null
   interested: Interested[]
@@ -30,7 +30,7 @@ export function PlaceDetail({
   open: boolean
   canEdit?: boolean
   onClose: () => void
-  onTogglePlan: () => void
+  onAddToDay: () => void
   onToggleInterest: () => void
   onEdit?: () => void
   onPin?: () => void
@@ -176,11 +176,13 @@ export function PlaceDetail({
 
         <div className="grid grid-cols-2 gap-2 mt-5">
           {canEdit ? (
-            <button onClick={onTogglePlan} className="h-10 rounded-md text-[13px] font-medium flex items-center justify-center gap-1.5 whitespace-nowrap px-2"
+            /* being in the plan means having a stop in the itinerary, so this is
+               a state to report plus a way to add another day — never a switch */
+            <button onClick={onAddToDay} className="h-10 rounded-md text-[13px] font-medium flex items-center justify-center gap-1.5 whitespace-nowrap px-2"
               style={place.in_plan
                 ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }
                 : { background: 'var(--color-brand)', color: '#fff' }}>
-              {place.in_plan ? <><IconCheck size={15} /> อยู่ในแพลนแล้ว</> : <><IconPlus size={15} /> เพิ่มในแพลน</>}
+              {place.in_plan ? <><IconCheck size={15} /> อยู่ในแพลนแล้ว</> : <><IconPlus size={15} /> ใส่ลงวัน</>}
             </button>
           ) : onPin ? (
             <button onClick={onPin} className="h-10 rounded-md text-[13px] font-medium flex items-center justify-center gap-1.5 whitespace-nowrap px-2"

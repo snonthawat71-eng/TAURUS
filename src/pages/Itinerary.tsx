@@ -22,12 +22,13 @@ import { DayEditor } from '@/components/DayEditor'
 import { TransitEditor } from '@/components/TransitEditor'
 import { PopMenu } from '@/components/PopMenu'
 import { PlaceDetail } from '@/components/PlaceDetail'
+import { AddToDayDialog } from '@/components/AddToDayDialog'
 import { openMap } from '@/lib/maps'
 import { confirmDialog, choiceDialog } from '@/lib/confirm'
 import { offerUndo } from '@/lib/undo'
 import { toast } from '@/lib/toast'
 import { formatLongDate } from '@/lib/format'
-import { setInPlan, toggleInterest } from '@/lib/placeMutations'
+import { toggleInterest } from '@/lib/placeMutations'
 import { planMapUrl, branchLabel, stopBranchIdx } from '@/lib/branches'
 import { useWeather, tripCityCandidates, type DayWeather } from '@/lib/weather'
 import { tripTz } from '@/lib/segments'
@@ -440,6 +441,7 @@ export default function Itinerary() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [detailPlace, setDetailPlace] = useState<Place | null>(null)
+  const [dayPickFor, setDayPickFor] = useState<Place | null>(null)
   const dayWx = useWeather(trip ? tripCityCandidates(trip) : [], days.map((d) => d.day_date).filter(Boolean) as string[])
 
   const placeByName = useMemo(() => {
@@ -463,11 +465,6 @@ export default function Itinerary() {
       return { name: p?.nickname ?? 'ผู้ใช้', color: p?.avatar_color ?? undefined }
     })
     return { list, mine: !!user && rows.some((r) => r.user_id === user.id) }
-  }
-  function togglePlan(p: Place) {
-    const next = !p.in_plan
-    patch((d) => ({ places: d.places.map((x) => (x.id === p.id ? { ...x, in_plan: next } : x)) })) // instant
-    setInPlan(p.id, next).then(() => reload()) // persist + reconcile in the background
   }
   function toggleWant(p: Place) {
     if (!user) return
@@ -564,15 +561,15 @@ export default function Itinerary() {
     return set
   }, [localStops])
 
-  // Coordinates for in-list + scheduled places, pulled from their map links
+  // Coordinates for every place saved in this trip, pulled from their map links
   // (short links resolve once via /api/resolve-map and cache). Fills lat/lng on
   // the rows as a side effect, so this gets cheaper on every visit. Drives the
-  // real-distance ranking of the 💡 suggestion strip.
+  // real-distance ranking of the 💡 suggestion strip — which now offers saved
+  // places that aren't on a day yet, so those need coordinates too.
   const [coordsMap, setCoordsMap] = useState<Map<string, LatLng | null>>(new Map())
   useEffect(() => {
     if (!canEdit) return
-    const wanted = places.filter((p) =>
-      (p.in_plan || (p.name && scheduledNames.has(p.name.trim().toLowerCase()))) && !coordsMap.has(p.id))
+    const wanted = places.filter((p) => !coordsMap.has(p.id))
     if (!wanted.length) return
     let cancelled = false
     ;(async () => {
@@ -958,15 +955,14 @@ export default function Itinerary() {
     // other days this stop could move to (exclude its current one)
     const otherDays = localDays.filter((d) => d.id !== row.day_id)
 
-    const place = getMatchedPlace(row)
     const action = await choiceDialog({
       title: name,
       message: 'ต้องการทำอะไรกับจุดแวะนี้?',
       choices: [
         ...(otherDays.length ? [{ label: 'เปลี่ยนวัน', value: 'move' }] : []),
-        // only meaningful when this stop is linked to an in-plan place
-        ...(place?.in_plan ? [{ label: 'เอาออกจากวันนี้ (ยังอยู่ในแพลน)', value: 'unschedule' }] : []),
-        { label: 'เอาออกจากแพลน', value: 'remove', danger: true },
+        // one delete, not two: a place is in the plan because it has a stop, so
+        // removing its last stop is what taking it out of the plan means
+        { label: 'เอาออกจากวัน', value: 'remove', danger: true },
       ],
     })
     if (!action) return
@@ -990,19 +986,13 @@ export default function Itinerary() {
       return
     }
 
-    // unschedule = drop the stop off the day but KEEP the place in the plan
-    // (stays on Places "in plan" + All plans); remove = also clear in_plan so it
-    // disappears everywhere.
-    const clearPlan = action === 'remove' && !!place?.in_plan
+    // deleting the stop is the whole action — the place drops out of "ในแพลน"
+    // by itself once it has no stop left, and stays in the Location list
     await deleteStop(id)
-    if (clearPlan) {
-      patch((d) => ({ places: d.places.map((x) => (x.id === place!.id ? { ...x, in_plan: false } : x)) }))
-      await setInPlan(place!.id, false)
-    }
     await reload()
-    offerUndo(action === 'remove' ? 'เอาออกจากแพลนแล้ว' : 'เอาออกจากวันแล้ว',
+    offerUndo('เอาออกจากวันแล้ว',
       [{ table: 'itinerary_stops', rows: [row] }],
-      async () => { if (clearPlan) await setInPlan(place!.id, true); await reload() })
+      async () => { await reload() })
   }
   async function saveRoute(transit: Parameters<typeof updateStop>[1]['transit']) {
     if (!routeEdit) return
@@ -1222,10 +1212,12 @@ export default function Itinerary() {
         return (
           <PlaceDetail place={detailPlace} interested={list} mine={mine} open={!!detailPlace} canEdit={canEdit}
             onClose={() => setDetailPlace(null)}
-            onTogglePlan={() => togglePlan(detailPlace)}
+            onAddToDay={() => { setDayPickFor(detailPlace); setDetailPlace(null) }}
             onToggleInterest={() => toggleWant(detailPlace)} />
         )
       })()}
+
+      <AddToDayDialog place={dayPickFor} open={!!dayPickFor} onClose={() => setDayPickFor(null)} />
     </div>
   )
 }

@@ -6,7 +6,7 @@ import { ExploreDetail } from './ExploreDetail'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { listExplore, exploreAsPlace, logExploreEvent } from '@/lib/exploreMutations'
-import { copyPlaceToTrip, setInPlan, removeExploreCopies } from '@/lib/placeMutations'
+import { copyPlaceToTrip, removeExploreCopies } from '@/lib/placeMutations'
 import { planMapUrl } from '@/lib/branches'
 import { catMeta } from '@/lib/placeMeta'
 import type { ExplorePlace } from '@/lib/database.types'
@@ -20,8 +20,9 @@ const normCity = (s?: string | null) => (s ?? '').trim().toLowerCase()
 
 /**
  * Quick-pick a place straight from the Explore pool while adding an activity.
- * Tapping a result copies it into THIS trip's places (flagged in_plan, so it also
- * shows up in Places/Food) and hands it back to be selected for the stop at once.
+ * Tapping a result copies it into THIS trip's places (so it also shows up in
+ * Places/Food) and hands it back to be selected for the stop at once — which is
+ * what puts it in the plan.
  */
 export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGroup, title }: {
   open: boolean
@@ -29,7 +30,7 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
   /** called after a single pick (stop flow). Omit in `multi` mode. */
   onPicked?: (pick: QuickPick) => void
   /** stay open after each add, so several places can be saved in one go (used
-   *  from the Places page); adds are saved to Places WITHOUT forcing in_plan. */
+   *  from the Places page); those adds land in Places without a day. */
   multi?: boolean
   initialGroup?: 'all' | 'place' | 'food'
   title?: string
@@ -100,13 +101,12 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
 
   async function pick(e: ExplorePlace) {
     if (!trip) return
-    // already in this trip → just make sure it's in the plan, then select it
-    // (its branch was chosen when it was first added — keep it)
+    // already in this trip → just select it. Nothing to flag: it lands in the
+    // plan by becoming a stop, which is what the caller does with this pick.
     const existing = places.find((p) => p.source_explore_id === e.id)
     if (existing) {
       setBusyId(e.id)
       if (multi) { setBusyId(null); return } // already in this trip → nothing to do
-      if (!existing.in_plan) { await setInPlan(existing.id, true); await reload() }
       finishPick({ id: existing.id, name: existing.name, map_url: planMapUrl(existing), note: existing.note })
       return
     }
@@ -120,7 +120,7 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
     if (!trip) return
     setBusyId(e.id)
     const id = crypto.randomUUID()
-    await copyPlaceToTrip(exploreAsPlace(e), trip.id, e.id, { inPlan: !multi, id, planBranch: null })
+    await copyPlaceToTrip(exploreAsPlace(e), trip.id, e.id, { id, planBranch: null })
     if (user) logExploreEvent(e.id, user.id, 'save')
     await reload()
     if (multi) { setBusyId(null); return } // stay open for more; badge flips to "เพิ่มแล้ว"

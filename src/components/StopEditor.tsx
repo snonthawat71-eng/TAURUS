@@ -49,10 +49,11 @@ export function StopEditor({
   // which optional section is unfolded (null = both closed, the usual case)
   const [openCard, setOpenCard] = useState<'link' | 'note' | null>(null)
 
-  // places the group has already added to the plan (from Places/Food/All),
-  // most recently saved first
+  // everything the group has saved for this trip (Places/Food/All), newest
+  // first. Deliberately NOT filtered to "in plan": that now means "already on a
+  // day", and a place already scheduled is the least likely thing to add here.
   const inPlan = useMemo(
-    () => places.filter((p) => p.in_plan && p.name)
+    () => places.filter((p) => p.name)
       .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '')),
     [places],
   )
@@ -225,9 +226,9 @@ export function StopEditor({
     <>
     <Drawer open={open} onClose={onClose} title={initial?.id ? 'แก้ไขจุดแวะ' : 'เพิ่มจุดแวะ'}>
       <div>
-        {/* ── จากสถานที่ในแพลน ───────────────────────────────── */}
+        {/* ── จากสถานที่ที่เซฟไว้ ─────────────────────────────── */}
         <div className="pb-4">
-          <span className={groupLabel}>จากสถานที่ในแพลน</span>
+          <span className={groupLabel}>จากสถานที่ที่เซฟไว้</span>
           {inPlan.length > 0 && (
             <div className="flex items-center gap-2 mb-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
               <div className="inline-flex p-0.5 rounded-full bg-surface-2 shrink-0">
@@ -290,7 +291,7 @@ export function StopEditor({
             })}
           </div>
           {inPlan.length === 0 && (
-            <p className="text-[11px] text-ink-3 mt-1.5">ยังไม่มีสถานที่ในแพลน — แตะ "เลือกด่วนจาก Explore" เพื่อเพิ่มได้เลย</p>
+            <p className="text-[11px] text-ink-3 mt-1.5">ยังไม่มีสถานที่ที่เซฟไว้ — แตะ "เลือกด่วนจาก Explore" เพื่อเพิ่มได้เลย</p>
           )}
         </div>
 

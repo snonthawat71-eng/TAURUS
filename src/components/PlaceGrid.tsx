@@ -8,7 +8,7 @@ import { PlaceDetail } from './PlaceDetail'
 import { SaveToTripDialog } from './SaveToTripDialog'
 import { AddToDayDialog } from './AddToDayDialog'
 import { QuickExplorePicker } from './QuickExplorePicker'
-import { addPlace, updatePlace, deletePlaceDeep, setInPlan, toggleInterest, remapBranchIndexes } from '@/lib/placeMutations'
+import { addPlace, updatePlace, deletePlaceDeep, toggleInterest, remapBranchIndexes } from '@/lib/placeMutations'
 import { addExplore, searchExploreSimilar, placeAsExploreInput } from '@/lib/exploreMutations'
 import { confirmDialog, alertDialog } from '@/lib/confirm'
 import { IconWorldShare, IconCircleCheck } from '@tabler/icons-react'
@@ -139,11 +139,6 @@ export function PlaceGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places])
 
-  function togglePlan(p: Place) {
-    const next = !p.in_plan
-    patch((d) => ({ places: d.places.map((x) => (x.id === p.id ? { ...x, in_plan: next } : x)) })) // instant
-    setInPlan(p.id, next).then(() => reload()) // persist + reconcile in the background
-  }
   function toggleWant(p: Place) {
     if (!user) return
     const mine = interests.some((i) => i.place_id === p.id && i.user_id === user.id)
@@ -221,7 +216,7 @@ export function PlaceGrid({
     const { list, mine } = interestFor(p)
     return (
       <PlaceCard key={p.id} place={p} interested={list} mine={mine} mode={mode}
-        onOpen={() => setDetail(p)} onTogglePlan={() => (p.in_plan ? togglePlan(p) : setDayPickFor(p))} onToggleInterest={() => toggleWant(p)}
+        onOpen={() => setDetail(p)} onAddToDay={() => setDayPickFor(p)} onToggleInterest={() => toggleWant(p)}
         onEdit={() => setEditor(p)} onDelete={() => remove(p)} onPin={() => setPinPlace(p)}
         onShare={mode === 'edit' ? () => shareToExplore(p) : undefined} />
     )
@@ -414,7 +409,7 @@ export function PlaceGrid({
         return (
           <PlaceDetail place={detail} interested={list} mine={mine} open={!!detail} canEdit={canEdit}
             onClose={() => setDetail(null)} onToggleInterest={() => toggleWant(detail)}
-            onTogglePlan={() => { if (detail.in_plan) togglePlan(detail); else { setDayPickFor(detail); setDetail(null) } }}
+            onAddToDay={() => { setDayPickFor(detail); setDetail(null) }}
             onEdit={canEdit ? () => { setEditor(detail); setDetail(null) } : undefined}
             onShare={mode === 'edit' ? () => shareToExplore(detail) : undefined}
             onPin={mode === 'pin' ? () => { setPinPlace(detail); setDetail(null) } : undefined} />

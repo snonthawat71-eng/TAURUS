@@ -202,7 +202,19 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
       // Interests (by place) and member profiles (by member) both depend on the
       // batch above — fetch them together in a single second round-trip.
-      const places = (placesRes.data ?? []) as Place[]
+      // "In the plan" is not a flag anyone toggles any more — a place is in the
+      // plan exactly when the itinerary has a stop for it. Deriving it here (by
+      // the same name match the Itinerary page already used) means every screen
+      // reading `in_plan` stays correct without a second source of truth to keep
+      // in sync. The stored column is left alone; nothing reads it directly.
+      const stops = (stopsRes.data ?? []) as ItineraryStop[]
+      const scheduled = new Set(
+        stops.map((s) => (s.place_name ?? '').trim().toLowerCase()).filter(Boolean),
+      )
+      const places = ((placesRes.data ?? []) as Place[]).map((p) => ({
+        ...p,
+        in_plan: !!p.name && scheduled.has(p.name.trim().toLowerCase()),
+      }))
       const placeIds = places.map((p) => p.id)
       const members = (membersRes.data ?? []) as Pick<TripMember, 'user_id' | 'permission'>[]
       const memberIds = members.map((m) => m.user_id)
@@ -238,7 +250,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
         trainTickets: (trainTicketsRes.error ? [] : trainTicketsRes.data ?? []) as TrainTicket[],
         hotels: (hotelsRes.data ?? []) as Hotel[],
         days: daysRes.data ?? [],
-        stops: (stopsRes.data ?? []) as ItineraryStop[],
+        stops,
         places,
         interests: (interestsRes.data ?? []) as PlaceInterest[],
         expenses: (expensesRes.data ?? []) as Expense[],

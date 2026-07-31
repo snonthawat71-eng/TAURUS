@@ -164,10 +164,11 @@ export async function remapExploreCopyBranches(exploreId: string, tripIds: strin
 
 /** Copy a place (from a shared trip / Explore) into one of the user's own trips.
  *  Pass `opts.id` to control the new row id (so the caller can select it right
- *  away) and `opts.inPlan` to drop it straight into the plan. */
+ *  away). A copy always lands in the trip's Location list; it joins the plan
+ *  later, by being put on a day. */
 export async function copyPlaceToTrip(
   place: Place, targetTripId: string, sourceExploreId?: string,
-  opts?: { inPlan?: boolean; id?: string; planBranch?: number | null },
+  opts?: { id?: string; planBranch?: number | null },
 ) {
   // an Explore item carries its ONE shared coordinate → copy lat/lng and mark the
   // copy `pinned` so the map trusts it (every trip stays on the identical spot,
@@ -180,7 +181,7 @@ export async function copyPlaceToTrip(
     branch_label: place.branch_label ?? null,
     plan_branch: opts?.planBranch ?? null,
     map_url: place.map_url,
-    note: place.note, in_plan: opts?.inPlan ?? false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, photo_focus: place.photo_focus ?? null, photos: place.photos ?? null, city: place.city,
+    note: place.note, in_plan: false, photo_path: place.photo_path, photo_url: place.photo_url ?? null, photo_focus: place.photo_focus ?? null, photos: place.photos ?? null, city: place.city,
     menu_paths: place.menu_paths ?? null,
     lat: place.lat ?? null, lng: place.lng ?? null,
     pinned: hasCoord,
@@ -248,18 +249,17 @@ export async function updateExploreCopies(exploreId: string, fields: PlaceInput,
   return res
 }
 
-/** Flag a place in/out of the plan. `plan_branch` records which branch of a
- *  multi-branch place was picked (index into branches, null = main location);
- *  taking a place out of the plan clears it. Retries without the column when
- *  plan_branch.sql hasn't been applied yet. */
-export async function setInPlan(id: string, in_plan: boolean, plan_branch?: number | null) {
-  const payload: Record<string, unknown> = { in_plan }
-  if (plan_branch !== undefined) payload.plan_branch = plan_branch
-  else if (!in_plan) payload.plan_branch = null
-  let res = await supabase.from('places').update(payload).eq('id', id)
-  if (res.error && 'plan_branch' in payload && /plan_branch|column/i.test(res.error.message)) {
-    res = await supabase.from('places').update({ in_plan }).eq('id', id)
-  }
+/** Remember which branch of a multi-branch place the plan last used (index into
+ *  branches, null = main location) — the default offered next time it's put on a
+ *  day. Silently does nothing when plan_branch.sql hasn't been applied yet.
+ *
+ *  There is deliberately no setInPlan any more: a place is in the plan exactly
+ *  when the itinerary has a stop for it, so the flag has no separate life. The
+ *  `in_plan` column still exists but nothing writes to it and TripContext
+ *  overwrites what it reads. */
+export async function setPlanBranch(id: string, plan_branch: number | null) {
+  const res = await supabase.from('places').update({ plan_branch }).eq('id', id)
+  if (res.error && /plan_branch|column/i.test(res.error.message)) return res
   toastDbError(res.error)
   return res
 }
