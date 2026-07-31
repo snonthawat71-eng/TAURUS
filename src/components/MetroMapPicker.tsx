@@ -3,22 +3,10 @@ import { IconX, IconSearch, IconPlus, IconMinus, IconMapPin, IconFlag, IconArrow
 import { createPortal } from 'react-dom'
 import { MetroRoute } from './MetroRoute'
 import { OsakaMetroMap } from './OsakaMetroMap'
-import { NetworkMap, codesOf } from './NetworkMap'
 import { PinchZoomPane } from './PinchZoomPane'
 import { computeRouteByCode, stationName, STATION_LIST } from '@/lib/metro/osakaRoute'
-import { computeRoute } from '@/lib/metro/router'
 import type { BuiltNetwork } from '@/lib/metro'
 import type { Transit } from '@/lib/database.types'
-
-/**
- * Station picker over a metro map. Osaka keeps its hand-built artwork and its
- * own code-based router; every other network is drawn by NetworkMap straight
- * from its station coordinates and routed by the shared Dijkstra in router.ts.
- *
- * The two halves differ only in what a "key" is — an Osaka station CODE vs a
- * station ID elsewhere — so the picker keeps one selection state and asks the
- * active mode to turn a key into a label / a route.
- */
 
 export function MetroMapPicker({ net, onClose, onResult }: {
   net: BuiltNetwork
@@ -30,11 +18,7 @@ export function MetroMapPicker({ net, onClose, onResult }: {
   const [zoom, setZoom] = useState(1)
   const [q, setQ] = useState('')
 
-  const osaka = net.id === 'osaka'
-  const transit = useMemo<Transit | null>(() => {
-    if (!from || !to) return null
-    return osaka ? computeRouteByCode(from, to) : computeRoute(net, from, to)
-  }, [from, to, osaka, net])
+  const transit = useMemo<Transit | null>(() => (from && to ? computeRouteByCode(from, to) : null), [from, to])
 
   function tap(code: string) {
     if (!from) setFrom(code)
@@ -42,24 +26,10 @@ export function MetroMapPicker({ net, onClose, onResult }: {
     else if (!to) setTo(code)
     else { setFrom(code); setTo(null) }
   }
-  const label = (key: string | null) => {
-    if (!key) return ''
-    if (osaka) return `${stationName(key)} (${key})`
-    const s = net.stationById[key]
-    if (!s) return ''
-    const codes = codesOf(net, s).join(' / ')
-    return codes ? `${s.name} (${codes})` : s.name
-  }
+  const label = (code: string | null) => (code ? `${stationName(code)} (${code})` : '')
 
-  // one shape for both modes: `key` is what tap() and label() take
-  const options = useMemo<{ key: string; code: string; name: string }[]>(
-    () => (osaka
-      ? STATION_LIST.map((s) => ({ key: s.code, code: s.code, name: s.name }))
-      : net.stations.map((s) => ({ key: s.id, code: codesOf(net, s).join(' / '), name: s.name }))),
-    [osaka, net],
-  )
   const matches = q.trim()
-    ? options.filter((s) => {
+    ? STATION_LIST.filter((s) => {
         const t = q.trim().toLowerCase()
         return s.code.toLowerCase().includes(t) || s.name.toLowerCase().includes(t)
       }).slice(0, 8)
@@ -77,13 +47,13 @@ export function MetroMapPicker({ net, onClose, onResult }: {
       <div className="px-4 py-2.5 shrink-0 relative">
         <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface">
           <IconSearch size={16} className="text-ink-3" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหารหัส/ชื่อสถานี หรือแตะบนแผนที่"
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหารหัส/ชื่อสถานี หรือแตะกล่องบนแผนที่"
             className="flex-1 bg-transparent outline-none text-[13px]" />
         </div>
         {matches.length > 0 && (
           <div className="absolute left-4 right-4 mt-1 card p-1 shadow-lg z-20 max-h-60 overflow-y-auto">
             {matches.map((sn) => (
-              <button key={sn.key} onClick={() => { tap(sn.key); setQ('') }}
+              <button key={sn.code} onClick={() => { tap(sn.code); setQ('') }}
                 className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] hover:bg-surface-2">
                 <span className="font-medium">{sn.code}</span>
                 <span className="flex-1 text-left text-ink-2 truncate">{sn.name}</span>
@@ -96,9 +66,7 @@ export function MetroMapPicker({ net, onClose, onResult }: {
       {/* map (scrollable) + fixed zoom controls */}
       <div className="flex-1 relative min-h-0">
         <PinchZoomPane zoom={zoom} setZoom={(z) => setZoom(z)} min={0.6} max={2.6} className="absolute inset-0 overflow-auto bg-surface-2/40">
-          {osaka
-            ? <OsakaMetroMap from={from} to={to} zoom={zoom} onSelect={tap} />
-            : <NetworkMap net={net} from={from} to={to} zoom={zoom} onSelect={tap} />}
+          <OsakaMetroMap from={from} to={to} zoom={zoom} onSelect={tap} />
         </PinchZoomPane>
         <div className="absolute bottom-3 right-3 flex flex-col gap-1.5 z-10">
           <button onClick={() => setZoom((z) => Math.min(2.6, z + 0.3))} className="btn-icon bg-surface shadow"><IconPlus size={16} /></button>

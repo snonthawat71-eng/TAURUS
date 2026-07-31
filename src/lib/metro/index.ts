@@ -1,14 +1,10 @@
 import { buildNetwork } from './build'
 import { OSAKA } from './osaka'
-import { SINGAPORE } from './singapore'
 import type { BuiltNetwork } from './types'
 import type { Trip } from '@/lib/database.types'
 
-// Networks that carry station coordinates, so they can be drawn and tapped.
-// Osaka has bespoke artwork (OsakaMetroMap); everything else is generated from
-// its own coordinates by NetworkMap.
-export const NETWORKS: BuiltNetwork[] = [buildNetwork(OSAKA), buildNetwork(SINGAPORE)]
-const RAW = [OSAKA, SINGAPORE]
+export const NETWORKS: BuiltNetwork[] = [buildNetwork(OSAKA)]
+const RAW = [OSAKA]
 
 /** Find a metro network matching free text (e.g. a place's city). */
 export function getNetworkForText(text: string): BuiltNetwork | null {
