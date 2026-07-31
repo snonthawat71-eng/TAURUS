@@ -9,6 +9,7 @@ import { ExploreEditor } from '@/components/ExploreEditor'
 import { ExploreNotifications } from '@/components/ExploreNotifications'
 import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
+import { ScrollToTopBubble } from '@/components/ScrollToTopBubble'
 import { ExploreSuggestDialog } from '@/components/ExploreSuggestDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allPopularity, popularSet, type PopStat } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
@@ -241,6 +242,8 @@ export default function Explore() {
         onClose={() => setFav(null)} onChanged={refreshSaved} />
 
       <ExploreSuggestDialog place={suggest} open={!!suggest} onClose={() => setSuggest(null)} />
+
+      <ScrollToTopBubble />
     </div>
   )
 }
