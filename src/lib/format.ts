@@ -24,6 +24,28 @@ function parse(d: string | null | undefined): Date | null {
   return isNaN(dt.getTime()) ? null : dt
 }
 
+/** Today as `YYYY-MM-DD` in the user's OWN timezone.
+ *
+ *  `new Date().toISOString().slice(0, 10)` looks like the same thing and isn't:
+ *  it gives the date in UTC, so anywhere ahead of it (Bangkok is UTC+7) it still
+ *  reads as yesterday until mid-morning. Two screens counting down to the same
+ *  trip disagreed by a day every night because of exactly that. */
+export function todayISO(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/** Whole days from today until a trip starts (local, date-only). Negative once
+ *  it has started, null when undated. The number behind `tripCountdown`. */
+export function daysUntil(start: string | null | undefined): number | null {
+  const s = parse(start)
+  if (!s) return null
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const sd = new Date(s); sd.setHours(0, 0, 0, 0)
+  return Math.round((sd.getTime() - today.getTime()) / 86400000)
+}
+
 /** "12–18 Mar 2025" */
 export function formatDateRange(start: string | null, end: string | null): string {
   const a = parse(start)
@@ -53,10 +75,10 @@ export function dayCount(start: string | null, end: string | null): number {
  */
 export function tripCountdown(start: string | null, end: string | null): string | null {
   const s = parse(start)
-  if (!s) return null
+  const diff = daysUntil(start)
+  if (!s || diff == null) return null
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const sd = new Date(s); sd.setHours(0, 0, 0, 0)
-  const diff = Math.round((sd.getTime() - today.getTime()) / 86400000)
   if (diff > 1) return `อีก ${diff} วัน`
   if (diff === 1) return 'พรุ่งนี้'
   if (diff === 0) return 'วันนี้'

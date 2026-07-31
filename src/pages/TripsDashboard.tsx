@@ -14,7 +14,7 @@ import { TaurusLogo } from '@/components/TaurusLogo'
 import { AvatarStack } from '@/components/Avatar'
 import { PopMenu } from '@/components/PopMenu'
 import { ShareDialog } from '@/components/ShareDialog'
-import { formatDateRange, dayCount, tripCountdown } from '@/lib/format'
+import { formatDateRange, dayCount, tripCountdown, todayISO } from '@/lib/format'
 import { useWeather, tripCityCandidates } from '@/lib/weather'
 import { WeatherBadge } from '@/components/WeatherBadge'
 import { countryFlag } from '@/lib/countries'
@@ -82,7 +82,7 @@ function cld(url: string, transform: string): string {
 // sharp image fades in. A navy overlay over this dims the left side.
 /** Weather chip for a trip card — today's if the trip is on, else the start day. */
 function TripWeather({ trip, className }: { trip: Trip; className?: string }) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayISO() // local, so the past/upcoming split agrees with the countdown
   const date = trip.start_date
     ? (trip.end_date && today >= trip.start_date && today <= trip.end_date ? today : trip.start_date)
     : null

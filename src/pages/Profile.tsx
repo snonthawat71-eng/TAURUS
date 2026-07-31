@@ -13,6 +13,7 @@ import { listMyExplore, allPopularity, getExploreNotifs, type ExploreNotif } fro
 import { loadNotifState, markNotifRead } from '@/lib/notifRead'
 import { loyaltyTier } from '@/lib/loyalty'
 import { countryFlag } from '@/lib/countries'
+import { todayISO, daysUntil } from '@/lib/format'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 interface Stats { shared: number; views: number; saves: number; likes: number; comments: number }
@@ -74,7 +75,7 @@ export default function Profile() {
   }, [user?.id])
 
   const yearNum = new Date().getFullYear()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayISO()
 
   // travel stats + this-year goal bar
   const view = useMemo(() => {
@@ -88,9 +89,8 @@ export default function Profile() {
     const upcoming = trips
       .filter((t) => t.start_date && t.start_date >= today)
       .sort((a, b) => (a.start_date! < b.start_date! ? -1 : 1))[0] ?? null
-    const daysTo = upcoming?.start_date
-      ? Math.round((new Date(upcoming.start_date + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
-      : null
+    // shared with the trip cards' countdown chip, so the two can't drift apart
+    const daysTo = daysUntil(upcoming?.start_date)
     return { cities: cityKeys.size, thisYear, goal, slots, upcoming, daysTo }
   }, [trips, profile?.year_goal, yearNum, today])
 
