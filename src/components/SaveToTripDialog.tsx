@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   IconCheck, IconLoader2, IconHeartFilled, IconX, IconBuildingStore, IconChevronLeft, IconMapPin,
-  IconBookmark,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { useTrip } from '@/contexts/TripContext'
@@ -133,7 +132,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   const steps = [
     { key: 'trip', label: 'ทริป' },
     { key: 'day', label: 'วัน' },
-    ...(dayId && hasBranches ? [{ key: 'branch', label: 'สาขา' }] : []),
+    ...(hasBranches ? [{ key: 'branch', label: 'สาขา' }] : []),
   ]
   const curStep = steps.findIndex((s) => s.key === screen)
 
@@ -162,10 +161,13 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
     toast.success(day ? 'เซฟแล้ว · ใส่ลงวันให้ด้วย' : 'เซฟลงทริปแล้ว')
   }
 
-  /** Chose a day: ask the branch first when there is one, else write now. */
+  /** Chose a day. `dayId` is set only when a branch question follows it —
+   *  setting it unconditionally put the dialog on the branch screen for the
+   *  whole write, so a place with no branches flashed a branch step it should
+   *  never see. */
   function chooseDay(day: string | null) {
-    setDayId(day)
-    if (!day || !hasBranches) void finalSave(day, null)
+    if (day && hasBranches) { setDayId(day); return }
+    void finalSave(day, null)
   }
 
   /** A trip was chosen → load its days so the next screen can offer them. */
@@ -287,7 +289,24 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
       {screen === 'day' && (
         <div className="space-y-1.5">
           <div className="text-[13.5px] font-semibold">ใส่ลงวันเลยมั้ย?</div>
-          <p className="text-[11px] text-ink-3 mb-2">เซฟเข้าหน้า Location ให้อยู่แล้ว — เลือกวันตอนนี้ก็ได้ ไว้ทีหลังก็ได้</p>
+          <p className="text-[11px] text-ink-3 mb-2.5">เลือกวันตอนนี้ก็ได้ ไว้ทีหลังก็ได้</p>
+
+          {/* the plain save is the primary action — most saves are just
+              collecting a place, so it leads and looks like the main button */}
+          <button onClick={() => chooseDay(null)} disabled={busy}
+            className="btn-primary w-full h-12 flex flex-col items-center justify-center leading-tight disabled:opacity-50">
+            <span className="text-[14px] font-semibold flex items-center gap-1.5">
+              {busy && <IconLoader2 size={15} className="animate-spin" />} เซฟเข้าทริป
+            </span>
+            <span className="text-[10.5px] font-normal opacity-85">เก็บไว้ในหน้า Location ก่อน</span>
+          </button>
+
+          <div className="flex items-center gap-2 py-1.5">
+            <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
+            <span className="text-[11px] text-ink-3">หรือใส่ลงวันเลย</span>
+            <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
+          </div>
+
           {days == null ? (
             <div className="py-4 grid place-items-center text-ink-3"><IconLoader2 size={18} className="animate-spin" /></div>
           ) : days.length > 0 ? (
@@ -308,14 +327,6 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
               ทริปนี้ยังไม่มีวันในแผน — เซฟไว้ก่อน แล้วไปเพิ่มวันในหน้า Itinerary
             </div>
           )}
-          <button onClick={() => chooseDay(null)} disabled={busy} className={optionCard}>
-            {optionIcon(<IconBookmark size={16} />)}
-            <div className="min-w-0 flex-1">
-              <div className="text-[13.5px] font-medium">ยังไม่ใส่วัน</div>
-              <div className="text-[11px] text-ink-3 mt-0.5">เก็บไว้ในหน้า Location ก่อน</div>
-            </div>
-            {busy && <IconLoader2 size={16} className="animate-spin text-ink-3" />}
-          </button>
           {backBtn}
         </div>
       )}
