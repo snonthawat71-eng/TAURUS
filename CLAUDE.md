@@ -57,6 +57,7 @@ Supabase is the entire backend (auth + Postgres + storage + realtime). There is 
 - Trip workspace pages render inside `AppShell` (sidebar + mobile bottom nav + top bar): `/info` (Personal Information), `/itinerary`, `/places`, `/food`, `/plans`, `/budget`.
 
 **Pages & shared building blocks** (`src/pages/`, `src/components/`):
+- Metro maps (`src/lib/metro/`): Hong Kong / Shanghai / Shenzhen / Osaka each have a bespoke component drawn from geometry extracted out of official PDFs. Everything else is generated — a network that fills in `hubs` (a coordinate per station) gets a tappable map for free via `NetworkMap` + the shared `computeRoute`, which is how Singapore works. Osaka keeps its own artwork because the PDF geometry beats anything generated.
 - `Places`/`Food` both render the shared `PlaceGrid` (filter by category/city + search + card modes). `Itinerary` uses `@dnd-kit` to reorder days and stops; `MetroRoute`/`TransitEditor` render & edit the structured `transit` JSON stored on each stop.
 - Editing happens in `Drawer`-based editors (Drawers **portal to `document.body`** to escape the blurred top bar's stacking context). `PopMenu` is the shared `…` menu.
 
