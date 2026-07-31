@@ -47,7 +47,14 @@ export const SINGAPORE: MetroNetwork = {
         s('chinese-garden', 'Chinese Garden', 'EW25'), s('lakeside', 'Lakeside', 'EW26'), s('boon-lay', 'Boon Lay', 'EW27'),
         s('pioneer', 'Pioneer', 'EW28'), s('joo-koon', 'Joo Koon', 'EW29'), s('gul-circle', 'Gul Circle', 'EW30'),
         s('tuas-crescent', 'Tuas Crescent', 'EW31'), s('tuas-west-road', 'Tuas West Road', 'EW32'), s('tuas-link', 'Tuas Link', 'EW33'),
-        s('expo', 'Expo', 'CG1'), s('changi-airport', 'Changi Airport', 'CG2'),
+      ],
+    },
+    {
+      // สาขาไปสนามบิน แยกออกจาก EW ที่ Tanah Merah — ต้องเป็นสายของตัวเอง ไม่ใช่
+      // ต่อท้ายลิสต์ EW ไม่งั้นตัวคำนวณเส้นทางจะนึกว่า Tuas Link ติดกับ Expo
+      id: 'CG', name: 'CG Changi Airport Branch', color: '#009645',
+      stations: [
+        s('tanah-merah', 'Tanah Merah', 'CG'), s('expo', 'Expo', 'CG1'), s('changi-airport', 'Changi Airport', 'CG2'),
       ],
     },
     {

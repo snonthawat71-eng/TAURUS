@@ -8,8 +8,10 @@ import { MetroMapPicker } from './MetroMapPicker'
 import { HKMapViewer } from './HKMapViewer'
 import { ShanghaiMapViewer } from './ShanghaiMapViewer'
 import { ShenzhenMapViewer } from './ShenzhenMapViewer'
+import { SingaporeMapViewer } from './SingaporeMapViewer'
 import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip, getNetworkForText } from '@/lib/metro'
+import { isSingapore } from '@/lib/metro/singaporeNetwork'
 import { suggestionsFromText, findLine, legBetween } from '@/lib/metro/suggest'
 import { modeMeta } from '@/lib/transitModes'
 import { confirmDialog } from '@/lib/confirm'
@@ -82,12 +84,14 @@ export function TransitEditor({
   const hk = isHongKong(hay)
   const sh = isShanghai(hay)
   const sz = isShenzhen(hay)
+  const sg = isSingapore(hay)
   const [legs, setLegs] = useState<TransitLeg[]>([])
   const [busy, setBusy] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
   const [hkOpen, setHkOpen] = useState(false)
   const [shOpen, setShOpen] = useState(false)
   const [szOpen, setSzOpen] = useState(false)
+  const [sgOpen, setSgOpen] = useState(false)
   // which leg card is unfolded (null = all folded); new routes open leg 1
   const [openLeg, setOpenLeg] = useState<number | null>(0)
   // legs whose fare row is expanded (a filled fare always shows)
@@ -184,6 +188,13 @@ export function TransitEditor({
             className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
             style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
             <IconMap2 size={17} /> เลือกจากแผนที่ {net.name} (คำนวณจุดเปลี่ยนสายให้)
+          </button>
+        )}
+        {sg && (
+          <button onClick={() => setSgOpen(true)}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-md text-[13px] font-medium"
+            style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }}>
+            <IconMap2 size={17} /> เลือกจากแผนที่ MRT สิงคโปร์ (คำนวณจุดเปลี่ยนสายให้)
           </button>
         )}
         {hk && (
@@ -479,6 +490,8 @@ export function TransitEditor({
         onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setShOpen(false) }} />}
       {sz && szOpen && <ShenzhenMapViewer onClose={() => setSzOpen(false)}
         onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setSzOpen(false) }} />}
+      {sg && sgOpen && <SingaporeMapViewer onClose={() => setSgOpen(false)}
+        onResult={(t) => { setLegs(t.legs.map((l) => ({ ...l }))); setSgOpen(false) }} />}
     </Drawer>
   )
 }
