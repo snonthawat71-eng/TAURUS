@@ -77,6 +77,9 @@ export default function ExploreTop() {
           <IconArrowLeft size={18} />
         </button>
         <div className="absolute inset-x-0 bottom-0 p-4 max-w-[640px] mx-auto">
+          <div className="text-[9.5px] font-bold uppercase text-white/70 mb-1.5" style={{ letterSpacing: '.16em' }}>
+            {list?.flag} {list?.country}
+          </div>
           <h1 className="text-white text-[24px] font-extrabold leading-[1.15]" style={{ letterSpacing: '-.5px' }}>
             {TOP_LABEL}<br />{list?.city ?? ''}
           </h1>

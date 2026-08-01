@@ -67,6 +67,10 @@ export function ExploreTopBanner({ lists, onOpen }: {
       }} />
 
       <div className="absolute inset-0 p-4 flex flex-col justify-center pointer-events-none">
+        {/* country, not city — the city is the heading's second line already */}
+        <div className="text-[9.5px] font-bold uppercase text-white/70 mb-2" style={{ letterSpacing: '.16em' }}>
+          {cur.flag} {cur.country}
+        </div>
         <h3 className="text-white text-[24px] font-extrabold leading-[1.15]" style={{ letterSpacing: '-.5px' }}>
           {TOP_LABEL}<br />{cur.city}
         </h3>
