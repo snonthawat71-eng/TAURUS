@@ -108,12 +108,9 @@ export function buildTopLists(
   return lists.sort((a, b) => (b.saves + b.avgRating * 10) - (a.saves + a.avgRating * 10))
 }
 
-/** "ที่เด็ดในโตเกียว" for a Thai city name, "ที่เด็ดใน Tokyo" for a Latin one —
- *  Thai doesn't space its words, but running it straight into Latin letters
- *  reads as one broken word. */
-export function topTitle(city: string): string {
-  return `ที่เด็ดใน${/^[\u0E00-\u0E7F]/.test(city.trim()) ? '' : ' '}${city}`
-}
+/** Heading over a shortlist. Set on two lines — the label, then the city —
+ *  so a long city name never has to share a line with it. */
+export const TOP_LABEL = 'สถานที่ยอดฮิต'
 
 /** The lists to show for the current filter: every city, or just the picked
  *  country/city. Returns them in display order. */

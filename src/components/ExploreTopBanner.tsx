@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { IconChevronRight } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
-import { topTitle, type TopList } from '@/lib/exploreTop'
+import { TOP_LABEL, type TopList } from '@/lib/exploreTop'
 
 const AUTO_MS = 15000
 /** how far a finger has to travel before it counts as a swipe, not a tap */
@@ -67,11 +67,8 @@ export function ExploreTopBanner({ lists, onOpen }: {
       }} />
 
       <div className="absolute inset-0 p-4 flex flex-col justify-center pointer-events-none">
-        <div className="text-[9.5px] font-bold uppercase text-white/70" style={{ letterSpacing: '.16em' }}>
-          {cur.flag} {cur.city}
-        </div>
-        <h3 className="text-white text-[24px] font-extrabold leading-[1.1] mt-2" style={{ letterSpacing: '-.5px' }}>
-          {topTitle(cur.city)}
+        <h3 className="text-white text-[24px] font-extrabold leading-[1.15]" style={{ letterSpacing: '-.5px' }}>
+          {TOP_LABEL}<br />{cur.city}
         </h3>
       </div>
 

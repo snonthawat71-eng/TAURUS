@@ -10,7 +10,7 @@ import { useTrip } from '@/contexts/TripContext'
 import { listExplore, allPopularity, exploreAsPlace, type PopStat } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
 import { savedExploreIds } from '@/lib/placeMutations'
-import { buildTopLists, topTitle, type TopList, type TopEntry } from '@/lib/exploreTop'
+import { buildTopLists, TOP_LABEL, type TopList, type TopEntry } from '@/lib/exploreTop'
 import { catMeta } from '@/lib/placeMeta'
 import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 import { openMap } from '@/lib/maps'
@@ -77,11 +77,8 @@ export default function ExploreTop() {
           <IconArrowLeft size={18} />
         </button>
         <div className="absolute inset-x-0 bottom-0 p-4 max-w-[640px] mx-auto">
-          <div className="text-[9.5px] font-bold uppercase text-white/70" style={{ letterSpacing: '.16em' }}>
-            {list?.flag} {list?.city}
-          </div>
-          <h1 className="text-white text-[24px] font-extrabold mt-1.5" style={{ letterSpacing: '-.5px' }}>
-            {topTitle(list?.city ?? '')}
+          <h1 className="text-white text-[24px] font-extrabold leading-[1.15]" style={{ letterSpacing: '-.5px' }}>
+            {TOP_LABEL}<br />{list?.city ?? ''}
           </h1>
           <div className="text-white/[.8] text-[11.5px] mt-1.5 flex items-center gap-1.5">
             <span>{list?.entries.length ?? 0} ที่</span>
