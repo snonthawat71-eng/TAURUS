@@ -211,13 +211,27 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
 
   return (
     <>
+      {/* search */}
+      <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
+        <IconSearch size={16} className="text-ink-3" />
+        <input value={f.q}
+          onChange={(e) => {
+            const q = e.target.value
+            // starting a search while a country is open would hide the matches
+            // that live elsewhere — pop back to every country on the first
+            // character typed (drilling in again afterwards still works)
+            const opening = !f.q.trim() && !!q.trim() && f.country !== 'all'
+            set(opening ? { q, country: 'all', city: 'all' } : { q })
+          }}
+          placeholder="ค้นหาสถานที่ / ร้าน / เมือง / โน้ต"
+          className="flex-1 bg-transparent text-[13px] outline-none" />
+        {f.q && <button onClick={() => set({ q: '' })} aria-label="ล้างคำค้นหา" className="text-ink-3 hover:text-ink-2"><IconX size={15} /></button>}
+      </div>
+
       {/* Country → city browser. The two rails swap inside one slot: the country
           rail slides out left, the city rail slides in from the right. The
           country rail stays in flow (just hidden) so the row height never
-          changes and the list below never jumps.
-
-          Sits above the search box: picking where you're going is the first
-          thing anyone does here, and searching is the fallback. */}
+          changes and the list below never jumps. */}
       {countries.length > 0 && (
         <div className="relative overflow-hidden mb-3">
           {/* countries */}
@@ -296,23 +310,6 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
           </div>
         </div>
       )}
-
-      {/* search */}
-      <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
-        <IconSearch size={16} className="text-ink-3" />
-        <input value={f.q}
-          onChange={(e) => {
-            const q = e.target.value
-            // starting a search while a country is open would hide the matches
-            // that live elsewhere — pop back to every country on the first
-            // character typed (drilling in again afterwards still works)
-            const opening = !f.q.trim() && !!q.trim() && f.country !== 'all'
-            set(opening ? { q, country: 'all', city: 'all' } : { q })
-          }}
-          placeholder="ค้นหาสถานที่ / ร้าน / เมือง / โน้ต"
-          className="flex-1 bg-transparent text-[13px] outline-none" />
-        {f.q && <button onClick={() => set({ q: '' })} aria-label="ล้างคำค้นหา" className="text-ink-3 hover:text-ink-2"><IconX size={15} /></button>}
-      </div>
 
       {/* one flat scrolling row: เรียงตาม · ทั้งหมด · Places▾ · Food▾ … 🔥 ยอดนิยม */}
       <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">

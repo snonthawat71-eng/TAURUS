@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconPlus, IconArrowLeft, IconWorldSearch, IconRefresh, IconMapPin } from '@tabler/icons-react'
+import { IconPlus, IconArrowLeft, IconRefresh, IconMapPin } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { TaurusLogo } from '@/components/TaurusLogo'
@@ -183,13 +183,8 @@ export default function Explore() {
       </header>
 
       <main className="max-w-[640px] mx-auto px-4 sm:px-6 py-5">
-        <div className="flex items-center gap-1.5 mb-2">
-          <IconWorldSearch size={20} className="text-brand" />
-          <h1 className="text-[20px] font-medium">Explore</h1>
-        </div>
-
         {/* realtime status + manual refresh (in case realtime isn't delivering) */}
-        <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mb-4">
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mb-3">
           <span className="size-2 rounded-full shrink-0" style={{ background: live ? '#1E8E5A' : '#C99A3A' }} />
           <span>{live ? 'อัปเดตแบบเรียลไทม์' : 'ไม่ได้เชื่อมต่อเรียลไทม์'}</span>
           <button onClick={refreshAll} disabled={refreshing}
