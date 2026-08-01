@@ -15,10 +15,23 @@ import type { ExplorePlace, Place } from '@/lib/database.types'
 
 type Tab = 'all' | 'place' | 'food'
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'all', label: 'ทั้งหมด' },
-  { key: 'place', label: 'ที่เที่ยว' },
-  { key: 'food', label: 'ร้านอาหาร' },
+  { key: 'all', label: 'ALL' },
+  { key: 'place', label: 'PLACES' },
+  { key: 'food', label: 'FOOD' },
 ]
+
+/** The strip's fade into the page. A plain two-stop gradient to the canvas
+ *  colour banded badly and ended in a visible line; easing the alpha across
+ *  several stops dissolves it. color-mix keeps it correct in dark mode, where
+ *  the canvas colour is a different one. */
+const FADE = `linear-gradient(to bottom,
+  color-mix(in srgb, var(--color-canvas) 0%, transparent) 0%,
+  color-mix(in srgb, var(--color-canvas) 8%, transparent) 20%,
+  color-mix(in srgb, var(--color-canvas) 24%, transparent) 38%,
+  color-mix(in srgb, var(--color-canvas) 48%, transparent) 55%,
+  color-mix(in srgb, var(--color-canvas) 72%, transparent) 70%,
+  color-mix(in srgb, var(--color-canvas) 90%, transparent) 84%,
+  var(--color-canvas) 100%)`
 
 /**
  * A city's shortlist, opened from the Explore banner. A full page, not a sheet:
@@ -82,10 +95,9 @@ export default function ExploreTop() {
   return (
     <div className="min-h-dvh bg-canvas">
       {/* a strip of the city, dissolving into the page rather than a full hero */}
-      <div className="relative h-[118px] overflow-hidden" style={{ background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
+      <div className="relative h-[150px] overflow-hidden" style={{ background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
         {list?.photo && <SignedImage url={list.photo} alt="" className="w-full h-full object-cover" width={900} />}
-        <div className="absolute inset-x-0 bottom-0 h-11"
-          style={{ background: 'linear-gradient(transparent,var(--color-canvas))' }} />
+        <div className="absolute inset-x-0 bottom-0 h-[104px]" style={{ background: FADE }} />
         <button onClick={goBack} aria-label="ย้อนกลับ"
           className="absolute size-9 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm"
           style={{ top: 'calc(env(safe-area-inset-top,0px) + 12px)', left: 14 }}>
@@ -109,8 +121,9 @@ export default function ExploreTop() {
             const on = tab === t.key
             return (
               <button key={t.key} onClick={() => setTab(t.key)}
-                className={['relative pb-2.5 text-[14px] font-bold whitespace-nowrap flex items-center gap-1.5',
-                  on ? 'text-ink' : 'text-ink-3'].join(' ')}>
+                className={['relative pb-2.5 text-[12.5px] font-extrabold whitespace-nowrap flex items-center gap-1.5',
+                  on ? 'text-ink' : 'text-ink-3'].join(' ')}
+                style={{ letterSpacing: '.08em' }}>
                 {t.label}
                 <span className="text-[11px] font-bold rounded-full px-1.5 py-px"
                   style={on
