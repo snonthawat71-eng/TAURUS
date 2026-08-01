@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  IconArrowLeft, IconStarFilled, IconMapPin, IconHeartFilled, IconPlus, IconMap2,
-} from '@tabler/icons-react'
+import { IconArrowLeft, IconStarFilled, IconHeart, IconHeartFilled } from '@tabler/icons-react'
 import { SignedImage } from '@/components/SignedImage'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,14 +10,25 @@ import { allRatingStats } from '@/lib/exploreReviews'
 import { savedExploreIds } from '@/lib/placeMutations'
 import { buildTopLists, TOP_LABEL, type TopList, type TopEntry } from '@/lib/exploreTop'
 import { catMeta } from '@/lib/placeMeta'
-import { stationCode, lineColorFor } from '@/lib/metro/suggest'
-import { openMap } from '@/lib/maps'
 import { useBack } from '@/lib/useBack'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
-/** A city's must-see shortlist, opened from the Explore banner. A full page,
- *  not a sheet: it's a destination you can land on and share, and the ranked
- *  list is long enough that a sheet would fight the page behind it. */
+type Tab = 'all' | 'place' | 'food'
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'all', label: 'ทั้งหมด' },
+  { key: 'place', label: 'ที่เที่ยว' },
+  { key: 'food', label: 'ร้านอาหาร' },
+]
+
+/**
+ * A city's shortlist, opened from the Explore banner. A full page, not a sheet:
+ * it's a destination you can land on and share.
+ *
+ * Laid out as a photo grid because that's what the page is for — ten places to
+ * look at and pick from. The city photo is only a short strip that fades into
+ * the page: a full hero would compete with the ten photos below it, which are
+ * the actual content.
+ */
 export default function ExploreTop() {
   const { key = '' } = useParams()
   const navigate = useNavigate()
@@ -30,7 +39,7 @@ export default function ExploreTop() {
   const [lists, setLists] = useState<TopList[] | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [fav, setFav] = useState<Place | null>(null)
-  const [group, setGroup] = useState<'all' | 'place' | 'food'>('all')
+  const [tab, setTab] = useState<Tab>('all')
 
   const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
 
@@ -48,11 +57,16 @@ export default function ExploreTop() {
   async function refreshSaved() { setSavedSet(await savedExploreIds(myTripIds)) }
 
   const list = lists?.find((l) => l.key === key) ?? null
-  const shown = useMemo(() => {
-    if (!list) return []
-    if (group === 'all') return list.entries
-    return list.entries.filter((e) => (e.place.group_type ?? 'place') === group)
-  }, [list, group])
+  const groupOf = (e: TopEntry) => (e.place.group_type === 'food' ? 'food' : 'place')
+  const counts = useMemo(() => ({
+    all: list?.entries.length ?? 0,
+    place: list?.entries.filter((e) => groupOf(e) === 'place').length ?? 0,
+    food: list?.entries.filter((e) => groupOf(e) === 'food').length ?? 0,
+  }), [list])
+  const shown = useMemo(
+    () => (!list ? [] : tab === 'all' ? list.entries : list.entries.filter((e) => groupOf(e) === tab)),
+    [list, tab],
+  )
 
   if (lists && !list) {
     return (
@@ -67,57 +81,66 @@ export default function ExploreTop() {
 
   return (
     <div className="min-h-dvh bg-canvas">
-      {/* hero */}
-      <div className="relative h-[190px] overflow-hidden" style={{ background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
+      {/* a strip of the city, dissolving into the page rather than a full hero */}
+      <div className="relative h-[118px] overflow-hidden" style={{ background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
         {list?.photo && <SignedImage url={list.photo} alt="" className="w-full h-full object-cover" width={900} />}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(transparent 28%,rgba(4,18,38,.88))' }} />
+        <div className="absolute inset-x-0 bottom-0 h-11"
+          style={{ background: 'linear-gradient(transparent,var(--color-canvas))' }} />
         <button onClick={goBack} aria-label="ย้อนกลับ"
           className="absolute size-9 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm"
           style={{ top: 'calc(env(safe-area-inset-top,0px) + 12px)', left: 14 }}>
           <IconArrowLeft size={18} />
         </button>
-        <div className="absolute inset-x-0 bottom-0 p-4 max-w-[640px] mx-auto">
-          <div className="text-[9.5px] font-bold uppercase text-white/70 mb-1.5" style={{ letterSpacing: '.16em' }}>
-            {list?.flag} {list?.country}
-          </div>
-          <h1 className="text-white text-[24px] font-extrabold leading-[1.15]" style={{ letterSpacing: '-.5px' }}>
-            {TOP_LABEL}<br />{list?.city ?? ''}
-          </h1>
-          <div className="text-white/[.8] text-[11.5px] mt-1.5 flex items-center gap-1.5">
-            <span>{list?.entries.length ?? 0} ที่</span>
-            {!!list?.avgRating && (
-              <><span>·</span><IconStarFilled size={10} /><span className="tabular-nums">{list.avgRating.toFixed(1)}</span></>
-            )}
-            <span>·</span><span>เรียงจากคะแนนรีวิวและยอดเซฟจริง</span>
-          </div>
-        </div>
       </div>
 
-      <div className="max-w-[640px] mx-auto px-4 sm:px-6 py-4 pb-10">
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-3">
-          {([['all', 'ทั้งหมด'], ['place', 'ที่เที่ยว'], ['food', 'ร้านอาหาร']] as const).map(([k, label]) => (
-            <button key={k} onClick={() => setGroup(k)}
-              className={['h-8 px-3.5 rounded-full text-[12px] font-semibold whitespace-nowrap shrink-0 border',
-                group === k ? 'bg-ink text-white border-ink' : 'bg-surface text-ink-2 border-line-2'].join(' ')}>
-              {label}
-            </button>
-          ))}
+      <div className="max-w-[640px] mx-auto">
+        <div className="px-4 sm:px-6 pt-2.5 pb-3.5">
+          <div className="text-[9.5px] font-bold uppercase text-ink-3" style={{ letterSpacing: '.16em' }}>
+            {list?.flag} {list?.country}
+          </div>
+          <h1 className="text-[26px] font-extrabold leading-[1.13] mt-1.5" style={{ letterSpacing: '-.6px' }}>
+            {TOP_LABEL}<br />{list?.city ?? ''}
+          </h1>
         </div>
 
-        {!lists ? (
-          <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
-        ) : shown.length === 0 ? (
-          <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มีรายการในหมวดนี้</div>
-        ) : (
-          <div className="space-y-2.5">
-            {shown.map((e, n) => (
-              <Row key={e.place.id} entry={e} rank={n + 1}
-                saved={savedSet.has(e.place.id)}
-                onOpen={() => navigate(`/explore/p/${e.place.id}`)}
-                onSave={() => setFav(exploreAsPlace(e.place))} />
-            ))}
-          </div>
-        )}
+        <div className="flex gap-6 px-4 sm:px-6 overflow-x-auto no-scrollbar"
+          style={{ borderBottom: '0.5px solid var(--color-line)' }}>
+          {TABS.map((t) => {
+            const on = tab === t.key
+            return (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={['relative pb-2.5 text-[14px] font-bold whitespace-nowrap flex items-center gap-1.5',
+                  on ? 'text-ink' : 'text-ink-3'].join(' ')}>
+                {t.label}
+                <span className="text-[11px] font-bold rounded-full px-1.5 py-px"
+                  style={on
+                    ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)' }
+                    : { background: 'var(--color-surface-2)', color: 'var(--color-ink-3)' }}>
+                  {counts[t.key]}
+                </span>
+                {on && <span className="absolute left-0 right-0 -bottom-[0.5px] h-[2.5px] rounded-full bg-brand" />}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="px-4 sm:px-6 pt-3.5 pb-10">
+          {!lists ? (
+            <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
+          ) : shown.length === 0 ? (
+            <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มีรายการในหมวดนี้</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2.5">
+              {shown.map((e) => (
+                <Tile key={e.place.id} entry={e}
+                  rank={(list?.entries.indexOf(e) ?? 0) + 1}
+                  saved={savedSet.has(e.place.id)}
+                  onOpen={() => navigate(`/explore/p/${e.place.id}`)}
+                  onSave={() => setFav(exploreAsPlace(e.place))} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
@@ -126,7 +149,7 @@ export default function ExploreTop() {
   )
 }
 
-function Row({ entry, rank, saved, onOpen, onSave }: {
+function Tile({ entry, rank, saved, onOpen, onSave }: {
   entry: TopEntry
   rank: number
   saved: boolean
@@ -136,66 +159,52 @@ function Row({ entry, rank, saved, onOpen, onSave }: {
   const { place: p, rating, reason } = entry
   const meta = catMeta(p.category)
   const Icon = meta.icon
-  const line = p.routes?.[0]?.line ?? p.station_line
-  const station = p.routes?.[0]?.station ?? p.station_name
-  const code = stationCode(line, station)
-  // the first three get a gold badge — a podium reads faster than a number
+  const where = p.routes?.[0]?.station ?? p.station_name ?? p.city
+  // top three wear gold; the rest a plain white disc
   const podium = rank <= 3
 
   return (
-    <div className="card p-2.5 flex gap-3 relative">
-      <span className="absolute -left-1 -top-1.5 size-[26px] rounded-full grid place-items-center text-[12px] font-extrabold text-white z-10"
+    <div onClick={onOpen} role="button" tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpen() }}
+      className="relative h-[186px] rounded-[15px] overflow-hidden cursor-pointer bg-surface-2"
+      style={{ boxShadow: '0 3px 12px rgba(10,40,90,.1)' }}>
+      {p.photo_url
+        ? <SignedImage url={p.photo_url} alt="" className="w-full h-full object-cover" width={420} />
+        : <span className="w-full h-full grid place-items-center" style={{ background: meta.bg }}>
+            <Icon size={34} stroke={1.3} style={{ color: meta.fg, opacity: .85 }} />
+          </span>}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(transparent 40%,rgba(4,18,38,.85))' }} />
+
+      <span className="absolute left-2 top-2 size-[25px] rounded-full grid place-items-center text-[12px] font-extrabold"
         style={podium
-          ? { background: 'linear-gradient(135deg,#FFC93C,#E8A21B)', boxShadow: '0 3px 8px rgba(232,162,27,.45)' }
-          : { background: 'var(--color-brand)', boxShadow: '0 3px 8px rgba(2,112,251,.35)' }}>
+          ? { background: 'linear-gradient(135deg,#FFC93C,#E8A21B)', color: '#fff' }
+          : { background: 'rgba(255,255,255,.94)', color: 'var(--color-ink)' }}>
         {rank}
       </span>
 
-      <button onClick={onOpen} aria-label={p.name ?? ''}
-        className="w-[96px] h-[96px] rounded-[11px] overflow-hidden shrink-0 relative bg-surface-2">
-        {p.photo_url
-          ? <SignedImage url={p.photo_url} alt="" className="w-full h-full object-cover" width={280} />
-          : <span className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={26} stroke={1.4} style={{ color: meta.fg }} /></span>}
-        {!!rating?.count && (
-          <span className="absolute left-1 bottom-1 inline-flex items-center gap-0.5 rounded-full px-1.5 h-[17px] text-[10px] font-bold text-white"
-            style={{ background: 'rgba(0,0,0,.55)' }}>
-            <IconStarFilled size={9} style={{ color: '#F5A623' }} />
-            <span className="tabular-nums">{rating.avg.toFixed(1)}</span>
-          </span>
-        )}
+      <button onClick={(ev) => { ev.stopPropagation(); onSave() }}
+        aria-label={saved ? 'จัดการที่เซฟไว้' : 'เซฟเข้าทริป'}
+        className="absolute right-2 top-2 size-[30px] rounded-full grid place-items-center bg-white/[.92]"
+        style={{ color: saved ? 'var(--color-brand)' : 'var(--color-ink-3)' }}>
+        {saved ? <IconHeartFilled size={15} /> : <IconHeart size={15} />}
       </button>
 
-      <div className="min-w-0 flex-1">
-        <button onClick={onOpen} className="text-left w-full">
-          <div className="text-[14px] font-bold leading-snug line-clamp-2">{p.name}</div>
-          <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-1">
-            {code
-              ? <span className="rounded-full px-1.5 h-[15px] inline-flex items-center text-[8.5px] font-extrabold text-white shrink-0"
-                  style={{ background: lineColorFor(line) ?? p.station_color ?? '#888780' }}>{code}</span>
-              : <IconMapPin size={11} className="shrink-0" />}
-            <span className="truncate">{station || p.city}</span>
-          </div>
-        </button>
+      {reason && (
+        <span className="absolute left-2 right-2 bottom-[62px] inline-flex w-fit max-w-full items-center rounded-full px-2 py-0.5 text-[9px] font-extrabold truncate"
+          style={{ background: '#FFF4E0', color: '#B4690E' }}>{reason}</span>
+      )}
 
-        {reason && (
-          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold mt-1.5"
-            style={{ background: '#FFF4E0', color: '#B4690E' }}>{reason}</span>
-        )}
-
-        <div className="flex gap-1.5 mt-2">
-          <button onClick={onSave}
-            className="flex-1 h-[29px] rounded-[9px] text-[11.5px] font-bold inline-flex items-center justify-center gap-1"
-            style={saved
-              ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }
-              : { background: 'var(--color-brand)', color: '#fff' }}>
-            {saved ? <><IconHeartFilled size={13} /> เซฟแล้ว</> : <><IconPlus size={13} /> เซฟเข้าทริป</>}
-          </button>
-          {p.map_url && (
-            <button onClick={() => openMap(p.map_url)} aria-label="เปิดแผนที่"
-              className="w-[34px] h-[29px] rounded-[9px] bg-surface-2 text-ink-2 grid place-items-center">
-              <IconMap2 size={14} />
-            </button>
+      <div className="absolute inset-x-0 bottom-0 p-2.5 pointer-events-none">
+        <div className="text-white text-[13px] font-extrabold leading-[1.2] line-clamp-2">{p.name}</div>
+        <div className="text-white/[.85] text-[10.5px] mt-0.5 flex items-center gap-1 truncate">
+          {!!rating?.count && (
+            <>
+              <IconStarFilled size={9} />
+              <span className="tabular-nums">{rating.avg.toFixed(1)}</span>
+              <span>·</span>
+            </>
           )}
+          <span className="truncate">{where}</span>
         </div>
       </div>
     </div>

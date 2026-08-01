@@ -78,16 +78,17 @@ export function buildTopLists(
       .slice(0, MAX_PLACES)
 
     if (!scored.length) continue
-    // one badge each, and only where it says something the ranking doesn't
+    // one badge each, and only where it says something the ranking doesn't.
+    // Kept short: these sit on a narrow grid tile.
     const bestRated = scored.filter((e) => e.rating && e.rating.count > 0)
       .sort((a, b) => b.rating!.avg - a.rating!.avg)[0]
     const mostSaved = scored.filter((e) => (e.pop?.saves ?? 0) > 0)
       .sort((a, b) => (b.pop!.saves) - (a.pop!.saves))[0]
     const mostTalked = scored.filter((e) => (e.pop?.comments ?? 0) > 0)
       .sort((a, b) => (b.pop!.comments) - (a.pop!.comments))[0]
-    if (bestRated) bestRated.reason = `🏆 คะแนนสูงสุดในเมืองนี้`
+    if (bestRated) bestRated.reason = `🏆 คะแนนสูงสุด`
     if (mostSaved && !mostSaved.reason) mostSaved.reason = `🔥 ${mostSaved.pop!.saves} คนเซฟ`
-    if (mostTalked && !mostTalked.reason) mostTalked.reason = `💬 คุยกันเยอะที่สุด`
+    if (mostTalked && !mostTalked.reason) mostTalked.reason = `💬 คุยเยอะสุด`
 
     const rated = scored.filter((e) => e.rating && e.rating.count > 0)
     const country = canonicalCountry(places.find((p) => p.country)?.country) || ''
