@@ -3,7 +3,7 @@ import { IconChevronRight, IconStarFilled } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { topTitle, type TopList } from '@/lib/exploreTop'
 
-const AUTO_MS = 4000
+const AUTO_MS = 15000
 /** how far a finger has to travel before it counts as a swipe, not a tap */
 const SWIPE_PX = 40
 
