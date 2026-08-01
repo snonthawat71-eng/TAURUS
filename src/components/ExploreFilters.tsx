@@ -108,7 +108,7 @@ function Dropdown({ label, applied, width = 210, chevron = true, onActivate, chi
 /** Search box + a compact control bar: เรียงตาม (sort) · quick "ทั้งหมด" ·
  *  Places/Food category dropdowns · a prominent "ยอดนิยม" toggle. City cards
  *  stay below as their own visual row. */
-export function ExploreFilters({ items, f, set, showSort = true, userId }: {
+export function ExploreFilters({ items, f, set, showSort = true, userId, belowSearch }: {
   items: ExplorePlace[]
   f: ExploreFilterState
   set: (patch: Partial<ExploreFilterState>) => void
@@ -116,6 +116,8 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
   showSort?: boolean
   /** owner of the "seen new cities" record (badge clears per user) */
   userId?: string
+  /** rendered directly under the search box */
+  belowSearch?: React.ReactNode
 }) {
   const [seen, setSeen] = useState<Record<string, string>>(() => (userId ? loadSeen(userId) : {}))
 
@@ -227,6 +229,10 @@ export function ExploreFilters({ items, f, set, showSort = true, userId }: {
           className="flex-1 bg-transparent text-[13px] outline-none" />
         {f.q && <button onClick={() => set({ q: '' })} aria-label="ล้างคำค้นหา" className="text-ink-3 hover:text-ink-2"><IconX size={15} /></button>}
       </div>
+
+      {/* caller's slot — the "ที่เด็ด" banner sits here, directly under the
+          search box, without the search having to move out of this component */}
+      {belowSearch}
 
       {/* Country → city browser. The two rails swap inside one slot: the country
           rail slides out left, the city rail slides in from the right. The

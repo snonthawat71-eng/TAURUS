@@ -10,6 +10,7 @@ import { ExploreNotifications } from '@/components/ExploreNotifications'
 import { ExploreFilters } from '@/components/ExploreFilters'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { ScrollToTopBubble } from '@/components/ScrollToTopBubble'
+import { ExploreTopBanner } from '@/components/ExploreTopBanner'
 import { ExploreSuggestDialog } from '@/components/ExploreSuggestDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allPopularity, popularSet, type PopStat } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
@@ -19,6 +20,7 @@ import { confirmDialog } from '@/lib/confirm'
 import { useBack } from '@/lib/useBack'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { filterExplore, initialExploreFilter, type ExploreFilterState } from '@/lib/exploreFilter'
+import { buildTopLists, topListsFor } from '@/lib/exploreTop'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
 // Kept across route unmount (opening a place detail unmounts this page) so
@@ -51,6 +53,10 @@ export default function Explore() {
   const [live, setLive] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const popular = useMemo(() => popularSet(pop), [pop])
+  // "ที่เด็ด" banner: every city while browsing everything, then just the
+  // picked country/city — the banner follows the filter instead of ignoring it
+  const topAll = useMemo(() => buildTopLists(items, pop, ratings), [items, pop, ratings])
+  const topShown = useMemo(() => topListsFor(topAll, filter.country, filter.city), [topAll, filter.country, filter.city])
 
   async function refreshStats() {
     // fetch both BEFORE setting state — one atomic re-render, no partial sort
@@ -193,7 +199,8 @@ export default function Explore() {
           </button>
         </div>
 
-        <ExploreFilters items={items} f={filter} set={setF} userId={user?.id} />
+        <ExploreFilters items={items} f={filter} set={setF} userId={user?.id}
+          belowSearch={<ExploreTopBanner lists={topShown} onOpen={(l) => { cachedScroll = window.scrollY; cachedFilter = filter; navigate(`/explore/top/${l.key}`) }} />} />
 
         {loading ? (
           <div className="py-16 text-center text-[13px] text-ink-3">กำลังโหลด…</div>

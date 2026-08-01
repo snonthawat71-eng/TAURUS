@@ -52,6 +52,8 @@ Supabase is the entire backend (auth + Postgres + storage + realtime). There is 
 
 **"In the plan" is derived, never toggled.** A place is in the plan exactly when the trip's itinerary has a stop whose `place_name` matches it — `TripContext` computes that and overwrites `in_plan` on every place it hands out, so all the screens reading `p.in_plan` stay correct from one source of truth. The `places.in_plan` column still exists but nothing writes it meaningfully and nothing reads it directly. Saving from Explore always lands in the trip's Location list; the only follow-up asked is which day (optional), and a branch when a day was picked.
 
+**Explore's "ที่เด็ด" shortlists are computed, not curated.** `src/lib/exploreTop.ts` ranks each city's places from real review scores, saves, likes and views, and a city under `MIN_PLACES` gets no list at all. The auto-sliding `ExploreTopBanner` sits under the search box (via `ExploreFilters`' `belowSearch` slot) and follows the active country/city filter; tapping one opens the full `/explore/top/:key` page.
+
 **Permissions drive both UI and DB.** `canEdit`/`myPermission` from `TripContext` gate add/edit/delete affordances across pages; RLS independently blocks writes. `visibleNav(permission)` in `layout/nav.ts` hides pages for `places`-only members (they see only Places/Food/All plans and get a ⭐ "pin to my trip" copy action instead of editing).
 
 **Routing** (`App.tsx`, react-router v7):
