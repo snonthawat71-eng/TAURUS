@@ -5,7 +5,7 @@
 // One list per city. A city with only a couple of places doesn't get one — a
 // "top 10" that is simply "everything we have" is worth nothing.
 import { canonicalCountry, countryFlag } from './countries'
-import { cityImage } from './cityImages'
+import { tripCoverImage } from './cityImages'
 import type { ExplorePlace } from './database.types'
 import type { PopStat } from './exploreMutations'
 
@@ -96,7 +96,8 @@ export function buildTopLists(
       city,
       country,
       flag: countryFlag(country),
-      photo: cityImage(city) ?? scored.find((e) => e.place.photo_url)?.place.photo_url ?? null,
+      // the same cover the trip cards use, so a city looks the same everywhere
+      photo: tripCoverImage(city) ?? scored.find((e) => e.place.photo_url)?.place.photo_url ?? null,
       entries: scored,
       avgRating: rated.length ? rated.reduce((s, e) => s + e.rating!.avg, 0) / rated.length : 0,
       saves: scored.reduce((s, e) => s + (e.pop?.saves ?? 0), 0),

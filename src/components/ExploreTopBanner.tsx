@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconChevronRight, IconStarFilled } from '@tabler/icons-react'
+import { IconChevronRight } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { topTitle, type TopList } from '@/lib/exploreTop'
 
@@ -73,17 +73,6 @@ export function ExploreTopBanner({ lists, onOpen }: {
         <h3 className="text-white text-[24px] font-extrabold leading-[1.1] mt-2" style={{ letterSpacing: '-.5px' }}>
           {topTitle(cur.city)}
         </h3>
-        <div className="text-white/[.78] text-[11px] font-medium mt-2 flex items-center gap-1.5">
-          <span>{cur.entries.length} ที่</span>
-          {cur.avgRating > 0 && (
-            <>
-              <span>·</span>
-              <IconStarFilled size={10} />
-              <span className="tabular-nums">{cur.avgRating.toFixed(1)}</span>
-            </>
-          )}
-          {cur.saves > 0 && <><span>·</span><span>{cur.saves} คนเซฟ</span></>}
-        </div>
       </div>
 
       <span className="absolute right-4 bottom-4 inline-flex items-center gap-1.5 text-white text-[12px] font-bold pointer-events-none">
