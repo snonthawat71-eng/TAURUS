@@ -5,7 +5,7 @@
 // One list per city. A city with only a couple of places doesn't get one — a
 // "top 10" that is simply "everything we have" is worth nothing.
 import { canonicalCountry, countryFlag } from './countries'
-import { tripCoverImage } from './cityImages'
+import { tripCoverImage, KNOWN_CITIES } from './cityImages'
 import type { ExplorePlace } from './database.types'
 import type { PopStat } from './exploreMutations'
 
@@ -107,6 +107,16 @@ export function buildTopLists(
 
   // strongest city first: the one whose shortlist people actually engage with
   return lists.sort((a, b) => (b.saves + b.avgRating * 10) - (a.saves + a.avgRating * 10))
+}
+
+/** The city photo for a shortlist url, worked out from the slug alone.
+ *
+ *  The page can start loading (and colour-sampling) the photo on mount instead
+ *  of waiting for the whole Explore list to arrive first — which is what made
+ *  the status-bar tint flash one colour and then change. */
+export function coverForKey(key: string): string | null {
+  const city = KNOWN_CITIES.find((c) => slug(c) === key)
+  return city ? tripCoverImage(city) ?? null : null
 }
 
 /** Heading over a shortlist. Set on two lines — the label, then the city —

@@ -39,6 +39,12 @@ export const COUNTRY_IMAGES: Record<string, string> = {
   'Japan': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1785145207/tommy-silver-cCw6KQVJnyU-unsplash_jpazah.jpg',
 }
 
+/** Every city we ship a cover photo for. Lets a caller resolve a city from a
+ *  url slug without waiting for any data to load. */
+export const KNOWN_CITIES: string[] = [
+  ...new Set([...Object.keys(TRIP_COVER_IMAGES), ...Object.keys(CITY_IMAGES)]),
+]
+
 const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
 
 /** Country-card cover. `undefined` means "no dedicated photo yet" — the caller

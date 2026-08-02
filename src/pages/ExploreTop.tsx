@@ -8,7 +8,7 @@ import { useTrip } from '@/contexts/TripContext'
 import { listExplore, allPopularity, exploreAsPlace, type PopStat } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
 import { savedExploreIds } from '@/lib/placeMutations'
-import { buildTopLists, TOP_LABEL, type TopList, type TopEntry } from '@/lib/exploreTop'
+import { buildTopLists, coverForKey, TOP_LABEL, type TopList, type TopEntry } from '@/lib/exploreTop'
 import { catMeta } from '@/lib/placeMeta'
 import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { useBack } from '@/lib/useBack'
@@ -80,7 +80,10 @@ export default function ExploreTop() {
   async function refreshSaved() { setSavedSet(await savedExploreIds(myTripIds)) }
 
   const list = lists?.find((l) => l.key === key) ?? null
-  useEffect(() => tintChromeFromPhoto(list?.photo), [list?.photo])
+  // Known from the url on the very first render, so the photo and its
+  // status-bar tint land immediately instead of after the list request.
+  const photo = list?.photo ?? coverForKey(key)
+  useEffect(() => tintChromeFromPhoto(photo), [photo])
   const groupOf = (e: TopEntry) => (e.place.group_type === 'food' ? 'food' : 'place')
   const counts = useMemo(() => ({
     all: list?.entries.length ?? 0,
@@ -108,7 +111,7 @@ export default function ExploreTop() {
       {/* the city photo as a backdrop the heading sits on, not a band above it */}
       <div className="absolute inset-x-0 top-0 h-[340px] overflow-hidden pointer-events-none"
         style={{ background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
-        {list?.photo && <SignedImage url={list.photo} alt="" className="w-full h-full object-cover" width={900} />}
+        {photo && <SignedImage url={photo} alt="" className="w-full h-full object-cover" width={900} />}
         <div className="absolute inset-x-0 bottom-0 h-[250px]" style={{ background: FADE }} />
       </div>
 
