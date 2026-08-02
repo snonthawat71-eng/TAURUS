@@ -21,6 +21,7 @@ import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { openMap } from '@/lib/maps'
 import { sharePlace } from '@/lib/share'
+import { buildShareCard } from '@/lib/shareCard'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import {
@@ -73,6 +74,9 @@ export default function ExplorePlaceDetail() {
   const [sending, setSending] = useState(false)
 
   const [fav, setFav] = useState<Place | null>(null)
+  // drawn ahead of the tap: Safari won't open the share sheet if we await the
+  // photo inside the handler
+  const [card, setCard] = useState<File | null>(null)
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -101,6 +105,19 @@ export default function ExplorePlaceDetail() {
   // paint the status-bar zone (and pull-down overscroll) the colour of the
   // photo's top edge so the image looks like it runs to the very top
   useEffect(() => tintChromeFromPhoto(e?.photo_url, window.innerWidth / 600), [e?.photo_url])
+
+  useEffect(() => {
+    setCard(null)
+    if (!e) return
+    let off = false
+    const m = catMeta(e.category)
+    void buildShareCard({
+      name: e.name, city: e.city, country: e.country, photoUrl: e.photo_url,
+      rating: reviews.stat.avg, ratedCount: reviews.stat.count,
+      category: { label: m.label, bg: m.bg, fg: m.fg },
+    }).then((f) => { if (!off) setCard(f) })
+    return () => { off = true }
+  }, [e?.id, e?.photo_url, e?.category, reviews.stat.avg, reviews.stat.count]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasOwnLocation = !!(e && (e.map_url || e.station_name || e.station_line))
   useEffect(() => { setBranchIdx(e?.branches?.length && !hasOwnLocation ? 0 : null) }, [e?.id, hasOwnLocation, e?.branches?.length])
@@ -281,11 +298,12 @@ export default function ExplorePlaceDetail() {
           style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '0.5px solid rgba(255,255,255,.3)' }}>
           <IconArrowLeft size={20} />
         </button>
-        {/* share out of the app — the pin travels as a plain map link, so
-            whoever gets it can open it without an account here */}
+        {/* share out of the app — a drawn card plus this page's link */}
         <button onClick={() => void sharePlace({
           name: e.name, city: e.city, country: e.country,
-          mapUrl,
+          photoUrl: e.photo_url, rating, ratedCount: rated,
+          category: { label: meta.label, bg: meta.bg, fg: meta.fg },
+          card, mapUrl,
           appUrl: `${window.location.origin}/explore/p/${e.id}`,
         })} aria-label="แชร์สถานที่นี้"
           className="absolute z-10 size-10 rounded-full grid place-items-center text-white shadow-md"

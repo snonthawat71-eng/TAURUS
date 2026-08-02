@@ -9,6 +9,7 @@ import { BranchPicker } from './BranchPicker'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import { sharePlace } from '@/lib/share'
+import { buildShareCard } from '@/lib/shareCard'
 import { getSignedUrl } from '@/lib/files'
 import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 
@@ -41,6 +42,8 @@ export function PlaceDetail({
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
   // full-size photo viewer — index into the extra-photos gallery (null = closed)
   const [lightbox, setLightbox] = useState<number | null>(null)
+  // drawn while the drawer is open, so the tap itself can open the share sheet
+  const [card, setCard] = useState<File | null>(null)
   const hasOwnLocation = !!(place && (place.map_url || place.station_name || place.station_line))
   useEffect(() => {
     // planned place: default to the branch that was picked for the plan;
@@ -52,6 +55,23 @@ export function PlaceDetail({
     setBranchIdx(place?.branches?.length && !hasOwnLocation ? 0 : null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [place?.id, hasOwnLocation, place?.branches?.length, place?.plan_branch, place?.in_plan])
+
+  useEffect(() => {
+    setCard(null)
+    if (!open || !place) return
+    let off = false
+    const m = catMeta(place.category)
+    ;(async () => {
+      // the cover may live in the private bucket — sign it so the card can draw it
+      const photoUrl = place.photo_url ?? (place.photo_path ? await getSignedUrl(place.photo_path) : null)
+      const f = await buildShareCard({
+        name: place.name, city: place.city, photoUrl,
+        category: { label: m.label, bg: m.bg, fg: m.fg },
+      })
+      if (!off) setCard(f)
+    })()
+    return () => { off = true }
+  }, [open, place?.id, place?.photo_url, place?.photo_path, place?.category, place?.city, place?.name])
 
   if (!place) return null
   const meta = catMeta(place.category)
@@ -69,6 +89,16 @@ export function PlaceDetail({
   const lineText = sel ? sel.line : place.station_line
   const stationText = sel ? sel.station : place.station_name
   const mapUrl = sel?.map_url || place.map_url
+
+  async function shareThis() {
+    if (!place) return
+    await sharePlace({
+      name: place.name, city: place.city,
+      category: { label: meta.label, bg: meta.bg, fg: meta.fg },
+      card, mapUrl,
+      appUrl: place.source_explore_id ? `${window.location.origin}/explore/p/${place.source_explore_id}` : null,
+    })
+  }
 
   return (
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
@@ -106,8 +136,9 @@ export function PlaceDetail({
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            {/* out of the app — name, city and a map link anyone can open */}
-            <button onClick={() => void sharePlace({ name: place.name, city: place.city, mapUrl })}
+            {/* out of the app — a drawn card, plus the place's own page here
+                when it came from Explore, else its map pin */}
+            <button onClick={() => void shareThis()}
               className="btn-icon !size-8" aria-label="แชร์สถานที่นี้" title="แชร์สถานที่นี้"><IconShare2 size={15} /></button>
             {onShare && <button onClick={onShare} className="btn-icon !size-8" aria-label="แชร์ไป Explore" title="แชร์ไป Explore"><IconWorldShare size={15} /></button>}
             {onEdit && <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไข"><IconPencil size={15} /></button>}
