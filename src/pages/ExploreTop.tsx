@@ -106,7 +106,7 @@ export default function ExploreTop() {
           ) : undefined}
         />
 
-        <div className="pt-4 pb-10 space-y-7">
+        <div className="relative pt-4 pb-10 space-y-7">
           {!lists ? (
             <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
           ) : (

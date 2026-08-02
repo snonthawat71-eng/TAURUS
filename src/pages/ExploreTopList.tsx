@@ -115,7 +115,7 @@ export default function ExploreTopList() {
           ) : undefined}
         />
 
-        <div className="px-4 sm:px-6 pt-3 pb-10">
+        <div className="relative px-4 sm:px-6 pt-3 pb-10">
           {!lists ? (
             <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
           ) : shown.length === 0 ? (

@@ -49,7 +49,10 @@ export function TopHero({ photo, eyebrow, title, onBack, right, bottom }: {
         <div className="absolute inset-x-0 bottom-0 h-[250px]" style={{ background: FADE }} />
       </div>
 
-      <div className="flex flex-col justify-between" style={{ minHeight: HERO_H }}>
+      {/* `relative` is load-bearing: the backdrop above is positioned, and CSS
+          paints positioned boxes AFTER plain text — without it the heading is
+          drawn under the photo and simply vanishes */}
+      <div className="relative flex flex-col justify-between" style={{ minHeight: HERO_H }}>
         <div className="px-4 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 12px)' }}>
           <div className="flex items-center">
             <button onClick={onBack} aria-label="ย้อนกลับ"
