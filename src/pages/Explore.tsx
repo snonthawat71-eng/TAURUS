@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { IconPlus, IconArrowLeft, IconRefresh, IconMapPin } from '@tabler/icons-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
@@ -42,7 +42,13 @@ export default function Explore() {
   const [items, setItems] = useState<ExplorePlace[]>(cachedItems ?? [])
   const [loading, setLoading] = useState(!cachedItems)
   const [error, setError] = useState(false)
-  const [filter, setFilter] = useState<ExploreFilterState>(cachedFilter ?? initialExploreFilter)
+  // A page can hand Explore a filter to open on — the country page's
+  // "ดูทั้งหมด" links do, so the list arrives already narrowed to the country
+  // (and city) you were looking at. A preset wins over the remembered filter.
+  const preset = (useLocation().state as { filter?: Partial<ExploreFilterState> } | null)?.filter
+  const [filter, setFilter] = useState<ExploreFilterState>(
+    preset ? { ...initialExploreFilter, ...preset } : cachedFilter ?? initialExploreFilter,
+  )
   const setF = (patch: Partial<ExploreFilterState>) => setFilter((s) => ({ ...s, ...patch }))
   const [editor, setEditor] = useState<ExplorePlace | 'new' | null>(null)
   const [fav, setFav] = useState<Place | null>(null)
@@ -127,7 +133,8 @@ export default function Explore() {
   // paint — no flash at the top, no late correction (the browser's own
   // restoration is disabled globally; see ScrollManager in App.tsx)
   useLayoutEffect(() => {
-    if (cachedItems) window.scrollTo(0, cachedScroll)
+    // arriving on a preset filter is a fresh view, not a return — start at the top
+    if (cachedItems) window.scrollTo(0, preset ? 0 : cachedScroll)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

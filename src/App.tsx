@@ -12,7 +12,6 @@ import Explore from '@/pages/Explore'
 import ExploreManage from '@/pages/ExploreManage'
 import ExplorePlaceDetail from '@/pages/ExplorePlaceDetail'
 import ExploreTop from '@/pages/ExploreTop'
-import ExploreTopList from '@/pages/ExploreTopList'
 import Profile from '@/pages/Profile'
 import TripInfo from '@/pages/TripInfo'
 import Itinerary from '@/pages/Itinerary'
@@ -183,8 +182,6 @@ export default function App() {
           <Route path="/explore/mine" element={<ExploreManage />} />
           <Route path="/explore/p/:id" element={<ExplorePlaceDetail />} />
           <Route path="/explore/top/:key" element={<ExploreTop />} />
-          <Route path="/explore/top/:key/new" element={<ExploreTopList />} />
-          <Route path="/explore/top/:key/city/:city" element={<ExploreTopList />} />
           <Route path="/profile" element={<Profile />} />
           <Route element={<AppShell />}>
             <Route path="/info" element={<TripInfo />} />

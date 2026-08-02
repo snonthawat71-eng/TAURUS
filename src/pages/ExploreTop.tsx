@@ -14,7 +14,7 @@ import { savedExploreIds } from '@/lib/placeMutations'
 import { listExplore, allPopularity, exploreAsPlace, type PopStat } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
 import {
-  buildTopLists, coverForKey, countryForKey, slugify, MAX_PLACES, TOP_BUCKETS,
+  buildTopLists, coverForKey, countryForKey, MAX_PLACES, TOP_BUCKETS,
   type RatingStat, type TopBucket, type TopList,
 } from '@/lib/exploreTop'
 import { hscroll } from '@/lib/hscroll'
@@ -106,6 +106,8 @@ export default function ExploreTop() {
   const cities = list?.cities ?? []
   const recent = list?.recent ?? []
   const open = (id: string) => navigate(`/explore/p/${id}`)
+  const browse = (filter: { country: string; city: string }) =>
+    navigate('/explore', { state: { filter: { ...filter, sort: 'new' } } })
 
   /** the ranked ten behind the card that's showing */
   const top = useMemo(() => (list?.entries ?? [])
@@ -163,8 +165,11 @@ export default function ExploreTop() {
             <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
           ) : (
             <>
+              {/* "ดูทั้งหมด" hands Explore the filter and lets its own list do
+                  the browsing — a second full list here would be the same page
+                  with a different header */}
               <Rail title="เพิ่งเพิ่มล่าสุด"
-                onAll={() => navigate(`/explore/top/${key}/new`)}
+                onAll={() => browse({ country, city: 'all' })}
                 items={recent.slice(0, RAIL_MAX)} ratings={ratings}
                 sub={(p) => p.city} onOpen={open} />
 
@@ -175,7 +180,7 @@ export default function ExploreTop() {
                 if (!mine.length) return null
                 return (
                   <Rail key={c.name} title={c.name}
-                    onAll={() => navigate(`/explore/top/${key}/city/${slugify(c.name)}`)}
+                    onAll={() => browse({ country, city: c.name })}
                     items={mine.slice(0, RAIL_MAX)} ratings={ratings}
                     sub={(p) => p.routes?.[0]?.station ?? p.station_name} onOpen={open} />
                 )
