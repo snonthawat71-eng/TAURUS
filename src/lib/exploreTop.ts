@@ -58,13 +58,17 @@ export interface TopList {
   photo: string | null
   /** every place in the country, ranked — filtered and sliced by the page */
   entries: TopEntry[]
+  /** the same places in the order they were shared, newest first */
+  recent: ExplorePlace[]
   cities: TopCity[]
   /** average of the entries that carry a real rating */
   avgRating: number
   saves: number
 }
 
-const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9ก-๙]+/gi, '-').replace(/^-|-$/g, '')
+/** url-safe id for a country or city name */
+export const slugify = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9ก-๙]+/gi, '-').replace(/^-|-$/g, '')
+const slug = slugify
 
 /** Rank within a country: a real review score outweighs popularity, but a place
  *  nobody has rated can still get there on saves alone. */
@@ -126,6 +130,7 @@ export function buildTopLists(
       flag: countryFlag(country),
       photo: coverFor(country) ?? cities[0]?.photo ?? scored.find((e) => e.place.photo_url)?.place.photo_url ?? null,
       entries: scored,
+      recent: places,
       cities,
       avgRating: rated.length ? rated.reduce((s, e) => s + e.rating!.avg, 0) / rated.length : 0,
       saves: scored.reduce((s, e) => s + (e.pop?.saves ?? 0), 0),
