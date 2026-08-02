@@ -155,7 +155,10 @@ export function RailCard({ place: p, rating, sub, onOpen }: {
   const meta = catMeta(p.category)
   const Icon = meta.icon
   return (
-    <button onClick={onOpen} className="shrink-0 w-[150px] text-left">
+    // self-start: a stretched <button> centres its own contents, which was
+    // floating the shorter cards' photos and names out of line with the taller
+    // ones. Left to itself each card is exactly as tall as it needs to be.
+    <button onClick={onOpen} className="shrink-0 self-start w-[150px] text-left">
       <div className="relative h-[112px] rounded-[12px] overflow-hidden bg-surface-2"
         style={{ boxShadow: '0 2px 10px rgba(10,40,90,.09)' }}>
         {p.photo_url
@@ -170,7 +173,9 @@ export function RailCard({ place: p, rating, sub, onOpen }: {
           </span>
         )}
       </div>
-      <div className="text-[13px] font-extrabold leading-[1.25] mt-1.5 line-clamp-2">{p.name}</div>
+      {/* always two lines tall, so a one-line name starts on the same row as a
+          two-line one and the grey line under it stays level across the rail */}
+      <div className="text-[13px] font-extrabold leading-[1.25] mt-1.5 line-clamp-2 min-h-[33px]">{p.name}</div>
       {sub && <div className="text-[11.5px] text-ink-3 truncate mt-0.5">{sub}</div>}
     </button>
   )

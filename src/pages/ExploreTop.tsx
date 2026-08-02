@@ -163,7 +163,7 @@ export default function ExploreTop() {
             <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
           ) : (
             <>
-              <Rail title="เพิ่งเพิ่มล่าสุด" count={recent.length}
+              <Rail title="เพิ่งเพิ่มล่าสุด"
                 onAll={() => navigate(`/explore/top/${key}/new`)}
                 items={recent.slice(0, RAIL_MAX)} ratings={ratings}
                 sub={(p) => p.city} onOpen={open} />
@@ -174,7 +174,7 @@ export default function ExploreTop() {
                 const mine = recent.filter((p) => (p.city ?? '').trim() === c.name)
                 if (!mine.length) return null
                 return (
-                  <Rail key={c.name} title={c.name} count={mine.length}
+                  <Rail key={c.name} title={c.name}
                     onAll={() => navigate(`/explore/top/${key}/city/${slugify(c.name)}`)}
                     items={mine.slice(0, RAIL_MAX)} ratings={ratings}
                     sub={(p) => p.routes?.[0]?.station ?? p.station_name} onOpen={open} />
@@ -189,7 +189,6 @@ export default function ExploreTop() {
                     <h2 className="text-[17px] font-extrabold leading-none" style={{ letterSpacing: '-.3px' }}>
                       {buckets.find((b) => b.key === bucket)?.label}
                     </h2>
-                    <span className="text-[12px] text-ink-3 leading-none">{top.length} ที่</span>
                     <button onClick={() => setOpened(false)}
                       className="ml-auto text-[12.5px] font-semibold text-ink-3 leading-none">ซ่อน</button>
                   </div>
@@ -216,9 +215,8 @@ export default function ExploreTop() {
 }
 
 /** A titled horizontal rail with a "ดูทั้งหมด" out to the full list. */
-function Rail({ title, count, items, ratings, sub, onAll, onOpen }: {
+function Rail({ title, items, ratings, sub, onAll, onOpen }: {
   title: string
-  count: number
   items: ExplorePlace[]
   ratings: Map<string, RatingStat>
   sub: (p: ExplorePlace) => string | null | undefined
@@ -230,7 +228,6 @@ function Rail({ title, count, items, ratings, sub, onAll, onOpen }: {
     <section>
       <div className="flex items-end gap-2 px-4 sm:px-6 mb-2.5">
         <h2 className="text-[17px] font-extrabold leading-none" style={{ letterSpacing: '-.3px' }}>{title}</h2>
-        <span className="text-[12px] text-ink-3 leading-none">{count} ที่</span>
         <button onClick={onAll} className="ml-auto inline-flex items-center gap-1 text-[12.5px] font-semibold text-brand leading-none">
           ดูทั้งหมด <IconArrowRight size={14} />
         </button>
