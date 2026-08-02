@@ -215,14 +215,16 @@ export default function ExploreTop() {
 
 /** how far a finger has to travel before it counts as a swipe, not a tap */
 const SWIPE_PX = 40
-/** gutter between the cards while one slides past */
-const GAP = 10
 
 /**
- * The filter carousel: one wide card per filter (สถานที่ / ร้านอาหาร / คาเฟ่),
- * swiped like the Explore banner. The card you're looking at IS the filter, so
- * there's no separate "apply" — and the next one peeks in from the right so the
- * swipe doesn't have to be guessed at. Tapping the peeking card works too.
+ * The filter carousel: one card per filter (Places / Food / Cafe), worked
+ * exactly like the Explore banner — the card stays put and its photo
+ * cross-fades, rather than a track sliding sideways, which is what made
+ * mid-swipe look like two half cards. No auto-advance: this is a filter, and
+ * one that changed on its own would be maddening.
+ *
+ * The card you're looking at IS the filter. Swipe, tap a dot, or tap the card
+ * to move to the next one.
  */
 function FilterSlider({ options, active, onPick }: {
   options: { key: TopBucket; label: string; count: number; photo: string | null }[]
@@ -230,64 +232,66 @@ function FilterSlider({ options, active, onPick }: {
   onPick: (b: TopBucket) => void
 }) {
   const i = Math.max(0, options.findIndex((o) => o.key === active))
+  const cur = options[i]
   const startX = useRef<number | null>(null)
   const moved = useRef(0)
 
-  const go = (d: number) => {
-    const n = Math.min(options.length - 1, Math.max(0, i + d))
-    if (n !== i) onPick(options[n].key)
-  }
+  const go = (d: number) => onPick(options[(i + d + options.length) % options.length].key)
 
   return (
-    <div className="mx-4 sm:mx-6">
-      {/* the clip has to be the content box, not a padded one: the card that
-          slid off would otherwise leave a sliver in the page margin. py/-my
-          gives the card's shadow room to fall without costing layout height. */}
-      <div className="overflow-hidden py-6 -my-6 select-none touch-pan-y"
-        onPointerDown={(e) => { startX.current = e.clientX; moved.current = 0 }}
-        onPointerMove={(e) => { if (startX.current != null) moved.current = e.clientX - startX.current }}
-        onPointerUp={() => {
-          if (Math.abs(moved.current) >= SWIPE_PX) go(moved.current < 0 ? 1 : -1)
-          startX.current = null
-        }}
-        onPointerCancel={() => { startX.current = null }}>
-        <div className="flex transition-transform duration-300 ease-out"
-          style={{ gap: GAP, transform: `translateX(calc(${-i * 100}% - ${i * GAP}px))` }}>
-          {options.map((o) => {
-            const Icon = BUCKET_ICON[o.key]
-            const tint = BUCKET_TINT[o.key]
-            return (
-              // a swipe ends in a click on whatever card the finger left —
-              // ignore it, or the slide would immediately snap back
-              <button key={o.key} onClick={() => { if (Math.abs(moved.current) < SWIPE_PX) onPick(o.key) }}
-                className="relative shrink-0 w-full h-[168px] rounded-[16px] overflow-hidden text-left"
-                style={{ background: tint.bg, boxShadow: '0 6px 18px rgba(10,40,90,.15)' }}>
-                {o.photo
-                  ? <SignedImage url={o.photo} alt="" className="w-full h-full object-cover" width={700} />
-                  : <span className="w-full h-full grid place-items-center">
-                      <Icon size={38} stroke={1.3} style={{ color: tint.fg, opacity: .85 }} />
-                    </span>}
-                <span className="absolute inset-0" style={{
-                  background: 'linear-gradient(95deg,rgba(4,18,38,.9) 0%,rgba(4,18,38,.6) 44%,rgba(4,18,38,.06) 82%)',
-                }} />
-                <span className="absolute inset-0 p-4 flex flex-col justify-center">
-                  <span className="block text-white text-[24px] font-extrabold leading-[1.15]"
-                    style={{ letterSpacing: '-.5px' }}>{o.label}</span>
-                </span>
-                {/* dots live inside the card, like the Explore banner */}
-                {options.length > 1 && (
-                  <span className="absolute left-4 bottom-4 flex gap-1.5">
-                    {options.map((d, n) => (
-                      <span key={d.key} className="h-[5px] rounded-full transition-all duration-300"
-                        style={{ width: n === i ? 16 : 5, background: n === i ? '#fff' : 'rgba(255,255,255,.45)' }} />
-                    ))}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
+    <div
+      onPointerDown={(e) => { startX.current = e.clientX; moved.current = 0 }}
+      onPointerMove={(e) => { if (startX.current != null) moved.current = e.clientX - startX.current }}
+      onPointerUp={() => {
+        if (Math.abs(moved.current) >= SWIPE_PX) go(moved.current < 0 ? 1 : -1)
+        else if (startX.current != null && options.length > 1) go(1)
+        startX.current = null
+      }}
+      onPointerCancel={() => { startX.current = null }}
+      role="button" tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') go(1) }}
+      className="relative mx-4 sm:mx-6 h-[168px] rounded-[16px] overflow-hidden cursor-pointer select-none touch-pan-y"
+      style={{ background: BUCKET_TINT[cur.key].bg, boxShadow: '0 6px 18px rgba(10,40,90,.15)' }}>
+
+      {options.map((o, n) => {
+        const Icon = BUCKET_ICON[o.key]
+        const tint = BUCKET_TINT[o.key]
+        return (
+          <div key={o.key} className="absolute inset-0 transition-opacity duration-500"
+            style={{ opacity: n === i ? 1 : 0 }}>
+            {o.photo
+              ? <SignedImage url={o.photo} alt="" className="w-full h-full object-cover" width={700} />
+              : <span className="w-full h-full grid place-items-center" style={{ background: tint.bg }}>
+                  <Icon size={38} stroke={1.3} style={{ color: tint.fg, opacity: .85 }} />
+                </span>}
+          </div>
+        )
+      })}
+      <div className="absolute inset-0" style={{
+        background: 'linear-gradient(95deg,rgba(4,18,38,.9) 0%,rgba(4,18,38,.6) 44%,rgba(4,18,38,.06) 82%)',
+      }} />
+
+      <div className="absolute inset-0 p-4 flex flex-col justify-center pointer-events-none">
+        <h3 className="text-white text-[24px] font-extrabold leading-[1.15]" style={{ letterSpacing: '-.5px' }}>
+          {cur.label}
+        </h3>
       </div>
+
+      {options.length > 1 && (
+        <div className="absolute left-4 bottom-4 flex gap-1.5">
+          {options.map((o, n) => (
+            // padded out to a real tap target; the negative margin keeps the
+            // row looking like the 5px dots it draws
+            <button key={o.key} aria-label={o.label} className="p-1.5 -m-1.5"
+              onClick={(ev) => { ev.stopPropagation(); onPick(o.key) }}
+              onPointerDown={(ev) => ev.stopPropagation()}
+              onPointerUp={(ev) => ev.stopPropagation()}>
+              <span className="block h-[5px] rounded-full transition-all duration-300"
+                style={{ width: n === i ? 16 : 5, background: n === i ? '#fff' : 'rgba(255,255,255,.45)' }} />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
