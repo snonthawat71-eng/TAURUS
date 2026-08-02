@@ -10,6 +10,7 @@ import { allRatingStats } from '@/lib/exploreReviews'
 import { savedExploreIds } from '@/lib/placeMutations'
 import { buildTopLists, TOP_LABEL, type TopList, type TopEntry } from '@/lib/exploreTop'
 import { catMeta } from '@/lib/placeMeta'
+import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { useBack } from '@/lib/useBack'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
@@ -73,9 +74,13 @@ export default function ExploreTop() {
   }, [])
 
   useEffect(() => { if (myTripIds.length) void refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // the photo runs to the very top, so the status-bar zone has to be painted
+  // its colour too — otherwise it sits under a white band
   async function refreshSaved() { setSavedSet(await savedExploreIds(myTripIds)) }
 
   const list = lists?.find((l) => l.key === key) ?? null
+  useEffect(() => tintChromeFromPhoto(list?.photo), [list?.photo])
   const groupOf = (e: TopEntry) => (e.place.group_type === 'food' ? 'food' : 'place')
   const counts = useMemo(() => ({
     all: list?.entries.length ?? 0,

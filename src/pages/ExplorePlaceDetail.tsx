@@ -18,7 +18,7 @@ import { SUG_META, sugSummary, timeAgo, NearbyCard } from '@/components/ExploreD
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
 import { stationCode, lineColorFor } from '@/lib/metro/suggest'
-import { optimizeImageUrl } from '@/lib/cloudinary'
+import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { openMap } from '@/lib/maps'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
@@ -35,29 +35,6 @@ import { toast } from '@/lib/toast'
 import type { ExplorePlace, ExploreComment, ExploreSuggestion, Place } from '@/lib/database.types'
 
 type Tab = 'info' | 'nearby' | 'reviews'
-
-/** Average colour of an image's top strip (× 0.8 to match the hero's top
- *  darkening) — used to paint the status-bar zone so it blends with the photo.
- *  Resolves null when the image can't be read (CORS / load error). */
-function sampleTopColor(url: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      try {
-        const c = document.createElement('canvas'); c.width = 8; c.height = 3
-        const ctx = c.getContext('2d')!
-        ctx.drawImage(img, 0, 0, img.naturalWidth, Math.max(1, img.naturalHeight * 0.06), 0, 0, 8, 3)
-        const d = ctx.getImageData(0, 0, 8, 3).data
-        let r = 0, g = 0, b = 0, n = 0
-        for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++ }
-        resolve(`rgb(${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(b / n)})`)
-      } catch { resolve(null) }
-    }
-    img.onerror = () => resolve(null)
-    img.src = url
-  })
-}
 
 /** Pull a station code like "R05" / "BL12" / "A-1" out of a free-typed station
  *  label ("R05 Xinyi Anhe", "Xinyi Anhe (R05)", …). Returns the code and the
@@ -122,19 +99,7 @@ export default function ExplorePlaceDetail() {
 
   // paint the status-bar zone (and pull-down overscroll) the colour of the
   // photo's top edge so the image looks like it runs to the very top
-  useEffect(() => {
-    const cover = e?.photo_url
-    if (!cover) return
-    let active = true
-    // sample from a tiny optimised copy so it doesn't re-download the full image
-    sampleTopColor(optimizeImageUrl(cover, 64) ?? cover).then((col) => {
-      if (!active || !col) return
-      document.documentElement.style.backgroundColor = col
-      document.body.style.backgroundColor = col
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', col)
-    })
-    return () => { active = false }
-  }, [e?.photo_url])
+  useEffect(() => tintChromeFromPhoto(e?.photo_url), [e?.photo_url])
 
   const hasOwnLocation = !!(e && (e.map_url || e.station_name || e.station_line))
   useEffect(() => { setBranchIdx(e?.branches?.length && !hasOwnLocation ? 0 : null) }, [e?.id, hasOwnLocation, e?.branches?.length])
