@@ -73,7 +73,7 @@ export function PullToRefresh() {
   return (
     <div className="fixed top-0 inset-x-0 z-[200] flex justify-center pointer-events-none"
       style={{
-        transform: `translateY(calc(${pull - 48}px + var(--sat)))`,
+        transform: `translateY(${pull - 48}px)`,
         transition: dragging ? 'none' : 'transform .25s ease, opacity .2s ease',
         opacity: pull > 4 ? 1 : 0,
       }}>

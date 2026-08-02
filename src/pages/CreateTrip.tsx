@@ -285,7 +285,7 @@ export default function CreateTrip() {
   }
 
   return (
-    <div className="min-h-dvh bg-canvas flex flex-col max-w-[520px] mx-auto" style={{ paddingTop: 'var(--sat)' }}>
+    <div className="min-h-dvh bg-canvas flex flex-col max-w-[520px] mx-auto">
       {phase !== 'share' && (
         <>
           <div className="flex items-center justify-between px-4 pt-4">

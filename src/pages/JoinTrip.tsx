@@ -91,7 +91,7 @@ export default function JoinTrip() {
   }
 
   const shell = (children: ReactNode) => (
-    <div className="min-h-dvh bg-canvas flex flex-col max-w-[520px] mx-auto" style={{ paddingTop: 'var(--sat)' }}>
+    <div className="min-h-dvh bg-canvas flex flex-col max-w-[520px] mx-auto">
       <div className="flex items-center justify-center gap-2 pt-6">
         <TaurusMark size={26} />
         <span className="text-[14px] font-semibold tracking-[4px] text-ink">TAURUS</span>

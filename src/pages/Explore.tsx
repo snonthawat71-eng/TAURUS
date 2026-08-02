@@ -178,7 +178,7 @@ export default function Explore() {
 
   return (
     <div className="min-h-dvh bg-canvas">
-      <header className="sticky top-0 z-30 bg-canvas/95 backdrop-blur grid grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6 min-h-14" style={{ borderBottom: '0.5px solid var(--color-line)', paddingTop: 'var(--sat)' }}>
+      <header className="sticky top-0 z-30 bg-canvas/95 backdrop-blur grid grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6 h-14" style={{ borderBottom: '0.5px solid var(--color-line)' }}>
         <button onClick={goBack} className="btn-icon !border-0 justify-self-start" aria-label="กลับ"><IconArrowLeft size={18} /></button>
         <TaurusLogo height={42} />
         <div className="flex items-center gap-1 justify-self-end">
