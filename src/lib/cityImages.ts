@@ -39,6 +39,14 @@ export const COUNTRY_IMAGES: Record<string, string> = {
   'Japan': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1785145207/tommy-silver-cCw6KQVJnyU-unsplash_jpazah.jpg',
 }
 
+// Bespoke artwork for a shortlist filter card (Places / Food / Cafe on a
+// country's "สถานที่ยอดฮิต" page), keyed `<country-slug>:<bucket>`. These
+// carry their own lettering, so a card that has one drops the label and the
+// dark wash and shows the artwork alone. Files live in public/filter/.
+export const FILTER_CARD_ART: Record<string, string> = {
+  'hong-kong:place': '/filter/hongkong-places.jpg',
+}
+
 /** Every city we ship a cover photo for. Lets a caller resolve a city from a
  *  url slug without waiting for any data to load. */
 export const KNOWN_CITIES: string[] = [

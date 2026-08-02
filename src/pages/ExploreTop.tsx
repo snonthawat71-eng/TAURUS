@@ -17,6 +17,7 @@ import {
 } from '@/lib/exploreTop'
 import { catMeta } from '@/lib/placeMeta'
 import { hscroll } from '@/lib/hscroll'
+import { FILTER_CARD_ART } from '@/lib/cityImages'
 import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { useBack } from '@/lib/useBack'
 import type { ExplorePlace, Place } from '@/lib/database.types'
@@ -106,10 +107,16 @@ export default function ExploreTop() {
     return TOP_BUCKETS
       .map((b) => {
         const mine = all.filter((e) => e.bucket === b.key)
-        return { ...b, count: mine.length, photo: mine.find((e) => e.place.photo_url)?.place.photo_url ?? null }
+        // bespoke artwork wins; otherwise the top-ranked place's own photo
+        const art = FILTER_CARD_ART[`${key}:${b.key}`] ?? null
+        return {
+          ...b, art,
+          count: mine.length,
+          photo: art ?? mine.find((e) => e.place.photo_url)?.place.photo_url ?? null,
+        }
       })
       .filter((b) => b.count > 0)
-  }, [list])
+  }, [list, key])
 
   // a country with no places at all in the default filter shouldn't open empty
   useEffect(() => {
@@ -227,7 +234,7 @@ const SWIPE_PX = 40
  * to move to the next one.
  */
 function FilterSlider({ options, active, onPick }: {
-  options: { key: TopBucket; label: string; count: number; photo: string | null }[]
+  options: { key: TopBucket; label: string; count: number; photo: string | null; art: string | null }[]
   active: TopBucket
   onPick: (b: TopBucket) => void
 }) {
@@ -253,6 +260,9 @@ function FilterSlider({ options, active, onPick }: {
       className="relative mx-4 sm:mx-6 h-[168px] rounded-[16px] overflow-hidden cursor-pointer select-none touch-pan-y"
       style={{ background: BUCKET_TINT[cur.key].bg, boxShadow: '0 6px 18px rgba(10,40,90,.15)' }}>
 
+      {/* the wash and the label live INSIDE each layer so they cross-fade with
+          the photo — artwork that already says "landmark เด็ดฮ่องกง" gets
+          neither, or the card would be lettered twice */}
       {options.map((o, n) => {
         const Icon = BUCKET_ICON[o.key]
         const tint = BUCKET_TINT[o.key]
@@ -260,22 +270,24 @@ function FilterSlider({ options, active, onPick }: {
           <div key={o.key} className="absolute inset-0 transition-opacity duration-500"
             style={{ opacity: n === i ? 1 : 0 }}>
             {o.photo
-              ? <SignedImage url={o.photo} alt="" className="w-full h-full object-cover" width={700} />
+              ? <SignedImage url={o.photo} alt={o.art ? o.label : ''} className="w-full h-full object-cover" width={900} />
               : <span className="w-full h-full grid place-items-center" style={{ background: tint.bg }}>
                   <Icon size={38} stroke={1.3} style={{ color: tint.fg, opacity: .85 }} />
                 </span>}
+            {!o.art && (
+              <>
+                <span className="absolute inset-0" style={{
+                  background: 'linear-gradient(95deg,rgba(4,18,38,.9) 0%,rgba(4,18,38,.6) 44%,rgba(4,18,38,.06) 82%)',
+                }} />
+                <span className="absolute inset-0 p-4 flex flex-col justify-center">
+                  <span className="block text-white text-[24px] font-extrabold leading-[1.15]"
+                    style={{ letterSpacing: '-.5px' }}>{o.label}</span>
+                </span>
+              </>
+            )}
           </div>
         )
       })}
-      <div className="absolute inset-0" style={{
-        background: 'linear-gradient(95deg,rgba(4,18,38,.9) 0%,rgba(4,18,38,.6) 44%,rgba(4,18,38,.06) 82%)',
-      }} />
-
-      <div className="absolute inset-0 p-4 flex flex-col justify-center pointer-events-none">
-        <h3 className="text-white text-[24px] font-extrabold leading-[1.15]" style={{ letterSpacing: '-.5px' }}>
-          {cur.label}
-        </h3>
-      </div>
 
       {options.length > 1 && (
         <div className="absolute left-4 bottom-4 flex gap-1.5">
