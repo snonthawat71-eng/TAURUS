@@ -29,7 +29,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col px-6 pb-10 pt-[19vh] text-white relative overflow-hidden" style={{ background: 'var(--color-brand)' }}>
+    <div className="min-h-dvh flex flex-col px-6 pb-10 pt-[19vh] text-white relative overflow-hidden" style={{ background: 'var(--color-brand)', paddingTop: 'calc(19vh + var(--sat))' }}>
       {/* Faint oversized brand mark watermark — large, bleeds off the top edge */}
       <svg
         aria-hidden="true"

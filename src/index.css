@@ -50,6 +50,13 @@
 /* ── Dark mode: override the design tokens under html[data-theme='dark'].
    Every component reads colours through these vars, so the whole app flips.
    Applied by src/lib/theme.ts (+ an inline script in index.html pre-paint). */
+/* Height of the status-bar strip the page now draws under (iOS standalone).
+   Named so screens can pad by it — and so a test can fake a device notch by
+   overriding this one property. */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+}
+
 html[data-theme='dark'] {
   color-scheme: dark;
 

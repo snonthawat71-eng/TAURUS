@@ -174,8 +174,8 @@ export default function TripsDashboard() {
   return (
     <div className="min-h-dvh bg-canvas">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center justify-between px-5 sm:px-8 h-16"
-        style={{ borderBottom: '0.5px solid var(--color-line)' }}>
+      <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur flex items-center justify-between px-5 sm:px-8 min-h-16"
+        style={{ borderBottom: '0.5px solid var(--color-line)', paddingTop: 'var(--sat)' }}>
         <TaurusLogo height={50} />
         <button onClick={signOut} className="btn-icon" aria-label="ออกจากระบบ" title="ออกจากระบบ" style={{ color: '#D85A30' }}>
           <IconLogout size={16} />
