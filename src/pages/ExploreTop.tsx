@@ -171,7 +171,7 @@ export default function ExploreTop() {
             </div>
           </div>
 
-          <div className="pt-5 pb-3">
+          <div className="pt-4 pb-3">
             {buckets.length > 0 && (
               <FilterSlider options={buckets} active={bucket} onPick={setBucket} />
             )}
@@ -244,7 +244,7 @@ function FilterSlider({ options, active, onPick }: {
       {/* the clip has to be the content box, not a padded one: the card that
           slid off would otherwise leave a sliver in the page margin. py/-my
           gives the card's shadow room to fall without costing layout height. */}
-      <div className="overflow-hidden py-4 -my-4 select-none touch-pan-y"
+      <div className="overflow-hidden py-6 -my-6 select-none touch-pan-y"
         onPointerDown={(e) => { startX.current = e.clientX; moved.current = 0 }}
         onPointerMove={(e) => { if (startX.current != null) moved.current = e.clientX - startX.current }}
         onPointerUp={() => {
@@ -262,42 +262,38 @@ function FilterSlider({ options, active, onPick }: {
               // a swipe ends in a click on whatever card the finger left —
               // ignore it, or the slide would immediately snap back
               <button key={o.key} onClick={() => { if (Math.abs(moved.current) < SWIPE_PX) onPick(o.key) }}
-                className="relative shrink-0 h-[104px] rounded-[16px] overflow-hidden text-left transition-opacity"
+                className="relative shrink-0 h-[130px] rounded-[16px] overflow-hidden text-left transition-opacity"
                 style={{
                   width: `calc(100% - ${PEEK}px)`,
                   background: tint.bg,
-                  outline: on ? '2px solid var(--color-brand)' : 'none',
-                  outlineOffset: -2,
-                  boxShadow: on ? '0 4px 14px rgba(10,40,90,.18)' : '0 2px 8px rgba(10,40,90,.08)',
-                  opacity: on ? 1 : .68,
+                  boxShadow: '0 6px 18px rgba(10,40,90,.15)',
+                  opacity: on ? 1 : .6,
                 }}>
                 {o.photo
                   ? <SignedImage url={o.photo} alt="" className="w-full h-full object-cover" width={700} />
                   : <span className="w-full h-full grid place-items-center">
-                      <Icon size={34} stroke={1.3} style={{ color: tint.fg, opacity: .85 }} />
+                      <Icon size={38} stroke={1.3} style={{ color: tint.fg, opacity: .85 }} />
                     </span>}
                 <span className="absolute inset-0" style={{
-                  background: 'linear-gradient(95deg,rgba(4,18,38,.9) 0%,rgba(4,18,38,.62) 46%,rgba(4,18,38,.08) 86%)',
+                  background: 'linear-gradient(95deg,rgba(4,18,38,.9) 0%,rgba(4,18,38,.6) 44%,rgba(4,18,38,.06) 82%)',
                 }} />
                 <span className="absolute inset-0 p-4 flex flex-col justify-center">
-                  <span className="flex items-center gap-1.5 text-white/75 text-[10px] font-bold uppercase"
-                    style={{ letterSpacing: '.14em' }}>
-                    <Icon size={13} stroke={2} /> {o.count} ที่
-                  </span>
-                  <span className="block text-white text-[20px] font-extrabold leading-tight mt-1"
-                    style={{ letterSpacing: '-.4px' }}>{o.label}</span>
+                  <span className="block text-white text-[24px] font-extrabold leading-[1.15]"
+                    style={{ letterSpacing: '-.5px' }}>{o.label}</span>
                 </span>
+                {/* dots live inside the card, like the Explore banner */}
+                {options.length > 1 && (
+                  <span className="absolute left-4 bottom-4 flex gap-1.5">
+                    {options.map((d, n) => (
+                      <span key={d.key} className="h-[5px] rounded-full transition-all duration-300"
+                        style={{ width: n === i ? 16 : 5, background: n === i ? '#fff' : 'rgba(255,255,255,.45)' }} />
+                    ))}
+                  </span>
+                )}
               </button>
             )
           })}
         </div>
-      </div>
-
-      <div className="flex justify-center gap-1.5 mt-2" style={{ visibility: options.length > 1 ? undefined : 'hidden' }}>
-        {options.map((o, n) => (
-          <span key={o.key} className="h-[5px] rounded-full transition-all duration-300"
-            style={{ width: n === i ? 16 : 5, background: n === i ? 'var(--color-brand)' : 'var(--color-line-2)' }} />
-        ))}
       </div>
     </div>
   )

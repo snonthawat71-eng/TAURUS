@@ -23,9 +23,9 @@ export interface RatingStat { avg: number; count: number }
 export type TopBucket = 'place' | 'food' | 'cafe'
 
 export const TOP_BUCKETS: { key: TopBucket; label: string }[] = [
-  { key: 'place', label: 'สถานที่' },
-  { key: 'food', label: 'ร้านอาหาร' },
-  { key: 'cafe', label: 'คาเฟ่' },
+  { key: 'place', label: 'Places' },
+  { key: 'food', label: 'Food' },
+  { key: 'cafe', label: 'Cafe' },
 ]
 
 /** Cafés are pulled OUT of food so the three cards don't overlap — a place
