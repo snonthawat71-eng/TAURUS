@@ -14,13 +14,6 @@ import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { useBack } from '@/lib/useBack'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
-type Tab = 'all' | 'place' | 'food'
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'all', label: 'ALL' },
-  { key: 'place', label: 'PLACES' },
-  { key: 'food', label: 'FOOD' },
-]
-
 /** The photo's dissolve into the page.
  *
  *  Two things make it read as one surface rather than a photo with a lid on it:
@@ -59,7 +52,6 @@ export default function ExploreTop() {
   const [lists, setLists] = useState<TopList[] | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [fav, setFav] = useState<Place | null>(null)
-  const [tab, setTab] = useState<Tab>('all')
 
   const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
 
@@ -84,16 +76,7 @@ export default function ExploreTop() {
   // status-bar tint land immediately instead of after the list request.
   const photo = list?.photo ?? coverForKey(key)
   useEffect(() => tintChromeFromPhoto(photo), [photo])
-  const groupOf = (e: TopEntry) => (e.place.group_type === 'food' ? 'food' : 'place')
-  const counts = useMemo(() => ({
-    all: list?.entries.length ?? 0,
-    place: list?.entries.filter((e) => groupOf(e) === 'place').length ?? 0,
-    food: list?.entries.filter((e) => groupOf(e) === 'food').length ?? 0,
-  }), [list])
-  const shown = useMemo(
-    () => (!list ? [] : tab === 'all' ? list.entries : list.entries.filter((e) => groupOf(e) === tab)),
-    [list, tab],
-  )
+  const shown = list?.entries ?? []
 
   if (lists && !list) {
     return (
@@ -124,44 +107,25 @@ export default function ExploreTop() {
           </button>
         </div>
 
-        <div className="px-4 sm:px-6 pt-[74px] pb-4">
+        {/* The heading sits high on the photo, but the block keeps a fixed
+            height so the grid always starts where the photo has faded out —
+            raising the text must not drag the cards up onto the image. */}
+        <div className="px-4 sm:px-6 pt-5" style={{ paddingBottom: 178 }}>
           <div className="text-[10px] font-bold uppercase text-white/85"
             style={{ letterSpacing: '.16em', textShadow: '0 1px 10px rgba(0,0,0,.45)' }}>
             {list?.flag} {list?.country}
           </div>
-          <h1 className="text-[26px] font-extrabold leading-[1.13] mt-2 text-white"
-            style={{ letterSpacing: '-.6px', textShadow: '0 2px 16px rgba(0,0,0,.4)' }}>
-            {TOP_LABEL}<br />{list?.city ?? ''}
+          <h1 className="text-[19px] font-extrabold leading-[1.2] mt-1.5 text-white"
+            style={{ letterSpacing: '-.3px', textShadow: '0 2px 16px rgba(0,0,0,.4)' }}>
+            {TOP_LABEL}{list?.city ? ` ${list.city}` : ''}
           </h1>
         </div>
 
-        <div className="flex gap-6 px-4 sm:px-6 overflow-x-auto no-scrollbar"
-          style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-          {TABS.map((t) => {
-            const on = tab === t.key
-            return (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                className={['relative pb-2.5 text-[12.5px] font-extrabold whitespace-nowrap flex items-center gap-1.5',
-                  on ? 'text-ink' : 'text-ink-2'].join(' ')}
-                style={{ letterSpacing: '.08em' }}>
-                {t.label}
-                <span className="text-[11px] font-bold rounded-full px-1.5 py-px"
-                  style={on
-                    ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)' }
-                    : { background: 'color-mix(in srgb, var(--color-surface) 78%, transparent)', color: 'var(--color-ink-2)' }}>
-                  {counts[t.key]}
-                </span>
-                {on && <span className="absolute left-0 right-0 -bottom-[0.5px] h-[2.5px] rounded-full bg-brand" />}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="px-4 sm:px-6 pt-3.5 pb-10">
+        <div className="px-4 sm:px-6 pb-10">
           {!lists ? (
             <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
           ) : shown.length === 0 ? (
-            <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มีรายการในหมวดนี้</div>
+            <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มีรายการ</div>
           ) : (
             <div className="grid grid-cols-2 gap-2.5">
               {shown.map((e) => (
