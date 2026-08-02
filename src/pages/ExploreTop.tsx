@@ -188,8 +188,10 @@ export default function ExploreTop() {
                     {/* the list's own action, next to its heading — tapping
                         the card again is what closes it */}
                     <button onClick={() => setSaveAll(true)}
-                      className={['ml-auto inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[12px] font-bold',
-                        allSaved ? 'bg-brand-soft text-brand-dark' : 'bg-brand text-white'].join(' ')}>
+                      className="ml-auto inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[12px] font-bold"
+                      style={allSaved
+                        ? { background: 'var(--color-brand)', color: '#fff', border: '1.5px solid var(--color-brand)' }
+                        : { color: 'var(--color-brand)', border: '1.5px solid var(--color-brand)' }}>
                       {allSaved ? <><IconHeartFilled size={13} /> เซฟแล้ว</> : <><IconHeartPlus size={13} /> เซฟทั้งหมด</>}
                     </button>
                   </div>
