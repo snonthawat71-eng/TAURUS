@@ -10,22 +10,20 @@ import { listExplore, allPopularity, exploreAsPlace, type PopStat } from '@/lib/
 import { allRatingStats } from '@/lib/exploreReviews'
 import { savedExploreIds } from '@/lib/placeMutations'
 import {
-  buildTopLists, coverForKey, countryForKey, slugify, MAX_PLACES, TOP_BUCKETS,
-  type RatingStat, type TopBucket, type TopList,
+  buildTopLists, coverForKey, countryForKey, slugify,
+  type RatingStat, type TopList,
 } from '@/lib/exploreTop'
 import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { useBack } from '@/lib/useBack'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
 /**
- * One full list out of a country's home page: a category's ranked shortlist,
- * everything just added, or one city.
- *
- * The category lists are ranked and capped — that's the "ยอดฮิต" promise. The
- * other two are simply everything, newest first, because "ดูทั้งหมด" said so.
+ * One full list out of a country's home page: everything just added, or one
+ * city. Unranked and uncapped — simply everything, newest first, because
+ * "ดูทั้งหมด" said so. The ranked ten lives on the home page, under its card.
  */
 export default function ExploreTopList() {
-  const { key = '', bucket, city: citySlug } = useParams()
+  const { key = '', city: citySlug } = useParams()
   const navigate = useNavigate()
   const goBack = useBack(`/explore/top/${key}`)
   const { user } = useAuth()
@@ -60,26 +58,14 @@ export default function ExploreTopList() {
 
   const cityName = citySlug ? list?.cities.find((c) => slugify(c.name) === citySlug)?.name ?? null : null
 
-  /** the places on this page, and whether they carry a rank */
-  const { shown, ranked, heading } = useMemo(() => {
-    if (!list) return { shown: [] as ExplorePlace[], ranked: false, heading: '' }
-    if (bucket) {
-      const b = bucket as TopBucket
-      return {
-        shown: list.entries.filter((e) => e.bucket === b).slice(0, MAX_PLACES).map((e) => e.place),
-        ranked: true,
-        heading: TOP_BUCKETS.find((x) => x.key === b)?.label ?? '',
-      }
-    }
+  /** the places on this page — everything, newest first */
+  const { shown, heading } = useMemo(() => {
+    if (!list) return { shown: [] as ExplorePlace[], heading: '' }
     if (cityName) {
-      return {
-        shown: list.recent.filter((p) => (p.city ?? '').trim() === cityName),
-        ranked: false,
-        heading: cityName,
-      }
+      return { shown: list.recent.filter((p) => (p.city ?? '').trim() === cityName), heading: cityName }
     }
-    return { shown: list.recent, ranked: false, heading: 'เพิ่งเพิ่มล่าสุด' }
-  }, [list, bucket, cityName])
+    return { shown: list.recent, heading: 'เพิ่งเพิ่มล่าสุด' }
+  }, [list, cityName])
 
   // every place on screen is already in one of my trips — the button flips to
   // the saved colour, and opening it offers to take them all back out
@@ -122,9 +108,8 @@ export default function ExploreTopList() {
             <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มีรายการ</div>
           ) : (
             <div className="grid grid-cols-2 gap-2.5">
-              {shown.map((p, n) => (
+              {shown.map((p) => (
                 <PlaceTile key={p.id} place={p} rating={ratings.get(p.id) ?? null}
-                  rank={ranked ? n + 1 : undefined}
                   saved={savedSet.has(p.id)}
                   onOpen={() => navigate(`/explore/p/${p.id}`)}
                   onSave={() => setFav(exploreAsPlace(p))} />

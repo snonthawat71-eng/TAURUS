@@ -1,19 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IconArrowLeft, IconArrowRight, IconBuildingMonument, IconToolsKitchen2, IconCoffee } from '@tabler/icons-react'
+import {
+  IconArrowLeft, IconArrowRight, IconBuildingMonument, IconToolsKitchen2, IconCoffee,
+  IconHeartPlus, IconHeartFilled,
+} from '@tabler/icons-react'
 import { SignedImage } from '@/components/SignedImage'
-import { TopHero, RailCard, topTitle } from '@/components/exploreTopParts'
-import { listExplore, allPopularity, type PopStat } from '@/lib/exploreMutations'
+import { TopHero, RailCard, PlaceTile, topTitle } from '@/components/exploreTopParts'
+import { SaveToTripDialog } from '@/components/SaveToTripDialog'
+import { SaveAllToTripDialog } from '@/components/SaveAllToTripDialog'
+import { useAuth } from '@/contexts/AuthContext'
+import { useTrip } from '@/contexts/TripContext'
+import { savedExploreIds } from '@/lib/placeMutations'
+import { listExplore, allPopularity, exploreAsPlace, type PopStat } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
 import {
-  buildTopLists, coverForKey, countryForKey, slugify, TOP_BUCKETS,
+  buildTopLists, coverForKey, countryForKey, slugify, MAX_PLACES, TOP_BUCKETS,
   type RatingStat, type TopBucket, type TopList,
 } from '@/lib/exploreTop'
 import { hscroll } from '@/lib/hscroll'
 import { FILTER_CARD_ART } from '@/lib/cityImages'
 import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { useBack } from '@/lib/useBack'
-import type { ExplorePlace } from '@/lib/database.types'
+import type { ExplorePlace, Place } from '@/lib/database.types'
 
 const BUCKET_ICON = { place: IconBuildingMonument, food: IconToolsKitchen2, cafe: IconCoffee }
 const BUCKET_TINT: Record<TopBucket, { bg: string; fg: string }> = {
@@ -38,8 +46,18 @@ export default function ExploreTop() {
   const navigate = useNavigate()
   const goBack = useBack('/explore')
 
+  const { user } = useAuth()
+  const { trips } = useTrip()
   const [lists, setLists] = useState<TopList[] | null>(null)
   const [ratings, setRatings] = useState<Map<string, RatingStat>>(new Map())
+  const [bucket, setBucket] = useState<TopBucket>('place')
+  const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
+  const [fav, setFav] = useState<Place | null>(null)
+  const [saveAll, setSaveAll] = useState(false)
+
+  const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
+  useEffect(() => { if (myTripIds.length) void refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  async function refreshSaved() { setSavedSet(await savedExploreIds(myTripIds)) }
 
   useEffect(() => {
     let off = false
@@ -76,9 +94,21 @@ export default function ExploreTop() {
       .filter((b) => b.count > 0)
   }, [list, key])
 
+  // a country without, say, a single café shouldn't open on an empty card
+  useEffect(() => {
+    if (buckets.length && !buckets.some((b) => b.key === bucket)) setBucket(buckets[0].key)
+  }, [buckets, bucket])
+
   const cities = list?.cities ?? []
   const recent = list?.recent ?? []
   const open = (id: string) => navigate(`/explore/p/${id}`)
+
+  /** the ranked ten behind the card that's showing */
+  const top = useMemo(() => (list?.entries ?? [])
+    .filter((e) => e.bucket === bucket)
+    .slice(0, MAX_PLACES)
+    .map((e) => e.place), [list, bucket])
+  const allSaved = top.length > 0 && top.every((p) => savedSet.has(p.id))
 
   if (lists && !list) {
     return (
@@ -99,9 +129,18 @@ export default function ExploreTop() {
           eyebrow={<>{list?.flag ?? '🌍'} {cities.length > 1 ? `${cities.length} เมือง` : cities[0]?.name ?? ''}</>}
           title={topTitle(country)}
           onBack={goBack}
+          right={top.length > 0 ? (
+            <button onClick={() => setSaveAll(true)}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-white text-[12px] font-bold"
+              style={allSaved
+                ? { background: 'var(--color-brand)', boxShadow: '0 4px 14px rgba(2,112,251,.4)' }
+                : { background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
+              {allSaved ? <><IconHeartFilled size={15} /> เซฟแล้ว</> : <><IconHeartPlus size={15} /> เซฟทั้งหมด</>}
+            </button>
+          ) : undefined}
           bottom={buckets.length > 0 ? (
             <div className="pt-4 pb-3">
-              <FilterSlider options={buckets} onPick={(b) => navigate(`/explore/top/${key}/c/${b}`)} />
+              <FilterSlider options={buckets} active={bucket} onPick={setBucket} />
             </div>
           ) : undefined}
         />
@@ -111,6 +150,17 @@ export default function ExploreTop() {
             <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
           ) : (
             <>
+              {/* the card's own list, right under it — the card IS the heading */}
+              {top.length > 0 && (
+                <div className="grid grid-cols-2 gap-2.5 px-4 sm:px-6">
+                  {top.map((p, n) => (
+                    <PlaceTile key={p.id} place={p} rating={ratings.get(p.id) ?? null} rank={n + 1}
+                      saved={savedSet.has(p.id)} onOpen={() => open(p.id)}
+                      onSave={() => setFav(exploreAsPlace(p))} />
+                  ))}
+                </div>
+              )}
+
               <Rail title="เพิ่งเพิ่มล่าสุด" count={recent.length}
                 onAll={() => navigate(`/explore/top/${key}/new`)}
                 items={recent.slice(0, RAIL_MAX)} ratings={ratings}
@@ -132,6 +182,11 @@ export default function ExploreTop() {
           )}
         </div>
       </div>
+
+      <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
+        onClose={() => setFav(null)} onChanged={refreshSaved} />
+      <SaveAllToTripDialog items={top} open={saveAll}
+        onClose={() => setSaveAll(false)} onChanged={refreshSaved} />
     </div>
   )
 }
@@ -175,20 +230,20 @@ const SWIPE_PX = 40
  * cross-fades, rather than a track sliding sideways, which is what made
  * mid-swipe look like two half cards. No auto-advance.
  *
- * Swipe or tap a dot to change card; tapping the card opens that filter's
- * ranked shortlist.
+ * Swipe, tap a dot, or tap the card to move on — the ranked ten for whichever
+ * card is showing sits directly below it, on this page.
  */
-function FilterSlider({ options, onPick }: {
+function FilterSlider({ options, active, onPick }: {
   options: { key: TopBucket; label: string; count: number; photo: string | null; art: string | null }[]
+  active: TopBucket
   onPick: (b: TopBucket) => void
 }) {
-  const [i, setI] = useState(0)
+  const i = Math.max(0, options.findIndex((o) => o.key === active))
+  const cur = options[i]
   const startX = useRef<number | null>(null)
   const moved = useRef(0)
 
-  useEffect(() => { setI((n) => (n < options.length ? n : 0)) }, [options.length])
-  const cur = options[Math.min(i, options.length - 1)]
-  const go = (d: number) => setI((n) => (n + d + options.length) % options.length)
+  const go = (d: number) => onPick(options[(i + d + options.length) % options.length].key)
 
   return (
     <div
@@ -196,12 +251,12 @@ function FilterSlider({ options, onPick }: {
       onPointerMove={(e) => { if (startX.current != null) moved.current = e.clientX - startX.current }}
       onPointerUp={() => {
         if (Math.abs(moved.current) >= SWIPE_PX) go(moved.current < 0 ? 1 : -1)
-        else if (startX.current != null) onPick(cur.key)
+        else if (startX.current != null && options.length > 1) go(1)
         startX.current = null
       }}
       onPointerCancel={() => { startX.current = null }}
       role="button" tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onPick(cur.key) }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') go(1) }}
       className="relative mx-4 sm:mx-6 h-[168px] rounded-[16px] overflow-hidden cursor-pointer select-none touch-pan-y"
       style={{ background: BUCKET_TINT[cur.key].bg, boxShadow: '0 6px 18px rgba(10,40,90,.15)' }}>
 
@@ -240,7 +295,7 @@ function FilterSlider({ options, onPick }: {
             // padded out to a real tap target; the negative margin keeps the
             // row looking like the 5px dots it draws
             <button key={o.key} aria-label={o.label} className="p-1.5 -m-1.5"
-              onClick={(ev) => { ev.stopPropagation(); setI(n) }}
+              onClick={(ev) => { ev.stopPropagation(); onPick(o.key) }}
               onPointerDown={(ev) => ev.stopPropagation()}
               onPointerUp={(ev) => ev.stopPropagation()}>
               <span className="block h-[5px] rounded-full transition-all duration-300"

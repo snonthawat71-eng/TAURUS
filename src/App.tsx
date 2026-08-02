@@ -184,7 +184,6 @@ export default function App() {
           <Route path="/explore/p/:id" element={<ExplorePlaceDetail />} />
           <Route path="/explore/top/:key" element={<ExploreTop />} />
           <Route path="/explore/top/:key/new" element={<ExploreTopList />} />
-          <Route path="/explore/top/:key/c/:bucket" element={<ExploreTopList />} />
           <Route path="/explore/top/:key/city/:city" element={<ExploreTopList />} />
           <Route path="/profile" element={<Profile />} />
           <Route element={<AppShell />}>
