@@ -45,6 +45,7 @@ export const COUNTRY_IMAGES: Record<string, string> = {
 // dark wash and shows the artwork alone. Files live in public/filter/.
 export const FILTER_CARD_ART: Record<string, string> = {
   'hong-kong:place': '/filter/hongkong-places.jpg',
+  'hong-kong:food': '/filter/hongkong-food.jpg',
 }
 
 /** Every city we ship a cover photo for. Lets a caller resolve a city from a
