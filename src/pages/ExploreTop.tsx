@@ -20,17 +20,23 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'food', label: 'FOOD' },
 ]
 
-/** The strip's fade into the page. A plain two-stop gradient to the canvas
- *  colour banded badly and ended in a visible line; easing the alpha across
- *  several stops dissolves it. color-mix keeps it correct in dark mode, where
- *  the canvas colour is a different one. */
+/** The photo's dissolve into the page.
+ *
+ *  Two things make it read as one surface rather than a photo with a lid on it:
+ *  the fade runs most of the photo's height, and the alpha is eased across many
+ *  stops. A short two-stop gradient banded and ended on a visible line.
+ *  color-mix keeps it right in dark mode, where the canvas colour differs. */
 const FADE = `linear-gradient(to bottom,
   color-mix(in srgb, var(--color-canvas) 0%, transparent) 0%,
-  color-mix(in srgb, var(--color-canvas) 8%, transparent) 20%,
-  color-mix(in srgb, var(--color-canvas) 24%, transparent) 38%,
-  color-mix(in srgb, var(--color-canvas) 48%, transparent) 55%,
-  color-mix(in srgb, var(--color-canvas) 72%, transparent) 70%,
-  color-mix(in srgb, var(--color-canvas) 90%, transparent) 84%,
+  color-mix(in srgb, var(--color-canvas) 3%, transparent) 12%,
+  color-mix(in srgb, var(--color-canvas) 9%, transparent) 24%,
+  color-mix(in srgb, var(--color-canvas) 18%, transparent) 36%,
+  color-mix(in srgb, var(--color-canvas) 31%, transparent) 47%,
+  color-mix(in srgb, var(--color-canvas) 46%, transparent) 58%,
+  color-mix(in srgb, var(--color-canvas) 62%, transparent) 68%,
+  color-mix(in srgb, var(--color-canvas) 77%, transparent) 78%,
+  color-mix(in srgb, var(--color-canvas) 89%, transparent) 87%,
+  color-mix(in srgb, var(--color-canvas) 96%, transparent) 94%,
   var(--color-canvas) 100%)`
 
 /**
@@ -38,9 +44,9 @@ const FADE = `linear-gradient(to bottom,
  * it's a destination you can land on and share.
  *
  * Laid out as a photo grid because that's what the page is for — ten places to
- * look at and pick from. The city photo is only a short strip that fades into
- * the page: a full hero would compete with the ten photos below it, which are
- * the actual content.
+ * look at and pick from. The city photo is a full-bleed backdrop the heading
+ * and tabs sit ON, dissolving into the page behind the grid — rather than a
+ * separate band with an edge, which is what made the seam obvious.
  */
 export default function ExploreTop() {
   const { key = '' } = useParams()
@@ -93,24 +99,30 @@ export default function ExploreTop() {
   }
 
   return (
-    <div className="min-h-dvh bg-canvas">
-      {/* a strip of the city, dissolving into the page rather than a full hero */}
-      <div className="relative h-[150px] overflow-hidden" style={{ background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
+    <div className="min-h-dvh bg-canvas relative">
+      {/* the city photo as a backdrop the heading sits on, not a band above it */}
+      <div className="absolute inset-x-0 top-0 h-[340px] overflow-hidden pointer-events-none"
+        style={{ background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
         {list?.photo && <SignedImage url={list.photo} alt="" className="w-full h-full object-cover" width={900} />}
-        <div className="absolute inset-x-0 bottom-0 h-[104px]" style={{ background: FADE }} />
-        <button onClick={goBack} aria-label="ย้อนกลับ"
-          className="absolute size-9 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm"
-          style={{ top: 'calc(env(safe-area-inset-top,0px) + 12px)', left: 14 }}>
-          <IconArrowLeft size={18} />
-        </button>
+        <div className="absolute inset-x-0 bottom-0 h-[250px]" style={{ background: FADE }} />
       </div>
 
-      <div className="max-w-[640px] mx-auto">
-        <div className="px-4 sm:px-6 pt-2.5 pb-3.5">
-          <div className="text-[9.5px] font-bold uppercase text-ink-3" style={{ letterSpacing: '.16em' }}>
+      <div className="relative max-w-[640px] mx-auto">
+        <div className="px-4 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 12px)' }}>
+          <button onClick={goBack} aria-label="ย้อนกลับ"
+            className="size-9 rounded-full grid place-items-center text-white"
+            style={{ background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
+            <IconArrowLeft size={18} />
+          </button>
+        </div>
+
+        <div className="px-4 sm:px-6 pt-[74px] pb-4">
+          <div className="text-[10px] font-bold uppercase text-white/85"
+            style={{ letterSpacing: '.16em', textShadow: '0 1px 10px rgba(0,0,0,.45)' }}>
             {list?.flag} {list?.country}
           </div>
-          <h1 className="text-[26px] font-extrabold leading-[1.13] mt-1.5" style={{ letterSpacing: '-.6px' }}>
+          <h1 className="text-[26px] font-extrabold leading-[1.13] mt-2 text-white"
+            style={{ letterSpacing: '-.6px', textShadow: '0 2px 16px rgba(0,0,0,.4)' }}>
             {TOP_LABEL}<br />{list?.city ?? ''}
           </h1>
         </div>
@@ -122,13 +134,13 @@ export default function ExploreTop() {
             return (
               <button key={t.key} onClick={() => setTab(t.key)}
                 className={['relative pb-2.5 text-[12.5px] font-extrabold whitespace-nowrap flex items-center gap-1.5',
-                  on ? 'text-ink' : 'text-ink-3'].join(' ')}
+                  on ? 'text-ink' : 'text-ink-2'].join(' ')}
                 style={{ letterSpacing: '.08em' }}>
                 {t.label}
                 <span className="text-[11px] font-bold rounded-full px-1.5 py-px"
                   style={on
                     ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-mid)' }
-                    : { background: 'var(--color-surface-2)', color: 'var(--color-ink-3)' }}>
+                    : { background: 'color-mix(in srgb, var(--color-surface) 78%, transparent)', color: 'var(--color-ink-2)' }}>
                   {counts[t.key]}
                 </span>
                 {on && <span className="absolute left-0 right-0 -bottom-[0.5px] h-[2.5px] rounded-full bg-brand" />}
