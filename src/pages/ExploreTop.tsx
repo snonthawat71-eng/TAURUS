@@ -51,6 +51,10 @@ export default function ExploreTop() {
   const [lists, setLists] = useState<TopList[] | null>(null)
   const [ratings, setRatings] = useState<Map<string, RatingStat>>(new Map())
   const [bucket, setBucket] = useState<TopBucket>('place')
+  // the card's list stays shut until the card is actually tapped — the page is
+  // a country home first, and a ten-tile grid on arrival buries everything else
+  const [opened, setOpened] = useState(false)
+  const gridRef = useRef<HTMLDivElement>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [fav, setFav] = useState<Place | null>(null)
   const [saveAll, setSaveAll] = useState(false)
@@ -110,6 +114,13 @@ export default function ExploreTop() {
     .map((e) => e.place), [list, bucket])
   const allSaved = top.length > 0 && top.every((p) => savedSet.has(p.id))
 
+  // it opens below the rails, off-screen — take the reader there. Only on the
+  // way open: swiping to another card while it's already open shouldn't yank
+  // the page away from the card you're swiping.
+  useEffect(() => {
+    if (opened) gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [opened])
+
   if (lists && !list) {
     return (
       <div className="min-h-dvh bg-canvas">
@@ -129,7 +140,7 @@ export default function ExploreTop() {
           eyebrow={<>{list?.flag ?? '🌍'} {cities.length > 1 ? `${cities.length} เมือง` : cities[0]?.name ?? ''}</>}
           title={topTitle(country)}
           onBack={goBack}
-          right={top.length > 0 ? (
+          right={opened && top.length > 0 ? (
             <button onClick={() => setSaveAll(true)}
               className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-white text-[12px] font-bold"
               style={allSaved
@@ -140,7 +151,9 @@ export default function ExploreTop() {
           ) : undefined}
           bottom={buckets.length > 0 ? (
             <div className="pt-4 pb-3">
-              <FilterSlider options={buckets} active={bucket} onPick={setBucket} />
+              <FilterSlider options={buckets} active={bucket}
+                onPick={setBucket}
+                onOpen={() => setOpened((o) => !o)} />
             </div>
           ) : undefined}
         />
@@ -150,17 +163,6 @@ export default function ExploreTop() {
             <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
           ) : (
             <>
-              {/* the card's own list, right under it — the card IS the heading */}
-              {top.length > 0 && (
-                <div className="grid grid-cols-2 gap-2.5 px-4 sm:px-6">
-                  {top.map((p, n) => (
-                    <PlaceTile key={p.id} place={p} rating={ratings.get(p.id) ?? null} rank={n + 1}
-                      saved={savedSet.has(p.id)} onOpen={() => open(p.id)}
-                      onSave={() => setFav(exploreAsPlace(p))} />
-                  ))}
-                </div>
-              )}
-
               <Rail title="เพิ่งเพิ่มล่าสุด" count={recent.length}
                 onAll={() => navigate(`/explore/top/${key}/new`)}
                 items={recent.slice(0, RAIL_MAX)} ratings={ratings}
@@ -178,6 +180,28 @@ export default function ExploreTop() {
                     sub={(p) => p.routes?.[0]?.station ?? p.station_name} onOpen={open} />
                 )
               })}
+
+              {/* the card's list, at the foot of the page — the rails are what
+                  the country home is for; this is what you asked to see */}
+              {opened && top.length > 0 && (
+                <section ref={gridRef} style={{ scrollMarginTop: 12 }}>
+                  <div className="flex items-end gap-2 px-4 sm:px-6 mb-2.5">
+                    <h2 className="text-[17px] font-extrabold leading-none" style={{ letterSpacing: '-.3px' }}>
+                      {buckets.find((b) => b.key === bucket)?.label}
+                    </h2>
+                    <span className="text-[12px] text-ink-3 leading-none">{top.length} ที่</span>
+                    <button onClick={() => setOpened(false)}
+                      className="ml-auto text-[12.5px] font-semibold text-ink-3 leading-none">ซ่อน</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 px-4 sm:px-6">
+                    {top.map((p, n) => (
+                      <PlaceTile key={p.id} place={p} rating={ratings.get(p.id) ?? null} rank={n + 1}
+                        saved={savedSet.has(p.id)} onOpen={() => open(p.id)}
+                        onSave={() => setFav(exploreAsPlace(p))} />
+                    ))}
+                  </div>
+                </section>
+              )}
             </>
           )}
         </div>
@@ -230,13 +254,16 @@ const SWIPE_PX = 40
  * cross-fades, rather than a track sliding sideways, which is what made
  * mid-swipe look like two half cards. No auto-advance.
  *
- * Swipe, tap a dot, or tap the card to move on — the ranked ten for whichever
- * card is showing sits directly below it, on this page.
+ * Swipe or tap a dot to change card; tapping the card opens its ranked ten at
+ * the foot of the page.
  */
-function FilterSlider({ options, active, onPick }: {
+function FilterSlider({ options, active, onPick, onOpen }: {
   options: { key: TopBucket; label: string; count: number; photo: string | null; art: string | null }[]
   active: TopBucket
+  /** the card being shown changed (swipe or dot) */
   onPick: (b: TopBucket) => void
+  /** the card was tapped — show its list */
+  onOpen: (b: TopBucket) => void
 }) {
   const i = Math.max(0, options.findIndex((o) => o.key === active))
   const cur = options[i]
@@ -251,12 +278,12 @@ function FilterSlider({ options, active, onPick }: {
       onPointerMove={(e) => { if (startX.current != null) moved.current = e.clientX - startX.current }}
       onPointerUp={() => {
         if (Math.abs(moved.current) >= SWIPE_PX) go(moved.current < 0 ? 1 : -1)
-        else if (startX.current != null && options.length > 1) go(1)
+        else if (startX.current != null) onOpen(cur.key)
         startX.current = null
       }}
       onPointerCancel={() => { startX.current = null }}
       role="button" tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') go(1) }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpen(cur.key) }}
       className="relative mx-4 sm:mx-6 h-[168px] rounded-[16px] overflow-hidden cursor-pointer select-none touch-pan-y"
       style={{ background: BUCKET_TINT[cur.key].bg, boxShadow: '0 6px 18px rgba(10,40,90,.15)' }}>
 
