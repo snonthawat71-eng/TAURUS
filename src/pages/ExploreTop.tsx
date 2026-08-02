@@ -23,7 +23,7 @@ const BUCKET_TINT: Record<TopBucket, { bg: string; fg: string }> = {
 }
 
 /** how many cards a rail shows before "ดูทั้งหมด" takes over */
-const RAIL_MAX = 12
+const RAIL_MAX = 10
 
 /**
  * A country's home page, opened from the Explore banner.
@@ -116,7 +116,9 @@ export default function ExploreTop() {
                 items={recent.slice(0, RAIL_MAX)} ratings={ratings}
                 sub={(p) => p.city} onOpen={open} />
 
-              {cities.map((c) => {
+              {/* one city means the country rail would just repeat the one above
+                  it — a "แยกตามเมือง" that doesn't split anything */}
+              {cities.length > 1 && cities.map((c) => {
                 const mine = recent.filter((p) => (p.city ?? '').trim() === c.name)
                 if (!mine.length) return null
                 return (
