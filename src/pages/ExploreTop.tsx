@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   IconArrowLeft, IconStarFilled, IconHeart, IconHeartFilled,
-  IconBuildingMonument, IconToolsKitchen2, IconCoffee, IconWorldSearch, IconMapPin, IconHeartPlus,
+  IconBuildingMonument, IconToolsKitchen2, IconCoffee, IconWorldSearch, IconMapPin, IconHeartPlus, IconHeartFilled as IconHeartOn,
 } from '@tabler/icons-react'
 import { SignedImage } from '@/components/SignedImage'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
@@ -136,6 +136,10 @@ export default function ExploreTop() {
     .filter((e) => !city || e.place.city === city)
     .slice(0, MAX_PLACES), [list, bucket, city])
 
+  // every place on screen is already in one of my trips — the button flips to
+  // the saved colour, and opening it offers to take them all back out
+  const allSaved = shown.length > 0 && shown.every((e) => savedSet.has(e.place.id))
+
   if (lists && !list) {
     return (
       <div className="min-h-dvh bg-canvas">
@@ -173,8 +177,10 @@ export default function ExploreTop() {
               {shown.length > 0 && (
                 <button onClick={() => setSaveAll(true)}
                   className="ml-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-white text-[12px] font-bold"
-                  style={{ background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
-                  <IconHeartPlus size={15} /> เซฟทั้งหมด
+                  style={allSaved
+                    ? { background: 'var(--color-brand)', boxShadow: '0 4px 14px rgba(2,112,251,.4)' }
+                    : { background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
+                  {allSaved ? <><IconHeartOn size={15} /> เซฟแล้ว</> : <><IconHeartPlus size={15} /> เซฟทั้งหมด</>}
                 </button>
               )}
             </div>

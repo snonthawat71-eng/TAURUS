@@ -213,6 +213,40 @@ export async function savedExploreIdsInTrip(tripId: string, exploreIds: string[]
   return new Set((data ?? []).map((r) => r.source_explore_id as string))
 }
 
+/** For a bulk save/unsave: which of these Explore items each trip already
+ *  holds, in one round trip. */
+export async function exploreSavedByTrip(tripIds: string[], exploreIds: string[]) {
+  const byTrip = new Map<string, Set<string>>()
+  if (!tripIds.length || !exploreIds.length) return byTrip
+  const { data } = await supabase.from('places').select('trip_id,source_explore_id')
+    .in('trip_id', tripIds).in('source_explore_id', exploreIds)
+  for (const r of data ?? []) {
+    const t = r.trip_id as string
+    let set = byTrip.get(t)
+    if (!set) { set = new Set(); byTrip.set(t, set) }
+    set.add(r.source_explore_id as string)
+  }
+  return byTrip
+}
+
+/** Undo a bulk save: drop every copy of these Explore items from one trip,
+ *  along with the itinerary stops that pointed at them. */
+export async function removeManyExploreCopies(exploreIds: string[], tripId: string) {
+  if (!exploreIds.length) return { removed: 0, stopsRemoved: 0 }
+  const { data } = await supabase.from('places').select('id,name')
+    .eq('trip_id', tripId).in('source_explore_id', exploreIds)
+  const rows = data ?? []
+  const names = [...new Set(rows.map((r) => (r.name as string | null) ?? '').filter(Boolean))]
+  let stopsRemoved = 0
+  if (names.length) {
+    const del = await supabase.from('itinerary_stops').delete()
+      .eq('trip_id', tripId).in('place_name', names).select('id')
+    stopsRemoved = del.data?.length ?? 0
+  }
+  await supabase.from('places').delete().eq('trip_id', tripId).in('source_explore_id', exploreIds)
+  return { removed: rows.length, stopsRemoved }
+}
+
 /** Fetch the set of Explore ids already saved into any of my trips. */
 export async function savedExploreIds(tripIds: string[]) {
   if (!tripIds.length) return new Set<string>()
