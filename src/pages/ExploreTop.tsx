@@ -323,7 +323,7 @@ function Tile({ entry, rank, saved, onOpen, onSave }: {
   onOpen: () => void
   onSave: () => void
 }) {
-  const { place: p, rating, reason } = entry
+  const { place: p, rating } = entry
   const meta = catMeta(p.category)
   const Icon = meta.icon
   const where = p.routes?.[0]?.station ?? p.station_name ?? p.city
@@ -355,11 +355,6 @@ function Tile({ entry, rank, saved, onOpen, onSave }: {
         style={{ color: saved ? 'var(--color-brand)' : 'var(--color-ink-3)' }}>
         {saved ? <IconHeartFilled size={15} /> : <IconHeart size={15} />}
       </button>
-
-      {reason && (
-        <span className="absolute left-2 right-2 bottom-[62px] inline-flex w-fit max-w-full items-center rounded-full px-2 py-0.5 text-[9px] font-extrabold truncate"
-          style={{ background: '#FFF4E0', color: '#B4690E' }}>{reason}</span>
-      )}
 
       <div className="absolute inset-x-0 bottom-0 p-2.5 pointer-events-none">
         <div className="text-white text-[13px] font-extrabold leading-[1.2] line-clamp-2">{p.name}</div>

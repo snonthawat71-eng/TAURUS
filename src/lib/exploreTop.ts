@@ -41,8 +41,6 @@ export interface TopEntry {
   rating: RatingStat | null
   pop: PopStat | null
   bucket: TopBucket
-  /** why it made the list — shown as a badge, or null when it just ranked well */
-  reason: string | null
 }
 
 /** A city inside a country's shortlist — the rail under the filter cards. */
@@ -78,15 +76,6 @@ function scoreOf(r: RatingStat | null, p: PopStat | null): number {
   return rated + saved + liked + seen
 }
 
-/** One badge per filter, on the best-reviewed place. The saves and comments
- *  badges are gone: "2 คนเซฟ" on a shortlist reads as a reason not to go.
- *  Run per filter, so switching card doesn't leave a list with nothing marked. */
-function assignReasons(scored: TopEntry[]) {
-  const bestRated = scored.filter((e) => e.rating && e.rating.count > 0)
-    .sort((a, b) => b.rating!.avg - a.rating!.avg)[0]
-  if (bestRated) bestRated.reason = `🏆 คะแนนสูงสุด`
-}
-
 /** Build every country's shortlist, strongest country first. */
 export function buildTopLists(
   items: ExplorePlace[],
@@ -109,12 +98,11 @@ export function buildTopLists(
       .map((place) => {
         const rating = ratings.get(place.id) ?? null
         const p = pop.get(place.id) ?? null
-        return { place, rating, pop: p, bucket: bucketOf(place), score: scoreOf(rating, p), reason: null }
+        return { place, rating, pop: p, bucket: bucketOf(place), score: scoreOf(rating, p) }
       })
       .sort((a, b) => b.score - a.score)
 
     if (!scored.length) continue
-    for (const b of TOP_BUCKETS) assignReasons(scored.filter((e) => e.bucket === b.key).slice(0, MAX_PLACES))
 
     // the cities inside this country, biggest first — the rail under the cards
     const cityCount = new Map<string, { count: number; photo: string | null }>()
