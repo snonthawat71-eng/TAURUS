@@ -42,27 +42,38 @@ function coordOnlyGoogle(url: string): { lat: string; lng: string } | null {
   return null
 }
 
-export function openMap(url: string | null | undefined) {
-  if (!url?.trim()) return
-  const raw = url.trim()
-
-  // AMap links → AMap. A Google link → open it directly (the app catches it via
-  // universal links). Everything else (bare coords, an Apple link, a name) → a
-  // Google Maps search so it NEVER lands in Apple Maps.
-  let target: string
-  if (isAmap(raw)) {
-    target = raw
-  } else if (isGoogle(raw)) {
+/** The link `openMap` would open — also what we hand to anyone we share a place
+ *  with, so a shared pin lands in the same place tapping it here would.
+ *
+ *  AMap links → AMap. A Google link → itself (the app catches it via universal
+ *  links). Everything else (bare coords, an Apple link, a name) → a Google Maps
+ *  search, so it NEVER lands in Apple Maps. */
+export function mapLinkFor(url: string | null | undefined): string | null {
+  const raw = url?.trim()
+  if (!raw) return null
+  if (isAmap(raw)) return raw
+  if (isGoogle(raw)) {
     // A stamped coordinate pin used "…/maps?q=lat,lng", which is NOT part of the
     // Maps URLs API — the Google Maps app rejects it ("unsupported link"). Send
     // the official search form instead. Done at open time, so rows already in
     // the database heal themselves with no migration.
     const c = coordOnlyGoogle(raw)
-    target = c ? `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}` : raw
-  } else {
-    const query = extractQuery(raw) ?? raw
-    target = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+    return c ? `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}` : raw
   }
+  const query = extractQuery(raw) ?? raw
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+}
+
+/** A Google Maps search for a place we hold no link for — its name, narrowed by
+ *  the city so a chain doesn't land on the wrong branch. */
+export function mapSearchLink(name: string | null | undefined, city?: string | null): string | null {
+  const q = [name, city].map((s) => (s ?? '').trim()).filter(Boolean).join(' ')
+  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : null
+}
+
+export function openMap(url: string | null | undefined) {
+  const target = mapLinkFor(url)
+  if (!target) return
 
   // Trigger via a transient anchor opening a new context. Crucially we never set
   // the current document's location, so the SPA stays mounted and its images

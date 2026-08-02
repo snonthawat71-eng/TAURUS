@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore, IconZoomScan, IconPhoto, IconWorldShare } from '@tabler/icons-react'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore, IconZoomScan, IconPhoto, IconWorldShare, IconShare2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
 import { SignedImage } from './SignedImage'
@@ -8,6 +8,7 @@ import { Lightbox, type PhotoRef } from './Lightbox'
 import { BranchPicker } from './BranchPicker'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
+import { sharePlace } from '@/lib/share'
 import { getSignedUrl } from '@/lib/files'
 import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 
@@ -105,6 +106,9 @@ export function PlaceDetail({
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {/* out of the app — name, city and a map link anyone can open */}
+            <button onClick={() => void sharePlace({ name: place.name, city: place.city, mapUrl })}
+              className="btn-icon !size-8" aria-label="แชร์สถานที่นี้" title="แชร์สถานที่นี้"><IconShare2 size={15} /></button>
             {onShare && <button onClick={onShare} className="btn-icon !size-8" aria-label="แชร์ไป Explore" title="แชร์ไป Explore"><IconWorldShare size={15} /></button>}
             {onEdit && <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไข"><IconPencil size={15} /></button>}
           </div>

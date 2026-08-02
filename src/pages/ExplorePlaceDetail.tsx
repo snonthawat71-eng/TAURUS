@@ -4,7 +4,7 @@ import {
   IconArrowLeft, IconHeart, IconHeartFilled, IconMapPin,
   IconSend, IconTrash, IconLoader2, IconArrowBackUp,
   IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconPhoto, IconMessageReport,
-  IconCheck, IconX, IconInfoCircle, IconLocation,
+  IconCheck, IconX, IconInfoCircle, IconLocation, IconShare2,
 } from '@tabler/icons-react'
 import { PhotoCarousel } from '@/components/PhotoCarousel'
 import { Lightbox, type PhotoRef } from '@/components/Lightbox'
@@ -20,6 +20,7 @@ import { modeMeta } from '@/lib/transitModes'
 import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { openMap } from '@/lib/maps'
+import { sharePlace } from '@/lib/share'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import {
@@ -279,6 +280,17 @@ export default function ExplorePlaceDetail() {
           className="absolute z-10 size-10 rounded-full grid place-items-center text-white shadow-md"
           style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', left: 12, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '0.5px solid rgba(255,255,255,.3)' }}>
           <IconArrowLeft size={20} />
+        </button>
+        {/* share out of the app — the pin travels as a plain map link, so
+            whoever gets it can open it without an account here */}
+        <button onClick={() => void sharePlace({
+          name: e.name, city: e.city, country: e.country,
+          mapUrl,
+          appUrl: `${window.location.origin}/explore/p/${e.id}`,
+        })} aria-label="แชร์สถานที่นี้"
+          className="absolute z-10 size-10 rounded-full grid place-items-center text-white shadow-md"
+          style={{ top: 'calc(env(safe-area-inset-top,0px) + 10px)', right: 12, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '0.5px solid rgba(255,255,255,.3)' }}>
+          <IconShare2 size={19} />
         </button>
         {/* overlaid identity + 3-stat strip — sits just above the tab bar */}
         <div className="absolute left-4 right-4 bottom-[100px] text-white pointer-events-none">
