@@ -98,11 +98,16 @@ export default function ExploreTop() {
   // shape so the sample comes from the strip the crop actually shows.
   useEffect(() => tintChromeFromPhoto(photo, window.innerWidth / HERO_H), [photo])
 
-  // one card per filter, and only for filters this country actually has
+  // one card per filter, and only for filters this country actually has. The
+  // card wears the photo of that filter's top-ranked place, so it shows what
+  // it opens instead of just naming it.
   const buckets = useMemo(() => {
     const all = list?.entries ?? []
     return TOP_BUCKETS
-      .map((b) => ({ ...b, count: all.filter((e) => e.bucket === b.key).length }))
+      .map((b) => {
+        const mine = all.filter((e) => e.bucket === b.key)
+        return { ...b, count: mine.length, photo: mine.find((e) => e.place.photo_url)?.place.photo_url ?? null }
+      })
       .filter((b) => b.count > 0)
   }, [list])
 
@@ -166,7 +171,7 @@ export default function ExploreTop() {
             </div>
           </div>
 
-          <div className="pt-6 pb-3">
+          <div className="pt-5 pb-3">
             {buckets.length > 0 && (
               <FilterSlider options={buckets} active={bucket} onPick={setBucket} />
             )}
@@ -221,7 +226,7 @@ const GAP = 10
  * swipe doesn't have to be guessed at. Tapping the peeking card works too.
  */
 function FilterSlider({ options, active, onPick }: {
-  options: { key: TopBucket; label: string; count: number }[]
+  options: { key: TopBucket; label: string; count: number; photo: string | null }[]
   active: TopBucket
   onPick: (b: TopBucket) => void
 }) {
@@ -257,20 +262,30 @@ function FilterSlider({ options, active, onPick }: {
               // a swipe ends in a click on whatever card the finger left —
               // ignore it, or the slide would immediately snap back
               <button key={o.key} onClick={() => { if (Math.abs(moved.current) < SWIPE_PX) onPick(o.key) }}
-                className="shrink-0 h-[84px] rounded-[16px] bg-surface flex items-center gap-3.5 px-4 text-left transition-opacity"
+                className="relative shrink-0 h-[104px] rounded-[16px] overflow-hidden text-left transition-opacity"
                 style={{
                   width: `calc(100% - ${PEEK}px)`,
-                  border: `1.5px solid ${on ? 'var(--color-brand)' : 'var(--color-line)'}`,
-                  boxShadow: on ? '0 4px 12px rgba(10,40,90,.15)' : '0 2px 8px rgba(10,40,90,.07)',
-                  opacity: on ? 1 : .72,
+                  background: tint.bg,
+                  outline: on ? '2px solid var(--color-brand)' : 'none',
+                  outlineOffset: -2,
+                  boxShadow: on ? '0 4px 14px rgba(10,40,90,.18)' : '0 2px 8px rgba(10,40,90,.08)',
+                  opacity: on ? 1 : .68,
                 }}>
-                <span className="size-12 rounded-full grid place-items-center shrink-0"
-                  style={{ background: tint.bg, color: tint.fg }}>
-                  <Icon size={24} stroke={1.6} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[15px] font-extrabold leading-tight truncate">{o.label}</span>
-                  <span className="block text-[11.5px] text-ink-3 mt-0.5">{o.count} ที่</span>
+                {o.photo
+                  ? <SignedImage url={o.photo} alt="" className="w-full h-full object-cover" width={700} />
+                  : <span className="w-full h-full grid place-items-center">
+                      <Icon size={34} stroke={1.3} style={{ color: tint.fg, opacity: .85 }} />
+                    </span>}
+                <span className="absolute inset-0" style={{
+                  background: 'linear-gradient(95deg,rgba(4,18,38,.9) 0%,rgba(4,18,38,.62) 46%,rgba(4,18,38,.08) 86%)',
+                }} />
+                <span className="absolute inset-0 p-4 flex flex-col justify-center">
+                  <span className="flex items-center gap-1.5 text-white/75 text-[10px] font-bold uppercase"
+                    style={{ letterSpacing: '.14em' }}>
+                    <Icon size={13} stroke={2} /> {o.count} ที่
+                  </span>
+                  <span className="block text-white text-[20px] font-extrabold leading-tight mt-1"
+                    style={{ letterSpacing: '-.4px' }}>{o.label}</span>
                 </span>
               </button>
             )
