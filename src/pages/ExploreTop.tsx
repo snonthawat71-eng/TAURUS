@@ -75,7 +75,8 @@ export default function ExploreTop() {
   // Known from the url on the very first render, so the photo and its
   // status-bar tint land immediately instead of after the list request.
   const photo = list?.photo ?? coverForKey(key)
-  useEffect(() => tintChromeFromPhoto(photo), [photo])
+  // pass the hero's shape so the sample comes from the strip the crop actually shows
+  useEffect(() => tintChromeFromPhoto(photo, window.innerWidth / 340), [photo])
   const shown = list?.entries ?? []
 
   if (lists && !list) {

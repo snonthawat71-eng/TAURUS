@@ -99,7 +99,7 @@ export default function ExplorePlaceDetail() {
 
   // paint the status-bar zone (and pull-down overscroll) the colour of the
   // photo's top edge so the image looks like it runs to the very top
-  useEffect(() => tintChromeFromPhoto(e?.photo_url), [e?.photo_url])
+  useEffect(() => tintChromeFromPhoto(e?.photo_url, window.innerWidth / 600), [e?.photo_url])
 
   const hasOwnLocation = !!(e && (e.map_url || e.station_name || e.station_line))
   useEffect(() => { setBranchIdx(e?.branches?.length && !hasOwnLocation ? 0 : null) }, [e?.id, hasOwnLocation, e?.branches?.length])
