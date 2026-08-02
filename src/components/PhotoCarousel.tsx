@@ -13,7 +13,7 @@ import type { PhotoRef } from './Lightbox'
  * - `overlay` renders above the photos (badges, corner buttons).
  */
 export function PhotoCarousel({
-  photos, alt, width, focus, fallback, onExpand, overlay, priority, indicator = 'dots',
+  photos, alt, width, focus, fallback, onExpand, overlay, priority, indicator = 'dots', indicatorDrop = 0,
 }: {
   photos: PhotoRef[]
   alt?: string
@@ -28,6 +28,9 @@ export function PhotoCarousel({
    *  "1 / N" counter pill in the top-right (better on tall immersive heroes
    *  where centre-bottom dots collide with overlaid text) */
   indicator?: 'dots' | 'count'
+  /** push the "1 / N" pill this far further down, to clear a corner button the
+   *  page has already put in the top-right */
+  indicatorDrop?: number
 }) {
   const [active, setActive] = useState(0)
   const scroller = useRef<HTMLDivElement>(null)
@@ -79,7 +82,7 @@ export function PhotoCarousel({
 
       {photos.length > 1 && indicator === 'count' && (
         <div className="absolute z-20 rounded-full bg-black/45 text-white text-[11px] font-semibold px-2 py-1 leading-none backdrop-blur-sm tabular-nums pointer-events-none"
-          style={{ top: 'calc(env(safe-area-inset-top,0px) + 12px)', right: 12 }}>
+          style={{ top: `calc(env(safe-area-inset-top,0px) + ${12 + indicatorDrop}px)`, right: 12 }}>
           {active + 1} / {photos.length}
         </div>
       )}

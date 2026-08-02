@@ -260,7 +260,7 @@ export default function ExplorePlaceDetail() {
           the tab bar below (which sits over the fading image) ── */}
       <div className="relative h-[600px] bg-surface-2">
         {gallery.length > 0
-          ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={900} focus={e.photo_focus} priority indicator="count" onExpand={(i) => setLightbox(i)}
+          ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={900} focus={e.photo_focus} priority indicator="count" indicatorDrop={46} onExpand={(i) => setLightbox(i)}
               fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>} />
           : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={64} stroke={1.4} style={{ color: meta.fg, opacity: .85 }} /></div>}
         {/* smooth bottom-up darkening (no hard band) behind the text, dissolving
