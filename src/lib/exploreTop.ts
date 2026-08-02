@@ -7,7 +7,7 @@
 // country the list carries every place, ranked; the page slices it per filter
 // (สถานที่ / ร้านอาหาร / คาเฟ่) so each filter gets a full ten of its own.
 import { canonicalCountry, countryFlag, COUNTRIES } from './countries'
-import { tripCoverImage, countryImage, COUNTRY_IMAGES } from './cityImages'
+import { cityImage, tripCoverImage, countryImage, COUNTRY_IMAGES } from './cityImages'
 import { foodGroupKey } from './placeMeta'
 import type { ExplorePlace } from './database.types'
 import type { PopStat } from './exploreMutations'
@@ -129,7 +129,9 @@ export function buildTopLists(
       if (!city) continue
       const cur = cityCount.get(city)
       if (cur) cur.count++
-      else cityCount.set(city, { count: 1, photo: tripCoverImage(city) ?? p.photo_url ?? null })
+      // the same photo the Explore city rail uses, so a city looks the same
+      // in both places
+      else cityCount.set(city, { count: 1, photo: cityImage(city) ?? p.photo_url ?? null })
     }
     const cities: TopCity[] = Array.from(cityCount.entries())
       .map(([name, v]) => ({ name, photo: v.photo, count: v.count }))
