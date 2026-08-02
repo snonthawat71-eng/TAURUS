@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { IconArrowLeft, IconStarFilled, IconHeart, IconHeartFilled } from '@tabler/icons-react'
 import { SignedImage } from '@/components/SignedImage'
-import { TaurusLogo } from '@/components/TaurusLogo'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
@@ -11,6 +10,7 @@ import { allRatingStats } from '@/lib/exploreReviews'
 import { savedExploreIds } from '@/lib/placeMutations'
 import { buildTopLists, coverForKey, TOP_LABEL, type TopList, type TopEntry } from '@/lib/exploreTop'
 import { catMeta } from '@/lib/placeMeta'
+import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { useBack } from '@/lib/useBack'
 import type { ExplorePlace, Place } from '@/lib/database.types'
 
@@ -38,9 +38,9 @@ const FADE = `linear-gradient(to bottom,
  * it's a destination you can land on and share.
  *
  * Laid out as a photo grid because that's what the page is for — ten places to
- * look at and pick from. Under the app's own header sits the city photo, a
- * backdrop the heading rests ON and which dissolves into the page behind the
- * grid — rather than a band with a hard edge.
+ * look at and pick from. The city photo is a full-bleed backdrop the heading
+ * and tabs sit ON, dissolving into the page behind the grid — rather than a
+ * separate band with an edge, which is what made the seam obvious.
  */
 export default function ExploreTop() {
   const { key = '' } = useParams()
@@ -72,9 +72,10 @@ export default function ExploreTop() {
   async function refreshSaved() { setSavedSet(await savedExploreIds(myTripIds)) }
 
   const list = lists?.find((l) => l.key === key) ?? null
-  // known from the url on the very first render, so the photo shows at once
-  // instead of after the list request
+  // Known from the url on the very first render, so the photo and its
+  // status-bar tint land immediately instead of after the list request.
   const photo = list?.photo ?? coverForKey(key)
+  useEffect(() => tintChromeFromPhoto(photo), [photo])
   const shown = list?.entries ?? []
 
   if (lists && !list) {
@@ -89,56 +90,54 @@ export default function ExploreTop() {
   }
 
   return (
-    <div className="min-h-dvh bg-canvas">
-      {/* the app's own header, same as every other Explore screen */}
-      <header className="sticky top-0 z-30 bg-canvas/95 backdrop-blur grid grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6 h-14"
-        style={{ borderBottom: '0.5px solid var(--color-line)' }}>
-        <button onClick={goBack} className="btn-icon !border-0 justify-self-start" aria-label="กลับ"><IconArrowLeft size={18} /></button>
-        <TaurusLogo height={42} />
-        <span />
-      </header>
+    <div className="min-h-dvh bg-canvas relative">
+      {/* the city photo as a backdrop the heading sits on, not a band above it */}
+      <div className="absolute inset-x-0 top-0 h-[340px] overflow-hidden pointer-events-none"
+        style={{ background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
+        {photo && <SignedImage url={photo} alt="" className="w-full h-full object-cover" width={900} />}
+        <div className="absolute inset-x-0 bottom-0 h-[250px]" style={{ background: FADE }} />
+      </div>
 
-      <div className="relative">
-        {/* the city photo as a backdrop the heading sits on, not a band above it */}
-        <div className="absolute inset-x-0 top-0 h-[300px] overflow-hidden pointer-events-none"
-          style={{ background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
-          {photo && <SignedImage url={photo} alt="" className="w-full h-full object-cover" width={900} />}
-          <div className="absolute inset-x-0 bottom-0 h-[230px]" style={{ background: FADE }} />
+      <div className="relative max-w-[640px] mx-auto">
+        <div className="px-4 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 12px)' }}>
+          <button onClick={goBack} aria-label="ย้อนกลับ"
+            className="size-9 rounded-full grid place-items-center text-white"
+            style={{ background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
+            <IconArrowLeft size={18} />
+          </button>
         </div>
 
-        <div className="relative max-w-[640px] mx-auto">
-          {/* The heading sits high on the photo, but the block keeps a fixed
-              height so the grid always starts where the photo has faded out —
-              raising the text must not drag the cards up onto the image. */}
-          <div className="px-4 sm:px-6 pt-5" style={{ paddingBottom: 158 }}>
-            <div className="text-[10px] font-bold uppercase text-white/85"
-              style={{ letterSpacing: '.16em', textShadow: '0 1px 10px rgba(0,0,0,.45)' }}>
-              {list?.flag} {list?.country}
-            </div>
-            <h1 className="text-[19px] font-extrabold leading-[1.2] mt-1.5 text-white"
-              style={{ letterSpacing: '-.3px', textShadow: '0 2px 16px rgba(0,0,0,.4)' }}>
-              {TOP_LABEL}{list?.city ? ` ${list.city}` : ''}
-            </h1>
+        {/* The heading sits high on the photo, but the block keeps a fixed
+            height so the grid always starts where the photo has faded out —
+            raising the text must not drag the cards up onto the image. */}
+        <div className="px-4 sm:px-6 pt-5" style={{ paddingBottom: 178 }}>
+          <div className="text-[10px] font-bold uppercase text-white/85"
+            style={{ letterSpacing: '.16em', textShadow: '0 1px 10px rgba(0,0,0,.45)' }}>
+            {list?.flag} {list?.country}
           </div>
+          <h1 className="text-[19px] font-extrabold leading-[1.2] mt-1.5 text-white"
+            style={{ letterSpacing: '-.3px', textShadow: '0 2px 16px rgba(0,0,0,.4)' }}>
+            {TOP_LABEL}{list?.city ? ` ${list.city}` : ''}
+          </h1>
+        </div>
 
-          <div className="px-4 sm:px-6 pb-10">
-            {!lists ? (
-              <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
-            ) : shown.length === 0 ? (
-              <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มีรายการ</div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2.5">
-                {shown.map((e) => (
-                  <Tile key={e.place.id} entry={e}
-                    rank={(list?.entries.indexOf(e) ?? 0) + 1}
-                    saved={savedSet.has(e.place.id)}
-                    onOpen={() => navigate(`/explore/p/${e.place.id}`)}
-                    onSave={() => setFav(exploreAsPlace(e.place))} />
-                ))}
-              </div>
-            )}
-          </div>
-          </div>
+        <div className="px-4 sm:px-6 pb-10">
+          {!lists ? (
+            <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
+          ) : shown.length === 0 ? (
+            <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มีรายการ</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2.5">
+              {shown.map((e) => (
+                <Tile key={e.place.id} entry={e}
+                  rank={(list?.entries.indexOf(e) ?? 0) + 1}
+                  saved={savedSet.has(e.place.id)}
+                  onOpen={() => navigate(`/explore/p/${e.place.id}`)}
+                  onSave={() => setFav(exploreAsPlace(e.place))} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}

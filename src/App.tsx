@@ -63,8 +63,9 @@ function ProfileChrome() {
       // top needs (iOS paints both edges from one colour)
       html.style.overscrollBehaviorY = 'none'
       meta?.setAttribute('content', '#0A2A6B')
-    } else if (pathname.startsWith('/explore/p/')) {
-      // Place detail: the photo runs full-bleed to the very top. The page itself
+    } else if (pathname.startsWith('/explore/p/') || pathname.startsWith('/explore/top/')) {
+      // Place detail and a city's shortlist: the photo runs full-bleed to the
+      // very top. The page itself
       // then repaints these the colour sampled from the photo's top edge; this
       // is just the pre-sample default. Keep overscroll so pull-to-refresh works.
       html.style.background = '#2a3340'
