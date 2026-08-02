@@ -8,8 +8,8 @@ const AUTO_MS = 15000
 const SWIPE_PX = 40
 
 /**
- * The "ที่เด็ด" banner under the search box: one card per city, sliding on its
- * own. Tapping opens that city's full shortlist.
+ * The "ที่เด็ด" banner under the search box: one card per country, sliding on
+ * its own. Tapping opens that country's full shortlist.
  *
  * It advances every few seconds but stops the moment a finger lands on it, and
  * doesn't resume until the finger leaves — an auto-slider that keeps moving
@@ -67,12 +67,11 @@ export function ExploreTopBanner({ lists, onOpen }: {
       }} />
 
       <div className="absolute inset-0 p-4 flex flex-col justify-center pointer-events-none">
-        {/* country, not city — the city is the heading's second line already */}
         <div className="text-[9.5px] font-bold uppercase text-white/70 mb-2" style={{ letterSpacing: '.16em' }}>
-          {cur.flag} {cur.country}
+          {cur.flag} {cur.cities.length > 1 ? `${cur.cities.length} เมือง` : cur.cities[0]?.name}
         </div>
         <h3 className="text-white text-[24px] font-extrabold leading-[1.15]" style={{ letterSpacing: '-.5px' }}>
-          {TOP_LABEL}<br />{cur.city}
+          {TOP_LABEL}<br />{cur.country}
         </h3>
       </div>
 

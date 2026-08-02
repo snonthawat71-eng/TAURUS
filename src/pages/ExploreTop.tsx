@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IconArrowLeft, IconStarFilled, IconHeart, IconHeartFilled } from '@tabler/icons-react'
+import {
+  IconArrowLeft, IconStarFilled, IconHeart, IconHeartFilled,
+  IconBuildingMonument, IconToolsKitchen2, IconCoffee, IconWorldSearch, IconMapPin,
+} from '@tabler/icons-react'
 import { SignedImage } from '@/components/SignedImage'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { useAuth } from '@/contexts/AuthContext'
@@ -8,8 +11,12 @@ import { useTrip } from '@/contexts/TripContext'
 import { listExplore, allPopularity, exploreAsPlace, type PopStat } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
 import { savedExploreIds } from '@/lib/placeMutations'
-import { buildTopLists, coverForKey, TOP_LABEL, type TopList, type TopEntry } from '@/lib/exploreTop'
+import {
+  buildTopLists, coverForKey, countryForKey, MAX_PLACES, TOP_BUCKETS, TOP_LABEL,
+  type TopBucket, type TopList, type TopEntry,
+} from '@/lib/exploreTop'
 import { catMeta } from '@/lib/placeMeta'
+import { hscroll } from '@/lib/hscroll'
 import { tintChromeFromPhoto } from '@/lib/photoTint'
 import { useBack } from '@/lib/useBack'
 import type { ExplorePlace, Place } from '@/lib/database.types'
@@ -33,14 +40,24 @@ const FADE = `linear-gradient(to bottom,
   color-mix(in srgb, var(--color-canvas) 96%, transparent) 94%,
   var(--color-canvas) 100%)`
 
+/** how tall the photo is, and therefore where the grid may start */
+const HERO_H = 340
+
+const BUCKET_ICON = { place: IconBuildingMonument, food: IconToolsKitchen2, cafe: IconCoffee }
+const BUCKET_TINT: Record<TopBucket, { bg: string; fg: string }> = {
+  place: { bg: '#EAF1FB', fg: '#185FA5' },
+  food: { bg: '#FBEEE8', fg: '#C2562B' },
+  cafe: { bg: '#F3EEE6', fg: '#8A6A3B' },
+}
+
 /**
- * A city's shortlist, opened from the Explore banner. A full page, not a sheet:
- * it's a destination you can land on and share.
+ * A country's shortlist, opened from the Explore banner. A full page, not a
+ * sheet: it's a destination you can land on and share.
  *
  * Laid out as a photo grid because that's what the page is for — ten places to
- * look at and pick from. The city photo is a full-bleed backdrop the heading
- * and tabs sit ON, dissolving into the page behind the grid — rather than a
- * separate band with an edge, which is what made the seam obvious.
+ * look at and pick from. The country photo is a full-bleed backdrop the heading
+ * and the filter cards sit ON, dissolving into the page behind the grid —
+ * rather than a separate band with an edge, which is what made the seam obvious.
  */
 export default function ExploreTop() {
   const { key = '' } = useParams()
@@ -52,6 +69,8 @@ export default function ExploreTop() {
   const [lists, setLists] = useState<TopList[] | null>(null)
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [fav, setFav] = useState<Place | null>(null)
+  const [bucket, setBucket] = useState<TopBucket>('place')
+  const [city, setCity] = useState<string | null>(null)
 
   const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
 
@@ -67,17 +86,41 @@ export default function ExploreTop() {
 
   useEffect(() => { if (myTripIds.length) void refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // the photo runs to the very top, so the status-bar zone has to be painted
-  // its colour too — otherwise it sits under a white band
   async function refreshSaved() { setSavedSet(await savedExploreIds(myTripIds)) }
 
   const list = lists?.find((l) => l.key === key) ?? null
   // Known from the url on the very first render, so the photo and its
   // status-bar tint land immediately instead of after the list request.
   const photo = list?.photo ?? coverForKey(key)
-  // pass the hero's shape so the sample comes from the strip the crop actually shows
-  useEffect(() => tintChromeFromPhoto(photo, window.innerWidth / 340), [photo])
-  const shown = list?.entries ?? []
+  const country = list?.country ?? countryForKey(key) ?? ''
+  // the photo runs to the very top, so the status-bar zone has to be painted
+  // its colour too — otherwise it sits under a white band. Pass the hero's
+  // shape so the sample comes from the strip the crop actually shows.
+  useEffect(() => tintChromeFromPhoto(photo, window.innerWidth / HERO_H), [photo])
+
+  // one card per filter, and only for filters this country actually has
+  const buckets = useMemo(() => {
+    const all = list?.entries ?? []
+    return TOP_BUCKETS
+      .map((b) => ({ ...b, count: all.filter((e) => e.bucket === b.key).length }))
+      .filter((b) => b.count > 0)
+  }, [list])
+
+  // a country with no places at all in the default filter shouldn't open empty
+  useEffect(() => {
+    if (buckets.length && !buckets.some((b) => b.key === bucket)) setBucket(buckets[0].key)
+  }, [buckets, bucket])
+
+  // a city picked on one filter may not exist on the next
+  const cities = list?.cities ?? []
+  useEffect(() => {
+    if (city && !cities.some((c) => c.name === city)) setCity(null)
+  }, [cities, city])
+
+  const shown = useMemo(() => (list?.entries ?? [])
+    .filter((e) => e.bucket === bucket)
+    .filter((e) => !city || e.place.city === city)
+    .slice(0, MAX_PLACES), [list, bucket, city])
 
   if (lists && !list) {
     return (
@@ -92,46 +135,64 @@ export default function ExploreTop() {
 
   return (
     <div className="min-h-dvh bg-canvas relative">
-      {/* the city photo as a backdrop the heading sits on, not a band above it */}
-      <div className="absolute inset-x-0 top-0 h-[340px] overflow-hidden pointer-events-none"
-        style={{ background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
+      {/* the country photo as a backdrop the heading sits on, not a band above it */}
+      <div className="absolute inset-x-0 top-0 overflow-hidden pointer-events-none"
+        style={{ height: HERO_H, background: 'linear-gradient(140deg,#8fa8c9,#2f4a72)' }}>
         {photo && <SignedImage url={photo} alt="" className="w-full h-full object-cover" width={900} />}
         <div className="absolute inset-x-0 bottom-0 h-[250px]" style={{ background: FADE }} />
       </div>
 
       <div className="relative max-w-[640px] mx-auto">
-        <div className="px-4 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 12px)' }}>
-          <button onClick={goBack} aria-label="ย้อนกลับ"
-            className="size-9 rounded-full grid place-items-center text-white"
-            style={{ background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
-            <IconArrowLeft size={18} />
-          </button>
-        </div>
+        {/* Everything that sits ON the photo. The block holds the photo's height
+            so the grid always starts where the photo has faded out, with the
+            filter cards pinned to its bottom edge. */}
+        <div className="flex flex-col justify-between" style={{ minHeight: HERO_H }}>
+          <div className="px-4 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 12px)' }}>
+            <button onClick={goBack} aria-label="ย้อนกลับ"
+              className="size-9 rounded-full grid place-items-center text-white"
+              style={{ background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
+              <IconArrowLeft size={18} />
+            </button>
 
-        {/* The heading sits high on the photo, but the block keeps a fixed
-            height so the grid always starts where the photo has faded out —
-            raising the text must not drag the cards up onto the image. */}
-        <div className="px-4 sm:px-6 pt-5" style={{ paddingBottom: 178 }}>
-          <div className="text-[10px] font-bold uppercase text-white/85"
-            style={{ letterSpacing: '.16em', textShadow: '0 1px 10px rgba(0,0,0,.45)' }}>
-            {list?.flag} {list?.country}
+            <div className="pt-5">
+              <div className="text-[10px] font-bold uppercase text-white/85"
+                style={{ letterSpacing: '.16em', textShadow: '0 1px 10px rgba(0,0,0,.45)' }}>
+                {list?.flag ?? '🌍'} {cities.length > 1 ? `${cities.length} เมือง` : cities[0]?.name ?? ''}
+              </div>
+              <h1 className="text-[19px] font-extrabold leading-[1.2] mt-1.5 text-white"
+                style={{ letterSpacing: '-.3px', textShadow: '0 2px 16px rgba(0,0,0,.4)' }}>
+                {TOP_LABEL}{country ? ` ${country}` : ''}
+              </h1>
+            </div>
           </div>
-          <h1 className="text-[19px] font-extrabold leading-[1.2] mt-1.5 text-white"
-            style={{ letterSpacing: '-.3px', textShadow: '0 2px 16px rgba(0,0,0,.4)' }}>
-            {TOP_LABEL}{list?.city ? ` ${list.city}` : ''}
-          </h1>
+
+          <div className="pt-6 pb-3">
+            {buckets.length > 0 && (
+              <FilterSlider options={buckets} active={bucket} onPick={setBucket} />
+            )}
+
+            {/* cities of this country, same cards as the Explore rail */}
+            {cities.length > 1 && (
+              <div ref={hscroll} className="flex gap-2.5 overflow-x-auto no-scrollbar px-4 sm:px-6 mt-3 pb-1">
+                <CityCard on={!city} label="ทุกเมือง" onClick={() => setCity(null)} />
+                {cities.map((c) => (
+                  <CityCard key={c.name} on={city === c.name} label={c.name} photo={c.photo}
+                    onClick={() => setCity(city === c.name ? null : c.name)} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="px-4 sm:px-6 pb-10">
+        <div className="px-4 sm:px-6 pt-3 pb-10">
           {!lists ? (
             <div className="py-14 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
           ) : shown.length === 0 ? (
             <div className="card p-8 text-center text-[13px] text-ink-3">ยังไม่มีรายการ</div>
           ) : (
             <div className="grid grid-cols-2 gap-2.5">
-              {shown.map((e) => (
-                <Tile key={e.place.id} entry={e}
-                  rank={(list?.entries.indexOf(e) ?? 0) + 1}
+              {shown.map((e, n) => (
+                <Tile key={e.place.id} entry={e} rank={n + 1}
                   saved={savedSet.has(e.place.id)}
                   onOpen={() => navigate(`/explore/p/${e.place.id}`)}
                   onSave={() => setFav(exploreAsPlace(e.place))} />
@@ -144,6 +205,106 @@ export default function ExploreTop() {
       <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
         onClose={() => setFav(null)} onChanged={refreshSaved} />
     </div>
+  )
+}
+
+/** how far a finger has to travel before it counts as a swipe, not a tap */
+const SWIPE_PX = 40
+/** width of the next card left peeking, so it's obvious there is one */
+const PEEK = 34
+const GAP = 10
+
+/**
+ * The filter carousel: one wide card per filter (สถานที่ / ร้านอาหาร / คาเฟ่),
+ * swiped like the Explore banner. The card you're looking at IS the filter, so
+ * there's no separate "apply" — and the next one peeks in from the right so the
+ * swipe doesn't have to be guessed at. Tapping the peeking card works too.
+ */
+function FilterSlider({ options, active, onPick }: {
+  options: { key: TopBucket; label: string; count: number }[]
+  active: TopBucket
+  onPick: (b: TopBucket) => void
+}) {
+  const i = Math.max(0, options.findIndex((o) => o.key === active))
+  const startX = useRef<number | null>(null)
+  const moved = useRef(0)
+
+  const go = (d: number) => {
+    const n = Math.min(options.length - 1, Math.max(0, i + d))
+    if (n !== i) onPick(options[n].key)
+  }
+
+  return (
+    <div className="mx-4 sm:mx-6">
+      {/* the clip has to be the content box, not a padded one: the card that
+          slid off would otherwise leave a sliver in the page margin. py/-my
+          gives the card's shadow room to fall without costing layout height. */}
+      <div className="overflow-hidden py-4 -my-4 select-none touch-pan-y"
+        onPointerDown={(e) => { startX.current = e.clientX; moved.current = 0 }}
+        onPointerMove={(e) => { if (startX.current != null) moved.current = e.clientX - startX.current }}
+        onPointerUp={() => {
+          if (Math.abs(moved.current) >= SWIPE_PX) go(moved.current < 0 ? 1 : -1)
+          startX.current = null
+        }}
+        onPointerCancel={() => { startX.current = null }}>
+        <div className="flex transition-transform duration-300 ease-out"
+          style={{ gap: GAP, transform: `translateX(calc(${-i * 100}% + ${i * (PEEK - GAP)}px))` }}>
+          {options.map((o) => {
+            const Icon = BUCKET_ICON[o.key]
+            const tint = BUCKET_TINT[o.key]
+            const on = o.key === active
+            return (
+              // a swipe ends in a click on whatever card the finger left —
+              // ignore it, or the slide would immediately snap back
+              <button key={o.key} onClick={() => { if (Math.abs(moved.current) < SWIPE_PX) onPick(o.key) }}
+                className="shrink-0 h-[84px] rounded-[16px] bg-surface flex items-center gap-3.5 px-4 text-left transition-opacity"
+                style={{
+                  width: `calc(100% - ${PEEK}px)`,
+                  border: `1.5px solid ${on ? 'var(--color-brand)' : 'var(--color-line)'}`,
+                  boxShadow: on ? '0 4px 12px rgba(10,40,90,.15)' : '0 2px 8px rgba(10,40,90,.07)',
+                  opacity: on ? 1 : .72,
+                }}>
+                <span className="size-12 rounded-full grid place-items-center shrink-0"
+                  style={{ background: tint.bg, color: tint.fg }}>
+                  <Icon size={24} stroke={1.6} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-extrabold leading-tight truncate">{o.label}</span>
+                  <span className="block text-[11.5px] text-ink-3 mt-0.5">{o.count} ที่</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="flex justify-center gap-1.5 mt-2" style={{ visibility: options.length > 1 ? undefined : 'hidden' }}>
+        {options.map((o, n) => (
+          <span key={o.key} className="h-[5px] rounded-full transition-all duration-300"
+            style={{ width: n === i ? 16 : 5, background: n === i ? 'var(--color-brand)' : 'var(--color-line-2)' }} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CityCard({ on, label, photo, onClick }: {
+  on: boolean
+  label: string
+  photo?: string | null
+  onClick: () => void
+}) {
+  return (
+    <button onClick={onClick} className="relative shrink-0 w-24 rounded-[12px] overflow-hidden text-left bg-surface"
+      style={{ border: `1.5px solid ${on ? 'var(--color-brand)' : 'var(--color-line)'}` }}>
+      <div className="h-20">
+        {photo
+          ? <SignedImage url={photo} alt={label} className="w-full h-full object-cover" width={240}
+              fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconMapPin size={20} className="text-ink-3" /></div>} />
+          : <div className="w-full h-full grid place-items-center bg-surface-2"><IconWorldSearch size={22} className="text-ink-3" /></div>}
+      </div>
+      <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">{label}</div>
+    </button>
   )
 }
 

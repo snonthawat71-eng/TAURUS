@@ -1,38 +1,66 @@
-// "ที่เด็ด" — the must-see shortlist for a city, worked out from what the pool
-// already knows rather than hand-curated: real review scores first, then how
-// many people saved it, then how many opened it.
+// "ที่เด็ด" — the must-see shortlist for a country, worked out from what the
+// pool already knows rather than hand-curated: real review scores first, then
+// how many people saved it, then how many opened it.
 //
-// One list per city. A city with only a couple of places doesn't get one — a
-// "top 10" that is simply "everything we have" is worth nothing.
-import { canonicalCountry, countryFlag } from './countries'
-import { tripCoverImage, KNOWN_CITIES } from './cityImages'
+// One list per COUNTRY. A country with only a couple of places doesn't get one
+// — a "top 10" that is simply "everything we have" is worth nothing. Inside a
+// country the list carries every place, ranked; the page slices it per filter
+// (สถานที่ / ร้านอาหาร / คาเฟ่) so each filter gets a full ten of its own.
+import { canonicalCountry, countryFlag, COUNTRIES } from './countries'
+import { tripCoverImage, countryImage, COUNTRY_IMAGES } from './cityImages'
+import { foodGroupKey } from './placeMeta'
 import type { ExplorePlace } from './database.types'
 import type { PopStat } from './exploreMutations'
 
-/** Fewest places a city needs before its shortlist means anything. */
+/** Fewest places a country needs before its shortlist means anything. */
 export const MIN_PLACES = 4
-/** Most entries any one shortlist shows. */
+/** Most entries any one filter shows. */
 export const MAX_PLACES = 10
 
 export interface RatingStat { avg: number; count: number }
+
+/** The three cards the shortlist page filters by. */
+export type TopBucket = 'place' | 'food' | 'cafe'
+
+export const TOP_BUCKETS: { key: TopBucket; label: string }[] = [
+  { key: 'place', label: 'สถานที่' },
+  { key: 'food', label: 'ร้านอาหาร' },
+  { key: 'cafe', label: 'คาเฟ่' },
+]
+
+/** Cafés are pulled OUT of food so the three cards don't overlap — a place
+ *  belongs to exactly one of them. */
+export function bucketOf(e: ExplorePlace): TopBucket {
+  if (e.group_type !== 'food') return 'place'
+  return foodGroupKey(e.category) === 'gcafe' ? 'cafe' : 'food'
+}
 
 export interface TopEntry {
   place: ExplorePlace
   score: number
   rating: RatingStat | null
   pop: PopStat | null
+  bucket: TopBucket
   /** why it made the list — shown as a badge, or null when it just ranked well */
   reason: string | null
+}
+
+/** A city inside a country's shortlist — the rail under the filter cards. */
+export interface TopCity {
+  name: string
+  photo: string | null
+  count: number
 }
 
 export interface TopList {
   /** url-safe id used by the route */
   key: string
-  city: string
   country: string
   flag: string
   photo: string | null
+  /** every place in the country, ranked — filtered and sliced by the page */
   entries: TopEntry[]
+  cities: TopCity[]
   /** average of the entries that carry a real rating */
   avgRating: number
   saves: number
@@ -40,7 +68,7 @@ export interface TopList {
 
 const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9ก-๙]+/gi, '-').replace(/^-|-$/g, '')
 
-/** Rank within a city: a real review score outweighs popularity, but a place
+/** Rank within a country: a real review score outweighs popularity, but a place
  *  nobody has rated can still get there on saves alone. */
 function scoreOf(r: RatingStat | null, p: PopStat | null): number {
   const rated = r && r.count > 0 ? r.avg * 20 + Math.min(r.count, 10) * 3 : 0
@@ -50,83 +78,113 @@ function scoreOf(r: RatingStat | null, p: PopStat | null): number {
   return rated + saved + liked + seen
 }
 
-/** Build every city's shortlist, strongest city first. */
+/** One badge each, and only where it says something the ranking doesn't.
+ *  Kept short: these sit on a narrow grid tile. Run per filter, so switching
+ *  card doesn't leave you looking at a list with no badges on it. */
+function assignReasons(scored: TopEntry[]) {
+  const bestRated = scored.filter((e) => e.rating && e.rating.count > 0)
+    .sort((a, b) => b.rating!.avg - a.rating!.avg)[0]
+  const mostSaved = scored.filter((e) => (e.pop?.saves ?? 0) > 0)
+    .sort((a, b) => (b.pop!.saves) - (a.pop!.saves))[0]
+  const mostTalked = scored.filter((e) => (e.pop?.comments ?? 0) > 0)
+    .sort((a, b) => (b.pop!.comments) - (a.pop!.comments))[0]
+  if (bestRated) bestRated.reason = `🏆 คะแนนสูงสุด`
+  if (mostSaved && !mostSaved.reason) mostSaved.reason = `🔥 ${mostSaved.pop!.saves} คนเซฟ`
+  if (mostTalked && !mostTalked.reason) mostTalked.reason = `💬 คุยเยอะสุด`
+}
+
+/** Build every country's shortlist, strongest country first. */
 export function buildTopLists(
   items: ExplorePlace[],
   pop: Map<string, PopStat>,
   ratings: Map<string, RatingStat>,
 ): TopList[] {
-  const byCity = new Map<string, ExplorePlace[]>()
+  const byCountry = new Map<string, ExplorePlace[]>()
   for (const e of items) {
-    const city = (e.city ?? '').trim()
-    if (!city) continue
-    const arr = byCity.get(city)
+    const country = canonicalCountry(e.country)
+    if (!country) continue
+    const arr = byCountry.get(country)
     if (arr) arr.push(e)
-    else byCity.set(city, [e])
+    else byCountry.set(country, [e])
   }
 
   const lists: TopList[] = []
-  for (const [city, places] of byCity) {
+  for (const [country, places] of byCountry) {
     if (places.length < MIN_PLACES) continue
-    const scored = places
+    const scored: TopEntry[] = places
       .map((place) => {
         const rating = ratings.get(place.id) ?? null
         const p = pop.get(place.id) ?? null
-        return { place, rating, pop: p, score: scoreOf(rating, p), reason: null as string | null }
+        return { place, rating, pop: p, bucket: bucketOf(place), score: scoreOf(rating, p), reason: null }
       })
       .sort((a, b) => b.score - a.score)
-      .slice(0, MAX_PLACES)
 
     if (!scored.length) continue
-    // one badge each, and only where it says something the ranking doesn't.
-    // Kept short: these sit on a narrow grid tile.
-    const bestRated = scored.filter((e) => e.rating && e.rating.count > 0)
-      .sort((a, b) => b.rating!.avg - a.rating!.avg)[0]
-    const mostSaved = scored.filter((e) => (e.pop?.saves ?? 0) > 0)
-      .sort((a, b) => (b.pop!.saves) - (a.pop!.saves))[0]
-    const mostTalked = scored.filter((e) => (e.pop?.comments ?? 0) > 0)
-      .sort((a, b) => (b.pop!.comments) - (a.pop!.comments))[0]
-    if (bestRated) bestRated.reason = `🏆 คะแนนสูงสุด`
-    if (mostSaved && !mostSaved.reason) mostSaved.reason = `🔥 ${mostSaved.pop!.saves} คนเซฟ`
-    if (mostTalked && !mostTalked.reason) mostTalked.reason = `💬 คุยเยอะสุด`
+    for (const b of TOP_BUCKETS) assignReasons(scored.filter((e) => e.bucket === b.key).slice(0, MAX_PLACES))
+
+    // the cities inside this country, biggest first — the rail under the cards
+    const cityCount = new Map<string, { count: number; photo: string | null }>()
+    for (const p of places) {
+      const city = (p.city ?? '').trim()
+      if (!city) continue
+      const cur = cityCount.get(city)
+      if (cur) cur.count++
+      else cityCount.set(city, { count: 1, photo: tripCoverImage(city) ?? p.photo_url ?? null })
+    }
+    const cities: TopCity[] = Array.from(cityCount.entries())
+      .map(([name, v]) => ({ name, photo: v.photo, count: v.count }))
+      .sort((a, b) => b.count - a.count)
 
     const rated = scored.filter((e) => e.rating && e.rating.count > 0)
-    const country = canonicalCountry(places.find((p) => p.country)?.country) || ''
     lists.push({
-      key: slug(city),
-      city,
+      key: slug(country),
       country,
       flag: countryFlag(country),
-      // the same cover the trip cards use, so a city looks the same everywhere
-      photo: tripCoverImage(city) ?? scored.find((e) => e.place.photo_url)?.place.photo_url ?? null,
+      photo: coverFor(country) ?? cities[0]?.photo ?? scored.find((e) => e.place.photo_url)?.place.photo_url ?? null,
       entries: scored,
+      cities,
       avgRating: rated.length ? rated.reduce((s, e) => s + e.rating!.avg, 0) / rated.length : 0,
       saves: scored.reduce((s, e) => s + (e.pop?.saves ?? 0), 0),
     })
   }
 
-  // strongest city first: the one whose shortlist people actually engage with
+  // strongest country first: the one whose shortlist people actually engage with
   return lists.sort((a, b) => (b.saves + b.avgRating * 10) - (a.saves + a.avgRating * 10))
 }
 
-/** The city photo for a shortlist url, worked out from the slug alone.
+/** A country's own cover. Falls back to the city-cover map because a couple of
+ *  countries ARE a city (Hong Kong, Singapore) and already have a photo there. */
+function coverFor(country: string): string | null {
+  return countryImage(country) ?? tripCoverImage(country) ?? null
+}
+
+/** Every country name we could resolve a photo for from a url slug alone. */
+const KNOWN_COUNTRIES: string[] = [
+  ...new Set([...Object.keys(COUNTRY_IMAGES), ...COUNTRIES.map((c) => c.name)]),
+]
+
+/** The country photo for a shortlist url, worked out from the slug alone.
  *
  *  The page can start loading (and colour-sampling) the photo on mount instead
  *  of waiting for the whole Explore list to arrive first — which is what made
  *  the status-bar tint flash one colour and then change. */
 export function coverForKey(key: string): string | null {
-  const city = KNOWN_CITIES.find((c) => slug(c) === key)
-  return city ? tripCoverImage(city) ?? null : null
+  const country = KNOWN_COUNTRIES.find((c) => slug(c) === key)
+  return country ? coverFor(country) : null
 }
 
-/** Heading over a shortlist. Set on two lines — the label, then the city —
- *  so a long city name never has to share a line with it. */
+/** The country a shortlist url points at, before any data has loaded. */
+export function countryForKey(key: string): string | null {
+  return KNOWN_COUNTRIES.find((c) => slug(c) === key) ?? null
+}
+
+/** Heading over a shortlist — followed by the country name. */
 export const TOP_LABEL = 'สถานที่ยอดฮิต'
 
-/** The lists to show for the current filter: every city, or just the picked
- *  country/city. Returns them in display order. */
+/** The lists to show for the current filter: every country, or just the picked
+ *  one. Returns them in display order. */
 export function topListsFor(all: TopList[], country: string, city: string): TopList[] {
-  if (city && city !== 'all') return all.filter((l) => l.city === city)
   if (country && country !== 'all') return all.filter((l) => canonicalCountry(l.country) === canonicalCountry(country))
+  if (city && city !== 'all') return all.filter((l) => l.cities.some((c) => c.name === city))
   return all
 }
