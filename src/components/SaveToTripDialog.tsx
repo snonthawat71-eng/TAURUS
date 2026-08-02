@@ -13,21 +13,10 @@ import { logExploreEvent } from '@/lib/exploreMutations'
 import { toast } from '@/lib/toast'
 import { countryFlag } from '@/lib/countries'
 import { formatDateRange, formatLongDate } from '@/lib/format'
-import type { ItineraryDay, Place, Trip } from '@/lib/database.types'
+import { tripMatchesPlace, isPastTrip, sortTripsForSave } from '@/lib/tripPick'
+import type { ItineraryDay, Place } from '@/lib/database.types'
 
 const norm = (s?: string | null) => (s ?? '').trim().toLowerCase()
-
-/** The place's location keywords (city + country) and a trip's (country +
- *  every city segment) match when any pair is equal or one contains the other —
- *  lenient enough for "Taipei" vs "New Taipei", strict enough to keep a Japan
- *  place out of a Taiwan trip. */
-function tripMatchesPlace(t: Trip, placeTokens: string[]): boolean {
-  const tripTokens = [
-    t.country, ...(t.cities ?? []),
-    ...(t.segments ?? []).flatMap((s) => [s.city, (s as { country?: string | null }).country]),
-  ].map(norm).filter(Boolean)
-  return placeTokens.some((p) => tripTokens.some((tt) => tt === p || tt.includes(p) || p.includes(tt)))
-}
 
 /** Step header — ✓ for done, filled number for current, dashed for upcoming.
  *  Steps that don't apply (no branches / list-only save) are never in the list. */
@@ -83,25 +72,9 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
     ? myTrips
     : myTrips.filter((t) => tripMatchesPlace(t, placeTokens) || done.has(t.id))
 
-  /** A trip that already ended — hardly anyone saves into one, so it sinks to
-   *  the bottom and is shown quietly. Same rule as the home dashboard's
-   *  Upcoming/Past split (ends before today = past). */
-  const isPast = (t: Trip) => {
-    if (!t.start_date) return false // undated trips are still being planned
-    const today = new Date(); today.setHours(0, 0, 0, 0)
-    return new Date(t.end_date || t.start_date).getTime() < today.getTime()
-  }
-  // upcoming/current first (soonest first), finished trips last (most recent first)
-  const shownTrips = useMemo(() => {
-    // undated trips sort last among the live ones (a dated trip coming up is the
-    // likelier target), never to the very top
-    const key = (t: Trip) => (t.start_date ? new Date(t.start_date).getTime() : Number.POSITIVE_INFINITY)
-    const live = matching.filter((t) => !isPast(t)).sort((a, b) => key(a) - key(b))
-    const done_ = matching.filter(isPast).sort((a, b) => key(b) - key(a))
-    return [...live, ...done_]
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matching])
-  const firstPastId = shownTrips.find(isPast)?.id
+  const shownTrips = useMemo(() => sortTripsForSave(matching), [matching])
+  const firstPastId = shownTrips.find(isPastTrip)?.id
 
   const branches = place?.branches ?? []
   const hasBranches = branches.length > 0
@@ -248,7 +221,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
             {shownTrips.map((t) => {
               const saved = done.has(t.id)
               const removable = saved && !!sourceExploreId // can only un-save explore-sourced copies
-              const past = isPast(t)
+              const past = isPastTrip(t)
               return (
                 <Fragment key={t.id}>
                 {/* finished trips sit below a quiet divider — rarely the target */}

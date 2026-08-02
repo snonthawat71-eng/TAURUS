@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   IconArrowLeft, IconStarFilled, IconHeart, IconHeartFilled,
-  IconBuildingMonument, IconToolsKitchen2, IconCoffee, IconWorldSearch, IconMapPin,
+  IconBuildingMonument, IconToolsKitchen2, IconCoffee, IconWorldSearch, IconMapPin, IconHeartPlus,
 } from '@tabler/icons-react'
 import { SignedImage } from '@/components/SignedImage'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
+import { SaveAllToTripDialog } from '@/components/SaveAllToTripDialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { listExplore, allPopularity, exploreAsPlace, type PopStat } from '@/lib/exploreMutations'
@@ -71,6 +72,7 @@ export default function ExploreTop() {
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set())
   const [fav, setFav] = useState<Place | null>(null)
   const [bucket, setBucket] = useState<TopBucket>('place')
+  const [saveAll, setSaveAll] = useState(false)
   const [city, setCity] = useState<string | null>(null)
 
   const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
@@ -160,11 +162,22 @@ export default function ExploreTop() {
             filter cards pinned to its bottom edge. */}
         <div className="flex flex-col justify-between" style={{ minHeight: HERO_H }}>
           <div className="px-4 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 12px)' }}>
-            <button onClick={goBack} aria-label="ย้อนกลับ"
-              className="size-9 rounded-full grid place-items-center text-white"
-              style={{ background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
-              <IconArrowLeft size={18} />
-            </button>
+            <div className="flex items-center">
+              <button onClick={goBack} aria-label="ย้อนกลับ"
+                className="size-9 rounded-full grid place-items-center text-white"
+                style={{ background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
+                <IconArrowLeft size={18} />
+              </button>
+              {/* the whole list in one tap — what the page is for, once you've
+                  decided you like it */}
+              {shown.length > 0 && (
+                <button onClick={() => setSaveAll(true)}
+                  className="ml-auto inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-white text-[12px] font-bold"
+                  style={{ background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
+                  <IconHeartPlus size={15} /> เซฟทั้งหมด
+                </button>
+              )}
+            </div>
 
             <div className="pt-5">
               <div className="text-[10px] font-bold uppercase text-white/85"
@@ -216,6 +229,8 @@ export default function ExploreTop() {
 
       <SaveToTripDialog place={fav} open={!!fav} sourceExploreId={fav?.id}
         onClose={() => setFav(null)} onChanged={refreshSaved} />
+      <SaveAllToTripDialog items={shown.map((e) => e.place)} open={saveAll}
+        onClose={() => setSaveAll(false)} onChanged={refreshSaved} />
     </div>
   )
 }

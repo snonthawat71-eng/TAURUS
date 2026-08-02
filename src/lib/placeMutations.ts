@@ -204,6 +204,15 @@ export async function exploreSavedInTrips(exploreId: string, tripIds: string[]) 
   return (data ?? []).map((r) => r.trip_id as string)
 }
 
+/** Which of these Explore items one trip already holds — the check before a
+ *  bulk save, so saving a shortlist twice doesn't duplicate half of it. */
+export async function savedExploreIdsInTrip(tripId: string, exploreIds: string[]) {
+  if (!exploreIds.length) return new Set<string>()
+  const { data } = await supabase.from('places').select('source_explore_id')
+    .eq('trip_id', tripId).in('source_explore_id', exploreIds)
+  return new Set((data ?? []).map((r) => r.source_explore_id as string))
+}
+
 /** Fetch the set of Explore ids already saved into any of my trips. */
 export async function savedExploreIds(tripIds: string[]) {
   if (!tripIds.length) return new Set<string>()

@@ -1,0 +1,42 @@
+// Picking which trip a place should be saved into — shared by the single-place
+// dialog and the "save the whole shortlist" one, so both offer the same trips
+// in the same order.
+import type { Trip } from './database.types'
+
+const norm = (s?: string | null) => (s ?? '').trim().toLowerCase()
+
+/** The place's location keywords (city + country) and a trip's (country +
+ *  every city segment) match when any pair is equal or one contains the other —
+ *  lenient enough for "Taipei" vs "New Taipei", strict enough to keep a Japan
+ *  place out of a Taiwan trip. */
+export function tripMatchesPlace(t: Trip, placeTokens: string[]): boolean {
+  const tripTokens = [
+    t.country, ...(t.cities ?? []),
+    ...(t.segments ?? []).flatMap((s) => [s.city, (s as { country?: string | null }).country]),
+  ].map(norm).filter(Boolean)
+  return placeTokens.some((p) => tripTokens.some((tt) => tt === p || tt.includes(p) || p.includes(tt)))
+}
+
+/** Location keywords for a set of places, deduped. */
+export function placeTokens(places: { city?: string | null; country?: string | null }[]): string[] {
+  return [...new Set(places.flatMap((p) => [norm(p.city), norm(p.country)]).filter(Boolean))]
+}
+
+/** A trip that already ended — hardly anyone saves into one, so it sinks to the
+ *  bottom and is shown quietly. Same rule as the home dashboard's
+ *  Upcoming/Past split (ends before today = past). */
+export function isPastTrip(t: Trip): boolean {
+  if (!t.start_date) return false // undated trips are still being planned
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  return new Date(t.end_date || t.start_date).getTime() < today.getTime()
+}
+
+/** Upcoming/current first (soonest first), finished trips last (most recent
+ *  first). Undated trips sort last among the live ones — a dated trip coming up
+ *  is the likelier target — never to the very top. */
+export function sortTripsForSave(trips: Trip[]): Trip[] {
+  const key = (t: Trip) => (t.start_date ? new Date(t.start_date).getTime() : Number.POSITIVE_INFINITY)
+  const live = trips.filter((t) => !isPastTrip(t)).sort((a, b) => key(a) - key(b))
+  const past = trips.filter(isPastTrip).sort((a, b) => key(b) - key(a))
+  return [...live, ...past]
+}
