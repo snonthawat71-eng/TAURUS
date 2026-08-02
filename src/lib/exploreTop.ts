@@ -78,19 +78,13 @@ function scoreOf(r: RatingStat | null, p: PopStat | null): number {
   return rated + saved + liked + seen
 }
 
-/** One badge each, and only where it says something the ranking doesn't.
- *  Kept short: these sit on a narrow grid tile. Run per filter, so switching
- *  card doesn't leave you looking at a list with no badges on it. */
+/** One badge per filter, on the best-reviewed place. The saves and comments
+ *  badges are gone: "2 คนเซฟ" on a shortlist reads as a reason not to go.
+ *  Run per filter, so switching card doesn't leave a list with nothing marked. */
 function assignReasons(scored: TopEntry[]) {
   const bestRated = scored.filter((e) => e.rating && e.rating.count > 0)
     .sort((a, b) => b.rating!.avg - a.rating!.avg)[0]
-  const mostSaved = scored.filter((e) => (e.pop?.saves ?? 0) > 0)
-    .sort((a, b) => (b.pop!.saves) - (a.pop!.saves))[0]
-  const mostTalked = scored.filter((e) => (e.pop?.comments ?? 0) > 0)
-    .sort((a, b) => (b.pop!.comments) - (a.pop!.comments))[0]
   if (bestRated) bestRated.reason = `🏆 คะแนนสูงสุด`
-  if (mostSaved && !mostSaved.reason) mostSaved.reason = `🔥 ${mostSaved.pop!.saves} คนเซฟ`
-  if (mostTalked && !mostTalked.reason) mostTalked.reason = `💬 คุยเยอะสุด`
 }
 
 /** Build every country's shortlist, strongest country first. */
