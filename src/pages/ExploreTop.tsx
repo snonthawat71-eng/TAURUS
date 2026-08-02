@@ -142,15 +142,6 @@ export default function ExploreTop() {
           eyebrow={<>{list?.flag ?? '🌍'} {cities.length > 1 ? `${cities.length} เมือง` : cities[0]?.name ?? ''}</>}
           title={topTitle(country)}
           onBack={goBack}
-          right={opened && top.length > 0 ? (
-            <button onClick={() => setSaveAll(true)}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-white text-[12px] font-bold"
-              style={allSaved
-                ? { background: 'var(--color-brand)', boxShadow: '0 4px 14px rgba(2,112,251,.4)' }
-                : { background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
-              {allSaved ? <><IconHeartFilled size={15} /> เซฟแล้ว</> : <><IconHeartPlus size={15} /> เซฟทั้งหมด</>}
-            </button>
-          ) : undefined}
           bottom={buckets.length > 0 ? (
             <div className="pt-4 pb-3">
               <FilterSlider options={buckets} active={bucket}
@@ -194,8 +185,13 @@ export default function ExploreTop() {
                     <h2 className="text-[17px] font-extrabold leading-none" style={{ letterSpacing: '-.3px' }}>
                       {buckets.find((b) => b.key === bucket)?.label}
                     </h2>
-                    <button onClick={() => setOpened(false)}
-                      className="ml-auto text-[12.5px] font-semibold text-ink-3 leading-none">ซ่อน</button>
+                    {/* the list's own action, next to its heading — tapping
+                        the card again is what closes it */}
+                    <button onClick={() => setSaveAll(true)}
+                      className={['ml-auto inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[12px] font-bold',
+                        allSaved ? 'bg-brand-soft text-brand-dark' : 'bg-brand text-white'].join(' ')}>
+                      {allSaved ? <><IconHeartFilled size={13} /> เซฟแล้ว</> : <><IconHeartPlus size={13} /> เซฟทั้งหมด</>}
+                    </button>
                   </div>
                   <div className="grid grid-cols-2 gap-2.5 px-4 sm:px-6">
                     {top.map((p, n) => (
