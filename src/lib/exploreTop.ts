@@ -16,6 +16,9 @@ import type { PopStat } from './exploreMutations'
 export const MIN_PLACES = 4
 /** Most entries any one filter shows. */
 export const MAX_PLACES = 10
+/** Most entries the "เพิ่งเพิ่มล่าสุด" page shows — recent stops being recent
+ *  somewhere around here. */
+export const MAX_RECENT = 20
 
 export interface RatingStat { avg: number; count: number }
 

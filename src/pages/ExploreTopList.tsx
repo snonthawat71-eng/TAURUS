@@ -10,7 +10,7 @@ import { listExplore, allPopularity, exploreAsPlace, type PopStat } from '@/lib/
 import { allRatingStats } from '@/lib/exploreReviews'
 import { savedExploreIds } from '@/lib/placeMutations'
 import {
-  buildTopLists, coverForKey, countryForKey, slugify,
+  buildTopLists, coverForKey, countryForKey, slugify, MAX_RECENT,
   type RatingStat, type TopList,
 } from '@/lib/exploreTop'
 import { tintChromeFromPhoto } from '@/lib/photoTint'
@@ -64,7 +64,7 @@ export default function ExploreTopList() {
     if (cityName) {
       return { shown: list.recent.filter((p) => (p.city ?? '').trim() === cityName), heading: cityName }
     }
-    return { shown: list.recent, heading: 'เพิ่งเพิ่มล่าสุด' }
+    return { shown: list.recent.slice(0, MAX_RECENT), heading: 'เพิ่งเพิ่มล่าสุด' }
   }, [list, cityName])
 
   // every place on screen is already in one of my trips — the button flips to
