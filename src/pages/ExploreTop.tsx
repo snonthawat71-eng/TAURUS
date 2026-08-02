@@ -171,7 +171,7 @@ export default function ExploreTop() {
             </div>
           </div>
 
-          <div className="pt-4 pb-3">
+          <div className="pt-3 pb-3">
             {buckets.length > 0 && (
               <FilterSlider options={buckets} active={bucket} onPick={setBucket} />
             )}
@@ -215,8 +215,7 @@ export default function ExploreTop() {
 
 /** how far a finger has to travel before it counts as a swipe, not a tap */
 const SWIPE_PX = 40
-/** width of the next card left peeking, so it's obvious there is one */
-const PEEK = 34
+/** gutter between the cards while one slides past */
 const GAP = 10
 
 /**
@@ -253,22 +252,16 @@ function FilterSlider({ options, active, onPick }: {
         }}
         onPointerCancel={() => { startX.current = null }}>
         <div className="flex transition-transform duration-300 ease-out"
-          style={{ gap: GAP, transform: `translateX(calc(${-i * 100}% + ${i * (PEEK - GAP)}px))` }}>
+          style={{ gap: GAP, transform: `translateX(calc(${-i * 100}% - ${i * GAP}px))` }}>
           {options.map((o) => {
             const Icon = BUCKET_ICON[o.key]
             const tint = BUCKET_TINT[o.key]
-            const on = o.key === active
             return (
               // a swipe ends in a click on whatever card the finger left —
               // ignore it, or the slide would immediately snap back
               <button key={o.key} onClick={() => { if (Math.abs(moved.current) < SWIPE_PX) onPick(o.key) }}
-                className="relative shrink-0 h-[130px] rounded-[16px] overflow-hidden text-left transition-opacity"
-                style={{
-                  width: `calc(100% - ${PEEK}px)`,
-                  background: tint.bg,
-                  boxShadow: '0 6px 18px rgba(10,40,90,.15)',
-                  opacity: on ? 1 : .6,
-                }}>
+                className="relative shrink-0 w-full h-[168px] rounded-[16px] overflow-hidden text-left"
+                style={{ background: tint.bg, boxShadow: '0 6px 18px rgba(10,40,90,.15)' }}>
                 {o.photo
                   ? <SignedImage url={o.photo} alt="" className="w-full h-full object-cover" width={700} />
                   : <span className="w-full h-full grid place-items-center">
