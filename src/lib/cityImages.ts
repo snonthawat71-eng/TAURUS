@@ -12,6 +12,7 @@ export const CITY_IMAGES: Record<string, string> = {
   'Taipei': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781508672/beautiful-architecture-building-taipei-city_flisiw.jpg',
   'Singapore': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781690844/jay-ang-v0BgDZTJyPY-unsplash_2_bxwbzh.jpg',
   'Shenzhen': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781690969/joshua-fernandez-dJ1TGyNr5I0-unsplash_ejo7xh.jpg',
+  'Guangzhou': '/city/guangzhou.jpg',
   'Seoul': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1781691226/3233_bmaf00.jpg',
 }
 
