@@ -2,9 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   IconArrowLeft, IconChevronRight, IconPlus, IconTrash, IconPhoto, IconLoader2,
-  IconChevronUp, IconChevronDown, IconEye, IconWorld, IconLayoutList, IconExternalLink, IconLock,
-  IconUsers, IconSearch, IconShieldCheck,
+  IconEye, IconWorld, IconLayoutList, IconExternalLink, IconLock,
+  IconUsers, IconSearch, IconShieldCheck, IconGripVertical,
 } from '@tabler/icons-react'
+import {
+  DndContext, PointerSensor, TouchSensor, KeyboardSensor, useSensor, useSensors, closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { SignedImage } from '@/components/SignedImage'
 import { AdminPlacePicker } from '@/components/AdminPlacePicker'
 import { TaurusLogo } from '@/components/TaurusLogo'
@@ -297,12 +303,16 @@ function CountryEditor({ country, pool, auto, onPageSaved, onPageDeleted }: {
     if (error) { toast.error(`ลบไม่สำเร็จ: ${error.message}`); void refresh() }
   }
 
-  async function move(i: number, d: number) {
-    const j = i + d
-    if (j < 0 || j >= blocks.length) return
-    const next = [...blocks]
-    ;[next[i], next[j]] = [next[j], next[i]]
-    setBlocks(next.map((b, n) => ({ ...b, position: n })))
+  const sensors = useDragSensors()
+
+  async function onBlockDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const from = blocks.findIndex((b) => b.id === active.id)
+    const to = blocks.findIndex((b) => b.id === over.id)
+    if (from < 0 || to < 0) return
+    const next = arrayMove(blocks, from, to).map((b, n) => ({ ...b, position: n }))
+    setBlocks(next)
     await reorderBlocks(next.map((b) => b.id))
   }
 
@@ -398,15 +408,18 @@ function CountryEditor({ country, pool, auto, onPageSaved, onPageDeleted }: {
                   )}
                 </div>
               )}
-              <div className="space-y-2.5">
-                {blocks.map((b, i) => (
-                  <BlockCard key={b.id} block={b} index={i} total={blocks.length} byId={byId}
-                    onPatch={(f) => void patchBlock(b.id, f)}
-                    onMove={(d) => void move(i, d)}
-                    onRemove={() => void removeBlock(b)}
-                    onPick={() => setPicking(b)} />
-                ))}
-              </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onBlockDragEnd}>
+                <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2.5">
+                    {blocks.map((b) => (
+                      <BlockCard key={b.id} block={b} byId={byId}
+                        onPatch={(f) => void patchBlock(b.id, f)}
+                        onRemove={() => void removeBlock(b)}
+                        onPick={() => setPicking(b)} />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
               <button onClick={() => void onAddBlock()}
                 className="w-full h-11 mt-2.5 rounded-[11px] text-[13px] font-semibold text-brand inline-flex items-center justify-center gap-1.5"
                 style={{ border: '1px dashed var(--color-line-2)' }}>
@@ -435,6 +448,43 @@ function CountryEditor({ country, pool, auto, onPageSaved, onPageDeleted }: {
 }
 
 // ── small pieces ────────────────────────────────────────────────────────────
+
+/** Drag-to-reorder, same feel as the Itinerary: a grip you press, the row
+ *  lifts, and the neighbours make way. The handle is separate from the row so
+ *  the toggles and buttons inside stay tappable. */
+function Sortable({ id, children }: {
+  id: string
+  children: (handle: React.HTMLAttributes<HTMLElement>) => React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    transition: { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+  })
+  return (
+    <div ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 10 : undefined,
+        position: 'relative',
+        opacity: isDragging ? 0.9 : 1,
+        boxShadow: isDragging ? '0 10px 26px rgba(10,40,90,.22)' : undefined,
+        borderRadius: 12,
+      }}>
+      {children({ ...attributes, ...listeners, style: { touchAction: 'none', cursor: 'grab' } })}
+    </div>
+  )
+}
+
+/** The sensors both lists use — a few pixels of travel before a press becomes a
+ *  drag, so a tap on the grip still reads as a tap. */
+function useDragSensors() {
+  return useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } }),
+    useSensor(KeyboardSensor),
+  )
+}
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -537,30 +587,36 @@ const FILTER_OPTS: { key: string; label: string; group: string | null; cat: stri
   ...FOOD_GROUPS.flatMap((g) => g.cats).map((c) => ({ key: `food:${c}`, label: catMeta(c).label, group: 'food', cat: c })),
 ]
 
-function BlockCard({ block: b, index, total, byId, onPatch, onMove, onRemove, onPick }: {
+function BlockCard({ block: b, byId, onPatch, onRemove, onPick }: {
   block: BlockWithPlaces
-  index: number
-  total: number
   byId: Map<string, ExplorePlace>
   onPatch: (f: Partial<BlockWithPlaces>) => void
-  onMove: (d: number) => void
   onRemove: () => void
   onPick: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const sensors = useDragSensors()
+
+  function onPlaceDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const from = b.placeIds.indexOf(active.id as string)
+    const to = b.placeIds.indexOf(over.id as string)
+    if (from < 0 || to < 0) return
+    onPatch({ placeIds: arrayMove(b.placeIds, from, to) })
+  }
+
   const filterKey = b.action === 'explore'
     ? (b.filter_group ? (b.filter_cat ? `${b.filter_group}:${b.filter_cat}` : b.filter_group) : 'all')
     : 'all'
 
   return (
-    <div className="rounded-[12px] overflow-hidden" style={{ border: '0.5px solid var(--color-line)' }}>
+    <Sortable id={b.id}>{(handle) => (
+    <div className="rounded-[12px] overflow-hidden" style={{ border: '0.5px solid var(--color-line)', background: 'var(--color-surface)' }}>
       <div className="flex items-center gap-2.5 p-2.5 bg-surface">
-        <div className="flex flex-col">
-          <button onClick={() => onMove(-1)} disabled={index === 0} aria-label="เลื่อนขึ้น"
-            className="text-ink-3 disabled:opacity-25"><IconChevronUp size={15} /></button>
-          <button onClick={() => onMove(1)} disabled={index === total - 1} aria-label="เลื่อนลง"
-            className="text-ink-3 disabled:opacity-25"><IconChevronDown size={15} /></button>
-        </div>
+        <span {...handle} aria-label="ลากเพื่อจัดลำดับ" className="text-ink-3 shrink-0 -my-2 py-2">
+          <IconGripVertical size={17} />
+        </span>
         <span className="w-[74px] h-[38px] rounded-[7px] overflow-hidden shrink-0 bg-surface-2 grid place-items-center">
           <SignedImage url={b.image_url} alt="" className="w-full h-full object-cover" width={200}
             fallback={<IconPhoto size={15} className="text-ink-3" />} />
@@ -624,26 +680,35 @@ function BlockCard({ block: b, index, total, byId, onPatch, onMove, onRemove, on
                   <IconTrash size={13} /> ลบการ์ดนี้
                 </button>
               </div>
-              <div className="space-y-1.5">
-                {b.placeIds.map((id, n) => {
-                  const p = byId.get(id)
-                  return (
-                    <div key={id} className="flex items-center gap-2.5 p-2 rounded-[9px] bg-surface hairline">
-                      <span className="w-4 text-center text-[11px] font-bold text-ink-3 shrink-0">{n + 1}</span>
-                      <span className="size-[34px] rounded-[6px] overflow-hidden shrink-0 bg-surface-2 grid place-items-center">
-                        <SignedImage url={p?.photo_url} alt="" className="w-full h-full object-cover" width={100}
-                          fallback={<IconPhoto size={13} className="text-ink-3" />} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[12.5px] font-semibold truncate">{p?.name ?? 'สถานที่ถูกลบไปแล้ว'}</span>
-                        <span className="block text-[10.5px] text-ink-3 truncate">{p ? `${p.city || '—'} · ${catMeta(p.category).label}` : '—'}</span>
-                      </span>
-                      <button onClick={() => onPatch({ placeIds: b.placeIds.filter((x) => x !== id) })}
-                        className="text-[11.5px] font-semibold text-[#D85A30] shrink-0">เอาออก</button>
-                    </div>
-                  )
-                })}
-              </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onPlaceDragEnd}>
+                <SortableContext items={b.placeIds} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-1.5">
+                    {b.placeIds.map((id, n) => {
+                      const p = byId.get(id)
+                      return (
+                        <Sortable key={id} id={id}>{(handle) => (
+                          <div className="flex items-center gap-2 p-2 rounded-[9px] bg-surface hairline">
+                            <span {...handle} aria-label="ลากเพื่อจัดอันดับ" className="text-ink-3 shrink-0 -my-2 py-2">
+                              <IconGripVertical size={16} />
+                            </span>
+                            <span className="w-4 text-center text-[11px] font-bold text-ink-3 shrink-0">{n + 1}</span>
+                            <span className="size-[34px] rounded-[6px] overflow-hidden shrink-0 bg-surface-2 grid place-items-center">
+                              <SignedImage url={p?.photo_url} alt="" className="w-full h-full object-cover" width={100}
+                                fallback={<IconPhoto size={13} className="text-ink-3" />} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-[12.5px] font-semibold truncate">{p?.name ?? 'สถานที่ถูกลบไปแล้ว'}</span>
+                              <span className="block text-[10.5px] text-ink-3 truncate">{p ? `${p.city || '—'} · ${catMeta(p.category).label}` : '—'}</span>
+                            </span>
+                            <button onClick={() => onPatch({ placeIds: b.placeIds.filter((x) => x !== id) })}
+                              className="text-[11.5px] font-semibold text-[#D85A30] shrink-0">เอาออก</button>
+                          </div>
+                        )}</Sortable>
+                      )
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
               <button onClick={onPick}
                 className="w-full h-9 mt-2 rounded-[9px] text-[12.5px] font-semibold text-brand"
                 style={{ border: '1px dashed var(--color-line-2)' }}>
@@ -660,6 +725,7 @@ function BlockCard({ block: b, index, total, byId, onPatch, onMove, onRemove, on
         </div>
       )}
     </div>
+    )}</Sortable>
   )
 }
 
