@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   IconArrowLeft, IconArrowRight, IconBuildingMonument, IconToolsKitchen2, IconCoffee,
-  IconHeartPlus, IconHeartFilled, IconPencil,
+  IconHeartPlus, IconHeartFilled,
 } from '@tabler/icons-react'
 import { SignedImage } from '@/components/SignedImage'
 import { TopHero, RailCard, PlaceTile, topTitle } from '@/components/exploreTopParts'
@@ -14,9 +14,8 @@ import { savedExploreIds } from '@/lib/placeMutations'
 import { listExplore, allPopularity, exploreAsPlace, type PopStat } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
 import { loadCuratedPage, type CuratedPage } from '@/lib/countryPages'
-import { useIsAdmin } from '@/lib/useIsAdmin'
 import {
-  buildTopLists, coverForKey, countryForKey, slugForCountry, MAX_PLACES, TOP_BUCKETS,
+  buildTopLists, coverForKey, countryForKey, MAX_PLACES, TOP_BUCKETS,
   type RatingStat, type TopBucket, type TopList,
 } from '@/lib/exploreTop'
 import { hscroll } from '@/lib/hscroll'
@@ -64,7 +63,6 @@ export default function ExploreTop() {
   const goBack = useBack('/explore')
   const { user } = useAuth()
   const { trips } = useTrip()
-  const isAdmin = useIsAdmin()
 
   const [lists, setLists] = useState<TopList[] | null>(null)
   const [ratings, setRatings] = useState<Map<string, RatingStat>>(new Map())
@@ -99,7 +97,10 @@ export default function ExploreTop() {
   useEffect(() => {
     if (!country) return
     let off = false
-    void loadCuratedPage(country).then((c) => { if (!off) setCurated(c) })
+    // published only, even for the admin who wrote it: this is the page as
+    // everyone sees it, and a draft showing here would be a different app for
+    // one account. Drafts are reviewed in the dashboard.
+    void loadCuratedPage(country).then((c) => { if (!off) setCurated(c?.page.published ? c : null) })
     return () => { off = true }
   }, [country])
 
@@ -202,13 +203,6 @@ export default function ExploreTop() {
             ?? <>{list?.flag ?? '🌍'} {cities.length > 1 ? `${cities.length} เมือง` : cities[0]?.name ?? ''}</>}
           title={curated?.page.title || topTitle(country)}
           onBack={goBack}
-          right={isAdmin ? (
-            <button onClick={() => navigate(`/admin/${slugForCountry(country) || key}`)}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-white text-[12px] font-bold"
-              style={{ background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(8px)' }}>
-              <IconPencil size={15} /> จัดหน้านี้
-            </button>
-          ) : undefined}
           bottom={cards.length > 0 ? (
             <div className="pt-4 pb-3">
               <CardSlider cards={cards} index={cardIdx} onPick={setCardIdx} onOpen={tapCard} />

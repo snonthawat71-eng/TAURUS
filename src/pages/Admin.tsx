@@ -207,46 +207,49 @@ function CountryEditor({ country, pool, auto, onPageSaved, onPageDeleted }: {
     onPageSaved(next)
   }
 
-  /** Start editing. `seed` copies the page users see right now — cover,
-   *  heading and one block per category filled with its current top ten — so
-   *  the first thing the admin sees is what is already live, not a blank slate. */
   async function createPage(seed: boolean) {
     setBusy(true)
-    const { error } = await upsertCountryPage({
-      country,
-      published: false,
-      show_recent: true,
-      show_cities: true,
-      ...(seed && auto ? {
-        title: `${TOP_LABEL} ${country}`,
-        eyebrow: `${countryFlag(country)} ${country}`,
-        cover_url: auto.photo,
-      } : {}),
-    })
-    if (error) { setBusy(false); toast.error(`สร้างหน้าไม่สำเร็จ: ${error.message}`); return }
+    const { error } = await upsertCountryPage({ country, published: false, show_recent: true, show_cities: true })
+    setBusy(false)
+    if (error) { toast.error(`สร้างหน้าไม่สำเร็จ: ${error.message}`); return }
+    if (seed) { await seedFromAuto(false); return }
+    await refresh()
+    toast.success('สร้างหน้าเปล่าแล้ว — ยังเป็นร่าง')
+  }
 
-    if (seed && auto) {
-      let position = 0
-      for (const b of TOP_BUCKETS) {
-        const mine = auto.entries.filter((e) => e.bucket === b.key).slice(0, MAX_PLACES)
-        if (!mine.length) continue
-        const art = FILTER_CARD_ART[`${slugFor(country)}:${b.key}`] ?? null
-        const res = await addBlock(country, position++)
-        if (!res.data) continue
-        await updateBlock(res.data.id, {
-          // artwork already carries its own lettering — the label would double up
-          title: art ? '' : b.label,
-          image_url: art ?? mine.find((e) => e.place.photo_url)?.place.photo_url ?? null,
-        })
-        await setBlockPlaces(res.data.id, mine.map((e) => e.place.id))
-      }
+  /** Copy the page users see right now — cover, heading, and one block per
+   *  category filled with its current top ten. Available on an empty draft too,
+   *  because a page created before this existed has no way back otherwise.
+   *  Only fills the cover/heading when they're still blank, so it never
+   *  clobbers something the admin typed. */
+  async function seedFromAuto(quiet: boolean) {
+    if (!auto) { toast.error('ประเทศนี้ยังไม่มีหน้าอัตโนมัติให้คัดลอก'); return }
+    setBusy(true)
+    const fill: Partial<CountryPage> = {}
+    if (!page?.title) fill.title = `${TOP_LABEL} ${country}`
+    if (!page?.eyebrow) fill.eyebrow = `${countryFlag(country)} ${country}`
+    if (!page?.cover_url) fill.cover_url = auto.photo
+    if (Object.keys(fill).length) await upsertCountryPage({ ...fill, country })
+
+    let position = blocks.length
+    let made = 0
+    for (const b of TOP_BUCKETS) {
+      const mine = auto.entries.filter((e) => e.bucket === b.key).slice(0, MAX_PLACES)
+      if (!mine.length) continue
+      const art = FILTER_CARD_ART[`${slugFor(country)}:${b.key}`] ?? null
+      const res = await addBlock(country, position++)
+      if (!res.data) continue
+      await updateBlock(res.data.id, {
+        // artwork already carries its own lettering — a label would double up
+        title: art ? '' : b.label,
+        image_url: art ?? mine.find((e) => e.place.photo_url)?.place.photo_url ?? null,
+      })
+      await setBlockPlaces(res.data.id, mine.map((e) => e.place.id))
+      made++
     }
-
     setBusy(false)
     await refresh()
-    toast.success(seed
-      ? 'คัดลอกหน้าปัจจุบันมาแล้ว — แก้ต่อได้เลย ยังเป็นร่าง'
-      : 'สร้างหน้าเปล่าแล้ว — ยังเป็นร่าง')
+    if (!quiet) toast.success(`คัดลอกหน้าปัจจุบันมาแล้ว · ${made} การ์ด — แก้ต่อได้เลย`)
   }
 
   async function removePage() {
@@ -319,7 +322,7 @@ function CountryEditor({ country, pool, auto, onPageSaved, onPageDeleted }: {
         <button onClick={() => navigate('/admin')} aria-label="กลับ" className="btn-icon !size-8 md:hidden">
           <IconArrowLeft size={17} />
         </button>
-        <span className="text-[15px] font-extrabold truncate">{countryFlag(country)} {country}</span>
+        <span className="text-[15px] font-extrabold truncate min-w-0">{countryFlag(country)} {country}</span>
         {page && (
           <span className="chip !text-[10.5px] shrink-0"
             style={page.published
@@ -328,15 +331,18 @@ function CountryEditor({ country, pool, auto, onPageSaved, onPageDeleted }: {
             {page.published ? 'เผยแพร่แล้ว' : 'ร่าง'}
           </span>
         )}
-        <span className="ml-auto flex items-center gap-2">
+        <span className="ml-auto flex items-center gap-1.5 shrink-0">
           {busy && <IconLoader2 size={15} className="animate-spin text-ink-3" />}
           {page && (
             <>
-              <button onClick={() => navigate(`/explore/top/${slugFor(country)}`)}
-                className="btn-icon !w-auto px-3 gap-1.5 !h-9 text-[12px]"><IconEye size={15} /> ดูหน้าจริง</button>
+              <button onClick={() => navigate(`/explore/top/${slugFor(country)}`)} title="ดูหน้าจริง"
+                className="btn-icon !size-9 sm:!w-auto sm:px-3 sm:gap-1.5 text-[12px]">
+                <IconEye size={15} /><span className="max-sm:hidden">ดูหน้าจริง</span>
+              </button>
               <button onClick={() => void savePage({ published: !page.published })}
-                className={page.published ? 'btn-icon !w-auto px-3 !h-9 text-[12px]' : 'btn-primary h-9 px-4 text-[12.5px]'}>
-                {page.published ? 'ยกเลิกเผยแพร่' : 'เผยแพร่'}
+                className={['h-9 px-3.5 rounded-md text-[12.5px] font-semibold whitespace-nowrap',
+                  page.published ? 'bg-surface-2 text-ink-2' : 'btn-primary'].join(' ')}>
+                {page.published ? 'ซ่อน' : 'เผยแพร่'}
               </button>
               <button onClick={() => void removePage()} aria-label="ลบหน้านี้"
                 className="btn-icon !size-9" style={{ color: '#D85A30' }}><IconTrash size={16} /></button>
@@ -380,9 +386,17 @@ function CountryEditor({ country, pool, auto, onPageSaved, onPageDeleted }: {
             {/* ── blocks ── */}
             <Section title="การ์ดหมวด" hint="แต่ละใบคือแบนเนอร์ 1 อัน">
               {blocks.length === 0 && (
-                <p className="text-[12px] text-ink-3 mb-3">
-                  ยังไม่มีการ์ด — ระหว่างนี้หน้าประเทศจะโชว์การ์ดที่ระบบจัดอันดับให้เองไปก่อน
-                </p>
+                <div className="mb-3">
+                  <p className="text-[12px] text-ink-3">
+                    ยังไม่มีการ์ด — ระหว่างนี้หน้าประเทศจะโชว์การ์ดที่ระบบจัดอันดับให้เองไปก่อน
+                  </p>
+                  {auto && (
+                    <button onClick={() => void seedFromAuto(false)} disabled={busy}
+                      className="btn-primary h-9 px-4 mt-2.5 text-[12.5px] disabled:opacity-50">
+                      ดึงการ์ดจากหน้าปัจจุบันมาให้
+                    </button>
+                  )}
+                </div>
               )}
               <div className="space-y-2.5">
                 {blocks.map((b, i) => (
