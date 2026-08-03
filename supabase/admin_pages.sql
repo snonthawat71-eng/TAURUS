@@ -19,11 +19,18 @@ $$;
 
 -- Nobody promotes themselves from the app: the client CAN update its own
 -- profile row, so the flag is pinned back unless an admin is making the change.
--- Granting the first admin is done here, in the SQL editor, which bypasses RLS.
+--
+-- `auth.uid() is not null` is what makes granting the FIRST admin possible: a
+-- statement from the SQL editor has no JWT, so it is let through. Triggers run
+-- for the service role too — without this test the very grant this file tells
+-- you to run was silently reverted. Anonymous requests can't reach here: RLS on
+-- profiles already requires auth.uid() = id.
 create or replace function guard_is_admin() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  if new.is_admin is distinct from old.is_admin and not is_admin() then
+  if new.is_admin is distinct from old.is_admin
+     and auth.uid() is not null
+     and not is_admin() then
     new.is_admin := old.is_admin;
   end if;
   return new;
