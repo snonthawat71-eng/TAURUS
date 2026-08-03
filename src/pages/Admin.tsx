@@ -11,14 +11,20 @@ import { TaurusLogo } from '@/components/TaurusLogo'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { useIsAdmin } from '@/lib/useIsAdmin'
-import { listExplore } from '@/lib/exploreMutations'
+import { listExplore, allPopularity, type PopStat } from '@/lib/exploreMutations'
+import { allRatingStats } from '@/lib/exploreReviews'
+import {
+  buildTopLists, slugForCountry as slugFor, MAX_PLACES, TOP_BUCKETS, TOP_LABEL,
+  type TopList,
+} from '@/lib/exploreTop'
+import { FILTER_CARD_ART } from '@/lib/cityImages'
 import {
   loadCuratedPage, listCuratedPages, upsertCountryPage, addBlock, updateBlock,
-  deleteBlock, reorderBlocks, setBlockPlaces, type BlockWithPlaces,
+  deleteBlock, reorderBlocks, setBlockPlaces, deleteCountryPage, type BlockWithPlaces,
 } from '@/lib/countryPages'
 import { listAdminUsers, setAdmin, type AdminUser } from '@/lib/adminUsers'
 import { canonicalCountry, countryFlag } from '@/lib/countries'
-import { slugForCountry, countryForSlug } from '@/lib/exploreTop'
+import { countryForSlug } from '@/lib/exploreTop'
 import { uploadPublicImage } from '@/lib/files'
 import { catMeta, PLACE_TABS, FOOD_GROUPS } from '@/lib/placeMeta'
 import { confirmDialog } from '@/lib/confirm'
@@ -46,13 +52,20 @@ export default function Admin() {
 
   const [pool, setPool] = useState<ExplorePlace[] | null>(null)
   const [pages, setPages] = useState<CountryPage[]>([])
+  // the automatic page as it stands right now — what "start from what's live"
+  // copies, so editing picks up where the ranking left off
+  const [auto, setAuto] = useState<TopList[]>([])
 
   useEffect(() => {
     if (!isAdmin) return
     void (async () => {
-      const [res, ps] = await Promise.all([listExplore(), listCuratedPages()])
-      setPool((res.data ?? []) as ExplorePlace[])
+      const [res, ps, pop, ratings] = await Promise.all([
+        listExplore(), listCuratedPages(), allPopularity(), allRatingStats(),
+      ])
+      const items = (res.data ?? []) as ExplorePlace[]
+      setPool(items)
       setPages(ps)
+      setAuto(buildTopLists(items, pop as Map<string, PopStat>, ratings))
     })()
   }, [isAdmin])
 
@@ -121,7 +134,7 @@ export default function Admin() {
           {countries.map((c) => {
             const page = pages.find((p) => p.country === c)
             return (
-              <button key={c} onClick={() => navigate(`/admin/${slugForCountry(c)}`)}
+              <button key={c} onClick={() => navigate(`/admin/${slugFor(c)}`)}
                 className={['w-full flex items-center gap-2.5 h-10 px-2.5 rounded-md text-[13px] mb-0.5',
                   selected === c ? 'bg-brand-soft text-brand-dark font-semibold' : 'text-ink-2 hover:bg-surface-2/60'].join(' ')}>
                 <span className="text-[15px]">{countryFlag(c)}</span>
@@ -146,7 +159,9 @@ export default function Admin() {
           ? <TeamEditor meId={user?.id ?? null} />
           : selected
             ? <CountryEditor key={selected} country={selected} pool={pool ?? []}
-                onPageSaved={(p) => setPages((xs) => [...xs.filter((x) => x.country !== p.country), p])} />
+                auto={auto.find((l) => l.country === selected) ?? null}
+                onPageSaved={(p) => setPages((xs) => [...xs.filter((x) => x.country !== p.country), p])}
+                onPageDeleted={() => setPages((xs) => xs.filter((x) => x.country !== selected))} />
             : <div className="hidden md:grid place-items-center h-dvh text-[13px] text-ink-3">
                 เลือกประเทศทางซ้ายเพื่อเริ่มจัดหน้า
               </div>}
@@ -156,10 +171,13 @@ export default function Admin() {
 }
 
 /** The page builder for one country. */
-function CountryEditor({ country, pool, onPageSaved }: {
+function CountryEditor({ country, pool, auto, onPageSaved, onPageDeleted }: {
   country: string
   pool: ExplorePlace[]
+  /** the automatic page for this country, as users see it today */
+  auto: TopList | null
   onPageSaved: (p: CountryPage) => void
+  onPageDeleted: () => void
 }) {
   const navigate = useNavigate()
   const [page, setPage] = useState<CountryPage | null>(null)
@@ -189,13 +207,60 @@ function CountryEditor({ country, pool, onPageSaved }: {
     onPageSaved(next)
   }
 
-  async function createPage() {
+  /** Start editing. `seed` copies the page users see right now — cover,
+   *  heading and one block per category filled with its current top ten — so
+   *  the first thing the admin sees is what is already live, not a blank slate. */
+  async function createPage(seed: boolean) {
     setBusy(true)
-    const { error } = await upsertCountryPage({ country, published: false, show_recent: true, show_cities: true })
+    const { error } = await upsertCountryPage({
+      country,
+      published: false,
+      show_recent: true,
+      show_cities: true,
+      ...(seed && auto ? {
+        title: `${TOP_LABEL} ${country}`,
+        eyebrow: `${countryFlag(country)} ${country}`,
+        cover_url: auto.photo,
+      } : {}),
+    })
+    if (error) { setBusy(false); toast.error(`สร้างหน้าไม่สำเร็จ: ${error.message}`); return }
+
+    if (seed && auto) {
+      let position = 0
+      for (const b of TOP_BUCKETS) {
+        const mine = auto.entries.filter((e) => e.bucket === b.key).slice(0, MAX_PLACES)
+        if (!mine.length) continue
+        const art = FILTER_CARD_ART[`${slugFor(country)}:${b.key}`] ?? null
+        const res = await addBlock(country, position++)
+        if (!res.data) continue
+        await updateBlock(res.data.id, {
+          // artwork already carries its own lettering — the label would double up
+          title: art ? '' : b.label,
+          image_url: art ?? mine.find((e) => e.place.photo_url)?.place.photo_url ?? null,
+        })
+        await setBlockPlaces(res.data.id, mine.map((e) => e.place.id))
+      }
+    }
+
     setBusy(false)
-    if (error) { toast.error(`สร้างหน้าไม่สำเร็จ: ${error.message}`); return }
     await refresh()
-    toast.success('สร้างหน้าแล้ว — ยังเป็นร่าง ผู้ใช้ยังไม่เห็น')
+    toast.success(seed
+      ? 'คัดลอกหน้าปัจจุบันมาแล้ว — แก้ต่อได้เลย ยังเป็นร่าง'
+      : 'สร้างหน้าเปล่าแล้ว — ยังเป็นร่าง')
+  }
+
+  async function removePage() {
+    if (!(await confirmDialog({
+      message: `ลบหน้าของ ${country}? การ์ดทั้งหมดจะหายไป และผู้ใช้จะกลับไปเห็นหน้าที่ระบบจัดให้เอง`,
+      danger: true, confirmLabel: 'ลบหน้านี้',
+    }))) return
+    setBusy(true)
+    const { error } = await deleteCountryPage(country)
+    setBusy(false)
+    if (error) { toast.error(`ลบไม่สำเร็จ: ${error.message}`); return }
+    onPageDeleted()
+    await refresh()
+    toast.success('ลบแล้ว — กลับไปใช้หน้าที่ระบบจัดให้เอง')
   }
 
   async function onAddBlock() {
@@ -267,12 +332,14 @@ function CountryEditor({ country, pool, onPageSaved }: {
           {busy && <IconLoader2 size={15} className="animate-spin text-ink-3" />}
           {page && (
             <>
-              <button onClick={() => navigate(`/explore/top/${slugForCountry(country)}`)}
+              <button onClick={() => navigate(`/explore/top/${slugFor(country)}`)}
                 className="btn-icon !w-auto px-3 gap-1.5 !h-9 text-[12px]"><IconEye size={15} /> ดูหน้าจริง</button>
               <button onClick={() => void savePage({ published: !page.published })}
                 className={page.published ? 'btn-icon !w-auto px-3 !h-9 text-[12px]' : 'btn-primary h-9 px-4 text-[12.5px]'}>
                 {page.published ? 'ยกเลิกเผยแพร่' : 'เผยแพร่'}
               </button>
+              <button onClick={() => void removePage()} aria-label="ลบหน้านี้"
+                className="btn-icon !size-9" style={{ color: '#D85A30' }}><IconTrash size={16} /></button>
             </>
           )}
         </span>
@@ -284,11 +351,17 @@ function CountryEditor({ country, pool, onPageSaved }: {
             <IconWorld size={26} className="mx-auto text-ink-3" />
             <p className="text-[14px] font-semibold mt-3">ยังไม่ได้จัดหน้าของ {country}</p>
             <p className="text-[12px] text-ink-2 mt-1.5 leading-relaxed">
-              ตอนนี้ผู้ใช้เห็นหน้าที่ระบบจัดอันดับให้อัตโนมัติ<br />สร้างหน้าแล้วค่อยๆ ใส่การ์ดได้ ระหว่างนั้นยังเป็นร่าง ผู้ใช้ยังไม่เห็น
+              ตอนนี้ผู้ใช้เห็นหน้าที่ระบบจัดอันดับให้อัตโนมัติ<br />เริ่มแก้ได้เลย ระหว่างแก้ยังเป็นร่าง ผู้ใช้ยังเห็นหน้าเดิม
             </p>
-            <button onClick={() => void createPage()} className="btn-primary h-10 px-5 mt-4 text-[13px]">
-              สร้างหน้าของ {country}
+            <button onClick={() => void createPage(true)} disabled={!auto || busy}
+              className="btn-primary h-10 px-5 mt-4 text-[13px] disabled:opacity-50">
+              แก้ต่อจากหน้าปัจจุบัน
             </button>
+            <p className="text-[11px] text-ink-3 mt-2">
+              {auto ? 'คัดลอกปก การ์ด และสถานที่ที่ระบบจัดไว้มาให้ แล้วแก้ทับได้เลย' : 'ประเทศนี้ยังไม่มีหน้าอัตโนมัติ (สถานที่ยังน้อย)'}
+            </p>
+            <button onClick={() => void createPage(false)} disabled={busy}
+              className="text-[12px] font-semibold text-ink-3 mt-3">หรือเริ่มจากหน้าเปล่า</button>
           </div>
         ) : (
           <>
