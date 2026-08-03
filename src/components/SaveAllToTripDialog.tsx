@@ -10,19 +10,21 @@ import { toast } from '@/lib/toast'
 import { countryFlag } from '@/lib/countries'
 import { formatDateRange } from '@/lib/format'
 import { tripMatchesPlace, isPastTrip, sortTripsForSave, placeTokens } from '@/lib/tripPick'
-import type { ExplorePlace } from '@/lib/database.types'
+import type { ExplorePlace, Trip } from '@/lib/database.types'
 
 /**
  * Save a whole shortlist into one trip in a single tap — and take it back out
  * the same way.
  *
- * Deliberately shorter than the single-place dialog: it asks which trip and
- * nothing else. Days and branches are per-visit decisions, and answering them
- * ten times over is not a bulk action — everything lands in the trip's Location
- * list, where the itinerary picks it up later.
+ * A country's shortlist spans its cities, and a trip does not: saving Japan's
+ * top ten into a Tokyo trip would drop Osaka places into it, which saving one
+ * at a time has always refused to do. So each trip takes only the places whose
+ * city it actually covers, the row says how many that is before you tap, and
+ * the toast says how many were left behind.
  *
- * A trip that already holds every place offers "เอาออกทั้งหมด" instead, so the
- * button that saved the list is also the one that undoes it.
+ * It asks which trip and nothing else. Days and branches are per-visit
+ * decisions, and answering them ten times over is not a bulk action —
+ * everything lands in the trip's Location list.
  */
 export function SaveAllToTripDialog({ items, open, onClose, onChanged }: {
   items: ExplorePlace[]
@@ -39,12 +41,23 @@ export function SaveAllToTripDialog({ items, open, onClose, onChanged }: {
 
   const ids = useMemo(() => items.map((i) => i.id), [items])
 
-  // trips whose country/city matches ANY of the places — the shortlist is a
-  // whole country, so it should reach every trip inside it
-  const tokens = useMemo(() => placeTokens(items), [items])
-  const shownTrips = useMemo(() => sortTripsForSave(
-    tokens.length ? trips.filter((t) => tripMatchesPlace(t, tokens)) : trips,
-  ), [trips, tokens])
+  // which of the places each trip's own cities actually cover — the same test
+  // the single-place dialog uses to decide whether a trip may be offered
+  const fits = useMemo(() => {
+    const m = new Map<string, ExplorePlace[]>()
+    for (const t of trips) {
+      m.set(t.id, items.filter((i) => {
+        const tokens = placeTokens([i])
+        return tokens.length === 0 || tripMatchesPlace(t, tokens)
+      }))
+    }
+    return m
+  }, [trips, items])
+
+  const shownTrips = useMemo(
+    () => sortTripsForSave(trips.filter((t) => (fits.get(t.id)?.length ?? 0) > 0)),
+    [trips, fits],
+  )
   const firstPastId = shownTrips.find(isPastTrip)?.id
 
   useEffect(() => {
@@ -63,16 +76,17 @@ export function SaveAllToTripDialog({ items, open, onClose, onChanged }: {
     onClose()
   }
 
-  async function saveAll(tripId: string) {
-    setBusyId(tripId); setProgress(0)
-    const already = held.get(tripId) ?? new Set<string>()
-    const todo = items.filter((i) => !already.has(i.id))
+  async function saveAll(t: Trip) {
+    const fit = fits.get(t.id) ?? []
+    setBusyId(t.id); setProgress(0)
+    const already = held.get(t.id) ?? new Set<string>()
+    const todo = fit.filter((i) => !already.has(i.id))
 
     let ok = 0
     // one at a time: ten parallel inserts buy nothing and make a partial
     // failure impossible to report honestly
     for (const it of todo) {
-      const { error } = await copyPlaceToTrip(exploreAsPlace(it), tripId, it.id)
+      const { error } = await copyPlaceToTrip(exploreAsPlace(it), t.id, it.id)
       if (!error) {
         ok++
         if (user) logExploreEvent(it.id, user.id, 'save')
@@ -80,21 +94,27 @@ export function SaveAllToTripDialog({ items, open, onClose, onChanged }: {
       setProgress((n) => n + 1)
     }
 
-    finish(tripId)
-    const skipped = items.length - todo.length
-    if (!ok && skipped) toast.success('อยู่ในทริปนี้ครบแล้ว')
+    finish(t.id)
+    const dupes = fit.length - todo.length
+    const offCity = items.length - fit.length
+    const notes = [
+      dupes ? `ข้ามที่มีอยู่แล้ว ${dupes} ที่` : '',
+      offCity ? `ไม่ได้เซฟ ${offCity} ที่ (คนละเมืองกับทริป)` : '',
+    ].filter(Boolean).join(' · ')
+    if (!ok && dupes) toast.success(`อยู่ในทริปนี้ครบแล้ว${offCity ? ` · ${offCity} ที่คนละเมือง` : ''}`)
     else if (!ok) toast.error('เซฟไม่สำเร็จ — ลองใหม่อีกครั้ง')
-    else toast.success(`เซฟ ${ok} ที่เข้าทริปแล้ว${skipped ? ` · ข้ามที่มีอยู่แล้ว ${skipped} ที่` : ''}`)
+    else toast.success(`เซฟ ${ok} ที่เข้าทริปแล้ว${notes ? ` · ${notes}` : ''}`)
   }
 
-  async function removeAll(tripId: string, n: number) {
+  async function removeAll(t: Trip, n: number) {
     if (!(await confirmDialog({
       message: `เอาทั้ง ${n} ที่ออกจากทริปนี้? ถ้ามีจุดแวะของที่เหล่านี้ใน Itinerary จะถูกลบไปด้วย`,
       danger: true, confirmLabel: 'เอาออกทั้งหมด',
     }))) return
-    setBusyId(tripId)
-    const { removed, stopsRemoved } = await removeManyExploreCopies(ids, tripId)
-    finish(tripId)
+    setBusyId(t.id)
+    const fit = fits.get(t.id) ?? []
+    const { removed, stopsRemoved } = await removeManyExploreCopies(fit.map((i) => i.id), t.id)
+    finish(t.id)
     toast.success(stopsRemoved > 0
       ? `เอาออกแล้ว ${removed} ที่ · ลบจุดแวะใน Itinerary ${stopsRemoved} จุดด้วย`
       : `เอาออกจากทริปแล้ว ${removed} ที่`)
@@ -111,14 +131,17 @@ export function SaveAllToTripDialog({ items, open, onClose, onChanged }: {
         <div className="card p-5 text-center text-[12px] text-ink-3">
           {trips.length === 0
             ? 'ยังไม่มีทริปให้เซฟ — สร้างทริป หรือให้เจ้าของแชร์ทริปเข้ามาก่อน'
-            : 'ยังไม่มีทริปของประเทศนี้ — สร้างทริปก่อนแล้วค่อยเซฟได้'}
+            : 'ยังไม่มีทริปของเมืองเหล่านี้ — สร้างทริปก่อนแล้วค่อยเซฟได้'}
         </div>
       ) : (
         <div className="space-y-1.5">
           <div className="text-[13.5px] font-semibold mb-2">เซฟไปทริปไหน?</div>
           {shownTrips.map((t) => {
-            const n = held.get(t.id)?.size ?? 0
-            const full = n >= items.length && items.length > 0
+            const fit = fits.get(t.id) ?? []
+            const heldHere = held.get(t.id) ?? new Set<string>()
+            const n = fit.filter((i) => heldHere.has(i.id)).length
+            const full = n >= fit.length
+            const partial = fit.length < items.length
             return (
               <Fragment key={t.id}>
                 {t.id === firstPastId && (
@@ -128,19 +151,22 @@ export function SaveAllToTripDialog({ items, open, onClose, onChanged }: {
                     <span className="h-px flex-1" style={{ background: 'var(--color-line)' }} />
                   </div>
                 )}
-                <button onClick={() => void (full ? removeAll(t.id, n) : saveAll(t.id))} disabled={!!busyId}
+                <button onClick={() => void (full ? removeAll(t, n) : saveAll(t))} disabled={!!busyId}
                   title={full ? 'แตะเพื่อเอาออกจากทริปนี้ทั้งหมด' : undefined}
                   className={['relative w-full flex items-center gap-2.5 card p-3 text-left enabled:hover:bg-surface-2/40',
                     isPastTrip(t) ? 'opacity-60' : ''].join(' ')}>
                   <span className="text-[20px] shrink-0">{t.flag || countryFlag(t.country)}</span>
                   <div className="min-w-0 flex-1">
                     <div className="text-[14px] font-medium truncate">{t.name}</div>
-                    <div className="text-[11px] text-ink-3">{formatDateRange(t.start_date, t.end_date) || t.country || '—'}</div>
+                    <div className="text-[11px] text-ink-3 truncate">
+                      {/* the honest bit: this trip only takes the places it covers */}
+                      {partial ? `ตรงกับทริปนี้ ${fit.length} จาก ${items.length} ที่` : formatDateRange(t.start_date, t.end_date) || t.country || '—'}
+                    </div>
                   </div>
                   {busyId === t.id
                     ? <span className="inline-flex items-center gap-1.5 text-[12px] text-ink-3 shrink-0 tabular-nums">
                         <IconLoader2 size={15} className="animate-spin" />
-                        {full ? '' : `${progress}/${items.length}`}
+                        {full ? '' : `${progress}/${fit.length}`}
                       </span>
                     : full ? (
                       <span className="inline-flex items-center gap-1.5 shrink-0">
@@ -149,7 +175,7 @@ export function SaveAllToTripDialog({ items, open, onClose, onChanged }: {
                       </span>
                     ) : (
                       <span className="btn-link text-[12px] shrink-0 inline-flex items-center gap-1">
-                        <IconCheck size={13} /> {n > 0 ? `เซฟอีก ${items.length - n} ที่` : 'เซฟทั้งหมด'}
+                        <IconCheck size={13} /> เซฟ {fit.length - n} ที่
                       </span>
                     )}
                 </button>
@@ -157,7 +183,7 @@ export function SaveAllToTripDialog({ items, open, onClose, onChanged }: {
             )
           })}
           <p className="text-[11px] text-ink-3 pt-1.5">
-            ที่ซ้ำกับที่มีอยู่ในทริปแล้วจะถูกข้ามให้อัตโนมัติ
+            แต่ละทริปจะรับเฉพาะที่ที่อยู่ในเมืองของทริปนั้น และข้ามที่ที่เซฟไว้แล้วให้อัตโนมัติ
           </p>
         </div>
       )}
