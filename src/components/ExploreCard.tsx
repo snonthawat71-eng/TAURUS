@@ -126,7 +126,7 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
                 <span key={i} title={[r.line, r.station].filter(Boolean).join(' · ') || m.label}
                   className={['w-[30px] h-[30px] rounded-full grid place-items-center shrink-0 text-white leading-none', stack ? '-ml-3' : i > 0 ? 'ml-1.5' : ''].join(' ')}
                   style={{
-                    background: lineColorFor(r.line) ?? r.color ?? '#888780',
+                    background: lineColorFor(r.line, e.city) ?? r.color ?? '#888780',
                     ...(stack ? { boxShadow: '0 0 0 2px var(--color-surface)' } : {}),
                   }}>
                   {code
@@ -173,7 +173,7 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
                   {shown.map((r, i) => {
                     const p = shown[i - 1]
                     const plain = !stationCode(r.line, r.station)
-                    const sameColour = !!p && (lineColorFor(r.line) ?? r.color) === (lineColorFor(p.line) ?? p.color)
+                    const sameColour = !!p && (lineColorFor(r.line, e.city) ?? r.color) === (lineColorFor(p.line, e.city) ?? p.color)
                     const prevPlain = !!p && !stationCode(p.line, p.station)
                     return roundel(r, i, plain && prevPlain && sameColour)
                   })}

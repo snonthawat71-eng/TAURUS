@@ -42,14 +42,14 @@ function Row({ marker, color, line, boardIcon, children }: { marker: 'board' | '
   )
 }
 
-function BoardContent({ leg, currency }: { leg: TransitLeg; currency?: string | null }) {
+function BoardContent({ leg, currency, where }: { leg: TransitLeg; currency?: string | null; where?: string }) {
   const m = modeMeta(leg.mode)
   const MIcon = m.icon
   return (
     <>
       <div className="text-[13px] font-medium leading-tight">{leg.from}</div>
       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[11px] text-ink-3">
-        <span className="inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 font-medium text-white" style={{ background: lineColorFor(leg.line) ?? leg.color }}>
+        <span className="inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 font-medium text-white" style={{ background: lineColorFor(leg.line, where) ?? leg.color }}>
           <MIcon size={11} />
           {leg.line || m.label}
         </span>
@@ -66,6 +66,9 @@ function BoardContent({ leg, currency }: { leg: TransitLeg; currency?: string | 
 
 export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () => void }) {
   const { trip } = useTrip()
+  // ชื่อสายซ้ำกันได้ข้ามเมือง (จีนมี "Line 3" หลายเมือง) — บอกเมืองของทริปไป
+  // ด้วย สีสายจะได้มาจากเครือข่ายที่ถูกต้อง
+  const where = [trip?.country ?? '', ...(trip?.cities ?? [])].join(' ')
   const { legs, exit } = transit
   if (!legs?.length) return null
   const last = legs.length - 1
@@ -84,7 +87,7 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
         return (
         <div key={i}>
           <Row marker="board" color={leg.color} line="solid" boardIcon={<MIcon size={10} />}>
-            <BoardContent leg={leg} currency={trip?.currency} />
+            <BoardContent leg={leg} currency={trip?.currency} where={where} />
           </Row>
           <Row marker="alight" color={leg.color} line={i < last ? 'dashed' : 'none'}>
             <div className="text-[13px] font-medium leading-tight pt-0.5">{leg.to}</div>

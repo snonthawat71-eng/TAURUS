@@ -69,7 +69,7 @@ export function NearbyCard({ p, onOpen }: { p: ExplorePlace; onOpen?: (p: Explor
           </div>
           {(p.station_line || p.station_name) && (
             <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
-              <span className="size-2 rounded-full shrink-0" style={{ background: lineColorFor(p.station_line) ?? p.station_color ?? '#888780' }} />
+              <span className="size-2 rounded-full shrink-0" style={{ background: lineColorFor(p.station_line, p.city) ?? p.station_color ?? '#888780' }} />
               <span className="truncate">{p.station_line}{p.station_name ? ` · ${p.station_name}` : ''}</span>
             </div>
           )}

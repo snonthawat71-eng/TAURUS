@@ -93,7 +93,7 @@ export function PlaceCard({
       {/* Body */}
       <div className="p-3.5 flex-1 flex flex-col">
         <div className="flex items-center gap-1.5 text-[11px] text-ink-3">
-          <span className="size-2 rounded-full shrink-0" style={{ background: lineColorFor(place.station_line) ?? place.station_color ?? '#888780' }} />
+          <span className="size-2 rounded-full shrink-0" style={{ background: lineColorFor(place.station_line, place.city) ?? place.station_color ?? '#888780' }} />
           {(() => {
             const code = stationCode(place.station_line, place.station_name)
             const station = place.station_name ? `${code ? `${code} ` : ''}${place.station_name}` : ''

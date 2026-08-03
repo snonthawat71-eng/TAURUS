@@ -399,12 +399,12 @@ export default function ExplorePlaceDetail() {
                   const stationName = parsed.name
                   return (
                     <div key={i} className="flex items-center gap-3">
-                      <span className="size-9 rounded-full grid place-items-center shrink-0 text-white" style={{ background: lineColorFor(r.line) ?? r.color ?? '#888780' }}><MIcon size={17} /></span>
+                      <span className="size-9 rounded-full grid place-items-center shrink-0 text-white" style={{ background: lineColorFor(r.line, e.city) ?? r.color ?? '#888780' }}><MIcon size={17} /></span>
                       <div className="min-w-0">
                         {/* station: big line-coloured code + bold dark name */}
                         {(code || stationName) && (
                           <div className="flex items-baseline gap-1.5 min-w-0">
-                            {code && <span className="text-[20px] font-extrabold leading-none tracking-wide shrink-0" style={{ color: lineColorFor(r.line) ?? r.color ?? 'var(--color-ink)' }}>{code}</span>}
+                            {code && <span className="text-[20px] font-extrabold leading-none tracking-wide shrink-0" style={{ color: lineColorFor(r.line, e.city) ?? r.color ?? 'var(--color-ink)' }}>{code}</span>}
                             {stationName && <span className="text-[16px] font-bold text-ink truncate">{stationName}</span>}
                           </div>
                         )}

@@ -85,7 +85,7 @@ export function PlaceDetail({
   const extraBase = hasPhoto ? 1 : 0
   const branches = place.branches ?? []
   const sel = branchIdx != null ? branches[branchIdx] : null
-  const lineColor = lineColorFor(sel ? sel.line : place.station_line) ?? (sel ? sel.color : place.station_color)
+  const lineColor = lineColorFor(sel ? sel.line : place.station_line, place.city) ?? (sel ? sel.color : place.station_color)
   const lineText = sel ? sel.line : place.station_line
   const stationText = sel ? sel.station : place.station_name
   const mapUrl = sel?.map_url || place.map_url

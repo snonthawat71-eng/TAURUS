@@ -1,7 +1,7 @@
 // Autocomplete suggestions for the manual TransitEditor / ExploreEditor: line
 // names, station names and per-line station numbers, sourced from the built-in
-// networks (Osaka incl. JR West, Hong Kong, Shanghai, Shenzhen, Taipei +
-// Taoyuan Airport MRT, Singapore). These power the
+// networks (Osaka incl. JR West, Tokyo, Hong Kong, Shanghai, Beijing, Shenzhen,
+// Guangzhou, Taipei + Taoyuan Airport MRT, Singapore). These power the
 // Combobox dropdowns so users can pick from known data without retyping — while
 // still being free to type any custom value (including stations not listed).
 //
@@ -14,6 +14,7 @@ import { HK_NETWORK } from './hkNetwork'
 import { SHANGHAI } from './shanghai'
 import { BEIJING } from './beijing'
 import { SHENZHEN } from './shenzhen'
+import { GUANGZHOU } from './guangzhou'
 import { TAIPEI } from './taipei'
 import { SINGAPORE } from './singapore'
 import { TOKYO } from './tokyo'
@@ -41,6 +42,7 @@ const NETWORKS: RawNetwork[] = [
   { match: SHANGHAI.match, lines: SHANGHAI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: BEIJING.match, lines: BEIJING.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHENZHEN.match, lines: SHENZHEN.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
+  { match: GUANGZHOU.match, lines: GUANGZHOU.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: TAIPEI.match, lines: TAIPEI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: SINGAPORE.match, lines: SINGAPORE.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: TOKYO.match, broad: JAPAN, lines: TOKYO.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
@@ -88,17 +90,31 @@ export function stationCode(line: string | null | undefined, station: string | n
   return null
 }
 
-/** Official colour for a known line name, scanning every built-in network.
- *  Display code prefers this over the colour stored on the row, so fixing a
- *  wrong line colour here also fixes places that were saved earlier. */
-export function lineColorFor(line: string | null | undefined): string | null {
+/** Official colour for a known line name. Display code prefers this over the
+ *  colour stored on the row, so fixing a wrong line colour here also fixes
+ *  places that were saved earlier.
+ *
+ *  `where` = the place's city/country, used to pick the right network: four
+ *  Chinese cities all call their lines "Line 1"/"Line 3" in different colours,
+ *  so without it a Guangzhou stop would take Shanghai's palette. With no hint
+ *  the colour is only returned when every network that knows the name agrees —
+ *  otherwise null, and the caller falls back to the colour saved on the row. */
+export function lineColorFor(line: string | null | undefined, where?: string | null): string | null {
   if (!line) return null
   const ln = line.trim().toLowerCase()
-  for (const n of NETWORKS) {
-    const l = n.lines.find((x) => x.name.toLowerCase() === ln)
-    if (l?.color) return l.color
-  }
-  return null
+  const scoped = where ? networksFor(where) : []
+  const pool = scoped.length ? scoped : NETWORKS
+  const found = pool.flatMap((n) => n.lines.filter((x) => x.name.toLowerCase() === ln && x.color).map((x) => x.color))
+  if (!found.length) return null
+  if (scoped.length) return found[0]
+  // ambiguous across cities and nothing to disambiguate with → don't guess
+  return found.every((c) => c.toLowerCase() === found[0].toLowerCase()) ? found[0] : null
+}
+
+/** The network(s) whose keywords appear in a free-text city/country hint. */
+function networksFor(where: string): RawNetwork[] {
+  const h = ` ${where.toLowerCase()} `
+  return NETWORKS.filter((n) => n.match.some((m) => h.includes(m.toLowerCase())))
 }
 
 /** Find a suggested line by its (case-insensitive) name. */

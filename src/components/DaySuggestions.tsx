@@ -110,7 +110,7 @@ export function StopSuggestions({ items, onAdd, onOpenDetail, onDismiss }: {
                       </span>
                     )}
                     {st.line && (
-                      <span className="rounded-[5px] px-1.5 py-px font-semibold text-white shrink-0" style={{ background: lineColorFor(st.line) || st.color || 'var(--color-brand)' }}>{st.line}</span>
+                      <span className="rounded-[5px] px-1.5 py-px font-semibold text-white shrink-0" style={{ background: lineColorFor(st.line, p.city) || st.color || 'var(--color-brand)' }}>{st.line}</span>
                     )}
                     <span className="truncate">
                       {(() => { const c = stationCode(st.line, st.station); return c ? `${c} ` : '' })()}{st.station || p.city || ''}
