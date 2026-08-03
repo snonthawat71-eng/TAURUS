@@ -9,8 +9,15 @@ import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import { countryFlag } from '@/lib/countries'
 import { formatDateRange } from '@/lib/format'
-import { tripMatchesPlace, isPastTrip, sortTripsForSave, placeTokens } from '@/lib/tripPick'
+import { tripMatchesPlace, isPastTrip, sortTripsForSave, placeTokens, cityOf } from '@/lib/tripPick'
 import type { ExplorePlace, Trip } from '@/lib/database.types'
+
+/** "Shenzhen" · "Shenzhen, Beijing" · "Shenzhen, Beijing +2" */
+function cityList(places: ExplorePlace[]): string {
+  const names = [...new Set(places.map(cityOf).filter(Boolean))]
+  if (!names.length) return 'เมืองเดียวกัน'
+  return names.slice(0, 2).join(', ') + (names.length > 2 ? ` +${names.length - 2}` : '')
+}
 
 /**
  * Save a whole shortlist into one trip in a single tap — and take it back out
@@ -159,8 +166,12 @@ export function SaveAllToTripDialog({ items, open, onClose, onChanged }: {
                   <div className="min-w-0 flex-1">
                     <div className="text-[14px] font-medium truncate">{t.name}</div>
                     <div className="text-[11px] text-ink-3 truncate">
-                      {/* the honest bit: this trip only takes the places it covers */}
-                      {partial ? `ตรงกับทริปนี้ ${fit.length} จาก ${items.length} ที่` : formatDateRange(t.start_date, t.end_date) || t.country || '—'}
+                      {/* the honest bit: this trip only takes the places it
+                          covers — and WHICH cities those are, or a Hong Kong
+                          trip turning up on China's page looks like a bug */}
+                      {partial
+                        ? `ตรงกับทริปนี้ ${fit.length} ที่ · ${cityList(fit)}`
+                        : formatDateRange(t.start_date, t.end_date) || t.country || '—'}
                     </div>
                   </div>
                   {busyId === t.id
