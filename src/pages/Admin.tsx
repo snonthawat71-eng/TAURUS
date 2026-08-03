@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   IconArrowLeft, IconChevronRight, IconPlus, IconTrash, IconPhoto, IconLoader2,
-  IconChevronUp, IconChevronDown, IconEye, IconWorld, IconLayoutList, IconExternalLink,
+  IconChevronUp, IconChevronDown, IconEye, IconWorld, IconLayoutList, IconExternalLink, IconLock,
 } from '@tabler/icons-react'
 import { SignedImage } from '@/components/SignedImage'
 import { AdminPlacePicker } from '@/components/AdminPlacePicker'
 import { TaurusLogo } from '@/components/TaurusLogo'
+import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
 import { useIsAdmin } from '@/lib/useIsAdmin'
 import { listExplore } from '@/lib/exploreMutations'
@@ -37,6 +38,7 @@ export default function Admin() {
   const { key } = useParams()
   const navigate = useNavigate()
   const { loading, profile } = useTrip()
+  const { user } = useAuth()
   const isAdmin = useIsAdmin()
 
   const [pool, setPool] = useState<ExplorePlace[] | null>(null)
@@ -64,10 +66,32 @@ export default function Admin() {
 
   // the profile has to have loaded before we can know — bouncing on a null
   // profile would throw the admin out of their own dashboard on every refresh
-  if (loading || (!profile && !isAdmin)) {
+  if (loading) {
     return <div className="min-h-dvh grid place-items-center bg-canvas text-[13px] text-ink-3">กำลังโหลด…</div>
   }
-  if (!isAdmin) return <Navigate to="/" replace />
+  // Say why rather than bouncing to the home page: "it just won't open" is
+  // impossible to act on, and the two usual causes (migration not run, session
+  // predates the grant) are both things the reader can check from here.
+  if (!isAdmin) {
+    return (
+      <div className="min-h-dvh grid place-items-center bg-canvas px-5">
+        <div className="card p-6 max-w-[420px] w-full text-center">
+          <IconLock size={26} className="mx-auto text-ink-3" />
+          <p className="text-[14px] font-semibold mt-3">บัญชีนี้ยังไม่ใช่แอดมิน</p>
+          <p className="text-[12px] text-ink-2 mt-2 leading-relaxed">
+            กำลังใช้บัญชี <b className="break-all">{user?.email ?? '—'}</b>
+            {profile ? '' : ' (ยังโหลดโปรไฟล์ไม่ได้)'}
+          </p>
+          <ul className="text-[12px] text-ink-2 mt-3 space-y-1.5 text-left leading-relaxed">
+            <li>1. รัน SQL ตั้งค่าแอดมินใน Supabase แล้วหรือยัง</li>
+            <li>2. ตั้งกับอีเมลนี้ถูกตัวมั้ย</li>
+            <li>3. ถ้าเพิ่งตั้ง ให้ออกจากระบบแล้วเข้าใหม่ 1 ครั้ง</li>
+          </ul>
+          <button onClick={() => navigate('/')} className="btn-primary h-10 px-5 mt-4 text-[13px]">กลับหน้าแรก</button>
+        </div>
+      </div>
+    )
+  }
 
   // resolve against the countries we actually have, so one the app doesn't
   // know by name still opens

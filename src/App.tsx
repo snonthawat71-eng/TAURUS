@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { TaurusMark } from '@/components/TaurusMark'
 import { TripProvider } from '@/contexts/TripContext'
@@ -196,6 +196,9 @@ export default function App() {
             <Route path="/budget" element={<Budget />} />
             <Route path="/map" element={<TripMap />} />
           </Route>
+          {/* an unknown path used to render nothing at all — a blank page is
+              indistinguishable from a crash */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </TripProvider>
