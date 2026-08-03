@@ -166,6 +166,15 @@ export function countryForKey(key: string): string | null {
   return KNOWN_COUNTRIES.find((c) => slug(c) === key) ?? null
 }
 
+/** The url segment for a country — the other half of `countryForKey`. */
+export const slugForCountry = (country: string) => slug(country)
+
+/** Resolve a url segment against a known list first (so a country the app has
+ *  never heard of still works), then the built-in one. */
+export function countryForSlug(key: string, known: string[] = []): string | null {
+  return known.find((c) => slug(c) === key) ?? countryForKey(key)
+}
+
 /** Heading over a shortlist — followed by the country name. */
 export const TOP_LABEL = 'สถานที่ยอดฮิต'
 

@@ -18,7 +18,48 @@ export interface Profile {
   /** optional — present after supabase/onboarding.sql; false until a brand-new
    *  signup finishes the first-run profile-setup screen */
   onboarded?: boolean | null
+  /** optional — present after supabase/admin_pages.sql; may edit the curated
+   *  country pages. Set from the SQL editor only (a trigger pins it back if the
+   *  client tries) */
+  is_admin?: boolean | null
   created_at: string
+}
+
+/** A country's curated page, laid out by an admin (supabase/admin_pages.sql).
+ *  `country` is the CANONICAL name — see canonicalCountry in countries.ts. */
+export interface CountryPage {
+  country: string
+  title: string | null
+  eyebrow: string | null
+  cover_url: string | null
+  published: boolean
+  show_recent: boolean
+  show_cities: boolean
+  updated_at: string
+}
+
+/** One banner block on a country page — its artwork, and what tapping it does. */
+export interface CountryBlock {
+  id: string
+  country: string
+  title: string
+  image_url: string | null
+  /** 'list' opens the block's own places here; 'explore' jumps to Explore
+   *  with the filter below applied */
+  action: 'list' | 'explore'
+  filter_group: string | null
+  filter_cat: string | null
+  filter_city: string | null
+  position: number
+  published: boolean
+  created_at: string
+}
+
+/** A place inside a block, in the admin's own order. */
+export interface CountryBlockPlace {
+  block_id: string
+  explore_id: string
+  position: number
 }
 
 /** One city leg of a multi-city trip. `until` = local datetime the trip moves

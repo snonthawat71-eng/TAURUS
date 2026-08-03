@@ -105,6 +105,8 @@ export const PUBLIC_IMAGE_FOLDERS = {
   explore: { cloudinary: 'taurus/explore', bucket: 'explore' },
   /** photos somebody attached to their review of a place */
   review: { cloudinary: 'taurus/explore-reviews', bucket: 'explore-reviews' },
+  /** artwork an admin uploads for a country page's cover or banner blocks */
+  banner: { cloudinary: 'taurus/banners', bucket: 'banners' },
 } as const
 
 export type PublicImageKind = keyof typeof PUBLIC_IMAGE_FOLDERS
