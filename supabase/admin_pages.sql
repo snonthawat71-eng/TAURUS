@@ -133,3 +133,41 @@ end $$;
 --    update profiles set is_admin = true
 --    where id = (select id from auth.users where email = 's.nonthawat71@gmail.com');
 -- ============================================================================
+
+-- ============================================================================
+--  Managing admins from inside the app
+--
+--  Emails live in auth.users, which the client can't read — and copying them
+--  into `profiles` would hand every signed-in user the whole address book. So
+--  the admin screen goes through these two functions instead: both check
+--  `is_admin()` themselves, and neither returns anything to anyone else.
+-- ============================================================================
+
+create or replace function admin_list_users()
+returns table (id uuid, email text, nickname text, is_admin boolean)
+language sql stable security definer set search_path = public as $$
+  select p.id, u.email::text, p.nickname, p.is_admin
+  from profiles p
+  join auth.users u on u.id = p.id
+  where is_admin()
+  order by p.is_admin desc, coalesce(p.nickname, u.email::text)
+$$;
+
+create or replace function admin_set_admin(target uuid, value boolean)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_admin() then
+    raise exception 'ไม่มีสิทธิ์';
+  end if;
+  -- taking your own badge off would leave nobody able to put it back
+  if target = auth.uid() and value is false then
+    raise exception 'ถอดสิทธิ์ตัวเองไม่ได้';
+  end if;
+  update profiles set is_admin = value where id = target;
+end $$;
+
+revoke all on function admin_list_users() from public;
+revoke all on function admin_set_admin(uuid, boolean) from public;
+grant execute on function admin_list_users() to authenticated;
+grant execute on function admin_set_admin(uuid, boolean) to authenticated;

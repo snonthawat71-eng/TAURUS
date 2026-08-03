@@ -185,6 +185,7 @@ export default function App() {
           <Route path="/explore/top/:key" element={<ExploreTop />} />
           {/* the owner's page builder — hidden, and guarded again by RLS */}
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/team" element={<Admin />} />
           <Route path="/admin/:key" element={<Admin />} />
           <Route path="/profile" element={<Profile />} />
           <Route element={<AppShell />}>

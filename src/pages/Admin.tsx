@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   IconArrowLeft, IconChevronRight, IconPlus, IconTrash, IconPhoto, IconLoader2,
   IconChevronUp, IconChevronDown, IconEye, IconWorld, IconLayoutList, IconExternalLink, IconLock,
+  IconUsers, IconSearch, IconShieldCheck,
 } from '@tabler/icons-react'
 import { SignedImage } from '@/components/SignedImage'
 import { AdminPlacePicker } from '@/components/AdminPlacePicker'
@@ -15,6 +16,7 @@ import {
   loadCuratedPage, listCuratedPages, upsertCountryPage, addBlock, updateBlock,
   deleteBlock, reorderBlocks, setBlockPlaces, type BlockWithPlaces,
 } from '@/lib/countryPages'
+import { listAdminUsers, setAdmin, type AdminUser } from '@/lib/adminUsers'
 import { canonicalCountry, countryFlag } from '@/lib/countries'
 import { slugForCountry, countryForSlug } from '@/lib/exploreTop'
 import { uploadPublicImage } from '@/lib/files'
@@ -37,6 +39,7 @@ import type { CountryPage, ExplorePlace } from '@/lib/database.types'
 export default function Admin() {
   const { key } = useParams()
   const navigate = useNavigate()
+  const team = useLocation().pathname === '/admin/team'
   const { loading, profile } = useTrip()
   const { user } = useAuth()
   const isAdmin = useIsAdmin()
@@ -101,7 +104,7 @@ export default function Admin() {
     <div className="min-h-dvh bg-canvas md:flex">
       {/* country rail — a full page on mobile, a sidebar on desktop */}
       <aside className={['md:w-[236px] md:shrink-0 md:h-dvh md:sticky md:top-0 bg-surface',
-        selected ? 'max-md:hidden' : ''].join(' ')}
+        selected || team ? 'max-md:hidden' : ''].join(' ')}
         style={{ borderRight: '0.5px solid var(--color-line)' }}>
         <div className="flex items-center gap-2 h-14 px-4">
           <TaurusLogo height={30} />
@@ -128,16 +131,25 @@ export default function Admin() {
               </button>
             )
           })}
+          <div className="px-2 pt-4 pb-1.5 text-[10px] font-semibold tracking-wider text-ink-3">อื่นๆ</div>
+          <button onClick={() => navigate('/admin/team')}
+            className={['w-full flex items-center gap-2.5 h-10 px-2.5 rounded-md text-[13px]',
+              team ? 'bg-brand-soft text-brand-dark font-semibold' : 'text-ink-2 hover:bg-surface-2/60'].join(' ')}>
+            <IconUsers size={17} stroke={1.6} />
+            <span className="flex-1 text-left">ผู้ดูแล</span>
+          </button>
         </nav>
       </aside>
 
-      <main className={['flex-1 min-w-0', selected ? '' : 'max-md:hidden'].join(' ')}>
-        {selected
-          ? <CountryEditor key={selected} country={selected} pool={pool ?? []}
-              onPageSaved={(p) => setPages((xs) => [...xs.filter((x) => x.country !== p.country), p])} />
-          : <div className="hidden md:grid place-items-center h-dvh text-[13px] text-ink-3">
-              เลือกประเทศทางซ้ายเพื่อเริ่มจัดหน้า
-            </div>}
+      <main className={['flex-1 min-w-0', selected || team ? '' : 'max-md:hidden'].join(' ')}>
+        {team
+          ? <TeamEditor meId={user?.id ?? null} />
+          : selected
+            ? <CountryEditor key={selected} country={selected} pool={pool ?? []}
+                onPageSaved={(p) => setPages((xs) => [...xs.filter((x) => x.country !== p.country), p])} />
+            : <div className="hidden md:grid place-items-center h-dvh text-[13px] text-ink-3">
+                เลือกประเทศทางซ้ายเพื่อเริ่มจัดหน้า
+              </div>}
       </main>
     </div>
   )
@@ -561,5 +573,106 @@ function BlockCard({ block: b, index, total, byId, onPatch, onMove, onRemove, on
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Who else may edit. Granting admin used to mean opening the SQL editor; it is
+ * a toggle here now — the server still decides, and it refuses to let anyone
+ * take their own badge off, which is the one move that locks everybody out.
+ */
+function TeamEditor({ meId }: { meId: string | null }) {
+  const navigate = useNavigate()
+  const [rows, setRows] = useState<AdminUser[] | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const [q, setQ] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+
+  async function refresh() {
+    const { rows: r, error } = await listAdminUsers()
+    setRows(r); setErr(error)
+  }
+  useEffect(() => { void refresh() }, [])
+
+  async function toggle(u: AdminUser) {
+    if (u.id === meId && u.is_admin) { toast.error('ถอดสิทธิ์ตัวเองไม่ได้'); return }
+    if (!u.is_admin && !(await confirmDialog({
+      message: `ให้ ${u.nickname || u.email} เป็นผู้ดูแล? จะแก้หน้าประเทศได้ทั้งหมด`,
+      confirmLabel: 'ให้สิทธิ์',
+    }))) return
+    if (u.is_admin && !(await confirmDialog({
+      message: `ถอดสิทธิ์ผู้ดูแลของ ${u.nickname || u.email}?`,
+      danger: true, confirmLabel: 'ถอดสิทธิ์',
+    }))) return
+    setBusy(u.id)
+    const error = await setAdmin(u.id, !u.is_admin)
+    setBusy(null)
+    if (error) { toast.error(error); return }
+    setRows((xs) => (xs ?? []).map((x) => (x.id === u.id ? { ...x, is_admin: !u.is_admin } : x)))
+    toast.success(u.is_admin ? 'ถอดสิทธิ์แล้ว' : 'ให้สิทธิ์แล้ว')
+  }
+
+  const needle = q.trim().toLowerCase()
+  const shown = (rows ?? []).filter((u) =>
+    !needle || [u.email, u.nickname].some((v) => (v ?? '').toLowerCase().includes(needle)))
+
+  return (
+    <>
+      <header className="sticky top-0 z-20 h-14 flex items-center gap-2.5 px-4 bg-surface"
+        style={{ borderBottom: '0.5px solid var(--color-line)' }}>
+        <button onClick={() => navigate('/admin')} aria-label="กลับ" className="btn-icon !size-8 md:hidden">
+          <IconArrowLeft size={17} />
+        </button>
+        <span className="text-[15px] font-extrabold">ผู้ดูแล</span>
+      </header>
+
+      <div className="p-4 sm:p-5 max-w-[720px] mx-auto pb-16">
+        {err ? (
+          <div className="card p-6 text-center text-[13px] text-ink-2">{err}</div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
+              <IconSearch size={16} className="text-ink-3" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาอีเมล / ชื่อเล่น"
+                className="flex-1 bg-transparent text-[13px] outline-none" />
+            </div>
+            {rows == null ? (
+              <div className="py-10 text-center text-[13px] text-ink-3">กำลังโหลด…</div>
+            ) : shown.length === 0 ? (
+              <div className="card p-6 text-center text-[12px] text-ink-3">ไม่พบผู้ใช้</div>
+            ) : (
+              <div className="space-y-1.5">
+                {shown.map((u) => (
+                  <div key={u.id} className="flex items-center gap-2.5 card p-3">
+                    <span className="size-9 rounded-full grid place-items-center shrink-0"
+                      style={{ background: u.is_admin ? 'var(--color-brand-soft)' : 'var(--color-surface-2)',
+                        color: u.is_admin ? 'var(--color-brand-mid)' : 'var(--color-ink-3)' }}>
+                      <IconShieldCheck size={17} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13.5px] font-semibold truncate">
+                        {u.nickname || u.email || '—'}{u.id === meId ? ' (คุณ)' : ''}
+                      </div>
+                      <div className="text-[11px] text-ink-3 truncate">{u.email}</div>
+                    </div>
+                    {busy === u.id
+                      ? <IconLoader2 size={16} className="animate-spin text-ink-3 shrink-0" />
+                      : (
+                        <button onClick={() => void toggle(u)} disabled={u.id === meId && u.is_admin}
+                          className="h-8 px-3 rounded-full text-[12px] font-bold shrink-0 disabled:opacity-40"
+                          style={u.is_admin
+                            ? { background: 'var(--color-brand)', color: '#fff' }
+                            : { color: 'var(--color-brand)', border: '1.5px solid var(--color-brand)' }}>
+                          {u.is_admin ? 'เป็นผู้ดูแล' : 'ให้สิทธิ์'}
+                        </button>
+                      )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </>
   )
 }
