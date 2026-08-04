@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { IconArrowsMove, IconZoomIn } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { DEFAULT_FOCUS, parseFocus, serializeFocus } from '@/lib/photoFocus'
@@ -24,10 +24,22 @@ export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '1
   const frameRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ px: number; py: number; fx: number; fy: number } | null>(null)
   const f = parseFocus(focus) ?? DEFAULT_FOCUS
+  // rule-of-thirds guides, shown only while the crop is being moved or zoomed —
+  // they're there to line the subject up, not to sit on top of the photo
+  const [guides, setGuides] = useState(false)
+  const hide = useRef<number | null>(null)
+  useEffect(() => () => { if (hide.current) clearTimeout(hide.current) }, [])
+  function flashGuides() {
+    setGuides(true)
+    if (hide.current) clearTimeout(hide.current)
+    hide.current = window.setTimeout(() => setGuides(false), 700)
+  }
 
   function onPointerDown(e: React.PointerEvent) {
     frameRef.current?.setPointerCapture(e.pointerId)
     drag.current = { px: e.clientX, py: e.clientY, fx: f.x, fy: f.y }
+    if (hide.current) clearTimeout(hide.current)
+    setGuides(true)
   }
   function onPointerMove(e: React.PointerEvent) {
     const d = drag.current
@@ -38,7 +50,7 @@ export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '1
     const ny = clamp(d.fy - ((e.clientY - d.py) / rect.height) * 100 / f.scale, 0, 100)
     onChange(serializeFocus({ ...f, x: nx, y: ny }))
   }
-  function onPointerUp() { drag.current = null }
+  function onPointerUp() { drag.current = null; flashGuides() }
 
   return (
     <div className="space-y-2">
@@ -52,7 +64,20 @@ export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '1
         style={{ aspectRatio: aspect, ...(round ? { maxWidth: 220, marginInline: 'auto' } : {}) }}
         className={['relative w-full overflow-hidden bg-surface-2 cursor-grab active:cursor-grabbing touch-none select-none', round ? 'rounded-full' : 'rounded-lg'].join(' ')}>
         <SignedImage url={url} path={path} focus={focus} className="w-full h-full object-cover pointer-events-none" width={800} fallback={fallback} />
-        <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-black/55 text-white pointer-events-none">
+        <div aria-hidden
+          className={['absolute inset-0 rounded-[inherit] pointer-events-none transition-opacity duration-150', guides ? 'opacity-100' : 'opacity-0'].join(' ')}>
+          {[1, 2].map((i) => (
+            <span key={`v${i}`} className="absolute inset-y-0 w-px bg-white/75"
+              style={{ left: `${(i * 100) / 3}%`, boxShadow: '0 0 2px rgba(0,0,0,0.5)' }} />
+          ))}
+          {[1, 2].map((i) => (
+            <span key={`h${i}`} className="absolute inset-x-0 h-px bg-white/75"
+              style={{ top: `${(i * 100) / 3}%`, boxShadow: '0 0 2px rgba(0,0,0,0.5)' }} />
+          ))}
+          <span className="absolute inset-0 rounded-[inherit] border border-white/40" />
+        </div>
+        <span className={['absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-black/55 text-white pointer-events-none transition-opacity duration-150',
+          guides ? 'opacity-0' : 'opacity-100'].join(' ')}>
           <IconArrowsMove size={12} /> ลากเพื่อจัดตำแหน่ง
         </span>
       </div>
@@ -60,7 +85,7 @@ export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '1
         <IconZoomIn size={15} className="text-ink-3 shrink-0" />
         <input
           type="range" min={1} max={3} step={0.01} value={f.scale}
-          onChange={(e) => onChange(serializeFocus({ ...f, scale: Number(e.target.value) }))}
+          onChange={(e) => { flashGuides(); onChange(serializeFocus({ ...f, scale: Number(e.target.value) })) }}
           className="w-full accent-brand" aria-label="ซูมรูป" />
       </div>
     </div>
