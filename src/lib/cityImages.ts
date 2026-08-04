@@ -26,6 +26,7 @@ export const TRIP_COVER_IMAGES: Record<string, string> = {
   'Taipei': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1783503354/2_vtksjl.jpg',
   'Shanghai': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1783503356/4_knvun9.jpg',
   'Shenzhen': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1782899453/citiefront2_lbs5sq.jpg',
+  'Guangzhou': '/city/guangzhou-trip.jpg',
   'Beijing': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1783503355/7_fgkenp.jpg',
   'Seoul': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1783503355/8_u0oqry.jpg',
   'Singapore': 'https://res.cloudinary.com/dgz0knsft/image/upload/v1783503354/9_v5zwny.jpg',
