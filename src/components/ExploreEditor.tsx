@@ -506,7 +506,9 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
           {cropping && cover ? (
             <div className="space-y-2">
               <div className={lbl}>ลากเพื่อจัดตำแหน่ง / เลื่อนเพื่อซูม</div>
-              <PhotoCropper url={cover} focus={photoFocus} onChange={setPhotoFocus}
+              {/* 4:5 — the exact frame the Explore card shows, so what you line
+                  up here is what the card gets */}
+              <PhotoCropper url={cover} focus={photoFocus} onChange={setPhotoFocus} aspect="4 / 5" maxWidth={240}
                 fallback={<div className="w-full h-full grid place-items-center bg-surface-2"><IconPhoto size={22} className="text-ink-3" /></div>} />
               <button onClick={() => setCropping(false)} className="btn-icon !w-auto px-3 gap-1.5 text-[12px]"><IconCheck size={14} /> เสร็จ</button>
             </div>

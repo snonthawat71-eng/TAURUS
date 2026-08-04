@@ -10,16 +10,20 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
  * card's crop ratio so what you see here is what shows on the card/detail.
  * Emits the stored focus string ("x y scale", or null for the default crop).
  */
-export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '16 / 10', round = false }: {
+export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '16 / 10', round = false, maxWidth }: {
   url?: string | null
   path?: string | null
   focus: string | null
   fallback?: ReactNode
   onChange: (focus: string | null) => void
-  /** crop-frame aspect ratio (CSS aspect-ratio value). Use '1 / 1' for avatars. */
+  /** crop-frame aspect ratio (CSS aspect-ratio value) — match the frame the
+   *  photo will actually be shown in, so the crop is WYSIWYG. '1 / 1' for
+   *  avatars, '4 / 5' for the Explore card. */
   aspect?: string
   /** show a circular frame (avatars) instead of a rounded rectangle */
   round?: boolean
+  /** cap the frame's width (a tall frame shouldn't eat the whole drawer) */
+  maxWidth?: number
 }) {
   const frameRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ px: number; py: number; fx: number; fy: number } | null>(null)
@@ -94,7 +98,7 @@ export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '1
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onTouchMove={(e) => e.stopPropagation()} // don't let the Drawer swipe-to-close steal the drag
-        style={{ aspectRatio: aspect, ...(round ? { maxWidth: 220, marginInline: 'auto' } : {}) }}
+        style={{ aspectRatio: aspect, ...(round || maxWidth ? { maxWidth: maxWidth ?? 220, marginInline: 'auto' } : {}) }}
         className={['relative w-full overflow-hidden bg-surface-2 cursor-grab active:cursor-grabbing touch-none select-none', round ? 'rounded-full' : 'rounded-lg'].join(' ')}>
         <SignedImage url={url} path={path} focus={focus} className="w-full h-full object-cover pointer-events-none" width={800} fallback={fallback} />
         <div aria-hidden
