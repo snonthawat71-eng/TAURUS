@@ -27,6 +27,7 @@ export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '1
   // rule-of-thirds guides, shown only while the crop is being moved or zoomed —
   // they're there to line the subject up, not to sit on top of the photo
   const [guides, setGuides] = useState(false)
+  const [stuck, setStuck] = useState(false)
   const hide = useRef<number | null>(null)
   useEffect(() => () => { if (hide.current) clearTimeout(hide.current) }, [])
   function flashGuides() {
@@ -35,22 +36,54 @@ export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '1
     hide.current = window.setTimeout(() => setGuides(false), 700)
   }
 
+  /**
+   * How far the photo travels, in pixels, for a full 0→100 sweep of the focus
+   * percentage — the number that makes the drag follow the finger.
+   *
+   * `object-cover` only leaves room to pan on the axis where the photo spills
+   * out of the frame, and zooming adds a frame's worth of room on both. A wide
+   * photo in a wide frame spills by a few percent, so treating the frame width
+   * as the travel (which is what this used to do) moved the photo by a tenth of
+   * the drag and read as "it isn't moving".
+   */
+  function travel() {
+    const rect = frameRef.current?.getBoundingClientRect()
+    if (!rect) return null
+    const img = frameRef.current?.querySelector('img')
+    const iw = img?.naturalWidth ?? 0
+    const ih = img?.naturalHeight ?? 0
+    // photo not decoded yet → assume it spills a frame's worth, so an early
+    // drag still does something instead of reading as "stuck"
+    if (!iw || !ih) return { x: -rect.width * f.scale, y: -rect.height * f.scale }
+    // cover scale → how much of the photo hangs outside the frame
+    const cover = Math.max(rect.width / iw, rect.height / ih)
+    const spillX = iw * cover - rect.width
+    const spillY = ih * cover - rect.height
+    return {
+      x: rect.width - f.scale * (spillX + rect.width),
+      y: rect.height - f.scale * (spillY + rect.height),
+    }
+  }
+
   function onPointerDown(e: React.PointerEvent) {
     frameRef.current?.setPointerCapture(e.pointerId)
     drag.current = { px: e.clientX, py: e.clientY, fx: f.x, fy: f.y }
     if (hide.current) clearTimeout(hide.current)
     setGuides(true)
+    const t = travel()
+    // nothing spills out and no zoom → there is no crop to choose yet
+    setStuck(!!t && Math.abs(t.x) < 1 && Math.abs(t.y) < 1)
   }
   function onPointerMove(e: React.PointerEvent) {
     const d = drag.current
-    const rect = frameRef.current?.getBoundingClientRect()
-    if (!d || !rect) return
-    // dragging the image right reveals more of its left edge → object-position X falls.
-    const nx = clamp(d.fx - ((e.clientX - d.px) / rect.width) * 100 / f.scale, 0, 100)
-    const ny = clamp(d.fy - ((e.clientY - d.py) / rect.height) * 100 / f.scale, 0, 100)
+    const t = travel()
+    if (!d || !t) return
+    // a frozen axis (no spill, no zoom) keeps its value instead of dividing by ~0
+    const nx = Math.abs(t.x) < 1 ? d.fx : clamp(d.fx + ((e.clientX - d.px) / t.x) * 100, 0, 100)
+    const ny = Math.abs(t.y) < 1 ? d.fy : clamp(d.fy + ((e.clientY - d.py) / t.y) * 100, 0, 100)
     onChange(serializeFocus({ ...f, x: nx, y: ny }))
   }
-  function onPointerUp() { drag.current = null; flashGuides() }
+  function onPointerUp() { drag.current = null; setStuck(false); flashGuides() }
 
   return (
     <div className="space-y-2">
@@ -77,8 +110,10 @@ export function PhotoCropper({ url, path, focus, fallback, onChange, aspect = '1
           <span className="absolute inset-0 rounded-[inherit] border border-white/40" />
         </div>
         <span className={['absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-black/55 text-white pointer-events-none transition-opacity duration-150',
-          guides ? 'opacity-0' : 'opacity-100'].join(' ')}>
-          <IconArrowsMove size={12} /> ลากเพื่อจัดตำแหน่ง
+          guides && !stuck ? 'opacity-0' : 'opacity-100'].join(' ')}>
+          {stuck
+            ? <><IconZoomIn size={12} /> รูปพอดีกรอบแล้ว — ซูมเข้าก่อนถึงจะเลื่อนได้</>
+            : <><IconArrowsMove size={12} /> ลากเพื่อจัดตำแหน่ง</>}
         </span>
       </div>
       <div className="flex items-center gap-2">
