@@ -8,7 +8,7 @@ import {
 import { SignedImage } from './SignedImage'
 import { hscroll } from '@/lib/hscroll'
 import { cityImage, countryImage } from '@/lib/cityImages'
-import { canonicalCountry, countryFlag } from '@/lib/countries'
+import { canonicalCountry } from '@/lib/countries'
 import { PLACE_TABS, FOOD_GROUPS, CATEGORY, type CategoryTab } from '@/lib/placeMeta'
 import type { ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace } from '@/lib/database.types'
@@ -319,18 +319,6 @@ export function ExploreFilters({ items, f, set, showSort = true, userId, belowSe
 
       {/* one flat scrolling row: เรียงตาม · ทั้งหมด · Places▾ · Food▾ … 🔥 ยอดนิยม */}
       <div ref={hscroll} className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar">
-        {/* Where you are, and one tap out of it. A country picked from another
-            page (the country page's "ดูทั้งหมด") arrives here without the reader
-            having tapped a card, and the list looked like every other country
-            had vanished. */}
-        {(f.country !== 'all' || f.city !== 'all') && (
-          <button onClick={() => set({ country: 'all', city: 'all' })}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-bold whitespace-nowrap shrink-0 text-white"
-            style={{ background: 'var(--color-brand)' }}>
-            {f.country !== 'all' && countryFlag(f.country)} {f.city !== 'all' ? f.city : f.country || 'ไม่ระบุประเทศ'}
-            <IconX size={13} className="opacity-90" />
-          </button>
-        )}
         {/* sort dropdown — keeps the original line filter icon, no ▾ chevron */}
         <Dropdown applied={f.sort === 'old' || f.sort === 'rating'} width={210} chevron={false}
           label={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="text-ink"><path d="M4 6h16M7 12h10M10 18h4" /></svg>}>
