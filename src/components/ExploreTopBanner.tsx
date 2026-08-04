@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { IconChevronRight } from '@tabler/icons-react'
 import { SignedImage } from './SignedImage'
 import { TOP_LABEL, type TopList } from '@/lib/exploreTop'
@@ -25,19 +25,28 @@ export function ExploreTopBanner({ lists, onOpen }: {
   const startX = useRef<number | null>(null)
   const moved = useRef(0)
 
+  // Shuffled, so the same country isn't always the one on top — but a country
+  // keeps the number it drew for as long as the banner is mounted, or a
+  // realtime reload would deal a new hand while you're looking at it.
+  const rank = useRef(new Map<string, number>())
+  const shown = useMemo(() => {
+    for (const l of lists) if (!rank.current.has(l.key)) rank.current.set(l.key, Math.random())
+    return [...lists].sort((a, b) => rank.current.get(a.key)! - rank.current.get(b.key)!)
+  }, [lists])
+
   // a changed filter can shrink the list under us
-  useEffect(() => { setI((n) => (n < lists.length ? n : 0)) }, [lists.length])
+  useEffect(() => { setI((n) => (n < shown.length ? n : 0)) }, [shown.length])
 
   useEffect(() => {
-    if (held || lists.length < 2) return
-    const t = setTimeout(() => setI((n) => (n + 1) % lists.length), AUTO_MS)
+    if (held || shown.length < 2) return
+    const t = setTimeout(() => setI((n) => (n + 1) % shown.length), AUTO_MS)
     return () => clearTimeout(t)
-  }, [i, held, lists.length])
+  }, [i, held, shown.length])
 
-  if (!lists.length) return null
-  const cur = lists[Math.min(i, lists.length - 1)]
+  if (!shown.length) return null
+  const cur = shown[Math.min(i, shown.length - 1)]
 
-  const go = (d: number) => setI((n) => (n + d + lists.length) % lists.length)
+  const go = (d: number) => setI((n) => (n + d + shown.length) % shown.length)
 
   return (
     <div
@@ -56,7 +65,7 @@ export function ExploreTopBanner({ lists, onOpen }: {
       style={{ background: 'linear-gradient(135deg,#8fa8c9,#2f4a72)', boxShadow: '0 8px 22px rgba(10,40,90,.15)' }}>
 
       {/* the city photo, swapped with a soft cross-fade */}
-      {lists.map((l, n) => (
+      {shown.map((l, n) => (
         <div key={l.key} className="absolute inset-0 transition-opacity duration-500"
           style={{ opacity: n === i ? 1 : 0 }}>
           {l.photo && <SignedImage url={l.photo} alt="" className="w-full h-full object-cover" width={800} />}
@@ -82,9 +91,9 @@ export function ExploreTopBanner({ lists, onOpen }: {
         </span>
       </span>
 
-      {lists.length > 1 && (
+      {shown.length > 1 && (
         <div className="absolute left-4 bottom-[19px] flex gap-1.5 pointer-events-none">
-          {lists.map((l, n) => (
+          {shown.map((l, n) => (
             <span key={l.key} className="h-[5px] rounded-full transition-all duration-300"
               style={{ width: n === i ? 16 : 5, background: n === i ? '#fff' : 'rgba(255,255,255,.45)' }} />
           ))}
