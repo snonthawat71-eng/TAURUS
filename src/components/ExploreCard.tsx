@@ -152,7 +152,9 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
                 <div className="flex items-center gap-2 mt-2 min-w-0">
                   {roundel(r0, 0)}
                   <div className="min-w-0 flex-1 leading-tight">
-                    <div className="text-[12.5px] font-medium text-ink-2 truncate">{cleanStation(r0) || m0.label}</div>
+                    {/* a long station name wraps to a second line rather than
+                        dropping below the roundel */}
+                    <div className="text-[12.5px] font-medium text-ink-2 line-clamp-2">{cleanStation(r0) || m0.label}</div>
                     {r0.line && <div className="text-[10.5px] text-ink-3 truncate">{r0.line}</div>}
                   </div>
                 </div>
@@ -169,7 +171,10 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
             const names = [...new Set(routes.map((r) => r.line || modeMeta('mode' in r ? r.mode : undefined).label))]
             return (
               <div className="mt-2 min-w-0">
-                <div className="flex items-center flex-wrap min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  {/* the roundels hold their row; a long station name wraps to a
+                      second line beside them instead of pushing itself down */}
+                  <div className="flex items-center shrink-0">
                   {shown.map((r, i) => {
                     const p = shown[i - 1]
                     const plain = !stationCode(r.line, r.station)
@@ -184,7 +189,10 @@ export function ExploreCard({ e, isOwner, saved, popular, pop, rating, onFav, on
                       <IconPlus size={15} />
                     </span>
                   )}
-                  {cleanStation(r0) && <span className="text-[12.5px] font-medium text-ink-2 truncate ml-2">{cleanStation(r0)}</span>}
+                  </div>
+                  {cleanStation(r0) && (
+                    <span className="text-[12.5px] font-medium text-ink-2 line-clamp-2 leading-tight min-w-0">{cleanStation(r0)}</span>
+                  )}
                 </div>
                 {/* one row per line NAME, not per route — a place sitting on the
                     same line at two stations used to print it twice */}
