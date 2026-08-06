@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { toast } from '@/lib/toast'
 import { initOfflineSync, looksOffline } from '@/lib/offlineQueue'
 import { checkPlanReminders } from '@/lib/planReminders'
+import { updateTraveler } from '@/lib/tripMutations'
 import { useAuth } from './AuthContext'
 import type {
   Expense, Flight, Train, TrainTicket, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
@@ -76,6 +77,8 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<TripState>(empty)
   // user id we've already run the one-time bootstrap (profile upsert + invites) for
   const bootstrappedFor = useRef<string | null>(null)
+  // traveler cards already topped up from the profile this session
+  const healedCards = useRef<Set<string>>(new Set())
 
   const switchTrip = useCallback((id: string) => {
     localStorage.setItem(STORAGE_KEY, id)
@@ -259,6 +262,28 @@ export function TripProvider({ children }: { children: ReactNode }) {
       setData(next)
       writeJSON(snapKey(current.id), next) // offline snapshot
       offlineToasted.current = false       // next offline period may toast again
+
+      // Heal a card claimed before joining learnt to carry the profile over:
+      // someone with an account from long ago who was invited kept the owner's
+      // placeholder name and no photo. Fills BLANKS ONLY — anything already on
+      // the card stays — and once per card per session.
+      const myCard = (next.travelers ?? []).find((t) => t.user_id === user.id)
+      const meProfile = next.profile
+      if (myCard && meProfile && !healedCards.current.has(myCard.id)) {
+        healedCards.current.add(myCard.id)
+        const fill: Record<string, unknown> = {}
+        if (!myCard.nickname?.trim() && meProfile.onboarded !== false && meProfile.nickname?.trim()) fill.nickname = meProfile.nickname.trim()
+        if (!myCard.full_name?.trim() && meProfile.full_name?.trim()) fill.full_name = meProfile.full_name.trim()
+        if (!myCard.avatar_color && meProfile.avatar_color) fill.avatar_color = meProfile.avatar_color
+        if (!myCard.avatar_url && meProfile.avatar_url) {
+          fill.avatar_url = meProfile.avatar_url
+          fill.avatar_focus = meProfile.avatar_focus ?? null
+        }
+        if (Object.keys(fill).length) {
+          setData((d) => ({ ...d, travelers: d.travelers.map((t) => (t.id === myCard.id ? { ...t, ...fill } : t)) }))
+          void updateTraveler(myCard.id, fill)
+        }
+      }
     } catch (e) {
       // Mid-request drop (or a flaky connection navigator.onLine missed) —
       // fall back to the snapshot instead of an error screen.

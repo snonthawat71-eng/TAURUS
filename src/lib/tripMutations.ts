@@ -185,6 +185,36 @@ export interface TravelerInput {
 export async function claimTraveler(id: string, userId: string) {
   return updateGraceful('travelers', id, { user_id: userId })
 }
+
+/**
+ * Copy an existing account's identity onto the traveler card it just claimed —
+ * joining a trip by invite, or tapping "นี่การ์ดฉัน".
+ *
+ * Editing your profile already syncs every card you've claimed, but someone who
+ * signed up long ago and was then invited never passes through that screen, so
+ * their card kept the placeholder the trip owner typed. Only fields the profile
+ * actually carries are pushed, and the name only once the profile has been set
+ * up for real — a brand-new signup's auto-nickname ("somchai91" off the email)
+ * must not replace the "พี่เอ" the owner wrote on the card.
+ */
+export async function syncProfileToTraveler(
+  travelerId: string,
+  profile: { nickname?: string | null; full_name?: string | null; avatar_color?: string | null; avatar_url?: string | null; avatar_focus?: string | null; onboarded?: boolean | null } | null,
+  override: { avatar_url?: string | null; avatar_focus?: string | null } = {},
+) {
+  if (!profile) return
+  const fields: TravelerInput = {}
+  if (profile.onboarded !== false && profile.nickname?.trim()) fields.nickname = profile.nickname.trim()
+  if (profile.full_name?.trim()) fields.full_name = profile.full_name.trim()
+  if (profile.avatar_color) fields.avatar_color = profile.avatar_color
+  const photo = override.avatar_url ?? profile.avatar_url
+  if (photo) {
+    fields.avatar_url = photo
+    fields.avatar_focus = override.avatar_url ? override.avatar_focus ?? null : profile.avatar_focus ?? null
+  }
+  if (!Object.keys(fields).length) return
+  return updateGraceful('travelers', travelerId, { ...fields })
+}
 export async function setTravelerPrivacy(id: string, privacy: 'trip' | 'private') {
   return updateGraceful('travelers', id, { privacy })
 }

@@ -7,7 +7,7 @@ import { TaurusMark } from '@/components/TaurusMark'
 import { Avatar } from '@/components/Avatar'
 import { PhotoCropper } from '@/components/PhotoCropper'
 import { uploadPublicImage } from '@/lib/files'
-import { updateProfile } from '@/lib/tripMutations'
+import { updateProfile, syncProfileToTraveler } from '@/lib/tripMutations'
 import { toast } from '@/lib/toast'
 import { promptDialog } from '@/lib/confirm'
 
@@ -68,10 +68,16 @@ export default function JoinTrip() {
     try {
       const { data, error } = await supabase.rpc('accept_invite', { tok: token, privacy_choice: privacy })
       if (error) { toast.error(error.message || 'เข้าร่วมไม่สำเร็จ'); return }
-      // save the chosen profile photo onto my (now-claimed) card + account
-      if (photo && session?.user?.id && info !== 'bad' && info) {
-        await supabase.from('travelers').update({ avatar_url: photo, avatar_focus: focus }).eq('id', info.traveler_id)
-        await updateProfile(session.user.id, { avatar_url: photo, avatar_focus: focus })
+      // Put my identity on the card I just claimed. Someone who already had an
+      // account arrives here with a profile (name, photo, colour) the card knows
+      // nothing about — without this the card keeps the owner's placeholder and
+      // looks like the profile never synced. A photo picked on this page wins,
+      // and is saved to the account too.
+      const uid = session?.user?.id
+      if (uid && info !== 'bad' && info) {
+        const { data: mine } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle()
+        await syncProfileToTraveler(info.traveler_id, mine, photo ? { avatar_url: photo, avatar_focus: focus } : {})
+        if (photo) await updateProfile(uid, { avatar_url: photo, avatar_focus: focus })
       }
       try {
         localStorage.removeItem(PENDING_INVITE_KEY)

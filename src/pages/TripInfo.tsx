@@ -30,7 +30,7 @@ import {
   addTraveler, updateTraveler, deleteTraveler, claimTraveler, setTravelerPrivacy,
   addFlight, updateFlight, deleteFlight,
   addTrain, updateTrain, deleteTrain,
-  addHotel, updateHotel, deleteHotel, updateProfile,
+  addHotel, updateHotel, deleteHotel, updateProfile, syncProfileToTraveler,
 } from '@/lib/tripMutations'
 import type { Flight, Train, FlightDirection, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
 
@@ -540,6 +540,8 @@ export default function TripInfo() {
     if (!(await confirmDialog({ message: `ตั้งการ์ด "${t.nickname ?? 'ผู้เดินทาง'}" เป็นของฉัน? เอกสาร/QR ของการ์ดนี้จะถูกตั้งเป็นส่วนตัว (คุณ + เจ้าของทริป) และคุณเปลี่ยนระดับได้ทีหลัง`, confirmLabel: 'ใช่ นี่การ์ดฉัน' }))) return
     patch((d) => ({ travelers: d.travelers.map((x) => (x.id === t.id ? { ...x, user_id: user.id } : x)) }))
     await claimTraveler(t.id, user.id)
+    // the card is mine now — carry my profile photo/colour onto it
+    await syncProfileToTraveler(t.id, profile)
     reload()
   }
   async function togglePrivacy(t: Traveler) {
