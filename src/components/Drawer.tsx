@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { IconX } from '@tabler/icons-react'
+import { lockScroll } from '@/lib/scrollLock'
 
 export function Drawer({
   open, onClose, title, children,
@@ -20,47 +21,21 @@ export function Drawer({
   const [kb, setKb] = useState(0)
   const baseH = useRef(0)
 
+  // Hold the page still while the sheet is up. Depends on `open` alone: every
+  // caller passes an inline onClose, so listing it here re-ran this on every
+  // render of the page behind — with two sheets stacked, the lock/unlock churn
+  // could leave the page pinned after both had closed.
   useEffect(() => {
     if (!open) return
     setDy(0)
+    return lockScroll()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
-
-    // iOS composites the on-screen keyboard over a snapshot of the WHOLE page,
-    // so a long page behind the sheet keeps showing through the keyboard's
-    // translucent toolbar no matter how the sheet is painted. Fix the root
-    // cause: while the sheet is open, clip the page to exactly the viewport
-    // (position:fixed body) and paint the root the surface colour — so nothing
-    // renders below the fold and the strip the keyboard overlays is plain white.
-    const html = document.documentElement
-    const body = document.body
-    const scrollY = window.scrollY
-    const prev = {
-      htmlBg: html.style.backgroundColor, bodyBg: body.style.backgroundColor,
-      htmlH: html.style.height, position: body.style.position,
-      top: body.style.top, width: body.style.width,
-      overflow: body.style.overflow, height: body.style.height,
-    }
-    html.style.backgroundColor = 'var(--color-surface)'
-    body.style.backgroundColor = 'var(--color-surface)'
-    html.style.height = '100%'
-    body.style.height = '100%'
-    body.style.overflow = 'hidden'
-    body.style.position = 'fixed'
-    body.style.top = `-${scrollY}px`
-    body.style.width = '100%'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      html.style.backgroundColor = prev.htmlBg
-      body.style.backgroundColor = prev.bodyBg
-      html.style.height = prev.htmlH
-      body.style.height = prev.height
-      body.style.overflow = prev.overflow
-      body.style.position = prev.position
-      body.style.top = prev.top
-      body.style.width = prev.width
-      window.scrollTo(0, scrollY)
-    }
+    return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
   useEffect(() => {

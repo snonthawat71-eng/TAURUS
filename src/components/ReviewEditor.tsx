@@ -4,6 +4,7 @@ import {
   IconX, IconTrash, IconLoader2, IconCheck, IconArrowLeft, IconThumbUp, IconThumbUpFilled,
   IconPlus, IconPhotoPlus, IconStarFilled, IconSearch, IconEyeOff, IconUser,
 } from '@tabler/icons-react'
+import { lockScroll } from '@/lib/scrollLock'
 import { StarRating } from './StarRating'
 import { StarInput } from './StarInput'
 import { useAuth } from '@/contexts/AuthContext'
@@ -83,9 +84,7 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
   // lock the page behind the overlay so it can't scroll under us
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    return lockScroll()
   }, [open])
 
   const overall = overallOf(draft)
