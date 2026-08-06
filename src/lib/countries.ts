@@ -52,6 +52,11 @@ for (const c of COUNTRIES) {
   for (const a of [c.name, ...(c.aliases ?? [])]) BY_ALIAS.set(norm(a), c)
 }
 
+/** The key a city is grouped and compared under, so "Guang Zhou", "guangzhou"
+ *  and "Guang-Zhou" are one city rather than three. Display keeps whatever
+ *  spelling was typed — only the matching is folded. */
+export const cityKey = (raw: string | null | undefined) => norm(raw ?? '')
+
 /** The single name a country is grouped and displayed under. A country we don't
  *  know is kept exactly as typed (trimmed) so nothing ever vanishes from the
  *  browser — it just doesn't get a flag. Blank input returns ''. */

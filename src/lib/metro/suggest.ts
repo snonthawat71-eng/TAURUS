@@ -51,7 +51,16 @@ const NETWORKS: RawNetwork[] = [
 /** Collect line/station suggestions only for the network(s) matching the given text. */
 export function suggestionsFromText(text: string): TransitSuggest {
   const h = ` ${text.toLowerCase()} `
-  const hit = (ks?: string[]) => !!ks?.some((m) => h.includes(m.toLowerCase()))
+  // spelled loose too — "Guang Zhou" / "Hong-Kong" should find their network.
+  // Short keywords (' hk', 'mtr') stay on the strict test: without their spaces
+  // they'd start matching the middle of unrelated words.
+  const tight = h.replace(/[\s._'’`´\-–—,()/]+/g, '')
+  const hit = (ks?: string[]) => !!ks?.some((m) => {
+    const k = m.toLowerCase()
+    if (h.includes(k)) return true
+    const kt = k.replace(/[\s._'’`´\-–—,()/]+/g, '')
+    return kt.length >= 4 && tight.includes(kt)
+  })
   // เมืองที่ระบุชัดชนะเสมอ; ถ้าไม่เจอเมืองไหนเลยค่อยตกมาใช้คำระดับประเทศ
   // (ทริปที่เขียนแค่ "ญี่ปุ่น" ยังได้ทั้งโอซาก้าและโตเกียว ซึ่งถูกต้องแล้ว)
   let matched = NETWORKS.filter((n) => hit(n.match))

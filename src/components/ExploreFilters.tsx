@@ -8,7 +8,7 @@ import {
 import { SignedImage } from './SignedImage'
 import { hscroll } from '@/lib/hscroll'
 import { cityImage, countryImage } from '@/lib/cityImages'
-import { canonicalCountry } from '@/lib/countries'
+import { canonicalCountry, cityKey } from '@/lib/countries'
 import { PLACE_TABS, FOOD_GROUPS, CATEGORY, type CategoryTab } from '@/lib/placeMeta'
 import type { ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace } from '@/lib/database.types'
@@ -126,7 +126,9 @@ export function ExploreFilters({ items, f, set, showSort = true, userId, belowSe
   // so both rails stay ordered newest-shared-first like the list itself.
   const countries = useMemo(() => {
     const now = Date.now()
-    type Agg = { sample: ExplorePlace; fresh: boolean; newestAt: string; count: number }
+    // cities are keyed by their folded spelling, so "Guang Zhou" and
+    // "Guangzhou" are one card; the label keeps the spelling shared first
+    type Agg = { name: string; sample: ExplorePlace; fresh: boolean; newestAt: string; count: number }
     const byCountry = new Map<string, Map<string, Agg>>()
     for (const e of items) {
       if (!e.city) continue
@@ -135,14 +137,15 @@ export function ExploreFilters({ items, f, set, showSort = true, userId, belowSe
       const fresh = !!at && now - new Date(at).getTime() < NEW_CITY_WINDOW_MS
       let m = byCountry.get(key)
       if (!m) { m = new Map(); byCountry.set(key, m) }
-      const cur = m.get(e.city)
-      if (!cur) m.set(e.city, { sample: e, fresh, newestAt: at, count: 1 })
+      const ck = cityKey(e.city)
+      const cur = m.get(ck)
+      if (!cur) m.set(ck, { name: e.city, sample: e, fresh, newestAt: at, count: 1 })
       else { if (fresh) cur.fresh = true; if (at > cur.newestAt) cur.newestAt = at; cur.count++ }
     }
     return Array.from(byCountry.entries()).map(([key, m]) => {
-      const cities = Array.from(m.entries()).map(([name, v]) => ({
-        name, photo: cityImage(name) ?? v.sample.photo_url, newestAt: v.newestAt, count: v.count,
-        isNew: v.fresh && (!seen[name] || v.newestAt > seen[name]),
+      const cities = Array.from(m.values()).map((v) => ({
+        name: v.name, photo: cityImage(v.name) ?? v.sample.photo_url, newestAt: v.newestAt, count: v.count,
+        isNew: v.fresh && (!seen[v.name] || v.newestAt > seen[v.name]),
       }))
       // no dedicated country photo yet → borrow the one from the city this
       // country has the most places in (COUNTRY_IMAGES in cityImages.ts wins)

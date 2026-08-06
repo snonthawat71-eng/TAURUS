@@ -6,7 +6,7 @@
 // — a "top 10" that is simply "everything we have" is worth nothing. Inside a
 // country the list carries every place, ranked; the page slices it per filter
 // (สถานที่ / ร้านอาหาร / คาเฟ่) so each filter gets a full ten of its own.
-import { canonicalCountry, countryFlag, COUNTRIES } from './countries'
+import { canonicalCountry, cityKey, countryFlag, COUNTRIES } from './countries'
 import { cityImage, tripCoverImage, countryImage, COUNTRY_IMAGES } from './cityImages'
 import { foodGroupKey } from './placeMeta'
 import type { ExplorePlace } from './database.types'
@@ -108,18 +108,19 @@ export function buildTopLists(
     if (!scored.length) continue
 
     // the cities inside this country, biggest first — the rail under the cards
-    const cityCount = new Map<string, { count: number; photo: string | null }>()
+    // keyed by folded spelling — "Guang Zhou" and "Guangzhou" are one city
+    const cityCount = new Map<string, { name: string; count: number; photo: string | null }>()
     for (const p of places) {
       const city = (p.city ?? '').trim()
       if (!city) continue
-      const cur = cityCount.get(city)
+      const cur = cityCount.get(cityKey(city))
       if (cur) cur.count++
       // the same photo the Explore city rail uses, so a city looks the same
       // in both places
-      else cityCount.set(city, { count: 1, photo: cityImage(city) ?? p.photo_url ?? null })
+      else cityCount.set(cityKey(city), { name: city, count: 1, photo: cityImage(city) ?? p.photo_url ?? null })
     }
-    const cities: TopCity[] = Array.from(cityCount.entries())
-      .map(([name, v]) => ({ name, photo: v.photo, count: v.count }))
+    const cities: TopCity[] = Array.from(cityCount.values())
+      .map((v) => ({ name: v.name, photo: v.photo, count: v.count }))
       .sort((a, b) => b.count - a.count)
 
     const rated = scored.filter((e) => e.rating && e.rating.count > 0)
@@ -182,6 +183,6 @@ export const TOP_LABEL = 'สถานที่ยอดฮิต'
  *  one. Returns them in display order. */
 export function topListsFor(all: TopList[], country: string, city: string): TopList[] {
   if (country && country !== 'all') return all.filter((l) => canonicalCountry(l.country) === canonicalCountry(country))
-  if (city && city !== 'all') return all.filter((l) => l.cities.some((c) => c.name === city))
+  if (city && city !== 'all') return all.filter((l) => l.cities.some((c) => cityKey(c.name) === cityKey(city)))
   return all
 }

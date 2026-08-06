@@ -1,5 +1,5 @@
 import { catTabKey, FOOD_CATEGORIES } from './placeMeta'
-import { canonicalCountry } from './countries'
+import { canonicalCountry, cityKey } from './countries'
 import type { PopStat } from './exploreMutations'
 import type { ExplorePlace } from './database.types'
 
@@ -40,7 +40,7 @@ export function filterExplore(
     .filter((e) => f.group === 'all' || e.group_type === f.group)
     .filter((e) => matchCat(e, f))
     .filter((e) => f.country === 'all' || canonicalCountry(e.country) === f.country)
-    .filter((e) => f.city === 'all' || e.city === f.city)
+    .filter((e) => f.city === 'all' || cityKey(e.city) === cityKey(f.city))
     .filter((e) => !q || [e.name, e.note, e.city, e.country].some((v) => (v ?? '').toLowerCase().includes(q)))
   if (f.sort === 'popular') return [...filtered].sort((a, b) => (pop.get(b.id)?.score ?? 0) - (pop.get(a.id)?.score ?? 0))
   if (f.sort === 'rating') {
