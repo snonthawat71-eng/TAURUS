@@ -144,17 +144,29 @@ const keyWords = (s: string) => {
  * find a partner in the longer one; a word left without a partner means a
  * different place.
  *
- * Still matched: one name contained in the other ("Ichiran" / "Ichiran
- * Shibuya", "Osaka Castle" / "Osaka Castle Park"), punctuation and spacing
- * differences ("Jenny's Bakery", "DinTaiFung"), and extra words on one side
- * ("Ichiran Hong Kong, Causeway Bay" / "Ichiran Causeway Bay").
+ * A name CONTAINED in the other only counts when it's the opening of it —
+ * "Ichiran" / "Ichiran Shibuya", "Osaka Castle" / "Osaka Castle Park", "HEYTEA"
+ * / "Hey Tea Shibuya". Words added at the FRONT are a different shop's name,
+ * not a branch: "Lai Lai Crispy Milk Donuts" is not "Crispy Milk Donuts", the
+ * way "Ginza Kimuraya" is not "Kimuraya". For the same reason the word-by-word
+ * pass only runs when both names lead with the same word — the lead word is
+ * what names the place; everything after it tends to be a branch or a
+ * description.
+ *
+ * Still matched: punctuation and spacing differences ("Jenny's Bakery",
+ * "DinTaiFung"), a dropped article ("The Ritz-Carlton" / "Ritz-Carlton"), and
+ * extra words in the middle ("Ichiran Hong Kong, Causeway Bay" / "Ichiran
+ * Causeway Bay").
  */
 function similarName(a: string, b: string): boolean {
   const x = normName(a), y = normName(b)
   if (!x || !y) return false
-  if (x === y || x.includes(y) || y.includes(x)) return true
+  if (x === y) return true
+  const [sx, lx] = x.length <= y.length ? [x, y] : [y, x]
+  if (lx.startsWith(sx)) return true
   const wa = keyWords(a), wb = keyWords(b)
   if (!wa.length || !wb.length) return false
+  if (!sameWord(wa[0], wb[0])) return false
   const [short, long] = wa.length <= wb.length ? [wa, wb] : [wb, wa]
   return short.every((w) => long.some((u) => sameWord(w, u)))
 }
