@@ -21,6 +21,32 @@ import type { Transit, TransitLeg, ExploreRoute, Place } from '@/lib/database.ty
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[10px] text-ink-3'
 
+/** A plain field with an ✕ to empty it — the fields here are filled in from a
+ *  saved route as often as they're typed, and a wrong one had to be selected
+ *  and deleted by hand before it could be replaced. */
+function Field({ value, onChange, type, placeholder, inputMode }: {
+  value: string
+  onChange: (v: string) => void
+  type?: 'text' | 'number'
+  placeholder?: string
+  inputMode?: 'decimal'
+}) {
+  return (
+    <div className="relative">
+      <input type={type} inputMode={inputMode} className={field} value={value} placeholder={placeholder}
+        style={value ? { paddingRight: 26 } : undefined}
+        onChange={(e) => onChange(e.target.value)} />
+      {!!value && (
+        <button type="button" tabIndex={-1} aria-label="ล้างช่องนี้"
+          onMouseDown={(e) => { e.preventDefault(); onChange('') }}
+          className="absolute right-1 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 p-1">
+          <IconX size={14} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 function isHongKong(hay: string) {
   const s = hay.toLowerCase()
   return ['hong kong', 'hongkong', 'ฮ่องกง', ' hk', 'mtr'].some((k) => s.includes(k))
@@ -335,8 +361,8 @@ export function TransitEditor({
                       options={sug.lines.map((l) => ({ value: l.name, color: l.color }))}
                       onChange={(v) => patchLine(i, v)} />
                   ) : (
-                    <input className={field} value={leg.line} placeholder={mm.fields.linePlaceholder}
-                      onChange={(e) => patch(i, { line: e.target.value })} />
+                    <Field value={leg.line} placeholder={mm.fields.linePlaceholder}
+                      onChange={(v) => patch(i, { line: v })} />
                   )}
                   {/* colour applies to the metro line only */}
                   {rail && <ColorPicker value={leg.color} onChange={(c) => patch(i, { color: c })} />}
@@ -362,28 +388,28 @@ export function TransitEditor({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <div className={lbl}>{mm.fields.from}</div>
-                      <input className={field} value={leg.from} onChange={(e) => patch(i, { from: e.target.value })} />
+                      <Field value={leg.from} onChange={(v) => patchEnds(i, { from: v })} />
                     </div>
                     <div>
                       <div className={lbl}>{mm.fields.to}</div>
-                      <input className={field} value={leg.to} onChange={(e) => patch(i, { to: e.target.value })} />
+                      <Field value={leg.to} onChange={(v) => patchEnds(i, { to: v })} />
                     </div>
                   </div>
                 )}
 
                 <div>
                   <div className={lbl}>ทิศทาง / ปลายทาง</div>
-                  <input className={field} value={leg.direction ?? ''} onChange={(e) => patch(i, { direction: e.target.value })} placeholder={rail ? 'เช่น ปลายทาง Tuen Mun' : 'เช่น มุ่งหน้าตัวเมือง'} />
+                  <Field value={leg.direction ?? ''} onChange={(v) => patch(i, { direction: v })} placeholder={rail ? 'เช่น ปลายทาง Tuen Mun' : 'เช่น มุ่งหน้าตัวเมือง'} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <div className={lbl}>{rail ? 'จำนวนสถานี' : 'จำนวนป้าย/จุด'}</div>
-                    <input type="number" className={field} value={leg.stops ?? ''} onChange={(e) => patch(i, { stops: e.target.value ? Number(e.target.value) : undefined })} />
+                    <Field type="number" value={leg.stops?.toString() ?? ''} onChange={(v) => patch(i, { stops: v ? Number(v) : undefined })} />
                   </div>
                   <div>
                     <div className={lbl}>เวลา (นาที)</div>
-                    <input type="number" className={field} value={leg.minutes ?? ''} onChange={(e) => patch(i, { minutes: e.target.value ? Number(e.target.value) : undefined })} />
+                    <Field type="number" value={leg.minutes?.toString() ?? ''} onChange={(v) => patch(i, { minutes: v ? Number(v) : undefined })} />
                   </div>
                 </div>
 
@@ -391,8 +417,8 @@ export function TransitEditor({
                 <div>
                   <div className="flex items-center gap-1.5 text-[12px] font-medium text-ink-2"><IconDoorExit size={14} /> ทางออก</div>
                   <div className="grid grid-cols-2 gap-2 mt-1">
-                    <input className={field} value={leg.exit?.label ?? ''} onChange={(e) => patchExit(i, { label: e.target.value })} placeholder="เช่น Exit E3" />
-                    <input className={field} value={leg.exit?.note ?? ''} onChange={(e) => patchExit(i, { note: e.target.value })} placeholder="เช่น เดิน ~3 นาที" />
+                    <Field value={leg.exit?.label ?? ''} onChange={(v) => patchExit(i, { label: v })} placeholder="เช่น Exit E3" />
+                    <Field value={leg.exit?.note ?? ''} onChange={(v) => patchExit(i, { note: v })} placeholder="เช่น เดิน ~3 นาที" />
                   </div>
                 </div>
               </div>
@@ -432,11 +458,11 @@ export function TransitEditor({
                   <div className="grid grid-cols-2 gap-2 mt-1.5">
                     <div>
                       <div className={lbl}>ระยะเดิน (เมตร)</div>
-                      <input type="number" className={field} value={leg.transferAfter.walkMeters ?? ''} onChange={(e) => patchTransfer(i, { ...leg.transferAfter, walkMeters: e.target.value ? Number(e.target.value) : undefined })} />
+                      <Field type="number" value={leg.transferAfter.walkMeters?.toString() ?? ''} onChange={(v) => patchTransfer(i, { ...leg.transferAfter, walkMeters: v ? Number(v) : undefined })} />
                     </div>
                     <div>
                       <div className={lbl}>เวลาเดิน (นาที)</div>
-                      <input type="number" className={field} value={leg.transferAfter.minutes ?? ''} onChange={(e) => patchTransfer(i, { ...leg.transferAfter, minutes: e.target.value ? Number(e.target.value) : undefined })} />
+                      <Field type="number" value={leg.transferAfter.minutes?.toString() ?? ''} onChange={(v) => patchTransfer(i, { ...leg.transferAfter, minutes: v ? Number(v) : undefined })} />
                     </div>
                   </div>
                 </div>

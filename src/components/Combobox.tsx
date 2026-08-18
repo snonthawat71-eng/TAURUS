@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, Fragment } from 'react'
-import { IconChevronDown } from '@tabler/icons-react'
+import { IconChevronDown, IconX } from '@tabler/icons-react'
 
 export interface ComboOption { value: string; label?: string; color?: string; group?: string }
 
@@ -27,22 +27,37 @@ export function Combobox({
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  // was the list opened by typing, or by tapping the field? A filter that
+  // leaves nothing should hide the list while typing a custom value, but NOT
+  // when the field is simply holding a value from elsewhere — that's how
+  // changing a station on a second leg became impossible without clearing it
+  // first (the station belonged to the previous leg's line, matched nothing,
+  // and the list never opened).
+  const [typed, setTyped] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
   const q = value.trim().toLowerCase()
   const exact = options.some((o) => o.value.toLowerCase() === q)
-  const filtered = !q || exact
+  const matched = !q || exact
     ? options
     : options.filter((o) => o.value.toLowerCase().includes(q) || (o.label ?? '').toLowerCase().includes(q))
+  const filtered = matched.length ? matched : (typed ? [] : options)
 
   // close when tapping/clicking outside the field+list. `mousedown` (not
   // `pointerdown`) is intentional: a touch-scroll never fires mousedown, so
   // scrolling the sheet to reach an item won't dismiss the list.
   useEffect(() => {
     if (!open) return
-    const onDoc = (e: MouseEvent) => { if (!wrapRef.current?.contains(e.target as Node)) setOpen(false) }
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node | null
+      // A control of ours that its own handler just removed — the ✕ vanishing
+      // once the field is empty — is detached by the time this runs, so
+      // `contains` says "outside" and the list we just opened closes again.
+      if (t && !t.isConnected) return
+      if (!wrapRef.current?.contains(t)) setOpen(false)
+    }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
@@ -73,18 +88,26 @@ export function Combobox({
         <input
           ref={inputRef}
           className={className}
-          style={options.length ? { paddingRight: 28 } : undefined}
+          style={{ paddingRight: (options.length ? 28 : 8) + (value && !disabled ? 20 : 0) }}
           value={value}
           placeholder={placeholder}
           disabled={disabled}
-          onFocus={() => setOpen(true)}
-          onClick={() => setOpen(true)}
-          onChange={(e) => { onChange(e.target.value); setOpen(true) }}
+          onFocus={() => { setTyped(false); setOpen(true) }}
+          onClick={() => { setTyped(false); setOpen(true) }}
+          onChange={(e) => { onChange(e.target.value); setTyped(true); setOpen(true) }}
           onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
         />
+        {!!value && !disabled && (
+          <button type="button" tabIndex={-1} aria-label="ล้างช่องนี้"
+            onMouseDown={(e) => { e.preventDefault(); onChange(''); setTyped(false); setOpen(true); inputRef.current?.focus() }}
+            style={{ right: options.length ? 24 : 4 }}
+            className="absolute top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 p-1">
+            <IconX size={14} />
+          </button>
+        )}
         {options.length > 0 && (
           <button type="button" tabIndex={-1} aria-label="แสดงตัวเลือก"
-            onMouseDown={(e) => { e.preventDefault(); setOpen((o) => !o); inputRef.current?.focus() }}
+            onMouseDown={(e) => { e.preventDefault(); setTyped(false); setOpen((o) => !o); inputRef.current?.focus() }}
             className="absolute right-1 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 p-1">
             <IconChevronDown size={15} />
           </button>
