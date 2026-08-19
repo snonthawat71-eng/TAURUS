@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { toastDbError } from './toast'
 
 export interface GuardedResult {
   error: { message: string } | null
@@ -49,6 +50,10 @@ export async function updateWithVersion(
     }
   }
 
+  // Callers branch on `conflict` and show their own notice; the raw error path
+  // was historically unchecked, so surface it here (offline included — guarded
+  // updates aren't queued, and a silent failure just reverts on the next reload).
+  toastDbError(res.error, !navigator.onLine ? 'บันทึกไม่สำเร็จ — ออฟไลน์อยู่ การแก้ไขนี้ยังไม่ถูกบันทึก' : undefined)
   const conflict = !res.error && useVersion && (res.data?.length ?? 0) === 0
   return { error: res.error, conflict }
 }

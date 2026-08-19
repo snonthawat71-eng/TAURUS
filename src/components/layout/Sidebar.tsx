@@ -11,8 +11,7 @@ export function Sidebar() {
 
   const counts = {
     itinerary: days.length,
-    places: places.filter((p) => p.group_type === 'place').length,
-    food: places.filter((p) => p.group_type === 'food').length,
+    placesfood: places.length,
   }
   const sections = ['PLAN', 'OVERVIEW'] as const
 
@@ -25,10 +24,16 @@ export function Sidebar() {
       <div className="px-3"><TripSwitcher variant="sidebar" /></div>
 
       <nav className="flex-1 overflow-y-auto px-3 mt-4 no-scrollbar">
-        {sections.map((section) => (
+        {sections.map((section) => {
+          // OVERVIEW only ever holds All Location, and that's only in the nav
+          // for places-only members — everyone else was left looking at a
+          // heading with nothing under it
+          const mine = items.filter((n) => n.section === section)
+          if (!mine.length) return null
+          return (
           <div key={section} className="mb-4">
             <div className="px-2 mb-1.5 text-[10px] font-medium tracking-wider text-ink-3">{section}</div>
-            {items.filter((n) => n.section === section).map((item) => (
+            {mine.map((item) => (
               <NavLink key={item.to} to={item.to}
                 className={({ isActive }) => [
                   'relative flex items-center gap-2.5 rounded-md px-2.5 h-9 text-[13px] mb-0.5 transition-colors',
@@ -45,7 +50,8 @@ export function Sidebar() {
               </NavLink>
             ))}
           </div>
-        ))}
+          )
+        })}
       </nav>
 
       <FxWidget />

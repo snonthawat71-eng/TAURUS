@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar } from '@tabler/icons-react'
+import { IconPlus, IconAdjustmentsHorizontal, IconChevronDown, IconCheck, IconSearch, IconX, IconStar, IconHeart, IconArrowsSort, IconMapPin, IconToolsKitchen2, IconCompass } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { PlaceCard, type Interested, type CardMode } from './PlaceCard'
 import { PlaceEditor } from './PlaceEditor'
 import { PlaceDetail } from './PlaceDetail'
 import { SaveToTripDialog } from './SaveToTripDialog'
-import { addPlace, updatePlace, deletePlace, setInPlan, toggleInterest } from '@/lib/placeMutations'
-import { confirmDialog } from '@/lib/confirm'
+import { AddToDayDialog } from './AddToDayDialog'
+import { QuickExplorePicker } from './QuickExplorePicker'
+import { addPlace, updatePlace, deletePlaceDeep, toggleInterest, remapBranchIndexes } from '@/lib/placeMutations'
+import { addExplore, searchExploreSimilar, placeAsExploreInput } from '@/lib/exploreMutations'
+import { confirmDialog, alertDialog } from '@/lib/confirm'
+import { IconWorldShare, IconCircleCheck } from '@tabler/icons-react'
 import { offerUndo } from '@/lib/undo'
 import { toast } from '@/lib/toast'
 import { catMeta, catTabKey, type CategoryTab } from '@/lib/placeMeta'
@@ -15,26 +19,38 @@ import { hscroll } from '@/lib/hscroll'
 import type { Place, PlaceGroup } from '@/lib/database.types'
 
 type Dim = 'none' | 'category' | 'city'
+type SortKey = 'recent' | 'new' | 'old'
 
 export function PlaceGrid({
-  group, tabs, title, addLabel, focusId,
+  group, tabs, title, addLabel, focusId, query: queryProp, onQuery,
 }: {
   group: PlaceGroup
   tabs: CategoryTab[]
   title: string
   addLabel: string
   focusId?: string | null
+  /** lift the search box out of the grid (e.g. above the page tabs); falls
+   *  back to internal state when not provided. */
+  query?: string
+  onQuery?: (q: string) => void
 }) {
-  const { trip, places, interests, memberProfiles, reload, patch, canEdit, myPermission } = useTrip()
+  const { trip, places, stops, interests, memberProfiles, reload, patch, canEdit, myPermission } = useTrip()
   const { user } = useAuth()
   const mode: CardMode = canEdit ? 'edit' : myPermission === 'places' ? 'pin' : 'view'
   const [dim, setDim] = useState<Dim>('none')
   const [chip, setChip] = useState('all')
-  const [query, setQuery] = useState('')
+  const [wantSort, setWantSort] = useState(false)
+  const [sortMode, setSortMode] = useState<SortKey>('recent')
+  const [sortMenu, setSortMenu] = useState(false)
+  const [queryLocal, setQueryLocal] = useState('')
+  const query = queryProp !== undefined ? queryProp : queryLocal
+  const setQuery = onQuery ?? setQueryLocal
   const [dimMenu, setDimMenu] = useState(false)
   const [editor, setEditor] = useState<'new' | Place | null>(null)
+  const [explorePick, setExplorePick] = useState(false)
   const [detail, setDetail] = useState<Place | null>(null)
   const [pinPlace, setPinPlace] = useState<Place | null>(null)
+  const [dayPickFor, setDayPickFor] = useState<Place | null>(null)
 
   const cities = trip?.cities ?? []
   const profilesById = useMemo(() => new Map(memberProfiles.map((p) => [p.id, p])), [memberProfiles])
@@ -63,15 +79,36 @@ export function PlaceGrid({
     dim === 'city' ? (p.city || 'ไม่ระบุเมือง')
       : catTabKey(p.category, group)
 
+  // how many people tapped "อยากไป" on each place
+  const wantCountByPlace = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const i of interests) m.set(i.place_id, (m.get(i.place_id) ?? 0) + 1)
+    return m
+  }, [interests])
+  const wantCount = (p: Place) => wantCountByPlace.get(p.id) ?? 0
+
+  // While searching, look across BOTH tabs (Places + Food & café) — results are
+  // rendered in per-group sections so it's clear where each hit lives. The
+  // dimension/chip filters only apply to the normal (non-search) view.
+  const searching = query.trim() !== ''
+  const groupOfPlace = (p: Place): PlaceGroup => (p.group_type === 'food' ? 'food' : 'place')
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return places
-      .filter((p) => p.group_type === group)
+      .filter((p) => (searching ? true : p.group_type === group))
       .filter((p) => !q || (p.name ?? '').toLowerCase().includes(q) || (p.station_name ?? '').toLowerCase().includes(q) || (p.note ?? '').toLowerCase().includes(q))
-      .filter((p) => dim === 'none' || chip === 'all' || valueOf(p) === chip)
-      .sort((a, b) => Number(a.in_plan) - Number(b.in_plan))
+      .filter((p) => searching || dim === 'none' || chip === 'all' || valueOf(p) === chip)
+      // "อยากไป" mode: only places someone wants, ranked most-wanted first
+      .filter((p) => !wantSort || wantCount(p) > 0)
+      .sort((a, b) => {
+        if (wantSort) return wantCount(b) - wantCount(a)
+        if (sortMode === 'new') return (b.created_at || '').localeCompare(a.created_at || '') // newest first
+        if (sortMode === 'old') return (a.created_at || '').localeCompare(b.created_at || '') // oldest first
+        return Number(a.in_plan) - Number(b.in_plan) // 'recent' = default smart order
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [places, group, query, chip, dim])
+  }, [places, group, query, searching, chip, dim, wantSort, sortMode, wantCountByPlace])
 
   // chips reflect the selected dimension (none = no value chips)
   const chipList: CategoryTab[] = dim === 'none'
@@ -87,6 +124,13 @@ export function PlaceGrid({
   ]
   const dimLabel = DIM_OPTIONS.find((o) => o.key === dim)?.label ?? 'ทั้งหมด'
 
+  const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+    { key: 'recent', label: 'ล่าสุด' },
+    { key: 'new', label: 'ใหม่ - เก่า' },
+    { key: 'old', label: 'เก่า - ใหม่' },
+  ]
+  const sortLabel = SORT_OPTIONS.find((o) => o.key === sortMode)?.label ?? 'ล่าสุด'
+
   useEffect(() => {
     if (focusId) { const p = places.find((x) => x.id === focusId); if (p) setDetail(p) }
   }, [focusId, places])
@@ -95,11 +139,6 @@ export function PlaceGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places])
 
-  function togglePlan(p: Place) {
-    const next = !p.in_plan
-    patch((d) => ({ places: d.places.map((x) => (x.id === p.id ? { ...x, in_plan: next } : x)) })) // instant
-    setInPlan(p.id, next).then(() => reload()) // persist + reconcile in the background
-  }
   function toggleWant(p: Place) {
     if (!user) return
     const mine = interests.some((i) => i.place_id === p.id && i.user_id === user.id)
@@ -110,19 +149,76 @@ export function PlaceGrid({
     }))
     toggleInterest(p.id, user.id, mine).then(() => reload())
   }
-  async function remove(p: Place) {
-    if (!(await confirmDialog({ message: 'ลบรายการนี้?', danger: true, confirmLabel: 'ลบ' }))) return
+  /** Stops in the plan that came from this place (matched by name) — used to
+   *  warn before deleting, since they go with it. */
+  const stopsOf = (p: Place) => {
+    const n = (p.name ?? '').trim().toLowerCase()
+    return n ? stops.filter((s) => (s.place_name ?? '').trim().toLowerCase() === n) : []
+  }
+
+  /** The ONE delete path — used by the card menu and by the editor's delete
+   *  button alike, so both always warn about the itinerary stops that go with
+   *  the place and both offer the same undo. Returns false if backed out. */
+  async function remove(p: Place): Promise<boolean> {
+    const planned = stopsOf(p).length
+    if (!(await confirmDialog({
+      message: planned
+        ? `ลบรายการนี้? จะถูกเอาออกจาก Itinerary ${planned} จุดด้วย`
+        : 'ลบรายการนี้?',
+      danger: true, confirmLabel: 'ลบ',
+    }))) return false
     patch((d) => ({ places: d.places.filter((x) => x.id !== p.id) })) // vanish instantly
-    await deletePlace(p.id); await reload()
-    offerUndo('ลบรายการแล้ว', [{ table: 'places', rows: [p] }], reload)
+    // deleting from Places/Food must clear it from the plan too, or the stop
+    // lingers in the Itinerary pointing at something that no longer exists
+    const { stops: removed } = await deletePlaceDeep(p, stopsOf(p))
+    await reload()
+    offerUndo(
+      removed.length ? `ลบรายการแล้ว · เอาออกจาก Itinerary ${removed.length} จุด` : 'ลบรายการแล้ว',
+      [{ table: 'places', rows: [p] }, { table: 'itinerary_stops', rows: removed }],
+      reload,
+    )
+    return true
+  }
+  // Share a place we added into the public Explore pool — but first warn if the
+  // same spot looks like it's already there, so we don't flood it with dupes.
+  async function shareToExplore(p: Place) {
+    if (!user) return
+    if (!p.name?.trim()) { toast.error('ตั้งชื่อสถานที่ก่อนแชร์'); return }
+    // already in the pool → just say so and close; no duplicate sharing
+    // the trip's country stands in for the place's own — a place inside a trip
+    // is in that trip's country, so a same-named spot abroad isn't a duplicate
+    const dupes = await searchExploreSimilar(p.name, null, p.country ?? trip?.country)
+    if (dupes.length > 0) {
+      await alertDialog({
+        icon: <IconCircleCheck size={26} />,
+        tone: 'brand',
+        title: 'มีอยู่ใน Explore แล้ว',
+        message: `"${dupes[0].name}" อยู่ในหน้า Explore แล้ว`,
+        confirmLabel: 'ปิด',
+      })
+      return
+    }
+    // shareable → confirm first
+    const ok = await confirmDialog({
+      icon: <IconWorldShare size={26} />,
+      tone: 'brand',
+      title: 'แชร์ไป Explore?',
+      message: `“${p.name}” จะไปอยู่ในหน้า Explore ให้คนอื่นค้นเจอและเซฟไปทริปได้`,
+      confirmLabel: 'แชร์เลย',
+    })
+    if (!ok) return
+    const res = await addExplore(user.id, placeAsExploreInput(p, trip?.country ?? null))
+    if (res.error) toast.error(`แชร์ไม่สำเร็จ: ${res.error.message}`)
+    else toast.success('แชร์ไป Explore แล้ว 🎉')
   }
 
   const renderCard = (p: Place) => {
     const { list, mine } = interestFor(p)
     return (
       <PlaceCard key={p.id} place={p} interested={list} mine={mine} mode={mode}
-        onOpen={() => setDetail(p)} onTogglePlan={() => togglePlan(p)} onToggleInterest={() => toggleWant(p)}
-        onEdit={() => setEditor(p)} onDelete={() => remove(p)} onPin={() => setPinPlace(p)} />
+        onOpen={() => setDetail(p)} onAddToDay={() => setDayPickFor(p)} onToggleInterest={() => toggleWant(p)}
+        onEdit={() => setEditor(p)} onDelete={() => remove(p)} onPin={() => setPinPlace(p)}
+        onShare={mode === 'edit' ? () => shareToExplore(p) : undefined} />
     )
   }
 
@@ -140,7 +236,10 @@ export function PlaceGrid({
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-[13px] font-medium text-ink-2">{title} · {filtered.length}</h2>
-        {canEdit && <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> {addLabel}</button>}
+        <div className="flex items-center gap-3">
+          {canEdit && <button onClick={() => setExplorePick(true)} className="btn-link flex items-center gap-1"><IconCompass size={14} /> จาก Explore</button>}
+          {canEdit && <button onClick={() => setEditor('new')} className="btn-link flex items-center gap-1"><IconPlus size={14} /> {addLabel}</button>}
+        </div>
       </div>
       {mode === 'pin' && (
         <div className="mb-3 rounded-md p-2.5 text-[12px] flex items-center gap-2"
@@ -149,17 +248,19 @@ export function PlaceGrid({
         </div>
       )}
 
-      {/* Search */}
-      <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
-        <IconSearch size={16} className="text-ink-3" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ / ร้าน / สถานี"
-          className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-ink-3" />
-        {query && <button onClick={() => setQuery('')} className="text-ink-3"><IconX size={15} /></button>}
-      </div>
+      {/* Search bar rendered here only when the page didn't lift it out (onQuery). */}
+      {onQuery === undefined && (
+        <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
+          <IconSearch size={16} className="text-ink-3" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสถานที่ / ร้าน / สถานี — ทุกแท็บ"
+            className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-ink-3" />
+          {query && <button onClick={() => setQuery('')} className="text-ink-3"><IconX size={15} /></button>}
+        </div>
+      )}
 
-      {/* Filter dimension + value chips */}
+      {/* Filter dimension + value chips (hidden while searching — search covers both tabs) */}
       <div className="flex items-center gap-1.5 mb-3">
-        <div className="relative shrink-0">
+        <div className="relative shrink-0" style={searching ? { display: 'none' } : undefined}>
           <button onClick={() => setDimMenu((v) => !v)}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium hairline bg-surface whitespace-nowrap">
             <IconAdjustmentsHorizontal size={14} /> {dimLabel} <IconChevronDown size={13} className="text-ink-3" />
@@ -179,7 +280,34 @@ export function PlaceGrid({
             </>
           )}
         </div>
-        <div ref={hscroll} className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0" style={chipList.length === 0 ? { display: 'none' } : undefined}>
+        {/* Sort — recent (default) / newest→oldest / oldest→newest */}
+        <div className="relative shrink-0">
+          <button onClick={() => setSortMenu((v) => !v)}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium hairline bg-surface whitespace-nowrap">
+            <IconArrowsSort size={14} /> {sortLabel} <IconChevronDown size={13} className="text-ink-3" />
+          </button>
+          {sortMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setSortMenu(false)} />
+              <div className="absolute left-0 mt-1 w-40 card p-1 shadow-lg z-50">
+                {SORT_OPTIONS.map((o) => (
+                  <button key={o.key} onClick={() => { setSortMode(o.key); setSortMenu(false) }}
+                    className="w-full flex items-center gap-2 px-2.5 h-9 rounded-md text-[13px] text-ink-2 hover:bg-surface-2">
+                    <span className="flex-1 text-left">{o.label}</span>
+                    {sortMode === o.key && <IconCheck size={14} className="text-brand" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        {/* อยากไป — filter to places people want, ranked by vote count */}
+        <button onClick={() => setWantSort((v) => !v)}
+          className={['inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
+            wantSort ? 'bg-brand text-white' : 'hairline bg-surface text-ink-2'].join(' ')}>
+          {wantSort ? <IconHeart size={14} fill="currentColor" /> : <IconHeart size={14} />} อยากไป
+        </button>
+        <div ref={hscroll} className="flex gap-1.5 overflow-x-auto no-scrollbar min-w-0" style={chipList.length === 0 || searching ? { display: 'none' } : undefined}>
           {chipList.map((t) => (
             <button key={t.key} onClick={() => setChip(t.key)}
               className={['px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap shrink-0 transition-colors',
@@ -192,10 +320,45 @@ export function PlaceGrid({
 
       {filtered.length === 0 ? (
         <div className="card p-8 flex flex-col items-center gap-2 text-center">
-          <IconSearch size={28} className="text-ink-3" />
-          <p className="text-[13px] text-ink-2">{query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</p>
-          {canEdit && !query && <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-[13px] mt-1"><IconPlus size={15} /> {addLabel}</button>}
+          {wantSort ? <IconHeart size={28} className="text-ink-3" /> : <IconSearch size={28} className="text-ink-3" />}
+          <p className="text-[13px] text-ink-2">{wantSort ? 'ยังไม่มีใครกด “อยากไป”' : query ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีรายการในหมวดนี้'}</p>
+          {canEdit && !query && !wantSort && (
+            <div className="flex items-center gap-2 mt-1">
+              <button onClick={() => setExplorePick(true)} className="h-9 px-4 rounded-full flex items-center gap-1.5 text-[13px] font-medium" style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}><IconCompass size={15} /> จาก Explore</button>
+              <button onClick={() => setEditor('new')} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-[13px]"><IconPlus size={15} /> {addLabel}</button>
+            </div>
+          )}
         </div>
+      ) : searching ? (
+        // search results grouped by tab so cross-tab hits are clearly labeled;
+        // the active tab's group comes first
+        (() => {
+          const order: PlaceGroup[] = group === 'place' ? ['place', 'food'] : ['food', 'place']
+          const groupMeta = {
+            place: { label: 'Places • สถานที่ท่องเที่ยว', Icon: IconMapPin },
+            food: { label: 'Food & café • อาหารการกิน', Icon: IconToolsKitchen2 },
+          } as const
+          const present = order.filter((g) => filtered.some((p) => groupOfPlace(p) === g))
+          if (present.length === 1 && present[0] === group) {
+            return <div className="grid grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
+          }
+          return (
+            <div className="space-y-6">
+              {present.map((g) => {
+                const list = filtered.filter((p) => groupOfPlace(p) === g)
+                const { label, Icon } = groupMeta[g]
+                return (
+                  <div key={g}>
+                    <div className="flex items-center gap-1.5 mb-2 text-[13px] font-medium text-ink-2">
+                      <Icon size={15} /> {label} <span className="text-ink-3 font-normal">{list.length}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">{list.map(renderCard)}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()
       ) : (dim === 'none' || chip !== 'all') ? (
         <div className="grid grid-cols-2 gap-2.5">{filtered.map(renderCard)}</div>
       ) : (
@@ -215,18 +378,29 @@ export function PlaceGrid({
         </div>
       )}
 
+      {/* add one or many places straight from the Explore pool */}
+      <QuickExplorePicker open={explorePick} onClose={() => setExplorePick(false)} multi
+        initialGroup={group} title={group === 'food' ? 'เพิ่มร้านจาก Explore' : 'เพิ่มสถานที่จาก Explore'} />
+
       <PlaceEditor
-        open={editor !== null} onClose={() => setEditor(null)} group={group} tripId={trip?.id ?? ''}
+        open={editor !== null} onClose={() => setEditor(null)}
+        // editing a cross-tab search hit: use ITS group so categories/menu match
+        group={editor && editor !== 'new' ? groupOfPlace(editor) : group} tripId={trip?.id ?? ''}
         initial={editor && editor !== 'new' ? editor : null}
-        onSave={async (fields) => {
+        onSave={async (fields, remap) => {
           if (editor === 'new' || !editor) await addPlace(trip!.id, fields)
           else {
             const r = await updatePlace(editor.id, fields, editor.version)
             if (r.conflict) toast.error('มีคนอื่นแก้ไขรายการนี้ก่อนหน้า — โหลดข้อมูลล่าสุดให้แล้ว ลองใหม่อีกครั้ง')
+            // branches were deleted/reordered → re-point the plan's branch
+            // choices, or they'd silently land on a different branch. Merge the
+            // just-saved fields in so a link reset picks the NEW main map link;
+            // plan_branch isn't among them, so the old choice is still readable.
+            else if (remap) await remapBranchIndexes([{ ...editor, ...fields }], remap)
           }
           await reload()
         }}
-        onDelete={editor && editor !== 'new' ? async () => { await deletePlace(editor.id); await reload() } : undefined}
+        onDelete={editor && editor !== 'new' ? () => remove(editor) : undefined}
       />
 
       {(() => {
@@ -234,13 +408,16 @@ export function PlaceGrid({
         const { list, mine } = interestFor(detail)
         return (
           <PlaceDetail place={detail} interested={list} mine={mine} open={!!detail} canEdit={canEdit}
-            onClose={() => setDetail(null)} onTogglePlan={() => togglePlan(detail)} onToggleInterest={() => toggleWant(detail)}
+            onClose={() => setDetail(null)} onToggleInterest={() => toggleWant(detail)}
+            onAddToDay={() => { setDayPickFor(detail); setDetail(null) }}
             onEdit={canEdit ? () => { setEditor(detail); setDetail(null) } : undefined}
+            onShare={mode === 'edit' ? () => shareToExplore(detail) : undefined}
             onPin={mode === 'pin' ? () => { setPinPlace(detail); setDetail(null) } : undefined} />
         )
       })()}
 
       <SaveToTripDialog place={pinPlace} open={!!pinPlace} onClose={() => setPinPlace(null)} />
+      <AddToDayDialog place={dayPickFor} open={!!dayPickFor} onClose={() => setDayPickFor(null)} />
     </div>
   )
 }

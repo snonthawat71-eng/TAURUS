@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { IconChevronDown, IconRefresh } from '@tabler/icons-react'
 import { CURRENCIES, getRateToTHB, type FxResult } from '@/lib/fx'
 import { useTrip } from '@/contexts/TripContext'
+import { useActiveSegment } from '@/lib/segments'
 
 const CUR_KEY = 'fx:currency'
 
@@ -12,10 +13,13 @@ export function FxWidget({ variant = 'card' }: { variant?: 'card' | 'bar' }) {
   const [open, setOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
-  // follow the current trip's chosen currency
+  // follow the current trip's currency — the ACTIVE city segment's when the
+  // trip is multi-city (flips by itself once the handover time passes)
+  const active = useActiveSegment(trip)
   useEffect(() => {
-    if (trip?.currency && CURRENCIES.some((c) => c.code === trip.currency)) setCode(trip.currency)
-  }, [trip?.currency])
+    const c = active?.currency ?? trip?.currency
+    if (c && CURRENCIES.some((x) => x.code === c)) setCode(c)
+  }, [active?.currency, trip?.currency])
 
   const cur = CURRENCIES.find((c) => c.code === code) ?? CURRENCIES[0]
 

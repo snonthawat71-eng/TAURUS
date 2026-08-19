@@ -29,12 +29,12 @@ export async function downloadItineraryPdf(trip: Trip) {
   const stops = (stopsRes.data ?? []) as ItineraryStop[]
 
   const body = days.map((d, i) => {
-    const list = stops.filter((s) => s.day_id === d.id).sort((a, b) => a.position - b.position)
+    const list = stops.filter((s) => s.day_id === d.id && s.role !== 'backup').sort((a, b) => a.position - b.position)
     const rows = list.map((s) => `
-      <div class="stop">
+      <div class="stop${s.done ? ' done' : ''}">
         <div class="time">${esc(s.time)}</div>
         <div class="body">
-          <div class="place">${esc(s.place_name)}</div>
+          <div class="place">${s.done ? '<span class="check">✓</span> ' : ''}${esc(s.place_name)}</div>
           ${s.note ? `<div class="note">${esc(s.note)}</div>` : ''}
           ${transitHtml(s.transit)}
         </div>
@@ -61,6 +61,8 @@ export async function downloadItineraryPdf(trip: Trip) {
     .time { width:48px; font-weight:500; color:#0c1b2a; }
     .place { font-weight:500; }
     .note { color:#4a566a; font-size:12px; margin-top:2px; }
+    .stop.done .place, .stop.done .time { color:#8893a4; }
+    .check { color:#1D9E75; font-weight:600; }
     .muted { color:#8893a4; }
     .transit { margin-top:6px; padding:8px 10px; background:#f6f8fb; border:1px solid #e4e8ef; border-radius:8px; }
     .leg { font-size:12px; padding:2px 0; }

@@ -10,7 +10,7 @@ import { focusStyle } from '@/lib/photoFocus'
  * (format/quality, and `width` if given) so big originals don't load slowly.
  * `focus` ("x y scale") applies a saved crop (pan + zoom) to an `object-cover` img.
  */
-export function SignedImage({ url, path, alt, className, fallback, width, focus, style }: {
+export function SignedImage({ url, path, alt, className, fallback, width, focus, style, eager }: {
   url?: string | null
   path?: string | null
   alt?: string
@@ -19,6 +19,8 @@ export function SignedImage({ url, path, alt, className, fallback, width, focus,
   width?: number
   focus?: string | null
   style?: CSSProperties
+  /** load immediately at high priority — use for above-the-fold hero images */
+  eager?: boolean
 }) {
   const [signed, setSigned] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
@@ -37,5 +39,6 @@ export function SignedImage({ url, path, alt, className, fallback, width, focus,
   // no source, or the image failed to load → show the graceful fallback instead
   // of the browser's broken-image glyph
   if (!src || failed) return <>{fallback ?? null}</>
-  return <img src={src} alt={alt ?? ''} className={className} style={{ ...focusStyle(focus), ...style }} loading="lazy" decoding="async" onError={() => setFailed(true)} />
+  return <img src={src} alt={alt ?? ''} className={className} style={{ ...focusStyle(focus), ...style }}
+    loading={eager ? 'eager' : 'lazy'} decoding="async" {...(eager ? { fetchpriority: 'high' } : {})} onError={() => setFailed(true)} />
 }

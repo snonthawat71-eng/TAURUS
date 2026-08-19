@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconMapPin, IconBuildingMonument, IconToolsKitchen2, IconCake, IconBuildingStore } from '@tabler/icons-react'
+import { IconMapPin, IconBuildingMonument, IconToolsKitchen2, IconCake, IconBuildingStore, IconArrowLeft } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
+import { planBranch, planMapUrl } from '@/lib/branches'
+import { useBack } from '@/lib/useBack'
 import { SignedImage } from '@/components/SignedImage'
 import type { Place } from '@/lib/database.types'
 
@@ -19,7 +21,8 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
         {items.map((p) => {
           const meta = catMeta(p.category)
           const Icon = meta.icon
-          const to = p.group_type === 'food' ? `/food?focus=${p.id}` : `/places?focus=${p.id}`
+          const branch = planBranch(p) // branch picked when added to the plan
+          const to = p.group_type === 'food' ? `/places?tab=food&focus=${p.id}` : `/places?tab=place&focus=${p.id}`
           return (
             <div key={p.id} className="card p-3 flex items-center gap-3">
               <button onClick={() => navigate(to)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
@@ -32,16 +35,16 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-[14px] font-medium truncate">{p.name}</span>
                     {(p.multi_branch || !!p.branches?.length) && (
-                      <span className="chip !py-0 !px-1.5 !text-[10px] inline-flex items-center gap-0.5 shrink-0"><IconBuildingStore size={11} /> หลายสาขา</span>
+                      <span className="chip !py-0 !px-1.5 !text-[10px] inline-flex items-center gap-0.5 shrink-0"><IconBuildingStore size={11} /> {branch?.label || 'หลายสาขา'}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
-                    <span className="size-2 rounded-full shrink-0" style={{ background: p.station_color ?? '#888780' }} />
-                    <span className="truncate">{p.station_line}{p.station_name ? ` · ${p.station_name}` : ''}</span>
+                    <span className="size-2 rounded-full shrink-0" style={{ background: (branch ? branch.color : p.station_color) ?? '#888780' }} />
+                    <span className="truncate">{branch ? branch.line : p.station_line}{(branch ? branch.station : p.station_name) ? ` · ${branch ? branch.station : p.station_name}` : ''}</span>
                   </div>
                 </div>
               </button>
-              <button onClick={() => openMap(p.map_url)} disabled={!p.map_url}
+              <button onClick={() => openMap(planMapUrl(p))} disabled={!planMapUrl(p)}
                 className="inline-flex items-center gap-1 text-[11px] text-ink-3 enabled:hover:text-brand-mid shrink-0">
                 <IconMapPin size={13} /> MAP
               </button>
@@ -56,8 +59,10 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
 const NO_CITY = '__none__'
 
 export default function AllPlans() {
-  const { trip, places } = useTrip()
+  const { trip, places, myPermission } = useTrip()
   const [city, setCity] = useState('all')
+  // places-only members don't have Itinerary in their nav — send them to Places
+  const goBack = useBack(myPermission === 'places' ? '/places' : '/itinerary')
   const inPlan = useMemo(() => places.filter((p) => p.in_plan), [places])
 
   // cities present among in-plan items, ordered by the trip's city list first
@@ -80,11 +85,21 @@ export default function AllPlans() {
   const restaurants = visible.filter((p) => p.category === 'restaurant')
   const cafesDesserts = visible.filter((p) => p.category === 'cafe' || p.category === 'dessert')
 
+  const header = (
+    <div className="flex items-center gap-2 mb-4">
+      <button onClick={goBack} className="btn-icon" aria-label="กลับ" title="กลับ"><IconArrowLeft size={16} /></button>
+      <h1 className="text-[16px] font-medium">All Location • รายการในแพลน</h1>
+    </div>
+  )
+
   if (inPlan.length === 0) {
     return (
-      <div className="card p-8 text-center">
-        <p className="text-[14px] font-medium">ยังไม่มีรายการในแพลน</p>
-        <p className="text-[12px] text-ink-2 mt-1.5">ไปที่หน้า Places หรือ Food & café แล้วกดปุ่ม + เพื่อเพิ่มเข้าแพลน</p>
+      <div>
+        {header}
+        <div className="card p-8 text-center">
+          <p className="text-[14px] font-medium">ยังไม่มีรายการในแพลน</p>
+          <p className="text-[12px] text-ink-2 mt-1.5">ใส่สถานที่ลงวันในหน้า Itinerary แล้วจะมาโผล่ที่นี่เอง</p>
+        </div>
       </div>
     )
   }
@@ -97,6 +112,7 @@ export default function AllPlans() {
 
   return (
     <div>
+      {header}
       {showCityFilter && (
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-4">
           {cityChips.map((c) => (

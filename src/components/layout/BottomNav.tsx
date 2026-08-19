@@ -22,7 +22,7 @@ export function BottomNav() {
           }
         >
           <item.icon size={20} stroke={1.6} />
-          <span className="leading-none truncate max-w-full px-0.5">{item.label.split(' ')[0]}</span>
+          <span className="leading-none truncate max-w-full px-0.5">{item.short}</span>
         </NavLink>
       ))}
     </nav>

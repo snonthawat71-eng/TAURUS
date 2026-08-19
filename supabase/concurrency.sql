@@ -14,11 +14,18 @@ alter table public.itinerary_days  add column if not exists version integer not 
 alter table public.places          add column if not exists version integer not null default 0;
 alter table public.expenses        add column if not exists version integer not null default 0;
 
--- 2. trigger function: bump version on every UPDATE
+-- 2. trigger function: bump version on every meaningful UPDATE.
+-- Position-only writes (drag reorders touch every row in the day) are excluded —
+-- they don't change content, and bumping on them would spuriously invalidate any
+-- teammate's in-flight edit ("someone edited this first" with nothing edited).
 create or replace function public.bump_version()
 returns trigger language plpgsql as $$
 begin
-  new.version := coalesce(old.version, 0) + 1;
+  if (to_jsonb(new) - 'version' - 'position') is distinct from (to_jsonb(old) - 'version' - 'position') then
+    new.version := coalesce(old.version, 0) + 1;
+  else
+    new.version := coalesce(old.version, new.version);
+  end if;
   return new;
 end;
 $$;

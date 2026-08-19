@@ -13,7 +13,7 @@ export default defineConfig({
       // 'prompt': a new build waits until the user taps "อัปเดต" (see src/lib/pwa.ts),
       // so an update never interrupts what they're doing.
       registerType: 'prompt',
-      includeAssets: ['taurus-01.svg', 'taurus-02.svg', 'taurus-04.svg'],
+      includeAssets: ['taurus-01.svg', 'taurus-02.svg', 'taurus-04.svg', 'taurus-04-white.svg'],
       manifest: {
         name: 'TAURUS',
         short_name: 'TAURUS',
@@ -27,7 +27,9 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/rest/, /^\/auth/, /^\/storage/, /^\/realtime/],
+        // /api = Vercel serverless functions — the SW must NEVER hijack them,
+        // or opening /api/... shows the cached app shell (blank white page).
+        navigateFallbackDenylist: [/^\/api\//, /^\/rest/, /^\/auth/, /^\/storage/, /^\/realtime/],
         // pull in the push / notificationclick handlers (public/push-sw.js)
         importScripts: ['push-sw.js'],
         // Cache app shell + Supabase API/storage responses for offline viewing
@@ -40,7 +42,25 @@ export default defineConfig({
           {
             urlPattern: ({ url }) => url.pathname.includes('/storage/v1/object'),
             handler: 'CacheFirst',
-            options: { cacheName: 'supabase-files', expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 7 } },
+            options: {
+              cacheName: 'supabase-files',
+              // signed URLs carry a fresh ?token= every time — match by path so
+              // previously-viewed files (QR codes!) still render offline
+              matchOptions: { ignoreSearch: true },
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          {
+            // Cloudinary photos (place/hotel/cover images)
+            urlPattern: ({ url }) => url.origin === 'https://res.cloudinary.com',
+            handler: 'CacheFirst',
+            options: { cacheName: 'cloudinary-images', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 } },
+          },
+          {
+            // airline logos on the flight card
+            urlPattern: ({ url }) => url.origin === 'https://images.kiwi.com',
+            handler: 'CacheFirst',
+            options: { cacheName: 'airline-logos', expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 90 } },
           },
           {
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',

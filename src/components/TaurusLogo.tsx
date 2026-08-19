@@ -7,14 +7,24 @@ export function TaurusLogo({ height = 30 }: { height?: number }) {
   const [err, setErr] = useState(false)
 
   if (!err) {
+    // light + dark (white-text) variants — CSS shows the one matching the theme
     return (
-      <img
-        src="/taurus-04.svg"
-        alt="TAURUS"
-        style={{ height }}
-        className="w-auto object-contain"
-        onError={() => setErr(true)}
-      />
+      <>
+        <img
+          src="/taurus-04.svg"
+          alt="TAURUS"
+          style={{ height }}
+          className="w-auto object-contain theme-light-only"
+          onError={() => setErr(true)}
+        />
+        <img
+          src="/taurus-04-white.svg"
+          alt="TAURUS"
+          style={{ height }}
+          className="w-auto object-contain theme-dark-only"
+          onError={() => setErr(true)}
+        />
+      </>
     )
   }
 

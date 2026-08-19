@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react'
 import { photoFullUrl } from '@/lib/files'
+import { lockScroll } from '@/lib/scrollLock'
 
 export type PhotoRef = { url?: string | null; path?: string | null }
 
@@ -55,18 +56,17 @@ export function Lightbox({ src, photos, index = 0, alt, onClose }: {
     }
     window.addEventListener('keydown', onKey)
     // lock body scroll while open (also keeps pull-to-refresh from firing behind it)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const release = lockScroll()
     return () => {
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
+      release()
     }
   }, [open, go, onClose])
 
   if (!open) return null
   const url = resolved[cur]
   return createPortal(
-    <div className="fixed inset-0 z-[130] bg-black/85 grid place-items-center p-4"
+    <div className="fixed inset-0 z-[706] bg-black/85 grid place-items-center p-4"
       onClick={onClose}
       onTouchStart={(e) => { touchX.current = e.touches[0].clientX }}
       onTouchEnd={(e) => {

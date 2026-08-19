@@ -1,22 +1,23 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { IconChevronDown, IconChevronRight, IconPlus, IconPencil, IconCheck, IconCalendar } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
-import { TripEditor } from './TripEditor'
 import { AvatarStack } from './Avatar'
 import { useTrip } from '@/contexts/TripContext'
-import { useAuth } from '@/contexts/AuthContext'
 import { formatDateRange, dayCount } from '@/lib/format'
 import { countryFlag } from '@/lib/countries'
-import { createTrip, updateTrip, deleteTrip } from '@/lib/tripMutations'
+import { tripFlag } from '@/lib/segments'
 import type { Trip } from '@/lib/database.types'
 
-const flagOf = (t: Trip | null | undefined) => (t?.flag || countryFlag(t?.country))
+const flagOf = (t: Trip | null | undefined) => (tripFlag(t) || countryFlag(t?.country))
 
 export function TripSwitcher({ variant }: { variant: 'sidebar' | 'topbar' }) {
-  const { trip, trips, travelers, switchTrip, reload } = useTrip()
-  const { user } = useAuth()
+  const { trip, trips, travelers, switchTrip } = useTrip()
+  const navigate = useNavigate()
   const [sheet, setSheet] = useState(false)
-  const [tripEdit, setTripEdit] = useState<'new' | Trip | null>(null)
+  // edit/create both run through the step wizard (/create), prefilled for edits;
+  // drafts (no dates) go through the upgrade flow so dates can be added
+  const editTrip = (t: Trip) => { setSheet(false); navigate(t.start_date ? `/create?edit=${t.id}` : `/create?upgrade=${t.id}`) }
 
   return (
     <>
@@ -35,7 +36,7 @@ export function TripSwitcher({ variant }: { variant: 'sidebar' | 'topbar' }) {
             {trip && <span className="chip !bg-brand-soft !text-brand-dark !py-0.5">{dayCount(trip.start_date, trip.end_date)} วัน</span>}
           </div>
           <div className="mt-2.5">
-            <AvatarStack people={travelers.map((t, i) => ({ name: t.nickname, color: ['av1', 'av2', 'av3', 'av4'][i % 4] }))} size={22} />
+            <AvatarStack people={travelers.map((t, i) => ({ name: t.nickname, color: ['av1', 'av2', 'av3', 'av4'][i % 4], photo: t.avatar_url, photoFocus: t.avatar_focus }))} size={22} />
           </div>
         </button>
       ) : (
@@ -63,34 +64,16 @@ export function TripSwitcher({ variant }: { variant: 'sidebar' | 'topbar' }) {
                     <div className="text-[11px] text-ink-3">{formatDateRange(t.start_date, t.end_date) || t.country || '—'}</div>
                   </div>
                 </button>
-                <button onClick={() => setTripEdit(t)} className="btn-icon !size-8 !border-0 text-ink-3" aria-label="แก้ไขทริป"><IconPencil size={15} /></button>
+                <button onClick={() => editTrip(t)} className="btn-icon !size-8 !border-0 text-ink-3" aria-label="แก้ไขทริป"><IconPencil size={15} /></button>
                 {!active && <IconChevronRight size={15} className="text-ink-3 shrink-0" />}
               </div>
             )
           })}
         </div>
-        <button onClick={() => setTripEdit('new')} className="btn-primary w-full h-10 mt-3 flex items-center justify-center gap-1.5">
+        <button onClick={() => { setSheet(false); navigate('/create') }} className="btn-primary w-full h-10 mt-3 flex items-center justify-center gap-1.5">
           <IconPlus size={16} /> สร้างทริปใหม่
         </button>
       </Drawer>
-
-      <TripEditor
-        open={tripEdit !== null}
-        onClose={() => setTripEdit(null)}
-        initial={tripEdit && tripEdit !== 'new' ? tripEdit : null}
-        onSave={async (fields) => {
-          if (tripEdit === 'new' || !tripEdit) {
-            if (!user) return
-            const { id } = await createTrip(user.id, fields)
-            setSheet(false)
-            switchTrip(id)
-          } else {
-            await updateTrip(tripEdit.id, fields)
-            await reload()
-          }
-        }}
-        onDelete={tripEdit && tripEdit !== 'new' ? async () => { await deleteTrip(tripEdit.id); await reload() } : undefined}
-      />
     </>
   )
 }

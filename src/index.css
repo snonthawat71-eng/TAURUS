@@ -47,7 +47,32 @@
   --radius-lg: 12px;
 }
 
-/* Dark mode tokens kept for later (spec mentions possible future dark mode) */
+/* ── Dark mode: override the design tokens under html[data-theme='dark'].
+   Every component reads colours through these vars, so the whole app flips.
+   Applied by src/lib/theme.ts (+ an inline script in index.html pre-paint). */
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-brand: #3d8dff;
+  --color-brand-dark: #cfe2ff; /* text on dark-blue chips */
+  --color-brand-mid: #74a9ff; /* links, text buttons */
+  --color-brand-soft: #16283f; /* chip / active bg */
+  --color-brand-border: #27466f;
+
+  --color-surface: #171c26; /* cards, top bar */
+  --color-surface-2: #222937; /* secondary, chips */
+  --color-canvas: #0f131b; /* page background */
+
+  --color-ink: #e8ecf3;
+  --color-ink-2: #a8b2c3;
+  --color-ink-3: #6e7a8c;
+
+  --color-line: #273041;
+  --color-line-2: #3a465c;
+
+  --color-booking: #7db4e8;
+  --color-booking-bg: #13293f;
+}
 
 @layer base {
   html {
@@ -79,6 +104,17 @@
 }
 
 @layer components {
+  /* show one element per theme (e.g. the light/white logo variants) */
+  .theme-dark-only {
+    display: none;
+  }
+  html[data-theme='dark'] .theme-dark-only {
+    display: inline-block;
+  }
+  html[data-theme='dark'] .theme-light-only {
+    display: none;
+  }
+
   /* 0.5px hairline border (spec: 0.5px solid) */
   .hairline {
     border: 0.5px solid var(--color-line);
@@ -163,6 +199,71 @@
   }
 }
 
+/* The review form's follow-up questions dropping in under the star row once
+   it's been tapped — they grow the sheet downward rather than popping. */
+@keyframes revealdown {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Map pins (Leaflet divIcon) — teardrop with a photo/colour, ring by category */
+/* circular photo pin (Airbnb-style) — anchored at its centre, so the CSS
+   growth on selection stays symmetric with no drift like a bottom-anchored
+   teardrop would need */
+.tpin { width: 48px; height: 48px; }
+.tpin-b {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: #fff; overflow: hidden;
+  border: 2.5px solid var(--c, #0270FB);
+  box-shadow: 0 3px 8px rgba(10, 20, 40, 0.28);
+  display: grid; place-items: center;
+}
+.tpin-b img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tpin-fallback { width: 100%; height: 100%; display: grid; place-items: center; }
+.tpin.sel .tpin-b { width: 56px; height: 56px; border-width: 3px; box-shadow: 0 0 0 5px color-mix(in srgb, var(--c, #0270FB) 20%, transparent), 0 3px 8px rgba(10, 20, 40, 0.32); }
+.tpin.sel { width: 56px; height: 56px; }
+/* approximate pin (geocoded from its transit station, not the exact spot) */
+.tpin.approx .tpin-b { border-style: dashed; opacity: 0.92; }
+/* numbered cluster bubble — grouped pins that would otherwise overlap on screen */
+.tcluster {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--color-brand); color: #fff;
+  display: grid; place-items: center;
+  font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums;
+  border: 2.5px solid #fff;
+  box-shadow: 0 3px 10px rgba(2, 112, 251, 0.4), 0 0 0 4px rgba(2, 112, 251, 0.18);
+}
+.leaflet-container { font: inherit; background: #f0f1f2; }
+.leaflet-control-attribution { font-size: 9px !important; }
+
+/* NotePanel FAB menu — each item pops up from the button */
+@keyframes fab-in {
+  from {
+    transform: translateY(10px) scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* NotePanel — the note sheet sliding in from the right edge */
+@keyframes note-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 @keyframes toast-in {
   from {
     transform: translateY(12px);
@@ -171,6 +272,40 @@
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+/* Explore country → city browser (ExploreFilters): two card rails swapping in
+   one slot. The hidden rail keeps its space so the row height never changes.
+   `visibility` flips only once the slide has finished, so the outgoing rail
+   stays visible while it leaves but can't be tapped or tabbed into after. */
+.rail-layer {
+  transition:
+    transform 0.32s cubic-bezier(0.22, 0.9, 0.28, 1),
+    opacity 0.22s ease,
+    visibility 0s linear 0s;
+}
+.rail-layer.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 0.32s cubic-bezier(0.22, 0.9, 0.28, 1),
+    opacity 0.22s ease,
+    visibility 0s linear 0.32s;
+}
+.rail-layer.slide-left.is-hidden {
+  transform: translateX(-22%);
+}
+.rail-layer.slide-right.is-hidden {
+  transform: translateX(22%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-layer,
+  .rail-layer.is-hidden {
+    transition: none;
+    transform: none;
   }
 }
 
@@ -199,6 +334,10 @@
   align-items: end;
   padding: 0 16px calc(16px + env(safe-area-inset-bottom));
   z-index: 40;
+}
+/* On desktop there's no home-bar inset, so lift the items off the bottom edge. */
+@media (min-width: 768px) {
+  .mobile-bottom-nav { padding-bottom: 30px; }
 }
 .mobile-bottom-nav .nav-bg {
   position: absolute;

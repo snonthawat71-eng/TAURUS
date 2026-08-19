@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   IconId, IconQrcode, IconFileText, IconClipboardCheck, IconPaperclip,
   IconTrash, IconLoader2, IconPencil, IconTicket, IconX, IconPlane,
-  IconShieldCheck, IconBuildingCastle, IconBuildingCarousel, IconZoomScan, IconPlus, IconRefresh,
+  IconShieldCheck, IconBuildingCastle, IconBuildingCarousel,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { Avatar } from './Avatar'
 import { supabase } from '@/lib/supabase'
 import { uploadTravelerFile, isSampleFile, getSignedUrl } from '@/lib/files'
-import { confirmDialog, promptDialog } from '@/lib/confirm'
+import { confirmDialog } from '@/lib/confirm'
 import { toast, toastResult } from '@/lib/toast'
 import { useTrip } from '@/contexts/TripContext'
 import type { Traveler, TravelerFile, TravelerFileKind } from '@/lib/database.types'
@@ -29,47 +29,9 @@ export const KIND_META: Record<string, { label: string; icon: typeof IconId }> =
 
 // dropdown options for the "attached files" uploader
 const ATTACH_KINDS = ['arrival_card', 'visa', 'flight_ticket', 'travel_insurance', 'admission_ticket', 'disney', 'universal', 'other']
-const QUICK_KINDS = new Set(['ticket', 'boarding_pass'])
 
 function isImage(path: string) {
   return /\.(png|jpe?g|webp|gif|heic)$/i.test(path)
-}
-
-/** Quick QR tile — renders the actual image so it can be scanned at a glance. */
-function QrTile({ file, canEdit, onOpen, onRename, onReplace, onDelete }: {
-  file: TravelerFile
-  canEdit: boolean
-  onOpen: (url: string) => void
-  onRename: () => void
-  onReplace: () => void
-  onDelete: () => void
-}) {
-  const [url, setUrl] = useState<string | null>(null)
-  const sample = isSampleFile(file.storage_path)
-  useEffect(() => {
-    let active = true
-    if (!sample && isImage(file.storage_path)) getSignedUrl(file.storage_path).then((u) => active && setUrl(u))
-    return () => { active = false }
-  }, [file.storage_path, sample])
-
-  return (
-    <div className="card overflow-hidden relative w-[130px]">
-      {canEdit && (
-        <div className="absolute top-1.5 right-1.5 flex gap-1 z-10">
-          <button onClick={onRename} className="size-6 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm" aria-label="แก้ชื่อ"><IconPencil size={12} /></button>
-          <button onClick={onReplace} className="size-6 rounded-full bg-white/90 grid place-items-center text-ink-2 shadow-sm" aria-label="เปลี่ยนรูป"><IconRefresh size={12} /></button>
-          <button onClick={onDelete} className="size-6 rounded-full bg-white/90 grid place-items-center text-[#D85A30] shadow-sm" aria-label="ลบ"><IconTrash size={12} /></button>
-        </div>
-      )}
-      <button onClick={() => (url ? onOpen(url) : toast.info('นี่เป็นตัวอย่าง — อัปโหลด QR จริงเพื่อแสดงเต็มจอ'))} className="block w-full text-left">
-        <div className="aspect-square bg-surface-2 grid place-items-center">
-          {url ? <img src={url} alt={file.label ?? ''} className="w-full h-full object-contain bg-white" />
-            : <IconQrcode size={40} className="text-ink-3" />}
-        </div>
-        <div className="px-2.5 py-1.5 text-[11px] font-medium truncate">{file.label || 'QR'}{sample && ' · ตัวอย่าง'}</div>
-      </button>
-    </div>
-  )
 }
 
 export function TravelerDrawer({
@@ -89,10 +51,7 @@ export function TravelerDrawer({
   const [uploadKind, setUploadKind] = useState<string>('arrival_card')
   const [customLabel, setCustomLabel] = useState('')
   const [lightbox, setLightbox] = useState<string | null>(null)
-  const [replacing, setReplacing] = useState<TravelerFile | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-  const qrInput = useRef<HTMLInputElement>(null)
-  const qrReplaceInput = useRef<HTMLInputElement>(null)
 
   async function openDoc(f: TravelerFile) {
     if (isSampleFile(f.storage_path)) { toast.info('นี่เป็นไฟล์ตัวอย่าง — อัปโหลดไฟล์จริงเพื่อเปิดดู'); return }
@@ -116,21 +75,6 @@ export function TravelerDrawer({
     if (fileInput.current) fileInput.current.value = ''
     setCustomLabel('')
   }
-  async function onPickQr(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !traveler) return
-    await uploadFile('ticket', 'QR', file)
-    if (qrInput.current) qrInput.current.value = ''
-  }
-  async function onPickQrReplace(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !traveler || !replacing) return
-    if (!isSampleFile(replacing.storage_path)) await supabase.storage.from('trip-files').remove([replacing.storage_path])
-    await supabase.from('traveler_files').delete().eq('id', replacing.id)
-    await uploadFile('ticket', 'QR', file)
-    setReplacing(null)
-    if (qrReplaceInput.current) qrReplaceInput.current.value = ''
-  }
   async function remove(f: TravelerFile) {
     if (!(await confirmDialog({ message: 'ลบไฟล์นี้?', danger: true, confirmLabel: 'ลบ' }))) return
     if (!isSampleFile(f.storage_path)) await supabase.storage.from('trip-files').remove([f.storage_path])
@@ -138,53 +82,19 @@ export function TravelerDrawer({
     toastResult(res, { success: 'ลบไฟล์แล้ว', fail: 'ลบไฟล์ไม่สำเร็จ' })
     await reload()
   }
-  async function rename(f: TravelerFile) {
-    const label = await promptDialog({ title: 'ตั้งชื่อ QR / เอกสารนี้', input: { defaultValue: f.label ?? '', placeholder: 'เช่น QR ค่าโดยสาร' }, confirmLabel: 'บันทึก' })
-    if (label == null) return
-    const res = await supabase.from('traveler_files').update({ label: label.trim() || 'QR' }).eq('id', f.id)
-    toastResult(res, { success: 'เปลี่ยนชื่อแล้ว', fail: 'เปลี่ยนชื่อไม่สำเร็จ' })
-    await reload()
-  }
-
   if (!traveler) return null
-  const quick = files.filter((f) => QUICK_KINDS.has(f.kind ?? ''))
-  const attached = files.filter((f) => !QUICK_KINDS.has(f.kind ?? ''))
+  const attached = files
 
   return (
     <Drawer open={open} onClose={onClose} title="ข้อมูลผู้เดินทาง">
       <div className="flex items-center gap-3">
-        <Avatar name={traveler.nickname} color={color} size={42} ring={false} />
+        <Avatar name={traveler.nickname} color={color} photo={traveler.avatar_url} photoFocus={traveler.avatar_focus} size={42} ring={false} />
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-medium">{traveler.nickname}</div>
           {traveler.full_name && <div className="text-[12px] text-ink-3 truncate">{traveler.full_name}</div>}
         </div>
         {onEdit && <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไขข้อมูล"><IconPencil size={15} /></button>}
       </div>
-
-      {/* Quick QR — shown as images for instant scanning (max 2) */}
-      <div className="flex items-center justify-between mt-5 mb-1.5">
-        <span className="text-[12px] font-medium text-ink-2">QR Code · เอกสารด่วน</span>
-        {canEdit && quick.length < 2 && (
-          <button onClick={() => qrInput.current?.click()} disabled={uploading} className="btn-link flex items-center gap-1 text-[12px] disabled:opacity-50">
-            {uploading ? <IconLoader2 size={13} className="animate-spin" /> : <IconPlus size={13} />} อัปโหลด QR
-          </button>
-        )}
-      </div>
-      {quick.length > 0 && <div className="flex items-center justify-center gap-1 text-[11px] text-ink-3 mb-2"><IconZoomScan size={13} /> แตะเพื่อแสดงเต็มจอ</div>}
-      {quick.length === 0 ? (
-        <div className="card p-3 text-center text-[12px] text-ink-3">{canEdit ? 'ยังไม่มี QR — กด "อัปโหลด QR" เพื่อเพิ่ม (สูงสุด 2)' : 'ยังไม่มี QR'}</div>
-      ) : (
-        <div className="flex justify-center gap-2.5 flex-wrap">
-          {quick.slice(0, 2).map((f) => (
-            <QrTile key={f.id} file={f} canEdit={canEdit} onOpen={setLightbox}
-              onRename={() => rename(f)}
-              onReplace={() => { setReplacing(f); qrReplaceInput.current?.click() }}
-              onDelete={() => remove(f)} />
-          ))}
-        </div>
-      )}
-      <input ref={qrInput} type="file" accept="image/*" hidden onChange={onPickQr} />
-      <input ref={qrReplaceInput} type="file" accept="image/*" hidden onChange={onPickQrReplace} />
 
       {/* Attached files */}
       <div className="flex items-center justify-between mt-5 mb-2">

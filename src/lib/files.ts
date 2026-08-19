@@ -15,18 +15,28 @@ export function isSampleFile(storagePath: string | null | undefined): boolean {
 // every time (each call is a network round-trip). Cached until ~1 min before TTL.
 const signedCache = new Map<string, { url: string; exp: number }>()
 
+// Offline fallback: remember the LAST signed URL per path. The token in it may
+// be expired, but the service worker caches image bytes with ignoreSearch, so a
+// previously-viewed photo/QR still renders from cache with no network at all.
+const SIGNED_LS = 'taurus:signed:'
+const lastSigned = (path: string): string | null => {
+  try { return localStorage.getItem(SIGNED_LS + path) } catch { return null }
+}
+
 /** Create a short-lived signed URL to view a private file (cached per session). */
 export async function getSignedUrl(storagePath: string): Promise<string | null> {
   const hit = signedCache.get(storagePath)
   if (hit && hit.exp > Date.now()) return hit.url
+  if (!navigator.onLine) return lastSigned(storagePath)
   try {
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, SIGNED_TTL)
-    if (error || !data) return null
+    if (error || !data) return lastSigned(storagePath)
     signedCache.set(storagePath, { url: data.signedUrl, exp: Date.now() + (SIGNED_TTL - 60) * 1000 })
+    try { localStorage.setItem(SIGNED_LS + storagePath, data.signedUrl) } catch { /* quota — offline fallback only */ }
     return data.signedUrl
   } catch {
     // Network/throw — callers render a placeholder when this returns null.
-    return null
+    return lastSigned(storagePath)
   }
 }
 
@@ -84,16 +94,36 @@ export async function uploadImage(tripId: string, prefix: string, file: File): P
   return { path, error: null }
 }
 
-/** Upload an image for the public Explore pool and return a permanent URL
- *  (Cloudinary CDN if configured, else the Supabase public bucket). */
-export async function uploadPublicImage(file: File): Promise<{ url: string | null; error: string | null }> {
+/** Where a public image lands. Each kind gets its own folder on Cloudinary and
+ *  its own prefix in the Supabase bucket, so the shared Explore photos and the
+ *  photos people attach to a review never end up in the same pile.
+ *
+ *  Adding a kind here is all it takes — Cloudinary creates folders on upload,
+ *  and the Supabase bucket needs no policy change (the prefix is just a path). */
+export const PUBLIC_IMAGE_FOLDERS = {
+  /** a place's own photos in the shared Explore pool */
+  explore: { cloudinary: 'taurus/explore', bucket: 'explore' },
+  /** photos somebody attached to their review of a place */
+  review: { cloudinary: 'taurus/explore-reviews', bucket: 'explore-reviews' },
+  /** artwork an admin uploads for a country page's cover or banner blocks */
+  banner: { cloudinary: 'taurus/banners', bucket: 'banners' },
+} as const
+
+export type PublicImageKind = keyof typeof PUBLIC_IMAGE_FOLDERS
+
+/** Upload a publicly-readable image and return a permanent URL (Cloudinary CDN
+ *  if configured, else the Supabase public bucket). */
+export async function uploadPublicImage(
+  file: File, kind: PublicImageKind = 'explore',
+): Promise<{ url: string | null; error: string | null }> {
+  const dest = PUBLIC_IMAGE_FOLDERS[kind]
   if (isCloudinaryConfigured) {
-    const res = await uploadToCloudinary(file, 'taurus/explore')
+    const res = await uploadToCloudinary(file, dest.cloudinary)
     if (res.error) toast.error(`อัปโหลดรูปไม่สำเร็จ: ${res.error}`)
     return res
   }
   const ext = file.name.split('.').pop() ?? 'jpg'
-  const path = `explore/${crypto.randomUUID()}.${ext}`
+  const path = `${dest.bucket}/${crypto.randomUUID()}.${ext}`
   const up = await supabase.storage.from('explore-photos').upload(path, file, { upsert: false })
   if (up.error) { toast.error(`อัปโหลดรูปไม่สำเร็จ: ${up.error.message}`); return { url: null, error: up.error.message } }
   const { data } = supabase.storage.from('explore-photos').getPublicUrl(path)

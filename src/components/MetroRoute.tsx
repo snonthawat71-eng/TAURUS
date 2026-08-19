@@ -1,7 +1,9 @@
 import { type ReactNode } from 'react'
-import { IconWalk, IconDoorExit, IconPencil } from '@tabler/icons-react'
+import { IconWalk, IconDoorExit, IconPencil, IconCoin } from '@tabler/icons-react'
 import { modeMeta } from '@/lib/transitModes'
+import { useTrip } from '@/contexts/TripContext'
 import type { Transit, TransitLeg } from '@/lib/database.types'
+import { lineColorFor } from '@/lib/metro/suggest'
 
 /**
  * AMap-style metro route.
@@ -40,14 +42,14 @@ function Row({ marker, color, line, boardIcon, children }: { marker: 'board' | '
   )
 }
 
-function BoardContent({ leg }: { leg: TransitLeg }) {
+function BoardContent({ leg, currency, where }: { leg: TransitLeg; currency?: string | null; where?: string }) {
   const m = modeMeta(leg.mode)
   const MIcon = m.icon
   return (
     <>
       <div className="text-[13px] font-medium leading-tight">{leg.from}</div>
       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-[11px] text-ink-3">
-        <span className="inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 font-medium text-white" style={{ background: leg.color }}>
+        <span className="inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 font-medium text-white" style={{ background: lineColorFor(leg.line, where) ?? leg.color }}>
           <MIcon size={11} />
           {leg.line || m.label}
         </span>
@@ -55,6 +57,7 @@ function BoardContent({ leg }: { leg: TransitLeg }) {
           {leg.direction && `→ ${leg.direction}`}
           {leg.stops != null && ` · ${leg.stops} สถานี`}
           {leg.minutes != null && ` · ${leg.minutes} นาที`}
+          {leg.fare != null && ` · ≈${leg.fare} ${currency ?? ''}`}
         </span>
       </div>
     </>
@@ -62,9 +65,15 @@ function BoardContent({ leg }: { leg: TransitLeg }) {
 }
 
 export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () => void }) {
+  const { trip } = useTrip()
+  // ชื่อสายซ้ำกันได้ข้ามเมือง (จีนมี "Line 3" หลายเมือง) — บอกเมืองของทริปไป
+  // ด้วย สีสายจะได้มาจากเครือข่ายที่ถูกต้อง
+  const where = [trip?.country ?? '', ...(trip?.cities ?? [])].join(' ')
   const { legs, exit } = transit
   if (!legs?.length) return null
   const last = legs.length - 1
+  // estimated total when any leg carries a fare (trip currency)
+  const fareTotal = legs.reduce((sum, l) => sum + (l.fare ?? 0), 0)
 
   return (
     <div className="mt-2.5 rounded-[10px] bg-surface-2/40 p-3.5 relative" style={{ border: '0.5px solid var(--color-line)' }}>
@@ -78,7 +87,7 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
         return (
         <div key={i}>
           <Row marker="board" color={leg.color} line="solid" boardIcon={<MIcon size={10} />}>
-            <BoardContent leg={leg} />
+            <BoardContent leg={leg} currency={trip?.currency} where={where} />
           </Row>
           <Row marker="alight" color={leg.color} line={i < last ? 'dashed' : 'none'}>
             <div className="text-[13px] font-medium leading-tight pt-0.5">{leg.to}</div>
@@ -92,10 +101,10 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
               ) : null
             })()}
           </Row>
-          {i < last && (
+          {(i < last || leg.transferAfter) && (
             <Row marker="walk" color={leg.color} line="dashed">
               <div className="text-[11px] text-ink-3 pt-0.5">
-                เปลี่ยนต่อ · เดิน
+                {i < last ? 'เปลี่ยนต่อ · เดิน' : 'เดินต่อ'}
                 {leg.transferAfter?.walkMeters != null && ` ${leg.transferAfter.walkMeters}m`}
                 {leg.transferAfter?.minutes != null && ` · ~${leg.transferAfter.minutes} นาที`}
               </div>
@@ -104,6 +113,11 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
         </div>
         )
       })}
+      {fareTotal > 0 && (
+        <div className="mt-2 pt-2 flex items-center gap-1.5 text-[11px] font-medium text-ink-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
+          <IconCoin size={13} className="text-ink-3" /> ค่าเดินทางรวม ≈ {fareTotal} {trip?.currency ?? ''}
+        </div>
+      )}
     </div>
   )
 }

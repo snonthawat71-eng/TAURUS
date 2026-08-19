@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, IconHeartFilled, IconStar, IconBuildingStore, IconZoomScan } from '@tabler/icons-react'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconTrash, IconHeart, IconHeartFilled, IconStar, IconBuildingStore, IconZoomScan, IconWorldShare } from '@tabler/icons-react'
 import { AvatarStack } from './Avatar'
 import { PopMenu } from './PopMenu'
-import { SignedImage } from './SignedImage'
+import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
+import { planMapUrl } from '@/lib/branches'
+import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 import type { Place } from '@/lib/database.types'
 
 export interface Interested { name: string; color?: string }
@@ -13,18 +15,19 @@ export interface Interested { name: string; color?: string }
 export type CardMode = 'edit' | 'pin' | 'view'
 
 export function PlaceCard({
-  place, interested, mine, mode = 'edit', onOpen, onTogglePlan, onToggleInterest, onEdit, onDelete, onPin,
+  place, interested, mine, mode = 'edit', onOpen, onAddToDay, onToggleInterest, onEdit, onDelete, onPin, onShare,
 }: {
   place: Place
   interested: Interested[]
   mine: boolean
   mode?: CardMode
   onOpen: () => void
-  onTogglePlan: () => void
+  onAddToDay: () => void
   onToggleInterest: () => void
   onEdit: () => void
   onDelete: () => void
   onPin?: () => void
+  onShare?: () => void
 }) {
   // photo viewer — index into the gallery (cover + extra photos); null = closed
   const [lightbox, setLightbox] = useState<number | null>(null)
@@ -48,15 +51,12 @@ export function PlaceCard({
     <div className="card overflow-hidden flex flex-col relative">
       {/* Header image */}
       <div className="relative h-36">
-        {hasPhoto
-          ? <SignedImage url={place.photo_url} path={place.photo_path} focus={place.photo_focus} alt={place.name ?? ''} className="w-full h-full object-cover" width={500} fallback={placeholder} />
+        {gallery.length > 0
+          ? <PhotoCarousel photos={gallery} alt={place.name ?? ''} width={500} focus={place.photo_focus} fallback={placeholder} onExpand={(i) => setLightbox(i)} />
           : placeholder}
 
-        {hasPhoto && (
-          <>
-            <button onClick={() => setLightbox(0)} aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
-            <span className="absolute bottom-2 left-2 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
-          </>
+        {gallery.length > 0 && (
+          <span className="absolute bottom-2 left-2 z-10 size-6 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={13} /></span>
         )}
 
         {multiBranch && (
@@ -66,15 +66,21 @@ export function PlaceCard({
           </span>
         )}
 
-        {mode === 'edit' && (
-          <button onClick={onTogglePlan} aria-label="เพิ่มในแพลน"
+        {/* "ในแพลน" is a status now, not a switch — a place is in the plan
+            because it sits on a day in the itinerary. So it reads as a badge,
+            and the only action offered is putting it on a day. */}
+        {mode === 'edit' && (place.in_plan ? (
+          <span className="absolute top-2 right-2 h-7 px-2.5 rounded-full inline-flex items-center gap-1 shadow-sm text-[11px] font-medium z-20 pointer-events-none"
+            style={{ background: 'var(--color-brand)', color: '#fff' }}>
+            <IconCheck size={14} /> ในแพลน
+          </span>
+        ) : (
+          <button onClick={onAddToDay} aria-label="ใส่ลงวัน"
             className="absolute top-2 right-2 h-7 px-2.5 rounded-full inline-flex items-center gap-1 shadow-sm transition-colors text-[11px] font-medium z-20"
-            style={place.in_plan
-              ? { background: 'var(--color-brand)', color: '#fff' }
-              : { background: 'rgba(255,255,255,.92)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
-            {place.in_plan ? <><IconCheck size={14} /> ในแพลน</> : <><IconPlus size={14} /> เพิ่ม</>}
+            style={{ background: 'rgba(255,255,255,.92)', color: 'var(--color-ink-2)', border: '0.5px solid var(--color-line)' }}>
+            <IconPlus size={14} /> ใส่ลงวัน
           </button>
-        )}
+        ))}
         {mode === 'pin' && (
           <button onClick={onPin} aria-label="พิน/เซฟไปทริปของฉัน" title="เซฟไปทริปของฉัน"
             className="absolute top-2 right-2 size-8 rounded-full grid place-items-center shadow-sm z-20"
@@ -87,11 +93,16 @@ export function PlaceCard({
       {/* Body */}
       <div className="p-3.5 flex-1 flex flex-col">
         <div className="flex items-center gap-1.5 text-[11px] text-ink-3">
-          <span className="size-2 rounded-full shrink-0" style={{ background: place.station_color ?? '#888780' }} />
-          <span className="truncate flex-1">{place.station_line}{place.station_name ? ` · ${place.station_name}` : ''}</span>
+          <span className="size-2 rounded-full shrink-0" style={{ background: lineColorFor(place.station_line, place.city) ?? place.station_color ?? '#888780' }} />
+          {(() => {
+            const code = stationCode(place.station_line, place.station_name)
+            const station = place.station_name ? `${code ? `${code} ` : ''}${place.station_name}` : ''
+            return <span className="truncate flex-1">{place.station_line}{station ? ` · ${station}` : ''}</span>
+          })()}
           {mode === 'edit' && (
             <PopMenu size={24} items={[
               { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: onEdit },
+              ...(onShare ? [{ label: 'แชร์ไป Explore', icon: <IconWorldShare size={15} />, onClick: onShare }] : []),
               { label: 'ลบ', icon: <IconTrash size={15} />, onClick: onDelete, danger: true },
             ]} />
           )}
@@ -117,7 +128,7 @@ export function PlaceCard({
         ) : null}
 
         <div className="flex items-center justify-between mt-3 pt-3 gap-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-          <button onClick={() => openMap(place.map_url)} disabled={!place.map_url}
+          <button onClick={() => openMap(planMapUrl(place))} disabled={!planMapUrl(place)}
             className="inline-flex items-center gap-1 text-[11px] text-ink-3 enabled:hover:text-brand-mid whitespace-nowrap shrink-0">
             <IconMapPin size={12} /> MAP
           </button>

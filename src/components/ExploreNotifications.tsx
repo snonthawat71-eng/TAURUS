@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { IconBell, IconHeartFilled, IconMessageCircle } from '@tabler/icons-react'
+import { IconBell, IconHeartFilled, IconMessageCircle, IconMessageReport } from '@tabler/icons-react'
 import { getExploreNotifs, type ExploreNotif } from '@/lib/exploreMutations'
+import { loadNotifState, markNotifRead, markSeen } from '@/lib/notifRead'
+import type { SuggestionKind } from '@/lib/database.types'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
-const seenKey = (uid: string) => `explore:notifsSeen:${uid}`
+const SUG_LABEL: Record<SuggestionKind, string> = {
+  route: 'เสนอเพิ่มเส้นทางให้', branch: 'เสนอเพิ่มสาขาให้', edit: 'เสนอแก้ข้อมูลของ', report: 'รายงาน',
+}
 
 function timeAgo(at: string): string {
   const t = new Date(at).getTime()
@@ -26,11 +30,13 @@ export function ExploreNotifications({ userId, onOpenItem }: {
 }) {
   const [open, setOpen] = useState(false)
   const [notifs, setNotifs] = useState<ExploreNotif[]>([])
-  const [seen, setSeen] = useState<string>(() => localStorage.getItem(seenKey(userId)) ?? '')
+  const [seen, setSeen] = useState<string>('')
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const refresh = useCallback(async () => {
-    const list = await getExploreNotifs(userId)
+    const [all, state] = await Promise.all([getExploreNotifs(userId), loadNotifState(userId)])
+    setSeen(state.seenAt)
+    const list = all.filter((n) => !state.readIds.has(n.id))
     setNotifs(list)
     return list
   }, [userId])
@@ -44,7 +50,7 @@ export function ExploreNotifications({ userId, onOpenItem }: {
     let timer: ReturnType<typeof setTimeout> | undefined
     const bump = () => { clearTimeout(timer); timer = setTimeout(() => { refresh() }, 300) }
     const channel = supabase.channel('explore-notifs')
-    for (const table of ['explore_votes', 'explore_comments']) {
+    for (const table of ['explore_votes', 'explore_comments', 'explore_suggestions']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, bump)
     }
     channel.subscribe()
@@ -57,11 +63,11 @@ export function ExploreNotifications({ userId, onOpenItem }: {
     if (open) { setOpen(false); return }
     setOpen(true)
     const list = await refresh()
-    // mark everything currently shown as seen (clears the badge)
+    // mark everything currently shown as seen (clears the badge) — server-side
     const newest = list[0]?.at
     const mark = newest && newest > seen ? newest : new Date().toISOString()
     setSeen(mark)
-    try { localStorage.setItem(seenKey(userId), mark) } catch { /* ignore */ }
+    markSeen(userId, mark)
   }
 
   useEffect(() => {
@@ -93,22 +99,29 @@ export function ExploreNotifications({ userId, onOpenItem }: {
             ) : (
               notifs.map((n) => (
                 <button key={n.id}
-                  onClick={() => { setOpen(false); onOpenItem?.(n.exploreId) }}
+                  onClick={() => {
+                    markNotifRead(userId, n.id) // เปิดดู = อ่านแล้ว
+                    setNotifs((xs) => xs.filter((x) => x.id !== n.id))
+                    setOpen(false)
+                    onOpenItem?.(n.exploreId)
+                  }}
                   className="w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left hover:bg-surface-2"
                   style={{ borderTop: '0.5px solid var(--color-line)' }}>
                   <span className="size-7 rounded-full grid place-items-center shrink-0 mt-0.5"
-                    style={{ background: n.kind === 'like' ? '#FCE7EA' : 'var(--color-brand-soft)' }}>
+                    style={{ background: n.kind === 'like' ? '#FCE7EA' : n.kind === 'suggestion' ? '#EAF6EE' : 'var(--color-brand-soft)' }}>
                     {n.kind === 'like'
                       ? <IconHeartFilled size={14} className="text-[#EF4444]" />
-                      : <IconMessageCircle size={14} className="text-brand" />}
+                      : n.kind === 'suggestion'
+                        ? <IconMessageReport size={14} style={{ color: '#16A34A' }} />
+                        : <IconMessageCircle size={14} className="text-brand" />}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="text-[12.5px] leading-snug">
                       <span className="font-medium">{n.who}</span>
-                      {n.kind === 'like' ? ' ถูกใจ ' : ' คอมเมนต์ '}
+                      {n.kind === 'like' ? ' ถูกใจ ' : n.kind === 'suggestion' ? ` ${SUG_LABEL[n.sugKind ?? 'edit']} ` : ' คอมเมนต์ '}
                       <span className="font-medium">{n.placeName}</span>
                     </div>
-                    {n.kind === 'comment' && n.body && (
+                    {(n.kind === 'comment' || n.kind === 'suggestion') && n.body && (
                       <div className="text-[12px] text-ink-3 truncate mt-0.5">“{n.body}”</div>
                     )}
                     <div className="text-[10.5px] text-ink-3 mt-0.5">{timeAgo(n.at)}</div>

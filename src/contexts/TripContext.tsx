@@ -1,11 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { toast } from '@/lib/toast'
-import { initOfflineSync } from '@/lib/offlineQueue'
+import { initOfflineSync, looksOffline } from '@/lib/offlineQueue'
+import { checkPlanReminders } from '@/lib/planReminders'
+import { updateTraveler } from '@/lib/tripMutations'
 import { useAuth } from './AuthContext'
 import type {
-  Expense, Flight, Train, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
-  Profile, Traveler, TravelerFile, Trip,
+  Expense, Flight, Train, TrainTicket, Hotel, ItineraryDay, ItineraryStop, Place, PlaceInterest,
+  Profile, Traveler, TravelerFile, Trip, TripMember,
 } from '@/lib/database.types'
 
 interface TripData {
@@ -20,6 +22,7 @@ interface TripData {
   travelerFiles: TravelerFile[]
   flights: Flight[]
   trains: Train[]
+  trainTickets: TrainTicket[]
   hotels: Hotel[]
   days: ItineraryDay[]
   stops: ItineraryStop[]
@@ -40,11 +43,22 @@ type TripState = Omit<TripData, 'loading' | 'error' | 'reload' | 'trips' | 'curr
 const TripContext = createContext<TripData | undefined>(undefined)
 
 const empty = {
-  trip: null, profile: null, travelers: [], travelerFiles: [], flights: [], trains: [], hotels: [], days: [],
+  trip: null, profile: null, travelers: [], travelerFiles: [], flights: [], trains: [], trainTickets: [], hotels: [], days: [],
   stops: [], places: [], interests: [], expenses: [], memberProfiles: [], myPermission: 'owner' as const,
 }
 
 const STORAGE_KEY = 'trip:currentId'
+
+// ---- offline snapshot: last successful load, kept per trip in localStorage so
+// the app still opens with data when there is no connection ----
+const SNAP_TRIPS = 'taurus:snap:trips'
+const snapKey = (tripId: string) => `taurus:snap:trip:${tripId}`
+function readJSON<T>(key: string): T | null {
+  try { const s = localStorage.getItem(key); return s ? (JSON.parse(s) as T) : null } catch { return null }
+}
+function writeJSON(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* quota/blocked — snapshot is best-effort */ }
+}
 
 export function TripProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
@@ -54,12 +68,24 @@ export function TripProvider({ children }: { children: ReactNode }) {
   const [currentTripId, setCurrentTripId] = useState<string | null>(
     () => localStorage.getItem(STORAGE_KEY),
   )
+  // Always-current mirror of currentTripId. `load` reads this instead of the
+  // state value it closed over, so a `reload()` fired right after switchTrip()
+  // (e.g. from the create-trip wizard) targets the trip that is now current —
+  // not the stale one captured when the callback was created.
+  const currentTripIdRef = useRef(currentTripId)
+  useEffect(() => { currentTripIdRef.current = currentTripId }, [currentTripId])
   const [data, setData] = useState<TripState>(empty)
   // user id we've already run the one-time bootstrap (profile upsert + invites) for
   const bootstrappedFor = useRef<string | null>(null)
+  // traveler cards already topped up from the profile this session
+  const healedCards = useRef<Set<string>>(new Set())
 
   const switchTrip = useCallback((id: string) => {
     localStorage.setItem(STORAGE_KEY, id)
+    // Update the ref synchronously (the [currentTripId] effect only runs after
+    // the next commit) so a reload() called in the same tick — as the create
+    // wizard does right after switching — already targets the new trip.
+    currentTripIdRef.current = id
     setCurrentTripId(id)
   }, [])
 
@@ -67,9 +93,33 @@ export function TripProvider({ children }: { children: ReactNode }) {
     setData((prev) => ({ ...prev, ...updater(prev) }))
   }, [])
 
+  // Restore the last saved snapshot (current trip, else the first cached one).
+  // Returns true when there was data to show.
+  const offlineToasted = useRef(false)
+  const hydrateOffline = useCallback((): boolean => {
+    const cachedTrips = readJSON<Trip[]>(SNAP_TRIPS)
+    if (cachedTrips?.length) setTrips(cachedTrips)
+    const id = currentTripIdRef.current ?? cachedTrips?.[0]?.id ?? null
+    const snap = id ? readJSON<TripState>(snapKey(id)) : null
+    if (!snap) return false
+    setData(snap)
+    setError(null)
+    if (!offlineToasted.current) {
+      offlineToasted.current = true
+      toast.info('ออฟไลน์อยู่ — แสดงข้อมูลล่าสุดที่บันทึกไว้ในเครื่อง')
+    }
+    return true
+  }, [])
+
   const load = useCallback(async () => {
     if (!user) return
     setError(null)
+    // No connection → straight to the snapshot (the network path would only
+    // fail slowly; writes are queued separately by the offline queue).
+    if (!navigator.onLine) {
+      if (!hydrateOffline()) setError('ออฟไลน์อยู่ และยังไม่มีข้อมูลทริปที่บันทึกไว้ในเครื่องนี้')
+      return
+    }
     try {
       // One-time-per-session bootstrap: ensure a profile row exists and accept any
       // pending invites. These don't change between reloads, so skipping them on
@@ -101,12 +151,14 @@ export function TripProvider({ children }: { children: ReactNode }) {
         supabase.from('trip_members').select('user_id,permission').eq('trip_id', trip_id),
         // optional — table only exists after supabase/trains.sql; errors are tolerated
         supabase.from('trains').select('*').eq('trip_id', trip_id).order('travel_date'),
+        // optional — table only exists after supabase/train_tickets.sql; tolerated
+        supabase.from('train_tickets').select('*').eq('trip_id', trip_id).order('position'),
       ])
 
       // Fetch the trips list and (when we already know the current trip — i.e. on
       // every reload, not just the first load) its data concurrently, so a button
       // press doesn't wait for the trips list before the trip data even starts.
-      const knownId = currentTripId
+      const knownId = currentTripIdRef.current
       const tripsP = supabase.from('trips').select('*').order('created_at', { ascending: true })
       const batchP = knownId ? fetchTripData(knownId) : null
 
@@ -115,10 +167,19 @@ export function TripProvider({ children }: { children: ReactNode }) {
       const allTrips = tripsRes.data ?? []
       setTrips(allTrips)
 
-      // Pick the current trip (saved, else first). No trip yet → empty state.
-      const current = allTrips.find((t) => t.id === currentTripId) ?? allTrips[0]
-      if (!current) { setData(empty); return }
-      if (current.id !== currentTripId) {
+      writeJSON(SNAP_TRIPS, allTrips)
+
+      // Pick the current trip (saved, else first). No trip yet → empty state —
+      // but the profile (nickname/avatar/onboarded) is the user's own identity,
+      // not trip data, so it must load even with zero trips (e.g. right after
+      // first-run setup, before the user has created a trip at all).
+      const current = allTrips.find((t) => t.id === currentTripIdRef.current) ?? allTrips[0]
+      if (!current) {
+        const { data: soloProfile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+        setData({ ...empty, profile: (soloProfile as Profile) ?? null })
+        return
+      }
+      if (current.id !== currentTripIdRef.current) {
         localStorage.setItem(STORAGE_KEY, current.id)
         setCurrentTripId(current.id)
       }
@@ -127,7 +188,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       // (first load, or the saved id was stale) fetch for the real current trip.
       const [
         profileRes, travelersRes, travelerFilesRes, flightsRes, hotelsRes, daysRes, stopsRes,
-        placesRes, expensesRes, membersRes, trainsRes,
+        placesRes, expensesRes, membersRes, trainsRes, trainTicketsRes,
       ] = (batchP && current.id === knownId) ? await batchP : await fetchTripData(current.id)
 
       // Supabase returns failures as an `error` value (not a thrown exception),
@@ -144,9 +205,21 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
       // Interests (by place) and member profiles (by member) both depend on the
       // batch above — fetch them together in a single second round-trip.
-      const places = (placesRes.data ?? []) as Place[]
+      // "In the plan" is not a flag anyone toggles any more — a place is in the
+      // plan exactly when the itinerary has a stop for it. Deriving it here (by
+      // the same name match the Itinerary page already used) means every screen
+      // reading `in_plan` stays correct without a second source of truth to keep
+      // in sync. The stored column is left alone; nothing reads it directly.
+      const stops = (stopsRes.data ?? []) as ItineraryStop[]
+      const scheduled = new Set(
+        stops.map((s) => (s.place_name ?? '').trim().toLowerCase()).filter(Boolean),
+      )
+      const places = ((placesRes.data ?? []) as Place[]).map((p) => ({
+        ...p,
+        in_plan: !!p.name && scheduled.has(p.name.trim().toLowerCase()),
+      }))
       const placeIds = places.map((p) => p.id)
-      const members = (membersRes.data ?? []) as { user_id: string; permission?: string | null }[]
+      const members = (membersRes.data ?? []) as Pick<TripMember, 'user_id' | 'permission'>[]
       const memberIds = members.map((m) => m.user_id)
       const [interestsRes, memberProfilesRes] = await Promise.all([
         placeIds.length
@@ -167,7 +240,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
               return (p === 'places' || p === 'view') ? p : 'edit'
             })()
 
-      setData({
+      const next: TripState = {
         trip: current,
         myPermission,
         profile: (profileRes.data as Profile) ?? null,
@@ -176,21 +249,51 @@ export function TripProvider({ children }: { children: ReactNode }) {
         flights: flightsRes.data ?? [],
         // trains table is optional (migration may not be run yet) — tolerate its error
         trains: (trainsRes.error ? [] : trainsRes.data ?? []) as Train[],
+        // train_tickets table is optional too — tolerate its error
+        trainTickets: (trainTicketsRes.error ? [] : trainTicketsRes.data ?? []) as TrainTicket[],
         hotels: (hotelsRes.data ?? []) as Hotel[],
         days: daysRes.data ?? [],
-        stops: (stopsRes.data ?? []) as ItineraryStop[],
+        stops,
         places,
         interests: (interestsRes.data ?? []) as PlaceInterest[],
         expenses: (expensesRes.data ?? []) as Expense[],
         memberProfiles: (memberProfilesRes.data ?? []) as Profile[],
-      })
+      }
+      setData(next)
+      writeJSON(snapKey(current.id), next) // offline snapshot
+      offlineToasted.current = false       // next offline period may toast again
+
+      // Heal a card claimed before joining learnt to carry the profile over:
+      // someone with an account from long ago who was invited kept the owner's
+      // placeholder name and no photo. Fills BLANKS ONLY — anything already on
+      // the card stays — and once per card per session.
+      const myCard = (next.travelers ?? []).find((t) => t.user_id === user.id)
+      const meProfile = next.profile
+      if (myCard && meProfile && !healedCards.current.has(myCard.id)) {
+        healedCards.current.add(myCard.id)
+        const fill: Record<string, unknown> = {}
+        if (!myCard.nickname?.trim() && meProfile.onboarded !== false && meProfile.nickname?.trim()) fill.nickname = meProfile.nickname.trim()
+        if (!myCard.full_name?.trim() && meProfile.full_name?.trim()) fill.full_name = meProfile.full_name.trim()
+        if (!myCard.avatar_color && meProfile.avatar_color) fill.avatar_color = meProfile.avatar_color
+        if (!myCard.avatar_url && meProfile.avatar_url) {
+          fill.avatar_url = meProfile.avatar_url
+          fill.avatar_focus = meProfile.avatar_focus ?? null
+        }
+        if (Object.keys(fill).length) {
+          setData((d) => ({ ...d, travelers: d.travelers.map((t) => (t.id === myCard.id ? { ...t, ...fill } : t)) }))
+          void updateTraveler(myCard.id, fill)
+        }
+      }
     } catch (e) {
+      // Mid-request drop (or a flaky connection navigator.onLine missed) —
+      // fall back to the snapshot instead of an error screen.
+      if (looksOffline(e) && hydrateOffline()) return
       console.error('TripContext load failed:', e)
       const msg = e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ'
       setError(msg)
       toast.error(`โหลดข้อมูลไม่สำเร็จ: ${msg}`)
     }
-  }, [user?.id, currentTripId])
+  }, [user?.id, currentTripId, hydrateOffline])
 
   useEffect(() => {
     let active = true
@@ -206,12 +309,21 @@ export function TripProvider({ children }: { children: ReactNode }) {
     let timer: ReturnType<typeof setTimeout> | undefined
     const bump = () => { clearTimeout(timer); timer = setTimeout(() => { load() }, 500) }
     const channel = supabase.channel(`trip-${currentTripId}`)
-    for (const table of ['itinerary_days', 'itinerary_stops', 'places', 'expenses', 'travelers']) {
+    for (const table of ['itinerary_days', 'itinerary_stops', 'places', 'expenses', 'travelers', 'flights']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `trip_id=eq.${currentTripId}` }, bump)
     }
     channel.subscribe()
     return () => { clearTimeout(timer); supabase.removeChannel(channel) }
   }, [currentTripId, load])
+
+  // Personal plan reminders — on-device, per user (see lib/planReminders.ts).
+  // Runs while the app is open; each due stop fires once per device per day.
+  useEffect(() => {
+    const run = () => checkPlanReminders(user?.id, data.trip, data.days, data.stops)
+    const first = setTimeout(run, 2500) // shortly after data settles
+    const timer = setInterval(run, 30_000)
+    return () => { clearTimeout(first); clearInterval(timer) }
+  }, [user?.id, data.trip, data.days, data.stops])
 
   // Replay any offline writes on reconnect (and once on mount), then refresh.
   const loadRef = useRef(load)

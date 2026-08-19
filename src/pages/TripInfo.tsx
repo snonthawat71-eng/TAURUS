@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   IconPlaneDeparture, IconPlaneArrival, IconMapPin, IconUserPlus, IconPlus,
-  IconBed, IconPlane, IconPencil, IconTrash, IconTrain,
+  IconBed, IconPlane, IconPencil, IconTrash, IconTrain, IconQrcode, IconChevronDown,
+  IconLock, IconUsers, IconUserCheck, IconLink,
 } from '@tabler/icons-react'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,6 +14,8 @@ import { FlightEditor } from '@/components/FlightEditor'
 import { TrainEditor } from '@/components/TrainEditor'
 import { HotelEditor } from '@/components/HotelEditor'
 import { HotelPhoto } from '@/components/HotelPhoto'
+import { TravelerQr } from '@/components/TravelerQr'
+import { BudgetSection } from '@/components/BudgetSection'
 import { AttachLink } from '@/components/AttachLink'
 import { PopMenu } from '@/components/PopMenu'
 import { openMap } from '@/lib/maps'
@@ -21,11 +25,12 @@ import { toast } from '@/lib/toast'
 import { getSignedUrl, isSampleFile } from '@/lib/files'
 import { flightDuration, formatFlightDate, formatCheckTime } from '@/lib/format'
 import { travelerColor, ORDER } from '@/lib/avatars'
+import { tripTz } from '@/lib/segments'
 import {
-  addTraveler, updateTraveler, deleteTraveler,
+  addTraveler, updateTraveler, deleteTraveler, claimTraveler, setTravelerPrivacy,
   addFlight, updateFlight, deleteFlight,
   addTrain, updateTrain, deleteTrain,
-  addHotel, updateHotel, deleteHotel, updateProfile,
+  addHotel, updateHotel, deleteHotel, updateProfile, syncProfileToTraveler,
 } from '@/lib/tripMutations'
 import type { Flight, Train, FlightDirection, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
 
@@ -83,6 +88,48 @@ async function viewFile(f: TravelerFile) {
   if (url) window.open(url, '_blank', 'noopener,noreferrer')
 }
 
+// "now" in a timezone as a sortable 'YYYY-MM-DDTHH:mm' string (the trip's tz, set
+// at creation) so leg date+time compare in the same frame regardless of device tz.
+function nowInTz(tz: string | null | undefined): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz || undefined, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date())
+    const g = (t: string) => parts.find((x) => x.type === t)?.value ?? ''
+    return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`
+  } catch {
+    return new Date().toISOString().slice(0, 16)
+  }
+}
+
+// Auto-pick the leg to show by the trip's clock (nowStr = now in trip tz): outbound
+// until it ends, then return until it ends, then reset to outbound. A single leg /
+// no return always shows outbound.
+function autoLegDir<T>(legs: T[], nowStr: string, get: (l: T) => { dir: string; date: string | null; dep: string | null; arr: string | null }): FlightDirection {
+  const rows = legs.map(get)
+  const out = rows.find((x) => (x.dir || 'outbound') === 'outbound')
+  const ret = rows.find((x) => (x.dir || 'outbound') === 'return')
+  if (!ret) return 'outbound'
+  if (!out) return 'return'
+  const end = (x: { date: string | null; dep: string | null; arr: string | null }) => {
+    if (!x.date) return null
+    let date = x.date
+    // arrival clock earlier than departure = an overnight leg landing the NEXT day
+    if (x.arr && x.dep && x.arr < x.dep) {
+      const d = new Date(`${x.date}T00:00:00Z`)
+      if (!isNaN(d.getTime())) date = new Date(d.getTime() + 86400000).toISOString().slice(0, 10)
+    }
+    return `${date}T${x.arr || x.dep || '23:59'}`
+  }
+  const outEnd = end(out)
+  // outbound has no date → can't tell it's over; keep showing the outbound
+  if (outEnd == null || nowStr < outEnd) return 'outbound'
+  const retEnd = end(ret)
+  if (retEnd != null && nowStr >= retEnd) return 'outbound' // return is over → reset
+  return 'return'
+}
+
 function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   flights: Flight[]
   tripId: string
@@ -91,76 +138,190 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   onDelete: (f: Flight) => void
   onAdd: (dir: FlightDirection) => void
 }) {
-  const { travelers } = useTrip()
-  const [dir, setDir] = useState<FlightDirection>('outbound')
-  // show the flight for the selected direction only — never fall back to the
-  // other direction (that let editing the "return" tab overwrite the outbound)
+  const { travelers, trip } = useTrip()
+  // default leg follows the trip's clock (ข้อ 1); a manual toggle overrides until collapse
+  const autoDir = useMemo(() => autoLegDir(flights, nowInTz(tripTz(trip) ?? undefined), (f) => ({ dir: f.direction ?? 'outbound', date: f.flight_date, dep: f.dep_time, arr: f.arr_time })), [flights, trip])
+  const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
+  const [open, setOpen] = useState(false)
+  const [logoFailed, setLogoFailed] = useState(false)
+  const dir = manualDir ?? autoDir
   const f = flights.find((x) => (x.direction ?? 'outbound') === dir)
   const Icon = dir === 'return' ? IconPlaneArrival : IconPlaneDeparture
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
+  // airline logo from the flight number's IATA prefix (e.g. FM848 → FM);
+  // falls back to the plane icon when unknown or the CDN has no image
+  const airlineCode = (f?.flight_no ?? '').trim().toUpperCase().match(/^([A-Z0-9]{2})\s*[A-Z0-9]*\d/)?.[1] ?? null
+  const logoUrl = airlineCode ? `https://images.kiwi.com/airlines/64/${airlineCode}.png` : null
+  useEffect(() => { setLogoFailed(false) }, [logoUrl])
 
-  const toggle = (
-    <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
-      <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
-        style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
-      {(['outbound', 'return'] as const).map((d) => (
-        <button key={d} onClick={() => setDir(d)}
-          className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
-          {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
-        </button>
-      ))}
-    </div>
+  const chevron = f && (
+    <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
+      className="!size-[22px] grid place-items-center rounded-md text-white/90 hover:bg-white/15 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
+      <IconChevronDown size={15} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+    </button>
+  )
+  const menu = canEdit && f && (
+    <PopMenu size={22} buttonClassName="!bg-transparent !text-white hover:!bg-white/15" items={[
+      { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
+      { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
+    ]} />
   )
 
-  return (
-    <div className="card p-4">
-      <div className="flex items-start gap-2">
-        <Icon size={16} className="text-brand shrink-0 mt-1" />
-        <div className="min-w-0 flex-1 flex items-center gap-2">
-          {f?.flight_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(f.flight_date)}</span>}
-          <div className="text-[13px] font-medium truncate">{f ? `${f.flight_no} · ${f.airline}` : `เที่ยวบิน${dirLabel}`}</div>
+  // ---- no flight for this leg ----
+  if (!f) {
+    return (
+      <div className="card p-4">
+        <div className="flex items-center gap-2">
+          <Icon size={16} className="text-brand shrink-0" />
+          <div className="text-[13px] font-medium flex-1 truncate">เที่ยวบิน{dirLabel}</div>
         </div>
-        {canEdit && f && (
-          <PopMenu items={[
-            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(f) },
-            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(f), danger: true },
-          ]} />
-        )}
-      </div>
-
-      {!f ? (
         <div className="text-center py-7">
           <p className="text-[12px] text-ink-3">ยังไม่มีเที่ยวบิน{dirLabel}</p>
           {canEdit && (
             <button onClick={() => onAdd(dir)} className="btn-link inline-flex items-center gap-1 mt-2"><IconPlus size={14} /> เพิ่มเที่ยวบิน{dirLabel}</button>
           )}
         </div>
-      ) : (
-      <>
-      {/* route graphic — fixed columns so ขาไป/ขากลับ don't shift */}
-      <div className="flex items-start mt-4">
+      </div>
+    )
+  }
+
+  // Live status (filled in by /api/check-flights + AeroDataBox). The checker
+  // only polls near departure (6h before … landing), so "recently checked"
+  // is exactly when the status is meaningful — an early-morning flight then
+  // shows live info the evening before too, not just on the travel date.
+  const liveFresh = !!f.live_checked_at &&
+    Date.now() - new Date(f.live_checked_at).getTime() < 24 * 3600_000
+  const LIVE_EN: Record<string, string> = {
+    ontime: 'On time', delayed: `Delayed +${f.live_delay_min ?? '?'} min`, cancelled: 'Cancelled',
+    diverted: 'Diverted', departed: 'Departed', arrived: 'Arrived',
+  }
+  const live = liveFresh && f.live_status && LIVE_EN[f.live_status]
+    ? {
+        label: LIVE_EN[f.live_status],
+        color: f.live_status === 'cancelled' || f.live_status === 'diverted' ? '#C23B3B'
+          : f.live_status === 'delayed' ? '#D97706' : '#1D9E75',
+      }
+    : null
+  // delayed → new time full-size, struck-through scheduled time small underneath
+  const stackClock = (sched: string | null, liveT: string | null, cls: string) =>
+    live && f.live_status === 'delayed' && liveT && sched && liveT !== sched
+      ? <>
+          <div className={`${cls} tabular-nums`}>{liveT}</div>
+          <div className="text-[10.5px] tabular-nums line-through opacity-45 leading-tight">{sched}</div>
+        </>
+      : <div className={`${cls} tabular-nums`}>{sched}</div>
+  // gate/terminal line — the checker refreshes these every ~15 min from 6h
+  // before departure, so the card shows the gate ahead of boarding
+  const gateLine = live && f.live_gate
+    ? `Gate ${f.live_gate}${f.live_terminal ? ` · T${f.live_terminal}` : ''}`
+    : null
+  const statusPill = live && (
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap"
+      style={{ background: live.color }}>
+      {live.label}
+    </span>
+  )
+
+  // slim strip on top (itinerary-style, nested rounded corners): date + live status + controls
+  const strip = (
+    <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: live?.color ?? 'var(--color-brand)' }}>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <Icon size={14} className="shrink-0 text-white/90" />
+        <span className="text-[12px] font-medium tracking-wide truncate">{f.flight_date ? formatFlightDate(f.flight_date) : `เที่ยวบิน${dirLabel}`}</span>
+        {open && (f.flight_no || f.airline) && <span className="text-[11px] text-white/70 truncate">· {[f.flight_no, f.airline].filter(Boolean).join(' · ')}</span>}
+      </div>
+      <div className="flex items-center gap-0.5 shrink-0">{menu}{chevron}</div>
+    </div>
+  )
+
+  // ---- collapsed: condensed image-style summary under the strip ----
+  if (!open) {
+    return (
+      <div className="relative flex flex-col">
+        {strip}
+        <div className="card relative p-4">
+          {/* fixed-width side columns (not flex-1) so a long name is FORCED to wrap
+              onto its 2 reserved lines instead of stretching out on one long line */}
+          <div className="flex items-start gap-2">
+            <div className="w-[104px] shrink-0">
+              <div className="text-[26px] font-medium leading-none">{f.dep_code}</div>
+              <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.dep_name}</div>
+              {stackClock(f.dep_time, f.live_dep_time ?? null, 'text-[15px] mt-1')}
+            </div>
+            {/* centre: airline logo → flight no → live-status pill.
+                The logo block reserves the same height as the side columns'
+                code+name block (26+6+33 = 65px), so the pill lands exactly on
+                the times' row below it. */}
+            <div className="flex-1 min-w-0 flex flex-col items-center">
+              <div className="min-h-[65px] flex flex-col items-center justify-center gap-1">
+                {logoUrl && !logoFailed
+                  ? <img src={logoUrl} alt={f.airline ?? 'airline'} onError={() => setLogoFailed(true)}
+                      className="size-9 rounded-full object-contain bg-white hairline shrink-0" />
+                  : <span className="size-9 rounded-full bg-surface-2 grid place-items-center shrink-0"><Icon size={18} className="text-brand" /></span>}
+                {f.flight_no && <div className="text-[11px] font-medium text-ink-2 truncate max-w-full">{f.flight_no}</div>}
+              </div>
+              {live && <div className="mt-1">{statusPill}</div>}
+              {gateLine && <div className="text-[11px] font-medium text-ink-2 tabular-nums mt-1">{gateLine}</div>}
+            </div>
+            <div className="w-[104px] shrink-0 text-right">
+              <div className="text-[26px] font-medium leading-none">{f.arr_code}</div>
+              <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.arr_name}</div>
+              {stackClock(f.arr_time, f.live_arr_time ?? null, 'text-[15px] mt-1')}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ---- expanded: full details under the strip ----
+  const toggle = (
+    <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
+      <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
+        style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
+      {(['outbound', 'return'] as const).map((d) => (
+        <button key={d} onClick={() => setManualDir(d)}
+          className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
+          {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
+        </button>
+      ))}
+    </div>
+  )
+  return (
+    <div className="relative flex flex-col">
+      {strip}
+      <div className="card relative p-4">
+      <div className="flex items-start mt-1">
         <div className="w-[88px] shrink-0">
           <div className="text-[22px] font-medium leading-none">{f.dep_code}</div>
-          <div className="text-[11px] text-ink-3 mt-1.5 truncate">{f.dep_name}</div>
-          <div className="text-[14px] mt-0.5 tabular-nums">{f.dep_time}</div>
+          <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.dep_name}</div>
+          {stackClock(f.dep_time, f.live_dep_time ?? null, 'text-[14px] mt-0.5')}
         </div>
-        <div className="flex-1 flex flex-col items-center pt-1">
-          <div className="text-[11px] text-ink-3 tabular-nums">{flightDuration(f.dep_time, f.arr_time, f.dep_tz, f.arr_tz, f.flight_date)}</div>
-          <div className="w-full flex items-center my-1.5">
-            <span className="size-2 rounded-full shrink-0" style={{ background: 'var(--color-brand)' }} />
-            <span className="flex-1 h-px bg-line-2" />
-            <span className="size-6 rounded-full bg-surface grid place-items-center shrink-0" style={{ border: '0.5px solid var(--color-line)' }}>
-              <IconPlane size={13} className="text-brand" />
-            </span>
-            <span className="flex-1 h-px bg-line-2" />
-            <span className="size-2 rounded-full shrink-0 ring-2 bg-surface" style={{ '--tw-ring-color': 'var(--color-brand)' } as React.CSSProperties} />
+        {/* centre: duration + path fill the same height as the side columns'
+            code+name block (22+6+33 = 61px); the status pill (or "direct")
+            then lands level with the times row, same rhythm as collapsed. */}
+        <div className="flex-1 min-w-0 flex flex-col items-center px-1">
+          <div className="w-full min-h-[61px] flex flex-col items-center justify-center">
+            <div className="text-[11px] text-ink-3 tabular-nums">{flightDuration(f.dep_time, f.arr_time, f.dep_tz, f.arr_tz, f.flight_date)}</div>
+            <div className="w-full flex items-center mt-1.5">
+              <span className="size-2 rounded-full shrink-0" style={{ background: 'var(--color-brand)' }} />
+              <span className="flex-1 h-px bg-line-2" />
+              <span className="size-6 rounded-full bg-surface grid place-items-center shrink-0" style={{ border: '0.5px solid var(--color-line)' }}>
+                <IconPlane size={13} className="text-brand" />
+              </span>
+              <span className="flex-1 h-px bg-line-2" />
+              <span className="size-2 rounded-full shrink-0 ring-2 bg-surface" style={{ '--tw-ring-color': 'var(--color-brand)' } as React.CSSProperties} />
+            </div>
           </div>
-          <div className="text-[11px] text-ink-3">direct</div>
+          <div className="mt-0.5 flex flex-col items-center gap-1">
+            {live ? statusPill : <div className="text-[11px] text-ink-3">direct</div>}
+            {gateLine && <div className="text-[11px] font-medium text-ink-2 tabular-nums">{gateLine}</div>}
+          </div>
         </div>
         <div className="w-[88px] shrink-0 text-right">
           <div className="text-[22px] font-medium leading-none">{f.arr_code}</div>
-          <div className="text-[11px] text-ink-3 mt-1.5 truncate">{f.arr_name}</div>
-          <div className="text-[14px] mt-0.5 tabular-nums">{f.arr_time}</div>
+          <div className="text-[11px] text-ink-3 mt-1.5 line-clamp-2 break-words min-h-[33px]">{f.arr_name}</div>
+          {stackClock(f.arr_time, f.live_arr_time ?? null, 'text-[14px] mt-0.5')}
         </div>
       </div>
 
@@ -168,16 +329,14 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
         <DetailRow items={[
           { label: 'ชั้นโดยสาร', value: f.seat_class || 'Economy' },
           { label: 'ที่นั่ง', value: `${f.seats ?? travelers.length}` },
+          ...(gateLine ? [{ label: 'Gate', value: gateLine.replace('Gate ', '') }] : []),
           { label: 'รหัสจอง', value: f.booking_ref, booking: true },
         ]} />
       </div>
-      </>
-      )}
-
-      {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
       <div className="flex items-center justify-between gap-2 mt-3.5">
-        {f ? <AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} /> : <span />}
+        <AttachLink table="flights" id={f.id} tripId={tripId} storagePath={f.storage_path} canEdit={canEdit} />
         {toggle}
+      </div>
       </div>
     </div>
   )
@@ -191,51 +350,101 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
   onDelete: (t: Train) => void
   onAdd: (dir: FlightDirection) => void
 }) {
-  const [dir, setDir] = useState<FlightDirection>('outbound')
+  const { trip } = useTrip()
+  const autoDir = useMemo(() => autoLegDir(trains, nowInTz(tripTz(trip) ?? undefined), (t) => ({ dir: t.direction ?? 'outbound', date: t.travel_date, dep: t.dep_time, arr: t.arr_time })), [trains, trip])
+  const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
+  const [open, setOpen] = useState(false)
+  const dir = manualDir ?? autoDir
   const t = trains.find((x) => (x.direction ?? 'outbound') === dir)
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
 
-  const toggle = (
-    <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
-      <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
-        style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
-      {(['outbound', 'return'] as const).map((d) => (
-        <button key={d} onClick={() => setDir(d)}
-          className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
-          {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
-        </button>
-      ))}
-    </div>
+  const chevron = t && (
+    <button onClick={() => setOpen((o) => { const n = !o; if (!n) setManualDir(null); return n })}
+      className="!size-[22px] grid place-items-center rounded-md text-white/90 hover:bg-white/15 shrink-0" aria-label={open ? 'พับ' : 'เปิด'} aria-expanded={open}>
+      <IconChevronDown size={15} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+    </button>
+  )
+  const menu = canEdit && t && (
+    <PopMenu size={22} buttonClassName="!bg-transparent !text-white hover:!bg-white/15" items={[
+      { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(t) },
+      { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(t), danger: true },
+    ]} />
   )
 
-  return (
-    <div className="card p-4">
-      <div className="flex items-start gap-2">
-        <IconTrain size={16} className="text-brand shrink-0 mt-1" />
-        <div className="min-w-0 flex-1 flex items-center gap-2">
-          {t?.travel_date && <span className="inline-flex items-center rounded-full text-white text-[13px] font-medium px-2.5 py-0.5 shrink-0" style={{ background: 'var(--color-ink)' }}>{formatFlightDate(t.travel_date)}</span>}
-          <div className="text-[13px] font-medium truncate">{t ? `${t.train_no} · ${t.operator}` : `รถไฟ${dirLabel}`}</div>
+  // ---- no train for this leg ----
+  if (!t) {
+    return (
+      <div className="card p-4">
+        <div className="flex items-center gap-2">
+          <IconTrain size={16} className="text-brand shrink-0" />
+          <div className="text-[13px] font-medium flex-1 truncate">รถไฟ{dirLabel}</div>
         </div>
-        {canEdit && t && (
-          <PopMenu items={[
-            { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => onEdit(t) },
-            { label: 'ลบ', icon: <IconTrash size={15} />, onClick: () => onDelete(t), danger: true },
-          ]} />
-        )}
-      </div>
-
-      {!t ? (
         <div className="text-center py-7">
           <p className="text-[12px] text-ink-3">ยังไม่มีรถไฟ{dirLabel}</p>
           {canEdit && (
             <button onClick={() => onAdd(dir)} className="btn-link inline-flex items-center gap-1 mt-2"><IconPlus size={14} /> เพิ่มรถไฟ{dirLabel}</button>
           )}
         </div>
-      ) : (
-      <>
-      <div className="flex items-start mt-4">
+      </div>
+    )
+  }
+
+  // slim blue strip on top (itinerary-style, nested rounded corners): date + controls
+  const strip = (
+    <div className="relative -mb-3 pt-1 pb-4 px-3.5 rounded-t-[14px] flex items-center justify-between gap-2 text-white" style={{ background: 'var(--color-brand)' }}>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <IconTrain size={14} className="shrink-0 text-white/90" />
+        <span className="text-[12px] font-medium tracking-wide truncate">{t.travel_date ? formatFlightDate(t.travel_date) : `รถไฟ${dirLabel}`}</span>
+        {open && (t.train_no || t.operator) && <span className="text-[11px] text-white/70 truncate">· {[t.train_no, t.operator].filter(Boolean).join(' · ')}</span>}
+      </div>
+      <div className="flex items-center gap-0.5 shrink-0">{menu}{chevron}</div>
+    </div>
+  )
+
+  // ---- collapsed: condensed image-style summary under the strip ----
+  if (!open) {
+    return (
+      <div className="relative flex flex-col">
+        {strip}
+        <div className="card relative p-4">
+          {/* fixed-width side columns (not flex-1) so a long station name is FORCED
+              to wrap onto its 2 reserved lines instead of stretching on one line */}
+          <div className="flex items-start gap-2">
+            <div className="w-[124px] shrink-0">
+              <div className="text-[16px] font-medium leading-tight line-clamp-2 break-words min-h-[40px]">{t.dep_name}</div>
+              <div className="text-[15px] mt-1.5 tabular-nums">{t.dep_time}</div>
+            </div>
+            <div className="flex-1 flex justify-center pt-1.5"><IconTrain size={20} className="text-brand" /></div>
+            <div className="w-[124px] shrink-0 text-right">
+              <div className="text-[16px] font-medium leading-tight line-clamp-2 break-words min-h-[40px]">{t.arr_name}</div>
+              <div className="text-[15px] mt-1.5 tabular-nums">{t.arr_time}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ---- expanded: full details under the strip ----
+  const toggle = (
+    <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
+      <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
+        style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
+      {(['outbound', 'return'] as const).map((d) => (
+        <button key={d} onClick={() => setManualDir(d)}
+          className={['relative z-10 px-3.5 h-7 rounded-full text-[12px] font-medium transition-colors', dir === d ? 'text-white' : 'text-ink-3'].join(' ')}>
+          {d === 'outbound' ? 'ขาไป' : 'ขากลับ'}
+        </button>
+      ))}
+    </div>
+  )
+  return (
+    <div className="relative flex flex-col">
+      {strip}
+      <div className="card relative p-4">
+      <div className="flex items-start mt-1">
         <div className="w-[96px] shrink-0">
-          <div className="text-[14px] font-medium leading-tight truncate">{t.dep_name}</div>
+          <div className="text-[14px] font-medium leading-tight line-clamp-2 break-words min-h-[35px]">{t.dep_name}</div>
           <div className="text-[14px] mt-1 tabular-nums">{t.dep_time}</div>
         </div>
         <div className="flex-1 flex flex-col items-center pt-1">
@@ -252,7 +461,7 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
           <div className="text-[11px] text-ink-3">direct</div>
         </div>
         <div className="w-[96px] shrink-0 text-right">
-          <div className="text-[14px] font-medium leading-tight truncate">{t.arr_name}</div>
+          <div className="text-[14px] font-medium leading-tight line-clamp-2 break-words min-h-[35px]">{t.arr_name}</div>
           <div className="text-[14px] mt-1 tabular-nums">{t.arr_time}</div>
         </div>
       </div>
@@ -268,22 +477,22 @@ function TrainCard({ trains, tripId, canEdit, onEdit, onDelete, onAdd }: {
           { label: 'รหัสจอง', value: t.booking_ref, booking: true },
         ]} />
       </div>
-      </>
-      )}
-
-      {/* attach (left) + ขาไป/ขากลับ toggle (right) on one line */}
       <div className="flex items-center justify-between gap-2 mt-3.5">
-        {t ? <AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} /> : <span />}
+        <AttachLink table="trains" id={t.id} tripId={tripId} storagePath={t.storage_path} canEdit={canEdit} />
         {toggle}
+      </div>
       </div>
     </div>
   )
 }
 
 export default function TripInfo() {
-  const { trip, travelers, travelerFiles, flights, trains, hotels, profile, reload, canEdit } = useTrip()
+  const { trip, travelers, travelerFiles, flights, trains, trainTickets, hotels, profile, reload, patch, canEdit } = useTrip()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [selected, setSelected] = useState<Traveler | null>(null)
+  const [qrFor, setQrFor] = useState<Traveler | null>(null)
+  const [othersOpen, setOthersOpen] = useState(false)
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
   const [flightEdit, setFlightEdit] = useState<EditState<Flight>>(null)
   const [newFlightDir, setNewFlightDir] = useState<FlightDirection>('outbound')
@@ -303,41 +512,218 @@ export default function TripInfo() {
   const colorOf = (t: Traveler) => travelerColor(t, travelers.findIndex((x) => x.id === t.id))
   const nextColor = ORDER[travelers.length % ORDER.length]
 
-  return (
-    <div>
-      {/* Travelers */}
-      <SectionHead title="Travelers • ผู้เดินทาง"
-        action={canEdit ? <button onClick={() => setTravelerEdit('new')} className="btn-link flex items-center gap-1"><IconUserPlus size={14} /> เพิ่มคน</button> : undefined} />
-      <div className="grid sm:grid-cols-2 gap-2.5">
-        {travelers.map((t, i) => {
-          const files = filesByTraveler.get(t.id) ?? []
-          return (
-            <button key={t.id} onClick={() => setSelected(t)} className="card p-3.5 text-left hover:bg-surface-2/30">
-              <div className="flex items-center gap-2.5">
-                <Avatar name={t.nickname} color={travelerColor(t, i)} size={34} ring={false} />
-                <div className="min-w-0">
-                  <div className="text-[14px] font-medium leading-tight">{t.nickname}</div>
-                  {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
-                </div>
+  // "Me" = the card I claimed (user_id), falling back to a profile-name match
+  const myName = profile?.nickname?.trim().toLowerCase()
+  const meTraveler = travelers.find((t) => t.user_id && t.user_id === user?.id)
+    ?? (myName ? travelers.find((t) => t.nickname?.trim().toLowerCase() === myName) : undefined)
+  const otherTravelers = travelers.filter((t) => t !== meTraveler)
+
+  // ── privacy (supabase/privacy.sql): who may open this card's documents/QRs.
+  // Unclaimed cards behave like before; the TRIP OWNER always sees everything.
+  const isTripOwner = !!trip && !!user && trip.owner_id === user.id
+  const iClaimed = travelers.some((t) => t.user_id === user?.id)
+  const canSeePrivate = (t: Traveler) =>
+    (t.privacy ?? 'private') === 'trip' || !t.user_id || t.user_id === user?.id || isTripOwner
+
+  async function shareInvite(t: Traveler) {
+    if (!t.invite_token) return
+    const url = `${location.origin}/join/${t.invite_token}`
+    const text = `มาร่วมทริป "${trip?.name ?? ''}" กัน! เปิดลิงก์เพื่อยืนยันว่าคุณคือ "${t.nickname}" → ${url}`
+    try {
+      if (navigator.share) await navigator.share({ text })
+      else { await navigator.clipboard.writeText(text); toast.success('คัดลอกลิงก์เชิญแล้ว — ส่งต่อได้เลย') }
+    } catch { /* share sheet closed */ }
+  }
+
+  async function claimCard(t: Traveler) {
+    if (!user) return
+    if (!(await confirmDialog({ message: `ตั้งการ์ด "${t.nickname ?? 'ผู้เดินทาง'}" เป็นของฉัน? เอกสาร/QR ของการ์ดนี้จะถูกตั้งเป็นส่วนตัว (คุณ + เจ้าของทริป) และคุณเปลี่ยนระดับได้ทีหลัง`, confirmLabel: 'ใช่ นี่การ์ดฉัน' }))) return
+    patch((d) => ({ travelers: d.travelers.map((x) => (x.id === t.id ? { ...x, user_id: user.id } : x)) }))
+    await claimTraveler(t.id, user.id)
+    // the card is mine now — carry my profile photo/colour onto it
+    await syncProfileToTraveler(t.id, profile)
+    reload()
+  }
+  async function togglePrivacy(t: Traveler) {
+    const next = (t.privacy ?? 'private') === 'trip' ? 'private' : 'trip'
+    // always ask before flipping — a mis-tap here changes who can see documents
+    const ok = await confirmDialog({
+      message: next === 'trip'
+        ? `เปิดให้ทุกคนในทริปเห็นเอกสาร/QR ของ "${t.nickname ?? 'การ์ดนี้'}"?`
+        : `ตั้งเอกสาร/QR ของ "${t.nickname ?? 'การ์ดนี้'}" เป็นส่วนตัว? (เห็นเฉพาะเจ้าของการ์ดกับเจ้าของทริป)`,
+      confirmLabel: next === 'trip' ? 'เปิดให้ทุกคน' : 'ตั้งเป็นส่วนตัว',
+    })
+    if (!ok) return
+    patch((d) => ({ travelers: d.travelers.map((x) => (x.id === t.id ? { ...x, privacy: next } : x)) }))
+    await setTravelerPrivacy(t.id, next)
+    toast.success(next === 'trip'
+      ? 'เปิดให้ทุกคนในทริปเห็นเอกสาร/QR ของการ์ดนี้'
+      : 'ตั้งเป็นส่วนตัวแล้ว — เห็นเฉพาะเจ้าของการ์ดกับเจ้าของทริป')
+  }
+
+  const travelerRow = (t: Traveler) => {
+    const i = travelers.indexOf(t)
+    const files = filesByTraveler.get(t.id) ?? []
+    const visible = canSeePrivate(t)
+    const isMineCard = !!user && t.user_id === user.id
+    // Count only QRs with real content — a freshly-added blank ticket (created but
+    // nothing filled/uploaded yet) shouldn't bump the tile's count.
+    const myTickets = trainTickets.filter((tk) => tk.traveler_id === t.id
+      && (tk.qr_path || tk.label || tk.note || tk.from_station || tk.to_station || tk.seat_no || tk.car || tk.gate))
+    const usedTickets = myTickets.filter((tk) => tk.used).length
+    return (
+      <div key={t.id} className="flex gap-2.5 items-stretch">
+        <button onClick={() => visible ? setSelected(t) : toast.info(`เอกสารของ "${t.nickname ?? 'การ์ดนี้'}" เป็นส่วนตัว`)}
+          className="card p-3.5 text-left hover:bg-surface-2/30 flex-1 min-w-0 relative">
+          {/* share on/off — icon at the card's top-right corner */}
+          {(isMineCard || (isTripOwner && !!t.user_id)) && (
+            <span role="button" tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); togglePrivacy(t) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); togglePrivacy(t) } }}
+              className="absolute top-2.5 right-3 z-10 grid place-items-center size-6 cursor-pointer"
+              title={(t.privacy ?? 'private') === 'trip' ? 'ทุกคนในทริปเห็นเอกสาร/QR — แตะเพื่อตั้งเป็นส่วนตัว' : 'ส่วนตัว — แตะเพื่อแชร์ให้ทุกคนในทริป'}
+              aria-label="สลับการแชร์เอกสาร">
+              {(t.privacy ?? 'private') === 'trip'
+                ? <IconUsers size={17} className="text-brand" />
+                : <IconLock size={16} style={{ color: '#E86A8E' }} />}
+            </span>
+          )}
+          <div className="flex items-center gap-2.5">
+            <Avatar name={t.nickname} color={travelerColor(t, i)} photo={t.avatar_url} photoFocus={t.avatar_focus} size={34} ring={false} />
+            <div className="min-w-0 flex-1">
+              {/* nickname line (pr-7 leaves room for the top-right share icon) */}
+              <div className="text-[14px] font-medium leading-tight flex items-center gap-1.5 pr-7">
+                <span className="truncate">{t.nickname}</span>
+                {isMineCard && (
+                  <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold shrink-0"
+                    style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>
+                )}
+                {!t.user_id && !!user && !iClaimed && (
+                  <span role="button" tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); claimCard(t) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); claimCard(t) } }}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-brand-mid bg-brand-soft/60 hover:bg-brand-soft cursor-pointer shrink-0">
+                    <IconUserCheck size={11} /> This is me
+                  </span>
+                )}
+                {/* owner can (re)send an unclaimed card's personal invite link */}
+                {isTripOwner && !t.user_id && !!t.invite_token && (
+                  <span role="button" tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); shareInvite(t) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); shareInvite(t) } }}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-brand-dark bg-brand-soft hover:opacity-80 cursor-pointer shrink-0"
+                    title="แชร์ลิงก์เชิญของคนนี้">
+                    <IconLink size={11} /> แชร์ลิงก์
+                  </span>
+                )}
               </div>
-              <div className="flex flex-wrap gap-1.5 mt-3">
+              {t.full_name && <div className="text-[11px] text-ink-3 truncate">{t.full_name}</div>}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {!visible ? (
+              <span className="chip !text-ink-3"><IconLock size={12} /> เอกสารส่วนตัว — เฉพาะเจ้าของ</span>
+            ) : (
+              <>
                 {files.map((f) => {
                   const meta = KIND_META[f.kind ?? 'other'] ?? KIND_META.other
                   return (
-                    <span key={f.id} onClick={(e) => { e.stopPropagation(); viewFile(f) }} className="chip hover:bg-surface-2 cursor-pointer">
+                    <span key={f.id} role="button" tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); viewFile(f) }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); viewFile(f) } }}
+                      className="chip hover:bg-surface-2 cursor-pointer">
                       <meta.icon size={12} /> {f.label || meta.label}
                     </span>
                   )
                 })}
                 {canEdit && (
-                  <span onClick={(e) => { e.stopPropagation(); setSelected(t) }} className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
+                  <span role="button" tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setSelected(t) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setSelected(t) } }}
+                    className="chip !text-brand-mid hover:bg-brand-soft cursor-pointer">
                     <IconPlus size={12} /> เพิ่มไฟล์
                   </span>
                 )}
+              </>
+            )}
+          </div>
+        </button>
+
+        {/* Quick QR — icon tile; hidden entirely on cards you may not open */}
+        {visible && (myTickets.length > 0 || canEdit) && (
+          <button onClick={() => setQrFor(t)}
+            className="card w-[116px] shrink-0 flex flex-col items-center justify-center gap-1.5 hover:bg-surface-2/30 transition-colors">
+            <div className="relative">
+              <div className="size-9 rounded-full bg-brand-soft grid place-items-center text-brand"><IconQrcode size={20} /></div>
+              {myTickets.length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full grid place-items-center text-[10px] font-bold text-white tabular-nums"
+                  style={{ background: 'var(--color-brand)' }}>{myTickets.length}</span>
+              )}
+            </div>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[10px] font-semibold tracking-wide leading-none">Quick QR</span>
+              {myTickets.length > 0 && (
+                <span className="text-[10px] text-ink-3 tabular-nums leading-none">ใช้แล้ว {usedTickets}</span>
+              )}
+            </div>
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // ── draft trip (no start date yet): Personal is locked until "พร้อมเดินทาง" ──
+  if (trip && !trip.start_date) {
+    return (
+      <div className="card p-8 text-center">
+        <div className="mx-auto mb-4 size-14 rounded-full grid place-items-center" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand)' }}>
+          <IconLock size={26} stroke={1.8} />
+        </div>
+        <h2 className="text-[16px] font-medium">ทริปนี้ยังเป็นแบบร่าง</h2>
+        <p className="text-[12.5px] text-ink-3 mt-2 leading-relaxed">
+          ยังไม่ได้กำหนดวันเดินทางและผู้เดินทาง — หน้านี้จะเปิดใช้เมื่อพร้อมเดินทาง<br />
+          แพลนที่ทำไว้ (สถานที่ · แพลนรายวัน) อยู่ครบ ไม่หายแน่นอน
+        </p>
+        {canEdit && (
+          <button onClick={() => navigate(`/create?upgrade=${trip.id}`)}
+            className="btn-primary h-10 px-6 mt-5 inline-flex items-center justify-center gap-1.5">
+            🚀 พร้อมเดินทางแล้ว
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* Travelers */}
+      <SectionHead title="Travelers • ผู้เดินทาง"
+        action={canEdit ? <button onClick={() => setTravelerEdit('new')} className="btn-link flex items-center gap-1"><IconUserPlus size={14} /> เพิ่มคน</button> : undefined} />
+      <div className="space-y-2.5">
+        {meTraveler && travelerRow(meTraveler)}
+        {otherTravelers.length > 0 && (meTraveler ? (
+          othersOpen ? (
+            <>
+              {otherTravelers.map((t) => travelerRow(t))}
+              <button onClick={() => setOthersOpen(false)}
+                className="w-full flex items-center justify-center gap-1 py-1.5 text-[12px] font-medium text-ink-3 hover:text-ink-2">
+                พับเก็บ <IconChevronDown size={15} className="rotate-180" />
+              </button>
+            </>
+          ) : (
+            // peek: a faint preview of the next traveler hints there are more
+            <div role="button" tabIndex={0} onClick={() => setOthersOpen(true)}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setOthersOpen(true)}
+              className="relative block w-full overflow-hidden rounded-[12px] cursor-pointer"
+              style={{ height: 66 }} aria-label={`แสดงผู้เดินทางอีก ${otherTravelers.length} คน`}>
+              <div className="opacity-55 pointer-events-none">{travelerRow(otherTravelers[0])}</div>
+              <div className="absolute inset-x-0 bottom-0 h-11 flex items-end justify-center pb-1"
+                style={{ background: 'linear-gradient(to bottom, transparent, var(--color-canvas))' }}>
+                <span className="text-[12px] font-semibold text-brand inline-flex items-center gap-1">อีก {otherTravelers.length} คน <IconChevronDown size={14} /></span>
               </div>
-            </button>
+            </div>
           )
-        })}
+        ) : otherTravelers.map((t) => travelerRow(t)))}
       </div>
 
       {/* Flights */}
@@ -377,7 +763,6 @@ export default function TripInfo() {
                     <div className="text-[11px] text-ink-3 mt-0.5">{h.city} · {h.nights} คืน</div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <AMapPill url={h.map_url} />
                     {canEdit && (
                       <PopMenu items={[
                         { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => setHotelEdit(h) },
@@ -400,21 +785,45 @@ export default function TripInfo() {
                     <div className="text-[12px] booking-id mt-0.5">{h.booking_id}</div>
                   </div>
                 </div>
+
+                {/* ใบจอง (left, aligned with Check-in) + MAP (right) */}
+                {(canEdit || h.storage_path || h.map_url) && (
+                  <div className="flex items-center justify-between gap-2 mt-3">
+                    <div className="min-w-0">
+                      {trip && <AttachLink table="hotels" id={h.id} tripId={trip.id} storagePath={h.storage_path} attachLabel="ใบจอง" viewLabel="ดูใบจอง" canEdit={canEdit} />}
+                    </div>
+                    <AMapPill url={h.map_url} />
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2 mt-3.5 flex-wrap">
-              <div className="flex flex-wrap gap-1.5">
-                {h.rooms?.map((r, i) => (
+            {h.rooms && h.rooms.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3.5">
+                {h.rooms.map((r, i) => (
                   <span key={i} className="chip"><IconBed size={12} /> {r.name} · {r.members.join(', ')}</span>
                 ))}
               </div>
-              {trip && <AttachLink table="hotels" id={h.id} tripId={trip.id} storagePath={h.storage_path} attachLabel="ใบจอง" viewLabel="ดูใบจอง" canEdit={canEdit} />}
-            </div>
+            )}
           </div>
         ))}
         {hotels.length === 0 && <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลที่พัก</div>}
       </div>
+
+      {/* Budget */}
+      <SectionHead title="Budget • ค่าใช้จ่าย" />
+      <BudgetSection />
+
+      <TravelerQr
+        open={!!qrFor}
+        onClose={() => setQrFor(null)}
+        traveler={qrFor}
+        name={qrFor?.nickname ?? 'ผู้โดยสาร'}
+        tickets={trainTickets.filter((tk) => tk.traveler_id === qrFor?.id)}
+        tripId={trip?.id ?? ''}
+        canEdit={canEdit}
+        patchTickets={(fn) => patch((d) => ({ trainTickets: fn(d.trainTickets) }))}
+      />
 
       {/* Overview drawer */}
       <TravelerDrawer
@@ -441,7 +850,7 @@ export default function TripInfo() {
             // if this traveler is "me", keep my profile name/colour in sync
             if (user && profile?.nickname && travelerEdit.nickname
               && travelerEdit.nickname.trim().toLowerCase() === profile.nickname.trim().toLowerCase()) {
-              await updateProfile(user.id, { nickname: fields.nickname, avatar_color: fields.avatar_color })
+              await updateProfile(user.id, { nickname: fields.nickname, avatar_color: fields.avatar_color, avatar_url: fields.avatar_url, avatar_focus: fields.avatar_focus })
             }
           }
           await reload()

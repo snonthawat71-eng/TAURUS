@@ -26,17 +26,32 @@ create policy "push own update" on public.push_subscriptions for update using (a
 drop policy if exists "push own delete" on public.push_subscriptions;
 create policy "push own delete" on public.push_subscriptions for delete using (auth.uid() = user_id);
 
--- 2) Dedupe table so a stop reminds each user at most once.
---    Only the service-role Edge Function touches it; RLS on with no policies
---    denies all client access.
+-- 2) Dedupe table so each alert fires at most once per user.
+--    kind: 'lead' (N นาทีก่อนเวลา) | 'ontime' (ตรงเวลา)
+--    Only the service-role sender (/api/send-reminders on Vercel) touches it;
+--    RLS on with no policies denies all client access.
 create table if not exists public.sent_reminders (
   stop_id uuid not null,
   user_id uuid not null,
+  kind text not null default 'lead',
   sent_at timestamptz not null default now(),
-  primary key (stop_id, user_id)
+  primary key (stop_id, user_id, kind)
 );
+-- upgrade an old 2-column version in place (safe to re-run)
+alter table public.sent_reminders add column if not exists kind text not null default 'lead';
+do $$ begin
+  if exists (
+    select 1 from pg_constraint
+    where conname = 'sent_reminders_pkey'
+      and conrelid = 'public.sent_reminders'::regclass
+      and array_length(conkey, 1) = 2
+  ) then
+    alter table public.sent_reminders drop constraint sent_reminders_pkey;
+    alter table public.sent_reminders add primary key (stop_id, user_id, kind);
+  end if;
+end $$;
 alter table public.sent_reminders enable row level security;
 
 -- 3) Optional per-trip timezone used to interpret day_date + time. Defaults to
---    REMINDER_DEFAULT_TZ (Asia/Bangkok) in the Edge Function when null.
+--    Asia/Bangkok in the sender when null.
 alter table public.trips add column if not exists timezone text;

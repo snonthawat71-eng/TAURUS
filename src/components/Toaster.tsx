@@ -15,7 +15,7 @@ export function Toaster() {
   if (!toasts.length) return null
 
   return createPortal(
-    <div className="fixed inset-x-0 bottom-5 z-[100] flex flex-col items-center gap-2 px-4 pointer-events-none">
+    <div className="fixed inset-x-0 bottom-5 z-[720] flex flex-col items-center gap-2 px-4 pointer-events-none">
       {toasts.map((t) => {
         const { bg, fg, Icon } = STYLE[t.kind]
         return (

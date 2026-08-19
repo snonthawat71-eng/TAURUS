@@ -24,6 +24,28 @@ function parse(d: string | null | undefined): Date | null {
   return isNaN(dt.getTime()) ? null : dt
 }
 
+/** Today as `YYYY-MM-DD` in the user's OWN timezone.
+ *
+ *  `new Date().toISOString().slice(0, 10)` looks like the same thing and isn't:
+ *  it gives the date in UTC, so anywhere ahead of it (Bangkok is UTC+7) it still
+ *  reads as yesterday until mid-morning. Two screens counting down to the same
+ *  trip disagreed by a day every night because of exactly that. */
+export function todayISO(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/** Whole days from today until a trip starts (local, date-only). Negative once
+ *  it has started, null when undated. The number behind `tripCountdown`. */
+export function daysUntil(start: string | null | undefined): number | null {
+  const s = parse(start)
+  if (!s) return null
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const sd = new Date(s); sd.setHours(0, 0, 0, 0)
+  return Math.round((sd.getTime() - today.getTime()) / 86400000)
+}
+
 /** "12–18 Mar 2025" */
 export function formatDateRange(start: string | null, end: string | null): string {
   const a = parse(start)
@@ -43,6 +65,30 @@ export function dayCount(start: string | null, end: string | null): number {
   const b = parse(end)
   if (!a || !b) return 0
   return Math.round((b.getTime() - a.getTime()) / 86400000) + 1
+}
+
+/**
+ * A friendly countdown to a trip's start (date-only, local). Returns null for
+ * undated or already-finished trips, so the caller can simply hide it.
+ *  > 1 day  → "อีก 12 วัน"   · tomorrow → "พรุ่งนี้"   · today → "วันนี้"
+ *  underway → "กำลังเที่ยว · วันที่ 2"
+ */
+export function tripCountdown(start: string | null, end: string | null): string | null {
+  const s = parse(start)
+  const diff = daysUntil(start)
+  if (!s || diff == null) return null
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const sd = new Date(s); sd.setHours(0, 0, 0, 0)
+  if (diff > 1) return `อีก ${diff} วัน`
+  if (diff === 1) return 'พรุ่งนี้'
+  if (diff === 0) return 'วันนี้'
+  const e = parse(end) ?? s
+  const ed = new Date(e); ed.setHours(0, 0, 0, 0)
+  if (today.getTime() <= ed.getTime()) {
+    const dayNum = Math.round((today.getTime() - sd.getTime()) / 86400000) + 1
+    return `กำลังเที่ยว · วันที่ ${dayNum}`
+  }
+  return null
 }
 
 /** "Wednesday · 12 March 2025" */

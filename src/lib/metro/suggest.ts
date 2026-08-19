@@ -1,6 +1,7 @@
 // Autocomplete suggestions for the manual TransitEditor / ExploreEditor: line
 // names, station names and per-line station numbers, sourced from the built-in
-// networks (Osaka Metro + Hong Kong MTR + Shanghai Metro). These power the
+// networks (Osaka incl. JR West, Tokyo, Hong Kong, Shanghai, Beijing, Shenzhen,
+// Guangzhou, Taipei + Taoyuan Airport MRT, Singapore). These power the
 // Combobox dropdowns so users can pick from known data without retyping — while
 // still being free to type any custom value (including stations not listed).
 //
@@ -11,7 +12,12 @@
 import { OSAKA } from './osaka'
 import { HK_NETWORK } from './hkNetwork'
 import { SHANGHAI } from './shanghai'
+import { BEIJING } from './beijing'
 import { SHENZHEN } from './shenzhen'
+import { GUANGZHOU } from './guangzhou'
+import { TAIPEI } from './taipei'
+import { SINGAPORE } from './singapore'
+import { TOKYO } from './tokyo'
 import type { Trip } from '@/lib/database.types'
 
 export interface StationSuggest { name: string; num?: string }
@@ -25,21 +31,41 @@ export interface TransitSuggest {
 const HK_MATCH = ['hong kong', 'hongkong', 'ฮ่องกง', ' hk', 'mtr']
 
 // Every built-in network normalised to a common { match, lines } shape.
-interface RawNetwork { match: string[]; lines: LineSuggest[] }
+// `match` = คำที่ชี้เมืองนั้นตรงๆ · `broad` = คำระดับประเทศ ใช้เป็นตัวสำรอง
+// เท่านั้น เพราะประเทศเดียวมีได้หลายเมือง (ญี่ปุ่น = โอซาก้า + โตเกียว) ถ้าเอา
+// คำประเทศไปไว้ใน match ทริปโตเกียวจะดึงสายโอซาก้ามาปนทันที
+interface RawNetwork { match: string[]; broad?: string[]; lines: LineSuggest[] }
+const JAPAN = ['japan', 'ญี่ปุ่น', '日本']
 const NETWORKS: RawNetwork[] = [
-  { match: OSAKA.match, lines: OSAKA.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
+  { match: OSAKA.match, broad: JAPAN, lines: OSAKA.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: HK_MATCH, lines: HK_NETWORK.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHANGHAI.match, lines: SHANGHAI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
+  { match: BEIJING.match, lines: BEIJING.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHENZHEN.match, lines: SHENZHEN.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
+  { match: GUANGZHOU.match, lines: GUANGZHOU.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
+  { match: TAIPEI.match, lines: TAIPEI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
+  { match: SINGAPORE.match, lines: SINGAPORE.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
+  { match: TOKYO.match, broad: JAPAN, lines: TOKYO.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
 ]
 
 /** Collect line/station suggestions only for the network(s) matching the given text. */
 export function suggestionsFromText(text: string): TransitSuggest {
   const h = ` ${text.toLowerCase()} `
-  const lines: LineSuggest[] = []
-  for (const n of NETWORKS) {
-    if (n.match.some((m) => h.includes(m.toLowerCase()))) lines.push(...n.lines)
-  }
+  // spelled loose too — "Guang Zhou" / "Hong-Kong" should find their network.
+  // Short keywords (' hk', 'mtr') stay on the strict test: without their spaces
+  // they'd start matching the middle of unrelated words.
+  const tight = h.replace(/[\s._'’`´\-–—,()/]+/g, '')
+  const hit = (ks?: string[]) => !!ks?.some((m) => {
+    const k = m.toLowerCase()
+    if (h.includes(k)) return true
+    const kt = k.replace(/[\s._'’`´\-–—,()/]+/g, '')
+    return kt.length >= 4 && tight.includes(kt)
+  })
+  // เมืองที่ระบุชัดชนะเสมอ; ถ้าไม่เจอเมืองไหนเลยค่อยตกมาใช้คำระดับประเทศ
+  // (ทริปที่เขียนแค่ "ญี่ปุ่น" ยังได้ทั้งโอซาก้าและโตเกียว ซึ่งถูกต้องแล้ว)
+  let matched = NETWORKS.filter((n) => hit(n.match))
+  if (!matched.length) matched = NETWORKS.filter((n) => hit(n.broad))
+  const lines: LineSuggest[] = matched.flatMap((n) => n.lines)
 
   const set = new Set<string>()
   for (const l of lines) for (const s of l.stations) set.add(s.name)
@@ -50,6 +76,54 @@ export function suggestionsFromText(text: string): TransitSuggest {
 export function getTransitSuggestions(trip: Trip | null | undefined): TransitSuggest {
   if (!trip) return { lines: [], stations: [] }
   return suggestionsFromText([trip.country ?? '', ...(trip.cities ?? []), trip.name ?? ''].join(' '))
+}
+
+/** Look up the per-line station code (e.g. "BR09", "M16") for a line+station
+ *  pair, scanning every built-in network. Returns null when unknown — networks
+ *  without codes (HK/Shanghai/Shenzhen), or a custom value the user typed.
+ *
+ *  The stored JR codes carry a "JR-" prefix purely to keep them from colliding
+ *  with Metro codes internally (New Tram P09–P18 vs JR Yumesaki P14–P17). It is
+ *  dropped here so the UI shows the line symbol + station number the way the
+ *  roundels expect — "O01", not "JR-O01" — which is also how JR West prints it
+ *  on the actual station signs. */
+export function stationCode(line: string | null | undefined, station: string | null | undefined): string | null {
+  if (!line || !station) return null
+  const ln = line.trim().toLowerCase()
+  const sn = station.trim().toLowerCase()
+  for (const n of NETWORKS) {
+    const l = n.lines.find((x) => x.name.toLowerCase() === ln)
+    const s = l?.stations.find((x) => x.name.toLowerCase() === sn && x.num)
+    if (s?.num) return s.num.replace(/^JR-/i, '')
+  }
+  return null
+}
+
+/** Official colour for a known line name. Display code prefers this over the
+ *  colour stored on the row, so fixing a wrong line colour here also fixes
+ *  places that were saved earlier.
+ *
+ *  `where` = the place's city/country, used to pick the right network: four
+ *  Chinese cities all call their lines "Line 1"/"Line 3" in different colours,
+ *  so without it a Guangzhou stop would take Shanghai's palette. With no hint
+ *  the colour is only returned when every network that knows the name agrees —
+ *  otherwise null, and the caller falls back to the colour saved on the row. */
+export function lineColorFor(line: string | null | undefined, where?: string | null): string | null {
+  if (!line) return null
+  const ln = line.trim().toLowerCase()
+  const scoped = where ? networksFor(where) : []
+  const pool = scoped.length ? scoped : NETWORKS
+  const found = pool.flatMap((n) => n.lines.filter((x) => x.name.toLowerCase() === ln && x.color).map((x) => x.color))
+  if (!found.length) return null
+  if (scoped.length) return found[0]
+  // ambiguous across cities and nothing to disambiguate with → don't guess
+  return found.every((c) => c.toLowerCase() === found[0].toLowerCase()) ? found[0] : null
+}
+
+/** The network(s) whose keywords appear in a free-text city/country hint. */
+function networksFor(where: string): RawNetwork[] {
+  const h = ` ${where.toLowerCase()} `
+  return NETWORKS.filter((n) => n.match.some((m) => h.includes(m.toLowerCase())))
 }
 
 /** Find a suggested line by its (case-insensitive) name. */

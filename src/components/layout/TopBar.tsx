@@ -1,34 +1,16 @@
-import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { IconShare2, IconUserCircle, IconHome, IconWorldSearch } from '@tabler/icons-react'
+import { IconUserCircle, IconHome, IconWorldSearch } from '@tabler/icons-react'
 import { NAV_ITEMS } from './nav'
 import { TripSwitcher } from '@/components/TripSwitcher'
-import { ShareDialog } from '@/components/ShareDialog'
-import { ProfileEditor } from '@/components/ProfileEditor'
 import { FxWidget } from '@/components/FxWidget'
-import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { useUnreadNotifs } from '@/lib/useUnreadNotifs'
 
 export function TopBar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { trip, travelers, profile: myProfile, myPermission } = useTrip()
   const { user } = useAuth()
-  const [share, setShare] = useState(false)
-  const [profile, setProfile] = useState(false)
-
-  // First time entering a trip that was shared with me (I'm not the owner): pop
-  // the "which traveler am I" picker. Shown once per trip, and skipped if my name
-  // already matches a traveler here. Remembered in localStorage.
-  useEffect(() => {
-    if (!user || !trip || myPermission !== 'edit' || !travelers.length) return
-    const key = `taurus:claimed:${user.id}:${trip.id}`
-    if (localStorage.getItem(key)) return
-    const myName = myProfile?.nickname?.trim().toLowerCase()
-    const linked = !!myName && travelers.some((t) => t.nickname?.trim().toLowerCase() === myName)
-    if (!linked) setProfile(true)
-    localStorage.setItem(key, '1')
-  }, [user, trip?.id, myPermission, travelers, myProfile]) // eslint-disable-line react-hooks/exhaustive-deps
+  const unread = useUnreadNotifs(user?.id)
 
   const current = NAV_ITEMS.find((n) => pathname.startsWith(n.to))
   const title = current?.label ?? 'TAURUS'
@@ -53,18 +35,12 @@ export function TopBar() {
         <button onClick={() => navigate('/')} className="btn-icon" aria-label="หน้าแรก" title="หน้าแรก">
           <IconHome size={16} />
         </button>
-        {/* แชร์ทริป */}
-        <button onClick={() => setShare(true)} className="btn-icon" aria-label="แชร์ทริป" title="แชร์ทริป">
-          <IconShare2 size={16} />
-        </button>
-        {/* โปรไฟล์ของฉัน — ขวาสุด */}
-        <button onClick={() => setProfile(true)} className="btn-icon" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
+        {/* โปรไฟล์ของฉัน — ขวาสุด (จุดแดง = มีแจ้งเตือนยังไม่อ่าน) */}
+        <button onClick={() => navigate('/profile')} className="btn-icon relative" aria-label="โปรไฟล์ของฉัน" title="โปรไฟล์ของฉัน">
           <IconUserCircle size={16} />
+          {unread && <span className="absolute top-1 right-1 size-2 rounded-full bg-[#EF4444]" style={{ boxShadow: '0 0 0 2px var(--color-canvas)' }} />}
         </button>
       </div>
-
-      <ShareDialog open={share} onClose={() => setShare(false)} />
-      <ProfileEditor open={profile} onClose={() => setProfile(false)} />
     </header>
   )
 }

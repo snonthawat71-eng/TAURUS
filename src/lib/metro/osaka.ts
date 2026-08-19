@@ -3,13 +3,21 @@ import type { MetroNetwork, LineStation } from './types'
 // Compact helper: st(id, name, number)
 const s = (id: string, name: string, num: string): LineStation => ({ id, name, num })
 
-// Osaka Metro — ทุก "เส้นที่มีสี" (9 สาย: 8 สายใต้ดิน + New Tram/Nankō Port Town).
-// สถานีเปลี่ยนสายใช้ id เดียวกันข้ามสาย (เป็น interchange). ลำดับสถานี + จุดเปลี่ยนสาย
-// คือสิ่งสำคัญต่อการคำนวณเส้นทาง; พิกัดเป็นแบบ schematic ปรับได้ง่าย.
+// Osaka Metro (9 สาย: 8 สายใต้ดิน + New Tram/Nankō Port Town) + JR West ในเขต
+// Osaka City (10 เส้นทาง). สถานีเปลี่ยนสายใช้ id เดียวกันข้ามสาย (เป็น interchange)
+// ลำดับสถานี + จุดเปลี่ยนสายคือสิ่งสำคัญต่อการคำนวณเส้นทาง; พิกัดเป็นแบบ schematic
+//
+// JR: รหัสสถานีใช้รูปแบบ "JR-O01" ตามที่ JR West กำหนด (line symbol + number) —
+// จำเป็นต้องมีคำนำหน้า JR- เพราะโค้ดดิบชนกับ Metro (New Tram ใช้ P09–P18 ส่วน
+// JR Yumesaki ใช้ P14–P17) ถ้าไม่คั่นไว้ ชื่อสถานี Metro จะถูกทับ
+// สาย A (Kyoto/Kobe) และ H (Gakkentoshi/Tozai) ใช้สัญลักษณ์ร่วมกันแต่คนละเส้นทาง
+// จึงแยกเป็นคนละ line object ตามที่ข้อมูลต้นทางระบุ
 export const OSAKA: MetroNetwork = {
   id: 'osaka',
   name: 'Osaka Metro',
-  match: ['osaka', 'โอซาก้า', 'โอซาก้า', 'japan', 'ญี่ปุ่น'],
+  // เฉพาะคำที่ชี้ 'โอซาก้า' เท่านั้น — คำระดับประเทศ (japan/ญี่ปุ่น) ย้ายไปเป็น
+  // ตัวสำรองใน suggest.ts ไม่งั้นทริปโตเกียวจะดึงสายโอซาก้ามาปนด้วย
+  match: ['osaka', 'โอซาก้า', '大阪'],
   lines: [
     {
       id: 'M', name: 'Midosuji', color: '#E5171F',
@@ -95,6 +103,84 @@ export const OSAKA: MetroNetwork = {
         s('port-town-nishi', 'Port Town-nishi', 'P12'), s('port-town-higashi', 'Port Town-higashi', 'P13'), s('ferry-terminal', 'Ferry Terminal', 'P14'),
         s('nanko-higashi', 'Nanko-higashi', 'P15'), s('nanko-guchi', 'Nanko-guchi', 'P16'), s('hirabayashi', 'Hirabayashi', 'P17'),
         s('suminoekoen', 'Suminoekoen', 'P18'),
+      ],
+    },
+    // ── JR West (เขต Osaka City) ─────────────────────────────────────────────
+    {
+      id: 'JR-O', name: 'JR Osaka Loop Line', color: '#E80000',
+      stations: [
+        s('tennoji', 'Tennoji', 'JR-O01'), s('jr-teradacho', 'Teradacho', 'JR-O02'), s('jr-momodani', 'Momodani', 'JR-O03'),
+        s('tsuruhashi', 'Tsuruhashi', 'JR-O04'), s('tamatsukuri', 'Tamatsukuri', 'JR-O05'), s('morinomiya', 'Morinomiya', 'JR-O06'),
+        s('jr-osakajokoen', 'Osakajokoen', 'JR-O07'), s('kyobashi', 'Kyobashi', 'JR-O08'), s('jr-sakuranomiya', 'Sakuranomiya', 'JR-O09'),
+        s('jr-temma', 'Temma', 'JR-O10'), s('umeda', 'Osaka', 'JR-O11'), s('jr-fukushima', 'Fukushima', 'JR-O12'),
+        s('jr-noda', 'Noda', 'JR-O13'), s('jr-nishikujo', 'Nishikujo', 'JR-O14'), s('bentencho', 'Bentencho', 'JR-O15'),
+        s('taisho', 'Taisho', 'JR-O16'), s('jr-ashiharabashi', 'Ashiharabashi', 'JR-O17'), s('jr-imamiya', 'Imamiya', 'JR-O18'),
+        s('jr-shin-imamiya', 'Shin-Imamiya', 'JR-O19'),
+      ],
+    },
+    {
+      id: 'JR-P', name: 'JR Yumesaki Line', color: '#003C88',
+      stations: [
+        s('jr-nishikujo', 'Nishikujo', 'JR-P14'), s('jr-ajikawaguchi', 'Ajikawaguchi', 'JR-P15'),
+        s('jr-universal-city', 'Universal-City', 'JR-P16'), s('jr-sakurajima', 'Sakurajima', 'JR-P17'),
+      ],
+    },
+    {
+      id: 'JR-Q', name: 'JR Yamatoji Line', color: '#00A569',
+      stations: [
+        s('jr-namba', 'JR Namba', 'JR-Q17'), s('jr-imamiya', 'Imamiya', 'JR-Q18'),
+        s('jr-shin-imamiya', 'Shin-Imamiya', 'JR-Q19'), s('tennoji', 'Tennoji', 'JR-Q20'),
+      ],
+    },
+    {
+      id: 'JR-R', name: 'JR Hanwa Line', color: '#FF8E1F',
+      stations: [
+        s('tennoji', 'Tennoji', 'JR-R20'), s('jr-bishoen', 'Bishoen', 'JR-R21'), s('jr-minami-tanabe', 'Minami-Tanabe', 'JR-R22'),
+        s('jr-tsurugaoka', 'Tsurugaoka', 'JR-R23'), s('nagai', 'Nagai', 'JR-R24'), s('jr-abikocho', 'Abikocho', 'JR-R25'),
+        s('jr-sugimotocho', 'Sugimotocho', 'JR-R26'),
+      ],
+    },
+    {
+      // F03 Minami-Suita อยู่นอกเขต Osaka City จึงไม่รวมไว้
+      id: 'JR-F', name: 'JR Osaka Higashi Line', color: '#387394',
+      stations: [
+        s('umeda', 'Osaka', 'JR-F01'), s('shin-osaka', 'Shin-Osaka', 'JR-F02'), s('jr-awaji', 'JR-Awaji', 'JR-F04'),
+        s('jr-shirokitakoendori', 'Shirokitakoendori', 'JR-F05'), s('jr-noe', 'JR-Noe', 'JR-F06'),
+        s('shigino', 'Shigino', 'JR-F07'), s('jr-hanaten', 'Hanaten', 'JR-F08'),
+      ],
+    },
+    {
+      id: 'JR-H1', name: 'JR Gakkentoshi Line', color: '#FF1493',
+      stations: [
+        s('jr-hanaten', 'Hanaten', 'JR-H39'), s('shigino', 'Shigino', 'JR-H40'), s('kyobashi', 'Kyobashi', 'JR-H41'),
+      ],
+    },
+    {
+      id: 'JR-H2', name: 'JR Tozai Line', color: '#FF1493',
+      stations: [
+        s('kyobashi', 'Kyobashi', 'JR-H41'), s('jr-osakajokitazume', 'Osakajokitazume', 'JR-H42'),
+        s('jr-osakatemmangu', 'Osakatemmangu', 'JR-H43'), s('jr-kitashinchi', 'Kitashinchi', 'JR-H44'),
+        s('jr-shin-fukushima', 'Shin-Fukushima', 'JR-H45'), s('jr-ebie', 'Ebie', 'JR-H46'),
+        s('jr-mitejima', 'Mitejima', 'JR-H47'),
+      ],
+    },
+    {
+      id: 'JR-A1', name: 'JR Kyoto Line', color: '#0072BC',
+      stations: [
+        s('jr-higashi-yodogawa', 'Higashi-Yodogawa', 'JR-A45'), s('shin-osaka', 'Shin-Osaka', 'JR-A46'),
+        s('umeda', 'Osaka', 'JR-A47'),
+      ],
+    },
+    {
+      id: 'JR-A2', name: 'JR Kobe Line', color: '#0072BC',
+      stations: [
+        s('umeda', 'Osaka', 'JR-A47'), s('jr-tsukamoto', 'Tsukamoto', 'JR-A48'),
+      ],
+    },
+    {
+      id: 'JR-G', name: 'JR Takarazuka Line', color: '#FFC600',
+      stations: [
+        s('umeda', 'Osaka', 'JR-G47'), s('jr-tsukamoto', 'Tsukamoto', 'JR-G48'),
       ],
     },
   ],

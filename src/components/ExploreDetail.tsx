@@ -1,23 +1,46 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import {
-  IconHeart, IconHeartFilled, IconMapPin, IconThumbUp, IconThumbUpFilled,
-  IconThumbDown, IconThumbDownFilled, IconSend, IconTrash, IconLoader2, IconArrowBackUp,
-  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconPhoto,
+  IconHeart, IconHeartFilled, IconMapPin,
+  IconSend, IconTrash, IconLoader2, IconArrowBackUp,
+  IconBuildingStore, IconToolsKitchen2, IconFileTypePdf, IconZoomScan, IconPhoto, IconChevronDown,
+  IconMessageReport, IconRoute, IconPencil, IconFlag, IconCheck, IconX,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
-import { SignedImage } from './SignedImage'
+import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
 import { Avatar } from './Avatar'
-import { StarRating } from './StarRating'
+import { ExploreReviewPanel } from './ExploreReviewPanel'
+import { BranchPicker } from './BranchPicker'
 import { catMeta } from '@/lib/placeMeta'
 import { modeMeta } from '@/lib/transitModes'
 import { openMap } from '@/lib/maps'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
-import { listComments, addComment, deleteComment, getVotes, setVote, ratingFrom } from '@/lib/exploreMutations'
-import type { ExplorePlace, ExploreComment } from '@/lib/database.types'
+import { listComments, addComment, deleteComment, listSuggestions, resolveSuggestion, suggestionToInput, updateExplore } from '@/lib/exploreMutations'
+import { getReviews, emptyStat, type ReviewData } from '@/lib/exploreReviews'
+import { supabase } from '@/lib/supabase'
+import { toast } from '@/lib/toast'
+import { SignedImage } from './SignedImage'
+import type { ExplorePlace, ExploreComment, ExploreSuggestion, SuggestionKind } from '@/lib/database.types'
+import { lineColorFor } from '@/lib/metro/suggest'
 
-function timeAgo(iso: string) {
+export const SUG_META: Record<SuggestionKind, { label: string; icon: typeof IconRoute }> = {
+  route: { label: 'เพิ่มเส้นทาง', icon: IconRoute },
+  branch: { label: 'เพิ่มสาขา', icon: IconBuildingStore },
+  edit: { label: 'แก้ข้อมูล', icon: IconPencil },
+  report: { label: 'รายงาน', icon: IconFlag },
+}
+/** one-line summary of a suggestion's payload for the owner's review row */
+export function sugSummary(s: ExploreSuggestion): string {
+  const p = (s.payload ?? {}) as Record<string, string | null | undefined>
+  if (s.kind === 'route') return [p.line, p.station].filter(Boolean).join(' · ') || '(เส้นทางใหม่)'
+  if (s.kind === 'branch') return p.label || p.map_url || '(สาขาใหม่)'
+  if (s.kind === 'edit') return [p.name && `ชื่อ: ${p.name}`, p.photo_url && 'เปลี่ยนรูป'].filter(Boolean).join(' · ') || 'แก้ข้อมูล'
+  const reasons: Record<string, string> = { wrong: 'ข้อมูลผิด', closed: 'ปิดถาวร', duplicate: 'ซ้ำกับที่อื่น', other: 'อื่น ๆ' }
+  return reasons[(p.reason as string) ?? 'other'] ?? 'รายงาน'
+}
+
+export function timeAgo(iso: string) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
   if (s < 60) return 'เมื่อสักครู่'
   if (s < 3600) return `${Math.floor(s / 60)} นาทีที่แล้ว`
@@ -26,17 +49,64 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
 }
 
-export function ExploreDetail({ e, open, saved, onClose, onFav }: {
+/** All-plans-style row card for a nearby suggestion. */
+export function NearbyCard({ p, onOpen }: { p: ExplorePlace; onOpen?: (p: ExplorePlace) => void }) {
+  const m = catMeta(p.category)
+  const Ic = m.icon
+  return (
+    <div className="card p-3 flex items-center gap-3">
+      <button onClick={() => onOpen?.(p)} disabled={!onOpen} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+        <span className="size-12 rounded-md overflow-hidden grid place-items-center shrink-0" style={{ background: m.bg, color: m.fg }}>
+          <SignedImage url={p.photo_url} focus={p.photo_focus} alt={p.name ?? ''} width={96}
+            className="w-full h-full object-cover" fallback={<Ic size={20} stroke={1.5} />} />
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[14px] font-medium truncate">{p.name}</span>
+            {(p.multi_branch || !!p.branches?.length) && (
+              <span className="chip !py-0 !px-1.5 !text-[10px] inline-flex items-center gap-0.5 shrink-0"><IconBuildingStore size={11} /> หลายสาขา</span>
+            )}
+          </div>
+          {(p.station_line || p.station_name) && (
+            <div className="flex items-center gap-1.5 text-[11px] text-ink-3 mt-0.5">
+              <span className="size-2 rounded-full shrink-0" style={{ background: lineColorFor(p.station_line, p.city) ?? p.station_color ?? '#888780' }} />
+              <span className="truncate">{p.station_line}{p.station_name ? ` · ${p.station_name}` : ''}</span>
+            </div>
+          )}
+        </div>
+      </button>
+      <button onClick={() => openMap(p.map_url)} disabled={!p.map_url}
+        className="inline-flex items-center gap-1 text-[11px] text-ink-3 enabled:hover:text-brand-mid shrink-0">
+        <IconMapPin size={13} /> MAP
+      </button>
+    </div>
+  )
+}
+
+export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPlace, onSuggest, onItemChanged }: {
   e: ExplorePlace | null
   open: boolean
   saved: boolean
   onClose: () => void
   onFav: () => void
+  /** tap a nearby suggestion → open that place's detail instead */
+  onOpenPlace?: (p: ExplorePlace) => void
+  /** non-owner "raise a hand to help edit / report" */
+  onSuggest?: () => void
+  /** owner accepted a suggestion → tell the page to reload its list */
+  onItemChanged?: () => void
 }) {
   const { user } = useAuth()
   const { profile } = useTrip()
+  // owner-accepted edits are re-fetched into `override` so the detail updates
+  // immediately without waiting for the parent list to reload.
+  const [override, setOverride] = useState<ExplorePlace | null>(null)
+  const e = override ?? eProp
+  const isOwner = !!user && !!e && e.created_by === user.id
+  const [suggestions, setSuggestions] = useState<ExploreSuggestion[]>([])
+  const [busySug, setBusySug] = useState<string | null>(null)
   const [comments, setComments] = useState<ExploreComment[]>([])
-  const [votes, setVotes] = useState({ up: 0, down: 0, mine: 0 })
+  const [reviews, setReviews] = useState<ReviewData>({ rows: [], stat: emptyStat(), mine: null })
   const [text, setText] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
@@ -44,6 +114,35 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
   const [loading, setLoading] = useState(true)
   // full-size photo viewer — index into the extra-photos gallery (null = closed)
   const [lightbox, setLightbox] = useState<number | null>(null)
+  // สถานที่ใกล้เคียง — same STATION in the same city first (falls back to the
+  // whole city when this place has no station or nothing shares one)
+  const [nearby, setNearby] = useState<ExplorePlace[]>([])
+  const [nearbyOpen, setNearbyOpen] = useState(false)
+  const [nearbyByStation, setNearbyByStation] = useState(false)
+  useEffect(() => {
+    setNearby([]); setNearbyOpen(false); setNearbyByStation(false)
+    if (!open || !e?.city?.trim()) return
+    let active = true
+    // match by the STATION NAME only (station_name vs station_name) — ไม่เอา
+    // ทั้งสายรถไฟ/สาขาอื่นมาปน; ที่ไม่มีสถานีเลยค่อยถอยไปแนะนำระดับเมือง
+    const norm = (x?: string | null) => (x ?? '').trim().toLowerCase()
+    const mine = norm(e.station_name)
+    supabase.from('explore_places').select('*')
+      .eq('city', e.city).neq('id', e.id)
+      .order('created_at', { ascending: false }).limit(50)
+      .then(({ data }) => {
+        if (!active) return
+        const rows = (data ?? []) as ExplorePlace[]
+        if (mine) {
+          setNearby(rows.filter((pl) => norm(pl.station_name) === mine))
+          setNearbyByStation(true)
+        } else {
+          setNearby(rows)
+          setNearbyByStation(false)
+        }
+      })
+    return () => { active = false }
+  }, [open, e?.id, e?.city])
   // which branch (chain location) is selected; null = the item's own location
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
   const hasOwnLocation = !!(e && (e.map_url || e.station_name || e.station_line))
@@ -55,10 +154,36 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
 
   async function refresh() {
     if (!e) return
-    const [cRes, v] = await Promise.all([listComments(e.id), getVotes(e.id, user?.id)])
+    const [cRes, r] = await Promise.all([listComments(e.id), getReviews(e.id, user?.id)])
     setComments((cRes.data ?? []) as ExploreComment[])
-    setVotes(v)
+    setReviews(r)
+    if (isOwner) setSuggestions(await listSuggestions(e.id))
     setLoading(false)
+  }
+  /** only the star data — used after rating so the drawer doesn't re-fetch it all */
+  async function refreshReviews() { if (e) setReviews(await getReviews(e.id, user?.id)) }
+
+  // reset the owner-edit override (and pending list) when the item itself changes
+  useEffect(() => { setOverride(null); setSuggestions([]) }, [eProp?.id])
+
+  async function applySug(s: ExploreSuggestion) {
+    if (!e) return
+    setBusySug(s.id)
+    const input = suggestionToInput(e, s)
+    if (input) await updateExplore(e.id, input)
+    await resolveSuggestion(s.id, 'accepted')
+    const { data } = await supabase.from('explore_places').select('*').eq('id', e.id).maybeSingle()
+    if (data) setOverride(data as ExplorePlace)
+    setSuggestions((xs) => xs.filter((x) => x.id !== s.id))
+    setBusySug(null)
+    onItemChanged?.()
+    toast.success(input ? 'นำไปใช้แล้ว — อัปเดตให้เรียบร้อย' : 'รับเรื่องแล้ว')
+  }
+  async function dismissSug(s: ExploreSuggestion) {
+    setBusySug(s.id)
+    await resolveSuggestion(s.id, 'dismissed')
+    setSuggestions((xs) => xs.filter((x) => x.id !== s.id))
+    setBusySug(null)
   }
 
   useEffect(() => {
@@ -71,17 +196,11 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, e?.id])
 
-  async function vote(v: 1 | -1) {
-    if (!e || !user) return
-    await setVote(e.id, user.id, v, votes.mine)
-    setVotes(await getVotes(e.id, user.id))
-  }
-
   async function send(body: string, parentId?: string | null) {
     if (!e || !user || !body.trim()) return
     setSending(true)
     const name = profile?.nickname ?? user.email?.split('@')[0] ?? 'ผู้ใช้'
-    await addComment(e.id, user.id, body.trim(), name, profile?.avatar_color ?? null, parentId ?? null)
+    await addComment(e.id, user.id, body.trim(), name, profile?.avatar_color ?? null, parentId ?? null, profile?.avatar_url ?? null, profile?.avatar_focus ?? null)
     setText('')
     setReplyText('')
     setReplyTo(null)
@@ -106,7 +225,7 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
     return childrenOf(parentId).map((c) => (
       <div key={c.id} className={depth > 0 ? 'pl-7' : ''}>
         <div className="flex items-start gap-2">
-          <Avatar name={c.author_name} color={c.author_color} size={depth > 0 ? 26 : 30} ring={false} />
+          <Avatar name={c.author_name} color={c.author_color} photo={c.author_photo} photoFocus={c.author_focus} size={depth > 0 ? 26 : 30} ring={false} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="text-[12px] font-medium truncate">{c.author_name ?? 'ผู้ใช้'}</span>
@@ -126,7 +245,7 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
             )}
             {replyTo === c.id && (
               <div className="flex items-start gap-2 mt-2">
-                <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} size={26} ring={false} />
+                <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={26} ring={false} />
                 <div className="flex-1 min-w-0">
                   <textarea value={replyText} onChange={(ev) => setReplyText(ev.target.value)} rows={2} autoFocus
                     placeholder={`ตอบกลับ ${c.author_name ?? ''}…`}
@@ -170,13 +289,12 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
       {/* cover (contained card so the drag handle stays usable) */}
       <div className="relative h-52 rounded-[14px] overflow-hidden mt-1 bg-surface-2">
-        <SignedImage url={e.photo_url} focus={e.photo_focus} alt={e.name ?? ''} className="absolute inset-0 w-full h-full object-cover" width={800}
-          fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={52} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
-        {e.photo_url && (
-          <>
-            <button onClick={() => setLightbox(0)} aria-label="ดูรูปเต็ม" className="absolute inset-0 cursor-zoom-in" />
-            <span className="absolute top-2.5 left-2.5 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
-          </>
+        {gallery.length > 0
+          ? <PhotoCarousel photos={gallery} alt={e.name ?? ''} width={800} focus={e.photo_focus} onExpand={(i) => setLightbox(i)}
+              fallback={<div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={52} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>} />
+          : <div className="w-full h-full grid place-items-center" style={{ background: meta.bg }}><Icon size={52} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} /></div>}
+        {gallery.length > 0 && (
+          <span className="absolute top-2.5 left-2.5 z-20 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
         )}
         <button onClick={onFav} aria-label={saved ? 'เอาออกจากที่เซฟ' : 'เซฟเข้าทริปของฉัน'}
           className="absolute bottom-2.5 right-2.5 size-10 rounded-full grid place-items-center shadow-md z-10"
@@ -193,20 +311,8 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
 
       {/* branch picker — for chains with multiple locations */}
       {branches.length > 0 && (
-        <div className="mt-2">
-          <div className="text-[11px] text-ink-3 mb-1.5">เลือกสาขา ({branches.length})</div>
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-            {hasOwnLocation && (
-              <button onClick={() => setBranchIdx(null)}
-                className={['chip shrink-0', branchIdx === null ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
-                style={branchIdx === null ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>ที่ตั้งหลัก</button>
-            )}
-            {branches.map((b, i) => (
-              <button key={i} onClick={() => setBranchIdx(i)}
-                className={['chip shrink-0', branchIdx === i ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
-                style={branchIdx === i ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>{b.label || `สาขา ${i + 1}`}</button>
-            ))}
-          </div>
+        <div className="mt-2.5">
+          <BranchPicker branches={branches} value={branchIdx} onChange={setBranchIdx} hasOwnLocation={hasOwnLocation} ownLabel={e.branch_label} />
         </div>
       )}
 
@@ -274,39 +380,101 @@ export function ExploreDetail({ e, open, saved, onClose, onFav }: {
         </div>
       )}
 
-      {/* star rating summary (from likes / unlikes) */}
-      <div className="flex items-center gap-2 mt-4">
-        <span className="text-[20px] font-semibold tabular-nums">{ratingFrom(votes.up, votes.down).toFixed(1)}</span>
-        <StarRating rating={ratingFrom(votes.up, votes.down)} size={17} />
-        <span className="text-[12px] text-ink-3">
-          {votes.up + votes.down > 0 ? `จาก ${votes.up + votes.down} รีวิว` : 'ยังไม่มีรีวิว'}
-        </span>
+      {/* ดาวจริง + คะแนนแยกด้าน + แท็ก + โหวตเมนู */}
+      <div className="mt-4">
+        <ExploreReviewPanel e={e} data={reviews} onChanged={refreshReviews} compact />
       </div>
 
-      {/* recommend / not recommend */}
-      <div className="flex gap-2 mt-2.5">
-        <button onClick={() => vote(1)}
-          className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[10px] text-[13px] font-medium transition"
-          style={votes.mine === 1
-            ? { background: 'var(--color-brand)', color: '#fff' }
-            : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
-          {votes.mine === 1 ? <IconThumbUpFilled size={17} /> : <IconThumbUp size={17} />} แนะนำ · {votes.up}
+      {/* non-owner: raise a hand to help edit / report */}
+      {!isOwner && user && onSuggest && (
+        <button onClick={onSuggest}
+          className="w-full flex items-center justify-center gap-1.5 h-10 rounded-[10px] text-[12.5px] font-medium mt-2"
+          style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
+          <IconMessageReport size={15} /> เห็นข้อมูลไม่ตรง? ช่วยแก้ / รายงาน
         </button>
-        <button onClick={() => vote(-1)}
-          className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[10px] text-[13px] font-medium transition"
-          style={votes.mine === -1
-            ? { background: '#D85A30', color: '#fff' }
-            : { background: 'var(--color-surface-2)', color: 'var(--color-ink-2)' }}>
-          {votes.mine === -1 ? <IconThumbDownFilled size={17} /> : <IconThumbDown size={17} />} ไม่แนะนำ · {votes.down}
-        </button>
-      </div>
+      )}
+
+      {/* owner: review pending suggestions from others */}
+      {isOwner && suggestions.length > 0 && (
+        <div className="mt-5">
+          <div className="text-[13px] font-medium mb-2 flex items-center gap-1.5">
+            <IconMessageReport size={15} className="text-brand" /> ข้อเสนอแก้ไข ({suggestions.length})
+          </div>
+          <div className="space-y-2">
+            {suggestions.map((s) => {
+              const M = SUG_META[s.kind]
+              const SIcon = M.icon
+              const busy = busySug === s.id
+              return (
+                <div key={s.id} className="card p-3" style={{ border: '0.5px solid var(--color-brand-border)' }}>
+                  <div className="flex items-center gap-2">
+                    <Avatar name={s.author_name} color={s.author_color} photo={s.author_photo} photoFocus={s.author_focus} size={24} ring={false} />
+                    <span className="text-[12px] font-medium truncate flex-1">{s.author_name ?? 'ใครบางคน'}</span>
+                    <span className="chip !py-0.5 !text-[10.5px] shrink-0"><SIcon size={11} /> {M.label}</span>
+                  </div>
+                  <div className="text-[12.5px] text-ink mt-1.5">{sugSummary(s)}</div>
+                  {s.note && <div className="text-[12px] text-ink-3 mt-0.5 whitespace-pre-wrap">“{s.note}”</div>}
+                  <div className="flex gap-2 mt-2.5">
+                    {s.kind !== 'report' && (
+                      <button onClick={() => applySug(s)} disabled={busy}
+                        className="flex-1 inline-flex items-center justify-center gap-1 h-9 rounded-[9px] text-[12.5px] font-medium disabled:opacity-50"
+                        style={{ background: 'var(--color-brand)', color: '#fff' }}>
+                        {busy ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />} นำไปใช้
+                      </button>
+                    )}
+                    <button onClick={() => dismissSug(s)} disabled={busy}
+                      className={['inline-flex items-center justify-center gap-1 h-9 rounded-[9px] text-[12.5px] font-medium disabled:opacity-50', s.kind === 'report' ? 'flex-1' : ''].join(' ')}
+                      style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-2)', paddingInline: s.kind === 'report' ? undefined : 14 }}>
+                      <IconX size={14} /> {s.kind === 'report' ? 'รับทราบ / ปิด' : 'ปิด'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* สถานที่ใกล้เคียง — same-city suggestions; >2 fold with a faint peek */}
+      {nearby.length > 0 && (
+        <div className="mt-5">
+          <div className="text-[13px] font-medium mb-2">
+            สถานที่ใกล้เคียง{nearbyByStation ? ` · สถานี ${e?.station_name ?? ''}` : `ใน ${e?.city}`}
+            {' '}<span className="text-ink-3 font-normal">{nearby.length}</span>
+          </div>
+          <div className="space-y-2">
+            {nearby.slice(0, 2).map((p) => <NearbyCard key={p.id} p={p} onOpen={onOpenPlace} />)}
+            {nearby.length > 2 && (nearbyOpen ? (
+              <>
+                {nearby.slice(2).map((p) => <NearbyCard key={p.id} p={p} onOpen={onOpenPlace} />)}
+                <button onClick={() => setNearbyOpen(false)}
+                  className="w-full flex items-center justify-center gap-1 py-1.5 text-[12px] font-medium text-ink-3 hover:text-ink-2">
+                  พับเก็บ <IconChevronDown size={15} className="rotate-180" />
+                </button>
+              </>
+            ) : (
+              // peek: a faint preview of the next card hints there are more
+              <div role="button" tabIndex={0} onClick={() => setNearbyOpen(true)}
+                onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') setNearbyOpen(true) }}
+                className="relative block w-full overflow-hidden rounded-[12px] cursor-pointer" style={{ height: 60 }}
+                aria-label={`แสดงสถานที่ใกล้เคียงอีก ${nearby.length - 2} ที่`}>
+                <div className="opacity-55 pointer-events-none"><NearbyCard p={nearby[2]} /></div>
+                <div className="absolute inset-x-0 bottom-0 h-10 flex items-end justify-center pb-1"
+                  style={{ background: 'linear-gradient(to bottom, transparent, var(--color-surface))' }}>
+                  <span className="text-[12px] font-semibold text-brand inline-flex items-center gap-1">อีก {nearby.length - 2} ที่ <IconChevronDown size={14} /></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* comments */}
       <div className="mt-5">
         <div className="text-[13px] font-medium mb-2">ความคิดเห็น {comments.length > 0 && `(${comments.length})`}</div>
 
         <div className="flex items-start gap-2 mb-3">
-          <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} size={30} ring={false} />
+          <Avatar name={profile?.nickname ?? user?.email} color={profile?.avatar_color} photo={profile?.avatar_url} photoFocus={profile?.avatar_focus} size={30} ring={false} />
           <div className="flex-1 min-w-0">
             <textarea value={text} onChange={(ev) => setText(ev.target.value)} rows={2}
               placeholder="เขียนความคิดเห็น…"

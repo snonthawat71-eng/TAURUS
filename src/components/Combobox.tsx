@@ -29,6 +29,7 @@ export function Combobox({
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const q = value.trim().toLowerCase()
   const exact = options.some((o) => o.value.toLowerCase() === q)
@@ -44,6 +45,20 @@ export function Combobox({
     const onDoc = (e: MouseEvent) => { if (!wrapRef.current?.contains(e.target as Node)) setOpen(false) }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  // The dropdown renders inline below the input; on mobile the on-screen
+  // keyboard slides up ~a frame after focus and can cover it. Scroll the list
+  // into view on open, and again whenever the visual viewport resizes (the
+  // keyboard finishing its animation), so the Drawer's scroll area lifts the
+  // options above the keyboard instead of stranding them behind it.
+  useEffect(() => {
+    if (!open) return
+    const reveal = () => listRef.current?.scrollIntoView({ block: 'nearest' })
+    const t = setTimeout(reveal, 120)
+    const vv = window.visualViewport
+    vv?.addEventListener('resize', reveal)
+    return () => { clearTimeout(t); vv?.removeEventListener('resize', reveal) }
   }, [open])
 
   function choose(v: string) {
@@ -77,6 +92,7 @@ export function Combobox({
       </div>
       {open && filtered.length > 0 && (
         <div
+          ref={listRef}
           // keep inner scrolling contained so it doesn't drag the sheet/page
           onTouchMove={(e) => e.stopPropagation()}
           style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}

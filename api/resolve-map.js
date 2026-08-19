@@ -1,0 +1,431 @@
+// Vercel serverless function: /api/resolve-map?url=<map link>
+// Resolves a short map link (maps.app.goo.gl / surl.amap.com / …) to the
+// place's coordinates + name. Redirects are followed HOP BY HOP (redirect:
+// 'manual'): the Location header of the first hop already carries the full
+// URL with "!3dLAT!4dLNG", so coords come from redirect URLs alone — no need
+// to download Google's page (datacenter IPs often get blocked/challenged
+// there). Page bodies are only fetched as a last resort.
+//
+// Google's response for the SAME link is not deterministic in production —
+// a request that gets blocked/challenged now can succeed moments later, and
+// links carrying a share-tracking param (?g_st=ic and similar) correlate
+// strongly with the blocked response. So a failed first attempt is retried:
+// once with the tracking query string stripped, once more as a plain retry.
+// Whichever attempt first turns up a URL-derived coordinate wins.
+
+// GCJ-02 (China, used by AMap) → WGS-84; no-op outside China.
+const GCJ_A = 6378245.0, GCJ_EE = 0.00669342162296594323
+const outOfChina = (lat, lng) => lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271
+function tLat(x, y) { let r = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x)); r += ((20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2) / 3; r += ((20 * Math.sin(y * Math.PI) + 40 * Math.sin((y / 3) * Math.PI)) * 2) / 3; r += ((160 * Math.sin((y / 12) * Math.PI) + 320 * Math.sin((y * Math.PI) / 30)) * 2) / 3; return r }
+function tLng(x, y) { let r = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x)); r += ((20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2) / 3; r += ((20 * Math.sin(x * Math.PI) + 40 * Math.sin((x / 3) * Math.PI)) * 2) / 3; r += ((150 * Math.sin((x / 12) * Math.PI) + 300 * Math.sin((x / 30) * Math.PI)) * 2) / 3; return r }
+function gcj2wgs(lat, lng) {
+  if (outOfChina(lat, lng)) return { lat, lng }
+  let dLat = tLat(lng - 105, lat - 35), dLng = tLng(lng - 105, lat - 35)
+  const radLat = (lat / 180) * Math.PI
+  let magic = Math.sin(radLat); magic = 1 - GCJ_EE * magic * magic
+  const sm = Math.sqrt(magic)
+  dLat = (dLat * 180) / (((GCJ_A * (1 - GCJ_EE)) / (magic * sm)) * Math.PI)
+  dLng = (dLng * 180) / ((GCJ_A / sm) * Math.cos(radLat) * Math.PI)
+  return { lat: lat - dLat, lng: lng - dLng }
+}
+
+function extract(s) {
+  if (!s) return null
+  const ok = (a, b) => (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180 ? { lat: a, lng: b } : null)
+  // AMap — lng,lat order + GCJ-02 (convert to WGS-84).
+  if (/amap|gaode/i.test(s)) {
+    const amapPats = [
+      /[?&](?:position|location|ll|point|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i,
+      /[?&]lng=(-?\d+\.\d+)&lat=(-?\d+\.\d+)/i,
+      /["'](?:position|location|center|lnglat)["']?\s*[:=]\s*["'\[]\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/i,
+      /["']lng["']\s*:\s*(-?\d+\.\d+)\s*,\s*["']lat["']\s*:\s*(-?\d+\.\d+)/i,
+    ]
+    for (const re of amapPats) { const m = s.match(re); if (m) { const r = ok(+m[2], +m[1]); if (r) return gcj2wgs(r.lat, r.lng) } }
+    const m2 = s.match(/["']lat["']\s*:\s*(-?\d+\.\d+)\s*,\s*["']lng["']\s*:\s*(-?\d+\.\d+)/i)
+    if (m2) { const r = ok(+m2[1], +m2[2]); if (r) return gcj2wgs(r.lat, r.lng) }
+  }
+  // "!3dLAT!4dLNG" is the PLACE's own point — check it before "@lat,lng",
+  // which is only the viewport centre at share time (can be far off the pin)
+  let m = s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/); if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
+  m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/); if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
+  m = s.match(/[?&](?:q|query|ll|center|destination|daddr)=(-?\d+\.\d+),(-?\d+\.\d+)/); if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
+  m = s.match(/\/(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})/); if (m) { const r = ok(+m[1], +m[2]); if (r) return r }
+  return null
+}
+
+// Pull the place's OWN coordinate out of a genuine Google *place* page body.
+// Google encodes it a few ways depending on the surface; try the reliable
+// place-point markers in priority order, validating the lat/lng range so a
+// [lng,lat] array can't masquerade as a point. Only ever call on a real
+// schema.org/Place page (a bot challenge / consent wall has no such point).
+function mkLatLng(a, b) {
+  a = +a; b = +b
+  if (!Number.isFinite(a) || !Number.isFinite(b) || (a === 0 && b === 0)) return null
+  if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return { lat: a, lng: b }
+  if (Math.abs(b) <= 90 && Math.abs(a) <= 180) return { lat: b, lng: a } // swapped
+  return null
+}
+// ALL distinct coordinate pairs embedded in a place-page body. A ?q=<address>
+// page carries several — the place's REAL point, the map viewport (centered on
+// the REQUESTING server's IP = a datacenter, wrong continent), sometimes nearby
+// places. The server can't tell which is the place, but the CLIENT can: it
+// knows the trip's area, so it keeps the pair nearest the trip and drops the
+// far-away datacenter one. We just hand over every candidate.
+function allCoordsFromPlaceBody(body) {
+  if (!body) return []
+  const out = [], seen = new Set()
+  const add = (a, b) => {
+    const r = mkLatLng(a, b); if (!r) return
+    const k = `${r.lat.toFixed(5)},${r.lng.toFixed(5)}`
+    if (!seen.has(k)) { seen.add(k); out.push(r) }
+  }
+  const res = [
+    /!3d(-?\d+\.\d{3,})!4d(-?\d+\.\d{3,})/g,
+    /\/@(-?\d{1,2}\.\d{4,}),(-?\d{1,3}\.\d{4,})/g,
+    /\[null,null,(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})\]/g,
+    /center=(-?\d{1,3}\.\d{4,})(?:,|%2C|%2c)(-?\d{1,3}\.\d{4,})/gi,
+  ]
+  for (const re of res) { let m; while ((m = re.exec(body)) && out.length < 40) add(m[1], m[2]) }
+  return out
+}
+
+// Last-resort scan for a China-plausible coordinate pair anywhere in the text.
+function scanChina(s) {
+  if (!s) return null
+  const re = /(\d{1,3}\.\d{4,})\s*[,%\s]{1,3}\s*(\d{1,3}\.\d{4,})/g
+  let m
+  while ((m = re.exec(s))) {
+    const a = +m[1], b = +m[2]
+    if (a >= 73 && a <= 135.5 && b >= 3 && b <= 54) return gcj2wgs(b, a)
+    if (a >= 3 && a <= 54 && b >= 73 && b <= 135.5) return gcj2wgs(a, b)
+  }
+  return null
+}
+
+function deepDecode(s) {
+  let out = s
+  for (let i = 0; i < 3; i++) {
+    try { const d = decodeURIComponent(out); if (d === out) break; out = d } catch { break }
+  }
+  return out
+}
+
+function amapName(s) {
+  if (!s) return null
+  const d = deepDecode(s)
+  const m = d.match(/[?&]p=[A-Za-z0-9]{4,},\s*-?\d+\.\d+,\s*-?\d+\.\d+,([^,]+)/)
+    || d.match(/[?&]q=-?\d+\.\d+,\s*-?\d+\.\d+,([^,]+)/i)
+  if (!m) return null
+  const n = m[1].replace(/\+/g, ' ')
+    .replace(/&(?:apos|#0?39);/gi, "'").replace(/&amp;/gi, '&').replace(/&quot;/gi, '"')
+    .replace(/\s+/g, ' ').trim()
+  return n || null
+}
+
+function pickNameFromQuery(q) {
+  const parts = q.split(',').map((s) => s.trim()).filter(Boolean)
+  if (!parts.length) return null
+  if (parts.length === 1) return parts[0]
+  const isStreet = (s) => /^\d+[\w\-/]*\s+\S/.test(s) || /\b(road|rd\.?|street|st\.?|ave\.?|avenue|lane|ln\.?|alley|soi|ถนน|ซอย)\b/i.test(s)
+  const isUnit = (s) => /^(lgf|ugf|gf|g\/f|b\d|lg\d*|\d{1,2}\/?f|shop\b|unit\b|room\b|floor\b|ชั้น|no\.?\s?\d)/i.test(s)
+  const iStreet = parts.findIndex(isStreet)
+  if (iStreet > 0) {
+    for (let i = iStreet - 1; i >= 0; i--) if (!isUnit(parts[i])) return parts[i]
+  }
+  return parts.find((s) => !isUnit(s) && !isStreet(s)) ?? parts[0]
+}
+
+function nameFrom(s) {
+  if (!s) return null
+  const m = s.match(/\/maps\/place\/([^/@?#]+)/)
+  if (m) {
+    try {
+      const n = decodeURIComponent(m[1].replace(/\+/g, ' ')).trim()
+      if (n && !/^-?\d+(\.\d+)?\s*,/.test(n)) return n
+    } catch { /* bad escape */ }
+  }
+  try {
+    const u = new URL(s)
+    const q = u.searchParams.get('q') || u.searchParams.get('query')
+    if (q && !/^-?\d+(\.\d+)?\s*,/.test(q) && !/^https?:/i.test(q)) return pickNameFromQuery(q.trim())
+  } catch { /* not a URL */ }
+  return null
+}
+
+/** The FULL canonical address Google puts in the ?q= of a search-style share
+ *  link — "<name> (<building>), <street>, <district>, <city>". For a ?g_st=ic
+ *  link Google redirects to a ?q= SEARCH url (no @lat,lng, no !3d!4d), so no
+ *  coordinate exists in the URL at all — but this address DOES, and geocoding
+ *  it (street + district) pins the right building far better than a bare name.
+ *  Returned only when it's a real address (has commas), never coords/URL/bare. */
+function addressFrom(s) {
+  if (!s) return null
+  let q
+  try { q = new URL(s).searchParams.get('q') } catch { return null } // URLSearchParams already %- and +-decodes
+  if (!q) return null
+  q = q.trim()
+  if (!q || /^-?\d+(\.\d+)?\s*,\s*-?\d+/.test(q) || /^https?:/i.test(q)) return null
+  // a real address is either the romanized "…, street, district, city" (commas)
+  // OR a CJK address that runs together with no commas ("台北市萬華區廣州街104號",
+  // "東京都渋谷区神南1-1") — accept the latter when it carries a locality/road
+  // marker AND a number, so a bare CJK place NAME is still not treated as one
+  const cjkAddr = /[㐀-鿿]/.test(q)
+    && /[市区區県都道府町村路街巷弄段丁目號号番]/.test(q)
+    && /[0-9０-９一二三四五六七八九十百]/.test(q)
+  if (!q.includes(',') && !cjkAddr) return null
+  return q
+}
+
+function nameFromBody(s) {
+  if (!s) return null
+  const m = s.match(/property=["']og:title["'][^>]*content=["']([^"']{1,120})["']/i)
+    || s.match(/content=["']([^"']{1,120})["'][^>]*property=["']og:title["']/i)
+    || s.match(/<title[^>]*>([^<]{1,120})<\/title>/i)
+  if (!m) return null
+  let n = m[1].trim()
+    .replace(/\s*[-·|–]\s*Google\s*Maps?$/i, '')
+    .replace(/\s*[-|·–]?\s*高德地图\s*$/, '')
+    .replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .trim()
+  if (!n || /^google maps$/i.test(n) || /^高德/.test(n) || /^-?\d+(\.\d+)?\s*,/.test(n)) return null
+  return n
+}
+
+// Desktop UA: mobile UAs get an app-open interstitial from maps.app.goo.gl
+// instead of a clean redirect; desktop gets the 302 (or a simpler page).
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+
+/** Modern short links often answer 200 with an HTML/JS interstitial instead of
+ *  a 302 — the real target URL is embedded in the page (escaped JSON, a meta
+ *  refresh, or a ?link=/url= param). Dig it out. */
+function urlFromInterstitial(body) {
+  if (!body) return null
+  const un = body.replace(/\\\//g, '/').replace(/\\u003d/gi, '=').replace(/\\u0026/gi, '&').replace(/&amp;/g, '&')
+  let m = un.match(/http-equiv=["']refresh["'][^>]*url=([^"'>]+)/i)
+  if (m) return m[1]
+  m = un.match(/https:\/\/www\.google\.[a-z.]+\/maps\/[^"'<>\s\\]+/i)
+  if (m) return m[0]
+  m = un.match(/[?&](?:link|url|continue)=(https?[^"'&<>\s]+)/i)
+  if (m) { try { return decodeURIComponent(m[1]) } catch { return m[1] } }
+  return null
+}
+
+/** Follow redirects one hop at a time, collecting every hop URL. Stops early
+ *  once the total time budget is spent (the function must fit ~10s). */
+async function walk(url, lang, budgetMs = 8000) {
+  const hops = [url]
+  let body = '', status = 0
+  let current = url
+  const t0 = Date.now()
+  for (let i = 0; i < 6; i++) {
+    if (Date.now() - t0 > budgetMs) break
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 3500)
+    try {
+      const r = await fetch(current, {
+        redirect: 'manual', signal: ctrl.signal,
+        headers: { 'User-Agent': UA, 'Accept-Language': lang, Accept: 'text/html', Cookie: 'CONSENT=YES+cb.20240101-00-p0.en+FX; SOCS=CAISHAgB' },
+      })
+      status = r.status
+      const loc = r.headers.get('location')
+      if (loc && status >= 300 && status < 400) {
+        try { current = new URL(loc, current).toString() } catch { break }
+        hops.push(current)
+        continue
+      }
+      body = await r.text().catch(() => '')
+      break
+    } catch { break } finally { clearTimeout(timer) }
+  }
+  return { hops, body, status, finalUrl: current }
+}
+
+/** Resolve a place DIRECTLY by its Google feature-id / CID, taken from a hop's
+ *  "ftid=0xAAAA:0xBBBB". A "?q=<address>" page is a SEARCH — Google centers its
+ *  map on the requesting server's IP (a datacenter, wrong continent), so the
+ *  coordinate on that page is the viewport, not the place. But "?cid=<n>" asks
+ *  for one SPECIFIC place, whose own point Google returns regardless of server
+ *  IP. So when the search page gave no usable coordinate, retry by CID. Returns
+ *  a coordinate only from a URL/redirect (never a scraped body datacenter default). */
+async function resolveByCid(hops, lang, budgetMs) {
+  let cidHex = null
+  for (const h of hops) { const m = h.match(/[?&]ftid=0x[0-9a-f]+:0x([0-9a-f]+)/i); if (m) { cidHex = m[1]; break } }
+  if (!cidHex) return { coords: null }
+  let cid
+  try { cid = BigInt('0x' + cidHex).toString() } catch { return { coords: null } }
+  const { hops: h2, body: b2, finalUrl: f2 } = await walk(`https://www.google.com/maps?cid=${cid}`, lang, budgetMs)
+  // a cid page resolves to "/maps/place/<name>/@lat,lng,z/...!3d<lat>!4d<lng>" —
+  // the place's own point; take it from the URL hops
+  for (const h of h2) { const c = extract(h) || extract(deepDecode(h)); if (c) return { coords: c, cidUrl: `https://www.google.com/maps?cid=${cid}`, finalUrl: f2 } }
+  // else the place point embedded in the resolved place page (not an IP viewport —
+  // a cid page is centered on the place, so its first !3d!4d IS the place)
+  if (b2) { const m = b2.match(/!3d(-?\d+\.\d{3,})!4d(-?\d+\.\d{3,})/); if (m) { const r = mkLatLng(m[1], m[2]); if (r) return { coords: r, cidUrl: `https://www.google.com/maps?cid=${cid}`, finalUrl: f2 } } }
+  return { coords: null, cidUrl: `https://www.google.com/maps?cid=${cid}`, finalUrl: f2 }
+}
+
+/** Walk one URL and look for a coordinate — ONLY ever from a URL (a hop's
+ *  Location header, a consent interstitial's ?continue=, or a target URL
+ *  embedded in a 200 interstitial page), never from scraping a rendered page
+ *  body. A blocked/challenged Google page can embed the REQUESTING SERVER's
+ *  own approximate location instead of the place's — that poisoned pins with
+ *  a data-centre address on the other side of the world. If no hop ever
+ *  carries real coordinates, this returns no coordinates at all (the client
+ *  falls back to name geocoding, which stays in the right country even when
+ *  it picks the wrong branch). */
+async function resolveOnce(url, lang, amap, budgetMs) {
+  const { hops, body, status, finalUrl } = await walk(url, lang, budgetMs)
+  let coords = null, src = null
+  for (const h of hops) {
+    coords = extract(h) || extract(deepDecode(h)) || (amap ? scanChina(deepDecode(h)) : null)
+    if (coords) { src = 'url'; break }
+    try {
+      const cont = new URL(h).searchParams.get('continue')
+      if (cont) { coords = extract(deepDecode(cont)); if (coords) { src = 'url'; break } }
+    } catch { /* not a URL */ }
+  }
+  // 200-interstitial pages embed the target URL in the body — dig it out
+  let interUrl = null
+  if (!coords && body) {
+    interUrl = urlFromInterstitial(body)
+    if (interUrl) {
+      coords = extract(interUrl) || extract(deepDecode(interUrl)) || (amap ? scanChina(deepDecode(interUrl)) : null)
+      if (coords) src = 'url' // literal coords inside an embedded URL
+    }
+  }
+  // NB: we deliberately do NOT read a coordinate from the place-page body. An
+  // iOS ?g_st=ic link redirects to a "?q=<address>&ftid=" SEARCH page, and
+  // Google centers that page's map on the REQUESTING SERVER's IP (a Vercel
+  // datacenter → 39.03,-77.84 Ashburn) rather than the place. So the body's
+  // !3d!4d is the datacenter, not the pin — poison. The reliable signal from
+  // this page is `address` (below), which the client geocodes precisely.
+  let name = null
+  for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { name = (amap ? amapName(h) : null) || nameFrom(deepDecode(h)); if (name) break }
+  if (!name) name = (amap ? amapName(body) : null) || nameFromBody(body)
+  // The name above comes from the URL (a ?q= address → ROMANIZED, e.g. "Zhengbin
+  // Port Color Houses"). But the place PAGE is served in the local language
+  // (hl=zh-TW) and titles the place in its NATIVE script — "正濱漁港彩色屋" —
+  // which is exactly what OSM in Asia indexes by. Extract that separately so the
+  // client can search OSM by the native name (the romanized one just returns
+  // garbage). Only keep it when it's actually non-Latin and different.
+  let nativeName = nameFromBody(body)
+  if (nativeName && (nativeName === name || !/[　-鿿가-힯豈-﫿]/.test(nativeName))) nativeName = null
+  // canonical address from a ?q= search redirect (Google's own, precise) — the
+  // client geocodes this when no URL coordinate was found (?g_st=ic links)
+  let address = null
+  for (const h of [...hops, ...(interUrl ? [interUrl] : [])]) { address = addressFrom(h); if (address) break }
+  // every coordinate the place page embeds — for the client to pick the one
+  // nearest the trip (the real place) and drop the datacenter viewport
+  const bodyCoords = (!coords && body && /schema\.org\/Place/i.test(body)) ? allCoordsFromPlaceBody(body) : []
+  return { coords, src, name, nativeName, address, bodyCoords, hops, body, status, finalUrl, interUrl }
+}
+
+// ---- opening-hours probe (debug only, ?debug=hours) --------------------
+// We don't know yet whether the fetched page carries opening hours at all, or
+// in what shape. Rather than guess a parser, report every signal that could
+// carry them plus a short excerpt around each hit, and design the real
+// extractor from what actually comes back. Nothing here runs in production.
+function hoursProbe(body) {
+  if (!body) return { note: 'empty body' }
+  const look = (re, keep = 3) => {
+    const rx = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g')
+    const ex = []
+    let m, n = 0
+    while ((m = rx.exec(body)) && n < 400) {
+      n++
+      if (ex.length < keep) ex.push(body.slice(Math.max(0, m.index - 70), m.index + 110).replace(/\s+/g, ' '))
+      if (m.index === rx.lastIndex) rx.lastIndex++
+    }
+    return n ? { n, ex } : { n: 0 }
+  }
+  return {
+    isPlacePage: /schema\.org\/Place/i.test(body),
+    schemaHours: look(/openingHours(?:Specification)?/i),
+    dayNamesEn: look(/\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/),
+    dayNamesLocal: look(/(?:จันทร์|อังคาร|月曜|火曜|星期一|週一|週日|월요일)/),
+    timeRanges: look(/\d{1,2}:\d{2}\s*(?:[–\-—~]|to|ถึง)\s*\d{1,2}:\d{2}/, 6),
+    openClosePhrases: look(/(?:Closes\s|Opens\s|Open\s*(?:⋅|·)|Closed\b|Temporarily closed|Permanently closed|เปิด\s*(?:⋅|·)|ปิด\s*(?:⋅|·))/, 6),
+    hoursLabel: look(/(?:営業時間|營業時間|营业时间|เวลาทำการ|เวลาเปิด|Opening hours|"Hours")/),
+  }
+}
+
+export default async function handler(req, res) {
+  try {
+    const url = req.query?.url
+    if (!url || !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'bad url' })
+    const amap = /amap|gaode/i.test(url)
+    // Ask Google for the address in the place's OWN language when the caller
+    // knows it (e.g. zh-TW for a Taiwan trip): OSM in Asia indexes streets by
+    // their native names ("廣州街104號"), so the romanized address Google gives a
+    // Thai/EN locale ("Guangzhou St") often can't be matched. Keyless — just a
+    // request header. Falls back to the EN/TH default when no lang is passed.
+    const reqLang = typeof req.query?.lang === 'string' ? req.query.lang.trim() : ''
+    const lang = reqLang ? `${reqLang},en;q=0.5` : (amap ? 'zh-CN,zh;q=0.9' : 'en;q=0.9,th;q=0.8')
+
+    // build the variants to try, in order: the link as given, the same link
+    // with its query string (tracking params like ?g_st=ic) stripped, then
+    // one more plain retry of the original — covers both the specific
+    // tracking-param correlation and plain non-determinism
+    const variants = [url]
+    try {
+      const stripped = new URL(url)
+      if (stripped.search) { stripped.search = ''; variants.push(stripped.toString()) }
+    } catch { /* already validated above */ }
+    variants.push(url)
+
+    const deadline = Date.now() + 8500
+    let result = null
+    let cidUrl = null
+    for (const v of variants) {
+      const remaining = deadline - Date.now()
+      if (remaining < 800) break
+      result = await resolveOnce(v, lang, amap, Math.min(remaining, 3200))
+      if (result.coords) break
+      // no coordinate in the search page — but if it carried a feature id, ask
+      // Google for that SPECIFIC place by CID (place-centric, not IP-centered)
+      const rem2 = deadline - Date.now()
+      if (!amap && rem2 > 1500) {
+        const byCid = await resolveByCid(result.hops, lang, Math.min(rem2, 3200))
+        if (byCid.cidUrl) cidUrl = byCid.cidUrl
+        if (byCid.coords) { result.coords = byCid.coords; result.src = 'cid'; break }
+      }
+    }
+    const { hops, body, status, finalUrl, interUrl, coords, src, name, nativeName, address, bodyCoords } = result
+
+    // ?debug=hours — is there anything that looks like opening hours in the
+    // pages we already download? Probes BOTH the search page and the place
+    // (cid) page, since they're different documents.
+    if (req.query?.debug === 'hours') {
+      let cid = null
+      for (const h of hops) {
+        const m = h.match(/[?&]ftid=0x[0-9a-f]+:0x([0-9a-f]+)/i)
+        if (m) { try { cid = BigInt('0x' + m[1]).toString() } catch { /* not a cid */ } break }
+      }
+      const placeUrl = cidUrl || (cid ? `https://www.google.com/maps?cid=${cid}` : null)
+      const out = {
+        ver: 'hours-probe-1', name, address, amap, placeUrl,
+        searchPage: { status, len: body.length, ...hoursProbe(body) },
+      }
+      if (placeUrl && Date.now() < deadline + 6000) {
+        const p = await walk(placeUrl, lang, 6000)
+        out.placePage = { status: p.status, len: p.body.length, ...hoursProbe(p.body) }
+      }
+      return res.json(out)
+    }
+
+    if (req.query?.debug) {
+      return res.json({ ver: 'cid-v4', hops, cidUrl, interUrl, status, len: body.length, coords: coords || null, src, name, nativeName, address, bodyCoords, snippet: body.slice(0, 600) })
+    }
+    // edge-cache ONLY trustworthy url-borne successes; page-derived points
+    // must stay re-checkable and failures must never be pinned for a week
+    res.setHeader('Cache-Control', coords && (src === 'url' || src === 'cid') ? 's-maxage=604800' : 'no-store')
+    return res.json({
+      ver: 'cid-v4',
+      ...(coords || {}), ...(coords ? { src } : {}), ...(name ? { name } : {}), ...(nativeName ? { nativeName } : {}), ...(address ? { address } : {}),
+      ...(bodyCoords && bodyCoords.length ? { bodyCoords } : {}),
+      // on failure return WHY, so the app's audit can show the reason per link
+      ...(coords ? {} : { error: 'no coords', status, finalUrl, hops: hops.length }),
+    })
+  } catch (e) {
+    return res.status(500).json({ error: String((e && e.message) || e) })
+  }
+}

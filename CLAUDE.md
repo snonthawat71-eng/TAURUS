@@ -7,6 +7,7 @@ TAURUS is a group travel-planner web app (React + Supabase, deploys to Vercel). 
 ## Working with the user
 
 - **Always provide ready-to-run code inline.** Whenever a change needs the user to run something manually (SQL migrations, `supabase` CLI / deploy commands, env vars, `npm` commands, cron setup, etc.), include the exact copy-paste-ready snippet in that same reply — in a fenced code block, complete and in order. Don't make the user ask for it. The user reads/writes Thai; keep explanations in Thai.
+- **Keep replies short and non-technical.** The user doesn't read code. Say what changed and what they need to do — no file paths, function names, table/column names, or implementation reasoning unless asked. A few lines is usually enough.
 
 ## Commands
 
@@ -31,8 +32,11 @@ Supabase is the entire backend (auth + Postgres + storage + realtime). There is 
   - `supabase/sharing.sql` — the `permission` columns + `can_edit_trip()`/`can_view_full()` helpers + per-table read/write RLS policies.
   - `supabase/concurrency.sql` — optional `version` columns + a `bump_version()` trigger on stops/days/places/expenses for optimistic-locking (conflict detection on concurrent edits; see `src/lib/concurrency.ts`).
   - `supabase/notifications.sql` — `push_subscriptions` + `sent_reminders` tables + `trips.timezone`, for Web Push reminders. Reminders are sent by the `supabase/functions/send-due-reminders` Edge Function on a cron schedule; client subscription lives in `src/lib/push.ts` / `NotificationSettings`, the SW push handler in `public/push-sw.js`. Full setup in `supabase/PUSH_SETUP.md`.
+  - `supabase/admin_pages.sql` — `profiles.is_admin` + `country_pages` / `country_blocks` / `country_block_places`: the owner-curated country pages behind `/admin` (see `src/pages/Admin.tsx`, `src/lib/countryPages.ts`). A country with no page row keeps the automatic ranking, so the app is unchanged until the migration is run and a page is published.
+  - `supabase/explore_reviews.sql` — `explore_ratings` (real 1–5 stars + the `taste`/`worth`/`vibe`/`queue` sub-scores + `body`/`photos`/`anonymous`/`branch_idx`), `explore_tags` (one-tap tags), `explore_menu_items` + `explore_menu_votes` ("สั่งอะไรดี" ranking). Client lives in `src/lib/exploreReviews.ts` + `ExploreReviewPanel`. **The displayed star average comes only from `explore_ratings`** — it used to be derived from the 👍/👎 counts in `explore_votes`, which showed 5.0 for a place nobody had rated. A star write still mirrors itself onto `explore_votes` so the POPULAR score and owner like-notifications keep working.
 - **Graceful-degradation pattern:** because migrations are applied manually, mutation helpers send the new columns and, on a "column does not exist" error, retry without them (see `OPTIONAL_COLS` in `src/lib/tripMutations.ts`, `stripUnknown` in `placeMutations.ts`, the `link_mode` retry in `mutations.ts`). New optional columns must follow this pattern, and be typed as optional (`?`) in `src/lib/database.types.ts` (hand-written types — keep in sync with the SQL).
 - Files (passports, QR, slips, hotel/place photos) live in the **private** `trip-files` bucket, served via short-lived signed URLs (`src/lib/files.ts`, `SignedImage`). Storage paths starting with `sample/` are placeholders with no real object behind them.
+- Public images (the shared Explore pool) go through `uploadPublicImage(file, kind)` → Cloudinary if configured, else the public `explore-photos` bucket. `kind` picks the destination from `PUBLIC_IMAGE_FOLDERS` in `src/lib/files.ts` — `explore` (a place's own photos) vs `review` (photos attached to someone's review) — so the two never share a folder. Add a kind there rather than passing a folder string.
 
 ## Architecture
 
@@ -47,6 +51,10 @@ Supabase is the entire backend (auth + Postgres + storage + realtime). There is 
 
 **Mutation pattern:** components never embed Supabase write calls directly for domain data — they call helpers in `src/lib/*Mutations.ts` (`tripMutations`, `placeMutations`, `budgetMutations`, `mutations` for itinerary), then call `reload()` from `TripContext`. There is no client cache; reads always come from `TripContext`.
 
+**"In the plan" is derived, never toggled.** A place is in the plan exactly when the trip's itinerary has a stop whose `place_name` matches it — `TripContext` computes that and overwrites `in_plan` on every place it hands out, so all the screens reading `p.in_plan` stay correct from one source of truth. The `places.in_plan` column still exists but nothing writes it meaningfully and nothing reads it directly. Saving from Explore always lands in the trip's Location list; the only follow-up asked is which day (optional), and a branch when a day was picked.
+
+**Explore's "ที่เด็ด" shortlists are computed, not curated.** `src/lib/exploreTop.ts` ranks each city's places from real review scores, saves, likes and views, and a city under `MIN_PLACES` gets no list at all. The auto-sliding `ExploreTopBanner` sits under the search box (via `ExploreFilters`' `belowSearch` slot) and follows the active country/city filter; tapping one opens the full `/explore/top/:key` page.
+
 **Permissions drive both UI and DB.** `canEdit`/`myPermission` from `TripContext` gate add/edit/delete affordances across pages; RLS independently blocks writes. `visibleNav(permission)` in `layout/nav.ts` hides pages for `places`-only members (they see only Places/Food/All plans and get a ⭐ "pin to my trip" copy action instead of editing).
 
 **Routing** (`App.tsx`, react-router v7):
@@ -54,6 +62,7 @@ Supabase is the entire backend (auth + Postgres + storage + realtime). There is 
 - Trip workspace pages render inside `AppShell` (sidebar + mobile bottom nav + top bar): `/info` (Personal Information), `/itinerary`, `/places`, `/food`, `/plans`, `/budget`.
 
 **Pages & shared building blocks** (`src/pages/`, `src/components/`):
+- Metro maps (`src/lib/metro/`): Osaka / Hong Kong / Shanghai / Shenzhen / Singapore each have a tappable map drawn from geometry extracted out of official PDFs (`*Geo.ts` + a `*MetroMap` component + a `*MapViewer`), wired into `TransitEditor` by a per-city keyword test. Singapore routes through the shared `buildNetwork` + `computeRoute` over `SINGAPORE`; the older three carry their own copy of the network. A city with line/station data but no geometry (Tokyo, Taipei, Beijing) still gets line/station autocomplete via `suggest.ts`, just no map.
 - `Places`/`Food` both render the shared `PlaceGrid` (filter by category/city + search + card modes). `Itinerary` uses `@dnd-kit` to reorder days and stops; `MetroRoute`/`TransitEditor` render & edit the structured `transit` JSON stored on each stop.
 - Editing happens in `Drawer`-based editors (Drawers **portal to `document.body`** to escape the blurred top bar's stacking context). `PopMenu` is the shared `…` menu.
 

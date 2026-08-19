@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
-import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore, IconZoomScan, IconPhoto } from '@tabler/icons-react'
+import { IconCheck, IconPlus, IconMapPin, IconPencil, IconHeart, IconHeartFilled, IconStar, IconToolsKitchen2, IconFileTypePdf, IconBuildingStore, IconZoomScan, IconPhoto, IconWorldShare, IconShare2 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { AvatarStack } from './Avatar'
 import { SignedImage } from './SignedImage'
+import { PhotoCarousel } from './PhotoCarousel'
 import { Lightbox, type PhotoRef } from './Lightbox'
+import { BranchPicker } from './BranchPicker'
 import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
+import { sharePlace } from '@/lib/share'
+import { buildShareCard } from '@/lib/shareCard'
 import { getSignedUrl } from '@/lib/files'
+import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 
 const isPdfRef = (ref: string) => /\.pdf($|\?)/i.test(ref)
 /** Open a stored menu file (Cloudinary URL as-is, private path via signed URL). */
@@ -19,7 +24,7 @@ import type { Interested } from './PlaceCard'
 import type { Place } from '@/lib/database.types'
 
 export function PlaceDetail({
-  place, interested, mine, open, canEdit = true, onClose, onTogglePlan, onToggleInterest, onEdit, onPin,
+  place, interested, mine, open, canEdit = true, onClose, onAddToDay, onToggleInterest, onEdit, onPin, onShare,
 }: {
   place: Place | null
   interested: Interested[]
@@ -27,20 +32,46 @@ export function PlaceDetail({
   open: boolean
   canEdit?: boolean
   onClose: () => void
-  onTogglePlan: () => void
+  onAddToDay: () => void
   onToggleInterest: () => void
   onEdit?: () => void
   onPin?: () => void
+  onShare?: () => void
 }) {
   // which branch (chain location) is selected; null = the place's own location
   const [branchIdx, setBranchIdx] = useState<number | null>(null)
   // full-size photo viewer — index into the extra-photos gallery (null = closed)
   const [lightbox, setLightbox] = useState<number | null>(null)
+  // drawn while the drawer is open, so the tap itself can open the share sheet
+  const [card, setCard] = useState<File | null>(null)
   const hasOwnLocation = !!(place && (place.map_url || place.station_name || place.station_line))
   useEffect(() => {
-    // default to the first branch only when the place has no location of its own
+    // planned place: default to the branch that was picked for the plan;
+    // otherwise first branch only when the place has no location of its own
+    if (place?.in_plan && place.plan_branch != null && place.branches?.[place.plan_branch]) {
+      setBranchIdx(place.plan_branch)
+      return
+    }
     setBranchIdx(place?.branches?.length && !hasOwnLocation ? 0 : null)
-  }, [place?.id, hasOwnLocation, place?.branches?.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [place?.id, hasOwnLocation, place?.branches?.length, place?.plan_branch, place?.in_plan])
+
+  useEffect(() => {
+    setCard(null)
+    if (!open || !place) return
+    let off = false
+    const m = catMeta(place.category)
+    ;(async () => {
+      // the cover may live in the private bucket — sign it so the card can draw it
+      const photoUrl = place.photo_url ?? (place.photo_path ? await getSignedUrl(place.photo_path) : null)
+      const f = await buildShareCard({
+        name: place.name, city: place.city, photoUrl,
+        category: { label: m.label, bg: m.bg, fg: m.fg },
+      })
+      if (!off) setCard(f)
+    })()
+    return () => { off = true }
+  }, [open, place?.id, place?.photo_url, place?.photo_path, place?.category, place?.city, place?.name])
 
   if (!place) return null
   const meta = catMeta(place.category)
@@ -54,21 +85,30 @@ export function PlaceDetail({
   const extraBase = hasPhoto ? 1 : 0
   const branches = place.branches ?? []
   const sel = branchIdx != null ? branches[branchIdx] : null
-  const lineColor = sel ? sel.color : place.station_color
+  const lineColor = lineColorFor(sel ? sel.line : place.station_line, place.city) ?? (sel ? sel.color : place.station_color)
   const lineText = sel ? sel.line : place.station_line
   const stationText = sel ? sel.station : place.station_name
   const mapUrl = sel?.map_url || place.map_url
 
+  async function shareThis() {
+    if (!place) return
+    await sharePlace({
+      name: place.name, city: place.city,
+      category: { label: meta.label, bg: meta.bg, fg: meta.fg },
+      card, mapUrl,
+      appUrl: place.source_explore_id ? `${window.location.origin}/explore/p/${place.source_explore_id}` : null,
+    })
+  }
+
   return (
     <Drawer open={open} onClose={onClose} title="รายละเอียด">
       <div className="h-40 rounded-[14px] relative grid place-items-center overflow-hidden mt-1" style={{ background: meta.bg }}>
-        <SignedImage url={place.photo_url} path={place.photo_path} focus={place.photo_focus} alt={place.name ?? ''} className="absolute inset-0 w-full h-full object-cover" width={800}
-          fallback={<Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />} />
-        {hasPhoto && (
-          <>
-            <button onClick={() => setLightbox(0)} aria-label="ดูรูปเต็ม" className="absolute inset-0 z-10 cursor-zoom-in" />
-            <span className="absolute top-2 right-2 z-20 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
-          </>
+        {gallery.length > 0
+          ? <PhotoCarousel photos={gallery} alt={place.name ?? ''} width={800} focus={place.photo_focus} onExpand={(i) => setLightbox(i)}
+              fallback={<Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />} />
+          : <Icon size={40} stroke={1.4} style={{ color: meta.fg, opacity: 0.85 }} />}
+        {gallery.length > 0 && (
+          <span className="absolute top-2 right-2 z-20 size-7 rounded-full bg-black/45 text-white grid place-items-center pointer-events-none"><IconZoomScan size={15} /></span>
         )}
         <span className="absolute bottom-2 right-2 z-20 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium pointer-events-none" style={{ background: '#fff', color: meta.fg }}>
           {meta.label}
@@ -86,34 +126,29 @@ export function PlaceDetail({
             )}
             {(lineText || stationText) && (
               <div className="flex items-center gap-1.5 text-[12px] text-ink-3 mt-1">
-                <span className="size-2 rounded-full" style={{ background: lineColor ?? '#888780' }} />
-                {lineText}{stationText ? ` · ${stationText}` : ''}
+                <span className="size-2 rounded-full shrink-0" style={{ background: lineColor ?? '#888780' }} />
+                {(() => {
+                  const code = stationCode(lineText, stationText)
+                  const station = stationText ? `${code ? `${code} ` : ''}${stationText}` : ''
+                  return <span>{lineText}{station ? ` · ${station}` : ''}</span>
+                })()}
               </div>
             )}
           </div>
-          {onEdit && <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไข"><IconPencil size={15} /></button>}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* out of the app — a drawn card, plus the place's own page here
+                when it came from Explore, else its map pin */}
+            <button onClick={() => void shareThis()}
+              className="btn-icon !size-8" aria-label="แชร์สถานที่นี้" title="แชร์สถานที่นี้"><IconShare2 size={15} /></button>
+            {onShare && <button onClick={onShare} className="btn-icon !size-8" aria-label="แชร์ไป Explore" title="แชร์ไป Explore"><IconWorldShare size={15} /></button>}
+            {onEdit && <button onClick={onEdit} className="btn-icon !size-8" aria-label="แก้ไข"><IconPencil size={15} /></button>}
+          </div>
         </div>
 
         {/* branch picker — for chains with multiple locations */}
         {branches.length > 0 && (
           <div className="mt-3">
-            <div className="text-[11px] text-ink-3 mb-1.5">เลือกสาขา ({branches.length})</div>
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-              {hasOwnLocation && (
-                <button onClick={() => setBranchIdx(null)}
-                  className={['chip shrink-0', branchIdx === null ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
-                  style={branchIdx === null ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
-                  {branchIdx === null && <IconCheck size={12} />} ที่ตั้งหลัก
-                </button>
-              )}
-              {branches.map((b, i) => (
-                <button key={i} onClick={() => setBranchIdx(i)}
-                  className={['chip shrink-0', branchIdx === i ? '!bg-brand-soft !text-brand-dark' : ''].join(' ')}
-                  style={branchIdx === i ? { border: '0.5px solid var(--color-brand-border)' } : undefined}>
-                  {branchIdx === i && <IconCheck size={12} />} {b.label || `สาขา ${i + 1}`}
-                </button>
-              ))}
-            </div>
+            <BranchPicker branches={branches} value={branchIdx} onChange={setBranchIdx} hasOwnLocation={hasOwnLocation} ownLabel={place.branch_label} />
           </div>
         )}
 
@@ -176,11 +211,13 @@ export function PlaceDetail({
 
         <div className="grid grid-cols-2 gap-2 mt-5">
           {canEdit ? (
-            <button onClick={onTogglePlan} className="h-10 rounded-md text-[13px] font-medium flex items-center justify-center gap-1.5 whitespace-nowrap px-2"
+            /* being in the plan means having a stop in the itinerary, so this is
+               a state to report plus a way to add another day — never a switch */
+            <button onClick={onAddToDay} className="h-10 rounded-md text-[13px] font-medium flex items-center justify-center gap-1.5 whitespace-nowrap px-2"
               style={place.in_plan
                 ? { background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)', border: '0.5px solid var(--color-brand-border)' }
                 : { background: 'var(--color-brand)', color: '#fff' }}>
-              {place.in_plan ? <><IconCheck size={15} /> อยู่ในแพลนแล้ว</> : <><IconPlus size={15} /> เพิ่มในแพลน</>}
+              {place.in_plan ? <><IconCheck size={15} /> อยู่ในแพลนแล้ว</> : <><IconPlus size={15} /> ใส่ลงวัน</>}
             </button>
           ) : onPin ? (
             <button onClick={onPin} className="h-10 rounded-md text-[13px] font-medium flex items-center justify-center gap-1.5 whitespace-nowrap px-2"

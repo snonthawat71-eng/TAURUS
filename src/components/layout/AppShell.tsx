@@ -1,15 +1,19 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import { TaurusMark } from '@/components/TaurusMark'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { TopBar } from './TopBar'
 import { OfflineBanner } from '@/components/OfflineBanner'
+import { NotePanel } from '@/components/NotePanel'
+import { NoteReminderEngine } from '@/components/NoteReminderEngine'
 import { NoTrip } from '@/components/NoTrip'
 import { useTrip } from '@/contexts/TripContext'
+import { visibleNav } from './nav'
 
 export function AppShell() {
-  const { loading, error, trips } = useTrip()
+  const { loading, error, trips, myPermission } = useTrip()
+  const location = useLocation()
 
   if (loading) {
     return (
@@ -33,6 +37,19 @@ export function AppShell() {
 
   if (trips.length === 0) return <NoTrip />
 
+  // Route-level permission guard — the nav only HIDES pages, so without this a
+  // restricted member could still open them by URL. `/food` is the Food tab of
+  // the Places page and follows /places' visibility.
+  const allowed = new Set(visibleNav(myPermission).map((n) => n.to))
+  if (allowed.has('/itinerary')) allowed.add('/plans') // All plans now lives inside Itinerary
+  if (allowed.has('/places')) allowed.add('/food')
+  if (allowed.has('/places')) allowed.add('/map')
+  if (allowed.has('/info')) allowed.add('/budget') // budget lives inside Personal Info
+  if (!allowed.has(location.pathname)) {
+    const fallback = visibleNav(myPermission)[0]?.to ?? '/'
+    return <Navigate to={fallback} replace />
+  }
+
   return (
     <div className="flex min-h-dvh bg-canvas">
       <div className="max-md:hidden">
@@ -46,6 +63,8 @@ export function AppShell() {
         </div>
       </main>
       <BottomNav />
+      <NotePanel />
+      <NoteReminderEngine />
     </div>
   )
 }

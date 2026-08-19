@@ -37,6 +37,30 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
+// One API call returns EVERY currency vs THB, so fetch once and share it:
+// concurrent callers (Budget + the FX widget load together) await the same
+// in-flight request instead of each firing their own.
+let inflight: Promise<Record<string, number> | null> | null = null
+function fetchAllRatesTHB(): Promise<Record<string, number> | null> {
+  if (!inflight) {
+    inflight = (async () => {
+      try {
+        const res = await fetch('https://open.er-api.com/v6/latest/THB')
+        const json = await res.json()
+        const rates = json?.rates
+        if (!rates || typeof rates !== 'object') return null
+        // API gives units-per-THB; invert to THB per 1 unit
+        const out: Record<string, number> = {}
+        for (const [code, v] of Object.entries(rates as Record<string, unknown>)) {
+          if (typeof v === 'number' && v > 0) out[code] = 1 / v
+        }
+        return Object.keys(out).length ? out : null
+      } catch { return null } finally { inflight = null }
+    })()
+  }
+  return inflight
+}
+
 /** THB per 1 unit of `code`, cached per-day in localStorage.
  *  Pass force=true to bypass today's cache and re-fetch. */
 export async function getRateToTHB(code: string, force = false): Promise<FxResult> {
@@ -53,16 +77,16 @@ export async function getRateToTHB(code: string, force = false): Promise<FxResul
     return { rate: cached.rate, date: cached.date, live: true, approx: false }
   }
 
-  try {
-    const res = await fetch(`https://open.er-api.com/v6/latest/${code}`)
-    const json = await res.json()
-    const rate = json?.rates?.THB
-    if (typeof rate === 'number' && rate > 0) {
-      const result: FxResult = { rate, date: day, live: true, approx: false }
-      try { localStorage.setItem(key, JSON.stringify(result)) } catch { /* ignore */ }
-      return result
+  const all = await fetchAllRatesTHB()
+  if (all) {
+    // warm today's cache for every supported currency in one go
+    for (const c of CURRENCIES) {
+      if (all[c.code]) {
+        try { localStorage.setItem(`fx:${c.code}:THB`, JSON.stringify({ rate: all[c.code], date: day, live: true, approx: false })) } catch { /* ignore */ }
+      }
     }
-  } catch { /* network unavailable — fall through */ }
+    if (all[code]) return { rate: all[code], date: day, live: true, approx: false }
+  }
 
   // offline: prefer the last real rate we ever cached (stale but accurate)
   if (cached && typeof cached.rate === 'number' && cached.rate > 0) {
