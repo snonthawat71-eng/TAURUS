@@ -1,12 +1,13 @@
 // Picking which trip a place should be saved into — shared by the single-place
 // dialog and the "save the whole shortlist" one, so both offer the same trips
 // in the same order.
-import { canonicalCountry, cityKey } from './countries'
+import { canonicalCountry } from './countries'
+import { cityMatchKey } from './cities'
 import type { Trip } from './database.types'
 
 // folds case, spaces and punctuation, so a trip to "Guangzhou" still takes a
 // place whose city was typed "Guang Zhou"
-const norm = (s?: string | null) => cityKey(s)
+const norm = (s?: string | null) => cityMatchKey(s)
 
 /** The place's location keywords (city + country) and a trip's (country +
  *  every city segment) match when any pair is equal or one contains the other —

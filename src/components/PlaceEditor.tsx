@@ -13,6 +13,7 @@ import { uploadImage } from '@/lib/files'
 import { useTrip } from '@/contexts/TripContext'
 import { getTransitSuggestions, findLine } from '@/lib/metro/suggest'
 import { cityImage } from '@/lib/cityImages'
+import { canonicalCity, citySuggestions } from '@/lib/cities'
 import { optimizeImageUrl } from '@/lib/cloudinary'
 import { nameFromMapUrl, resolveMapName, isMapLink } from '@/lib/geo'
 import { catMeta, CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
@@ -216,7 +217,7 @@ export function PlaceEditor({
       photo_path: cover && !isHttp(cover) ? cover : null,
       photo_url: cover && isHttp(cover) ? cover : null,
       photo_focus: cover ? photoFocus : null,
-      photos: others.length ? others : null, city: city || null,
+      photos: others.length ? others : null, city: canonicalCity(city) || null,
       menu_paths: group === 'food' && menuPaths.length ? menuPaths : null,
     }, remap)
     setBusy(false)
@@ -274,7 +275,8 @@ export function PlaceEditor({
               })}
             </div>
           )}
-          <input className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="พิมพ์ชื่อเมือง เช่น Beijing" />
+          <Combobox className={field} value={city} onChange={setCity} placeholder="พิมพ์ชื่อเมือง เช่น Beijing"
+            options={[...new Set([...tripCities, ...citySuggestions(trip?.country)].map(canonicalCity).filter(Boolean))].map((c) => ({ value: c }))} />
         </SectionCard>
 
         {/* ลิงก์ (auto-fill ชื่อ) + ชื่อ + หมวด + หลายสาขา */}

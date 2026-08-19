@@ -18,7 +18,7 @@ import {
   buildTopLists, coverForKey, countryForKey, MAX_PLACES, TOP_BUCKETS,
   type RatingStat, type TopBucket, type TopList,
 } from '@/lib/exploreTop'
-import { cityKey } from '@/lib/countries'
+import { cityMatchKey } from '@/lib/cities'
 import { hscroll } from '@/lib/hscroll'
 import { FILTER_CARD_ART } from '@/lib/cityImages'
 import { tintChromeFromPhoto } from '@/lib/photoTint'
@@ -224,7 +224,7 @@ export default function ExploreTop() {
               )}
 
               {showCities && cities.map((c) => {
-                const mine = recent.filter((p) => cityKey(p.city) === cityKey(c.name))
+                const mine = recent.filter((p) => cityMatchKey(p.city) === cityMatchKey(c.name))
                 if (!mine.length) return null
                 return (
                   <Rail key={c.name} title={c.name}

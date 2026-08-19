@@ -5,6 +5,7 @@ import { SectionCard } from './SectionCard'
 import { SignedImage } from './SignedImage'
 import { QuickExplorePicker, type QuickPick } from './QuickExplorePicker'
 import { useTrip } from '@/contexts/TripContext'
+import { canonicalCity, cityMatchKey } from '@/lib/cities'
 import { catMeta } from '@/lib/placeMeta'
 import { planMapUrl, branchesOf, hasOwnLocation } from '@/lib/branches'
 import { nameFromMapUrl, resolveMapName, isMapLink } from '@/lib/geo'
@@ -65,13 +66,15 @@ export function StopEditor({
   // cities to offer as filters: the trip's cities + any city set on a planned place
   const cities = useMemo(() => {
     const set = new Set<string>()
-    ;(trip?.cities ?? []).forEach((c) => set.add(c))
-    inPlan.forEach((p) => { if (p.city) set.add(p.city) })
+    // keyed by the canonical name, so "Hong Kong", "hongkong" and "Kowloon"
+    // are one chip rather than three
+    ;(trip?.cities ?? []).forEach((c) => { if (c) set.add(canonicalCity(c)) })
+    inPlan.forEach((p) => { if (p.city) set.add(canonicalCity(p.city)) })
     return Array.from(set)
   }, [trip, inPlan])
 
   const shown = useMemo(() => inPlan.filter((p) =>
-    (cityFilter === 'all' || (p.city || '') === cityFilter) &&
+    (cityFilter === 'all' || cityMatchKey(p.city) === cityMatchKey(cityFilter)) &&
     (groupFilter === 'all' || groupOf(p) === groupFilter)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [inPlan, cityFilter, groupFilter])

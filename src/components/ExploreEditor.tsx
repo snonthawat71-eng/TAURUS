@@ -15,6 +15,8 @@ import { modeMeta } from '@/lib/transitModes'
 import { uploadPublicImage } from '@/lib/files'
 import { hscroll } from '@/lib/hscroll'
 import { cityImage } from '@/lib/cityImages'
+import { canonicalCountry } from '@/lib/countries'
+import { canonicalCity, citySuggestions } from '@/lib/cities'
 import { optimizeImageUrl } from '@/lib/cloudinary'
 import { nameFromMapUrl, resolveMapName, isMapLink } from '@/lib/geo'
 import { CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } from '@/lib/placeMeta'
@@ -294,7 +296,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     const cover = allPhotos[coverIdx] ?? allPhotos[0] ?? null
     const others = allPhotos.filter((p) => p !== cover)
     await onSave({
-      group_type: group, name, category: finalCategory, city: city || null, country: country || null,
+      group_type: group, name, category: finalCategory, city: canonicalCity(city) || null, country: country || null,
       station_line: first?.line || null, station_color: first?.color || null, station_name: first?.station || null,
       routes: clean.length ? clean : null,
       branches: cleanBranches.length ? cleanBranches : null,
@@ -358,7 +360,10 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
           <div className="grid grid-cols-2 gap-2">
             <div><div className={lbl}>เมือง *</div>
               <Combobox className={field} value={city} onChange={setCity} placeholder="Osaka"
-                options={[...new Set(sugg.cityChips.map((p) => p.city).filter(Boolean))].map((c) => ({ value: c }))} />
+                options={[...new Set([
+                  ...citySuggestions(canonicalCountry(country)),
+                  ...sugg.cityChips.map((p) => p.city).filter(Boolean),
+                ].map(canonicalCity))].map((c) => ({ value: c }))} />
             </div>
             <div><div className={lbl}>ประเทศ *</div>
               <Combobox className={field} value={country} onChange={setCountry} placeholder="Japan"

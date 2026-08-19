@@ -8,7 +8,8 @@ import {
 import { SignedImage } from './SignedImage'
 import { hscroll } from '@/lib/hscroll'
 import { cityImage, countryImage } from '@/lib/cityImages'
-import { canonicalCountry, cityKey } from '@/lib/countries'
+import { canonicalCountry } from '@/lib/countries'
+import { cityMatchKey, canonicalCity } from '@/lib/cities'
 import { PLACE_TABS, FOOD_GROUPS, CATEGORY, type CategoryTab } from '@/lib/placeMeta'
 import type { ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace } from '@/lib/database.types'
@@ -137,9 +138,9 @@ export function ExploreFilters({ items, f, set, showSort = true, userId, belowSe
       const fresh = !!at && now - new Date(at).getTime() < NEW_CITY_WINDOW_MS
       let m = byCountry.get(key)
       if (!m) { m = new Map(); byCountry.set(key, m) }
-      const ck = cityKey(e.city)
+      const ck = cityMatchKey(e.city)
       const cur = m.get(ck)
-      if (!cur) m.set(ck, { name: e.city, sample: e, fresh, newestAt: at, count: 1 })
+      if (!cur) m.set(ck, { name: canonicalCity(e.city), sample: e, fresh, newestAt: at, count: 1 })
       else { if (fresh) cur.fresh = true; if (at > cur.newestAt) cur.newestAt = at; cur.count++ }
     }
     return Array.from(byCountry.entries()).map(([key, m]) => {
