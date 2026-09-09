@@ -13,7 +13,6 @@ import { TaurusMark } from '@/components/TaurusMark'
 import { TaurusLogo } from '@/components/TaurusLogo'
 import { AvatarStack } from '@/components/Avatar'
 import { PopMenu } from '@/components/PopMenu'
-import { HomeTabBar } from '@/components/layout/HomeTabBar'
 import { ShareDialog } from '@/components/ShareDialog'
 import { formatDateRange, dayCount, tripCountdown, todayISO } from '@/lib/format'
 import { useWeather, tripCityCandidates } from '@/lib/weather'
@@ -121,13 +120,6 @@ export default function TripsDashboard() {
   const { user, signOut } = useAuth()
   const unread = useUnreadNotifs(user?.id)
   const navigate = useNavigate()
-  // which tab the wave is heading to; the page changes a beat later so the
-  // movement is actually seen rather than cut off by the navigation
-  const [going, setGoing] = useState<string | null>(null)
-  function leaveTo(key: string, path: string) {
-    setGoing(key)
-    window.setTimeout(() => navigate(path), 170)
-  }
   const [travelers, setTravelers] = useState<TravelerLite[]>([])
   const [shareOpen, setShareOpen] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -319,16 +311,24 @@ export default function TripsDashboard() {
         </div>
       </main>
 
-      {/* Bottom nav with the wave that follows the tab you're on — dashboard only.
-          Tapping Explore/Profile glides it across on the way out. */}
-      <HomeTabBar
-        active={going ?? 'home'}
-        tabs={[
-          { key: 'home', label: 'Home', icon: IconHome, onSelect: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
-          { key: 'explore', label: 'Explore', icon: IconCompass, onSelect: () => leaveTo('explore', '/explore') },
-          { key: 'profile', label: 'Profile', icon: IconUser, badge: unread, onSelect: () => leaveTo('profile', '/profile') },
-        ]}
-      />
+      {/* Minimal glass bottom nav with soft centre wave — dashboard only */}
+      <nav className="mobile-bottom-nav">
+        <div className="nav-bg" aria-hidden="true" />
+        <button className="bottom-nav-item active" aria-current="page" aria-label="Home"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <IconHome size={25} stroke={1.9} />
+          <span>Home</span>
+        </button>
+        <button className="center-action" aria-label="Explore" onClick={() => navigate('/explore')}>
+          <span className="dot"><IconCompass size={24} stroke={1.9} /></span>
+          <span>Explore</span>
+        </button>
+        <button className="bottom-nav-item relative" aria-label="Profile" onClick={() => navigate('/profile')}>
+          {unread && <span className="absolute top-1 right-[26%] size-2 rounded-full bg-[#EF4444]" style={{ boxShadow: '0 0 0 2px var(--color-surface)' }} />}
+          <IconUser size={25} stroke={1.9} />
+          <span>Profile</span>
+        </button>
+      </nav>
 
       <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
