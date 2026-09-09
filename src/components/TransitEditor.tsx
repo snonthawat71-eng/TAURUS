@@ -14,6 +14,8 @@ import { getNetworkForTrip, getNetworkForText } from '@/lib/metro'
 import { isSingapore } from '@/lib/metro/singaporeNetwork'
 import { suggestionsFromText, findLine, legBetween } from '@/lib/metro/suggest'
 import { modeMeta } from '@/lib/transitModes'
+import { CURRENCIES } from '@/lib/fx'
+import { cityMatchKey } from '@/lib/cities'
 import { confirmDialog } from '@/lib/confirm'
 import { ModePicker } from './ModePicker'
 import type { Transit, TransitLeg, ExploreRoute, Place } from '@/lib/database.types'
@@ -112,6 +114,24 @@ export function TransitEditor({
   const sh = isShanghai(hay)
   const sz = isShenzhen(hay)
   const sg = isSingapore(hay)
+  // Money for THIS leg. A multi-city trip pays in a different currency in each
+  // city, so the fare row picks one per leg — defaulting to the currency of the
+  // segment whose city this stop is in, then the trip's own.
+  const tripMonies = useMemo(() => {
+    const out: string[] = []
+    for (const s of trip?.segments ?? []) if (s?.currency && !out.includes(s.currency)) out.push(s.currency)
+    if (trip?.currency && !out.includes(trip.currency)) out.push(trip.currency)
+    return out
+  }, [trip])
+  const cityMoney = useMemo(() => {
+    const seg = (trip?.segments ?? []).find((s) => s?.city && cityMatchKey(s.city) === cityMatchKey(placeCity))
+    return seg?.currency ?? trip?.currency ?? ''
+  }, [trip, placeCity])
+  const moneyOptions = useMemo(
+    () => [...new Set([...tripMonies, ...CURRENCIES.map((c) => c.code)])],
+    [tripMonies],
+  )
+
   const [legs, setLegs] = useState<TransitLeg[]>([])
   const [busy, setBusy] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
@@ -334,7 +354,7 @@ export function TransitEditor({
             [leg.from, leg.to].filter(Boolean).join(' → '),
             leg.stops != null ? `${leg.stops} ${rail ? 'สถานี' : 'ป้าย'}` : '',
             leg.exit?.label,
-            leg.fare != null ? `≈${leg.fare} ${trip?.currency ?? ''}` : '',
+            leg.fare != null ? `≈${leg.fare} ${leg.fareCurrency ?? cityMoney}` : '',
           ].filter(Boolean).join(' · ')
           const fareShown = fareOpen.has(i) || leg.fare != null
           return (
@@ -432,12 +452,16 @@ export function TransitEditor({
                 <input type="number" inputMode="decimal" className="flex-1 min-w-0 h-8 hairline rounded-md px-2 text-[12.5px] bg-surface outline-none focus:border-brand"
                   value={leg.fare ?? ''} autoFocus={leg.fare == null}
                   onChange={(e) => patch(i, { fare: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" />
-                <span className="text-[11.5px] text-ink-3 shrink-0">{trip?.currency ?? ''}</span>
+                <select value={leg.fareCurrency ?? cityMoney} aria-label="สกุลเงินของราคานี้"
+                  onChange={(e) => patch(i, { fareCurrency: e.target.value })}
+                  className="shrink-0 h-8 rounded-md px-1.5 text-[11.5px] font-medium text-ink-2 bg-surface-2 outline-none focus:border-brand">
+                  {moneyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
                 <button onClick={() => { patch(i, { fare: undefined }); setFareOpen((s) => { const n = new Set(s); n.delete(i); return n }) }}
                   className="text-ink-3 hover:text-ink-2 shrink-0" aria-label="เอาราคาออก"><IconX size={14} /></button>
               </div>
             ) : (
-              <button onClick={() => setFareOpen((s) => new Set(s).add(i))}
+              <button onClick={() => { patch(i, { fareCurrency: leg.fareCurrency ?? cityMoney }); setFareOpen((s) => new Set(s).add(i)) }}
                 className="w-full h-8 rounded-[10px] text-[11.5px] font-medium inline-flex items-center gap-1.5 text-ink-3 px-3"
                 style={{ border: '1px dashed var(--color-line-2)' }}>
                 <IconCoin size={13} /> ราคาค่าเดินทางโดยประมาณ

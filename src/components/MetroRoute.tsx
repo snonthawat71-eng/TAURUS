@@ -57,7 +57,7 @@ function BoardContent({ leg, currency, where }: { leg: TransitLeg; currency?: st
           {leg.direction && `→ ${leg.direction}`}
           {leg.stops != null && ` · ${leg.stops} สถานี`}
           {leg.minutes != null && ` · ${leg.minutes} นาที`}
-          {leg.fare != null && ` · ≈${leg.fare} ${currency ?? ''}`}
+          {leg.fare != null && ` · ≈${leg.fare} ${leg.fareCurrency ?? currency ?? ''}`}
         </span>
       </div>
     </>
@@ -72,8 +72,17 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
   const { legs, exit } = transit
   if (!legs?.length) return null
   const last = legs.length - 1
-  // estimated total when any leg carries a fare (trip currency)
-  const fareTotal = legs.reduce((sum, l) => sum + (l.fare ?? 0), 0)
+  // Estimated total, one subtotal per currency: a Hongkong→Shenzhen day is paid
+  // partly in HKD and partly in CNY, and adding those numbers together would be
+  // a made-up figure.
+  const totals: { code: string; sum: number }[] = []
+  for (const l of legs) {
+    if (l.fare == null) continue
+    const code = l.fareCurrency || trip?.currency || ''
+    const hit = totals.find((x) => x.code === code)
+    if (hit) hit.sum += l.fare
+    else totals.push({ code, sum: l.fare })
+  }
 
   return (
     <div className="mt-2.5 rounded-[10px] bg-surface-2/40 p-3.5 relative" style={{ border: '0.5px solid var(--color-line)' }}>
@@ -113,9 +122,10 @@ export function MetroRoute({ transit, onEdit }: { transit: Transit; onEdit?: () 
         </div>
         )
       })}
-      {fareTotal > 0 && (
+      {totals.length > 0 && (
         <div className="mt-2 pt-2 flex items-center gap-1.5 text-[11px] font-medium text-ink-2" style={{ borderTop: '0.5px solid var(--color-line)' }}>
-          <IconCoin size={13} className="text-ink-3" /> ค่าเดินทางรวม ≈ {fareTotal} {trip?.currency ?? ''}
+          <IconCoin size={13} className="text-ink-3" />
+          ค่าเดินทางรวม {totals.map((x) => `≈${x.sum} ${x.code}`).join(' · ')}
         </div>
       )}
     </div>
