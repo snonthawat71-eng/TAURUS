@@ -40,6 +40,23 @@ export async function getSignedUrl(storagePath: string): Promise<string | null> 
   }
 }
 
+/**
+ * Open a private file (a PDF slip) in a new tab from a tap.
+ *
+ * Safari only honours window.open while the tap is still being handled, and
+ * the signed URL takes a round trip to fetch — opening after the await was
+ * silently blocked, so tapping a slip did nothing. Claim the tab first, point
+ * it at the URL when it arrives.
+ */
+export async function openPrivateFile(path: string): Promise<boolean> {
+  const tab = window.open('', '_blank')
+  const url = /^https?:\/\//.test(path) ? path : await getSignedUrl(path)
+  if (!url) { tab?.close(); return false }
+  if (tab) tab.location.href = url
+  else window.open(url, '_blank', 'noopener,noreferrer') // popup blocked on the first try
+  return true
+}
+
 /** Resolve a photo (external `url` or private `path`) to a viewable full-size
  *  URL — for opening it in a lightbox. Cloudinary URLs get a larger width. */
 export async function photoFullUrl(url: string | null | undefined, path: string | null | undefined, width = 1600): Promise<string | null> {

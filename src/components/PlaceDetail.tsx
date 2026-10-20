@@ -10,15 +10,14 @@ import { catMeta } from '@/lib/placeMeta'
 import { openMap } from '@/lib/maps'
 import { sharePlace } from '@/lib/share'
 import { buildShareCard } from '@/lib/shareCard'
-import { getSignedUrl } from '@/lib/files'
+import { getSignedUrl, openPrivateFile } from '@/lib/files'
 import { stationCode, lineColorFor } from '@/lib/metro/suggest'
 
 const isPdfRef = (ref: string) => /\.pdf($|\?)/i.test(ref)
 /** Open a stored menu file (Cloudinary URL as-is, private path via signed URL). */
 async function openFileRef(ref: string) {
   if (/^https?:\/\//.test(ref)) { window.open(ref, '_blank'); return }
-  const url = await getSignedUrl(ref)
-  if (url) window.open(url, '_blank')
+  await openPrivateFile(ref)
 }
 import type { Interested } from './PlaceCard'
 import type { Place } from '@/lib/database.types'

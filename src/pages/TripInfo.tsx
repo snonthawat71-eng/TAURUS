@@ -22,7 +22,7 @@ import { openMap } from '@/lib/maps'
 import { confirmDialog } from '@/lib/confirm'
 import { offerUndo } from '@/lib/undo'
 import { toast } from '@/lib/toast'
-import { getSignedUrl, isSampleFile } from '@/lib/files'
+import { isSampleFile, openPrivateFile } from '@/lib/files'
 import { flightDuration, formatFlightDate, formatCheckTime } from '@/lib/format'
 import { travelerColor, ORDER } from '@/lib/avatars'
 import { tripTz } from '@/lib/segments'
@@ -84,8 +84,7 @@ async function viewFile(f: TravelerFile) {
     toast.info('นี่เป็นไฟล์ตัวอย่าง — แตะ "เพิ่มไฟล์" เพื่ออัปโหลดไฟล์จริง (QR / Arrival card / Visa) แล้วจะเปิดดูได้')
     return
   }
-  const url = await getSignedUrl(f.storage_path)
-  if (url) window.open(url, '_blank', 'noopener,noreferrer')
+  if (!(await openPrivateFile(f.storage_path))) toast.error('เปิดไฟล์ไม่สำเร็จ — ลองใหม่อีกครั้ง')
 }
 
 // "now" in a timezone as a sortable 'YYYY-MM-DDTHH:mm' string (the trip's tz, set
