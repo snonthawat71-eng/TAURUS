@@ -30,7 +30,7 @@ import {
   exploreAsPlace, logExploreEvent,
 } from '@/lib/exploreMutations'
 import { getReviews, emptyStat, type ReviewData } from '@/lib/exploreReviews'
-import { savedExploreIds, removeExploreCopiesDeep } from '@/lib/placeMutations'
+import { savedExploreIdsForTrip, removeExploreCopiesDeep } from '@/lib/placeMutations'
 import { confirmDialog } from '@/lib/confirm'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toast'
@@ -85,7 +85,7 @@ export default function ExplorePlaceDetail() {
 
   async function refreshSaved() {
     if (!id) return
-    setSaved((await savedExploreIds(myTripIds)).has(id))
+    setSaved((await savedExploreIdsForTrip(currentTrip?.id)).has(id))
   }
 
   // load the item + count a view
@@ -100,7 +100,7 @@ export default function ExplorePlaceDetail() {
     window.scrollTo(0, 0)
   }, [id, user?.id])
 
-  useEffect(() => { refreshSaved() }, [id, myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshSaved() }, [id, currentTrip?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // paint the status-bar zone (and pull-down overscroll) the colour of the
   // photo's top edge so the image looks like it runs to the very top
@@ -182,7 +182,7 @@ export default function ExplorePlaceDetail() {
     if (!e) return
     if (saved) {
       if (!(await confirmDialog({ message: `เอา "${e.name}" ออกจากทริปที่เซฟไว้? ถ้ามีจุดแวะของที่นี่ใน Itinerary จะถูกลบไปด้วย`, danger: true, confirmLabel: 'เอาออก' }))) return
-      const { stopsRemoved } = await removeExploreCopiesDeep(e.id, myTripIds)
+      const { stopsRemoved } = await removeExploreCopiesDeep(e.id, currentTrip ? [currentTrip.id] : [])
       await refreshSaved()
       if (currentTrip && myTripIds.includes(currentTrip.id)) void reloadTrip()
       toast.success(stopsRemoved > 0 ? `เอาออกแล้ว · ลบจุดแวะใน Itinerary ${stopsRemoved} จุดด้วย` : 'เอาออกจากทริปแล้ว')

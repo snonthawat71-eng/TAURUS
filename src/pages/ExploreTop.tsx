@@ -8,9 +8,8 @@ import { SignedImage } from '@/components/SignedImage'
 import { TopHero, RailCard, PlaceTile, topTitle } from '@/components/exploreTopParts'
 import { SaveToTripDialog } from '@/components/SaveToTripDialog'
 import { SaveAllToTripDialog } from '@/components/SaveAllToTripDialog'
-import { useAuth } from '@/contexts/AuthContext'
 import { useTrip } from '@/contexts/TripContext'
-import { savedExploreIds } from '@/lib/placeMutations'
+import { savedExploreIdsForTrip } from '@/lib/placeMutations'
 import { listExplore, allPopularity, exploreAsPlace, type PopStat } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
 import { loadCuratedPage, type CuratedPage } from '@/lib/countryPages'
@@ -62,8 +61,7 @@ export default function ExploreTop() {
   const { key = '' } = useParams()
   const navigate = useNavigate()
   const goBack = useBack('/explore')
-  const { user } = useAuth()
-  const { trips } = useTrip()
+  const { trip: currentTrip } = useTrip()
 
   const [lists, setLists] = useState<TopList[] | null>(null)
   const [ratings, setRatings] = useState<Map<string, RatingStat>>(new Map())
@@ -75,9 +73,8 @@ export default function ExploreTop() {
   const [saveAll, setSaveAll] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
 
-  const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
-  useEffect(() => { if (myTripIds.length) void refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
-  async function refreshSaved() { setSavedSet(await savedExploreIds(myTripIds)) }
+  useEffect(() => { void refreshSaved() }, [currentTrip?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  async function refreshSaved() { setSavedSet(await savedExploreIdsForTrip(currentTrip?.id)) }
 
   useEffect(() => {
     let off = false

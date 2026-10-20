@@ -14,7 +14,7 @@ import { ExploreTopBanner } from '@/components/ExploreTopBanner'
 import { ExploreSuggestDialog } from '@/components/ExploreSuggestDialog'
 import { listExplore, addExplore, updateExplore, deleteExplore, exploreAsPlace, allPopularity, popularSet, type PopStat } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
-import { savedExploreIds, removeExploreCopiesDeep, updateExploreCopies, remapExploreCopyBranches, type PlaceInput } from '@/lib/placeMutations'
+import { savedExploreIdsForTrip, removeExploreCopiesDeep, updateExploreCopies, remapExploreCopyBranches, type PlaceInput } from '@/lib/placeMutations'
 import { toast } from '@/lib/toast'
 import { confirmDialog } from '@/lib/confirm'
 import { useBack } from '@/lib/useBack'
@@ -99,24 +99,23 @@ export default function Explore() {
     if (savedSet.has(e.id)) {
       // un-save from every trip + delete the itinerary stops made from it
       if (!(await confirmDialog({
-        message: `เอา "${e.name}" ออกจากทริปที่เซฟไว้? ถ้ามีจุดแวะของที่นี่ใน Itinerary จะถูกลบไปด้วย`,
+        message: `เอา "${e.name}" ออกจากทริป "${currentTrip?.name ?? ''}"? ถ้ามีจุดแวะของที่นี่ใน Itinerary จะถูกลบไปด้วย`,
         danger: true, confirmLabel: 'เอาออก',
       }))) return
-      const { stopsRemoved } = await removeExploreCopiesDeep(e.id, myTripIds)
+      const { stopsRemoved } = await removeExploreCopiesDeep(e.id, currentTrip ? [currentTrip.id] : [])
       refreshSaved()
-      if (currentTrip && myTripIds.includes(currentTrip.id)) void reloadTrip()
+      void reloadTrip()
       toast.success(stopsRemoved > 0 ? `เอาออกแล้ว · ลบจุดแวะใน Itinerary ${stopsRemoved} จุดด้วย` : 'เอาออกจากทริปแล้ว')
     } else setFav(exploreAsPlace(e))
   }
 
-  const myTripIds = useMemo(() => trips.filter((t) => t.owner_id === user?.id).map((t) => t.id), [trips, user?.id])
   // every trip I can reach — used only to propagate an Explore edit to saved
   // copies. RLS (can_edit_trip) blocks view/places-only shared trips, so this
   // safely covers owned + edit-shared trips without touching Explore itself.
   const editableTripIds = useMemo(() => trips.map((t) => t.id), [trips])
 
   async function refreshSaved() {
-    setSavedSet(await savedExploreIds(myTripIds))
+    setSavedSet(await savedExploreIdsForTrip(currentTrip?.id))
   }
 
   async function load() {
@@ -142,7 +141,7 @@ export default function Explore() {
     else load()
     refreshStats()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshSaved() }, [currentTrip?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-check what's saved whenever the page is shown again — covers deleting a
   // saved place from the trip's Places page (or back/forward bfcache restores),
@@ -157,7 +156,7 @@ export default function Explore() {
       window.removeEventListener('focus', onShow)
       window.removeEventListener('pageshow', onShow)
     }
-  }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTrip?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // live updates — refresh stats on votes/clicks/comments, reload the list when
   // items are added/edited, and track whether the realtime connection is alive
