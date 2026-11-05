@@ -1,6 +1,6 @@
 // Autocomplete suggestions for the manual TransitEditor / ExploreEditor: line
 // names, station names and per-line station numbers, sourced from the built-in
-// networks (Osaka incl. JR West, Tokyo, Hong Kong, Shanghai, Beijing, Shenzhen,
+// networks (Osaka incl. JR West, Tokyo, Sapporo, Hong Kong, Shanghai, Beijing, Shenzhen,
 // Guangzhou, Taipei + Taoyuan Airport MRT, Singapore). These power the
 // Combobox dropdowns so users can pick from known data without retyping — while
 // still being free to type any custom value (including stations not listed).
@@ -18,6 +18,7 @@ import { GUANGZHOU } from './guangzhou'
 import { TAIPEI } from './taipei'
 import { SINGAPORE } from './singapore'
 import { TOKYO } from './tokyo'
+import { SAPPORO } from './sapporo'
 import type { Trip } from '@/lib/database.types'
 
 export interface StationSuggest { name: string; num?: string }
@@ -46,6 +47,7 @@ const NETWORKS: RawNetwork[] = [
   { match: TAIPEI.match, lines: TAIPEI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: SINGAPORE.match, lines: SINGAPORE.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: TOKYO.match, broad: JAPAN, lines: TOKYO.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
+  { match: SAPPORO.match, broad: JAPAN, lines: SAPPORO.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
 ]
 
 /** Collect line/station suggestions only for the network(s) matching the given text. */
