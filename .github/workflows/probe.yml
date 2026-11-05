@@ -26,3 +26,15 @@ jobs:
         run: |
           echo "== /api/resolve-map debug (amap) =="
           curl -s --max-time 25 "https://trip-kohl-three.vercel.app/api/resolve-map?url=https%3A%2F%2Fsurl.amap.com%2FiGtckjwkbgO&debug=1" | head -c 3000; echo
+      - name: what the live site is serving
+        run: |
+          U=https://trip-kohl-three.vercel.app
+          echo "== index.html =="
+          curl -s --max-time 25 "$U/?_ts=$(date +%s)" -H 'Cache-Control: no-cache' -o /tmp/i.html -w "status=%{http_code} age=%{time_total}s\n"
+          echo "-- bundle --"; grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' /tmp/i.html | head -2
+          B=$(grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' /tmp/i.html | head -1)
+          echo "== bundle $B =="
+          curl -s --max-time 40 "$U$B" -o /tmp/b.js -w "status=%{http_code} bytes=%{size_download}\n"
+          for s in 'เพิ่มเที่ยวบิน' 'สกุลเงินของราคานี้' 'ล้างช่องนี้' 'Guang Zhou'; do
+            printf '%-22s ' "$s"; grep -qF "$s" /tmp/b.js && echo PRESENT || echo missing
+          done
