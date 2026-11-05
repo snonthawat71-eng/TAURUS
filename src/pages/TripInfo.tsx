@@ -130,13 +130,16 @@ function autoLegDir<T>(legs: T[], nowStr: string, get: (l: T) => { dir: string; 
   return 'return'
 }
 
-function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
+function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd, lockDir }: {
   flights: Flight[]
   tripId: string
   canEdit: boolean
   onEdit: (f: Flight) => void
   onDelete: (f: Flight) => void
   onAdd: (dir: FlightDirection) => void
+  /** show this leg only, with no ขาไป/ขากลับ toggle — for a card that carries
+   *  a single extra flight rather than the trip's two main legs */
+  lockDir?: FlightDirection
 }) {
   const { travelers, trip } = useTrip()
   // default leg follows the trip's clock (ข้อ 1); a manual toggle overrides until collapse
@@ -144,7 +147,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
   const [open, setOpen] = useState(false)
   const [logoFailed, setLogoFailed] = useState(false)
-  const dir = manualDir ?? autoDir
+  const dir = lockDir ?? manualDir ?? autoDir
   const f = flights.find((x) => (x.direction ?? 'outbound') === dir)
   const Icon = dir === 'return' ? IconPlaneArrival : IconPlaneDeparture
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
@@ -275,7 +278,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   }
 
   // ---- expanded: full details under the strip ----
-  const toggle = (
+  const toggle = lockDir ? null : (
     <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
       <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
         style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
@@ -496,6 +499,20 @@ export default function TripInfo() {
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
   const [flightEdit, setFlightEdit] = useState<EditState<Flight>>(null)
   const [newFlightDir, setNewFlightDir] = useState<FlightDirection>('outbound')
+  // the first flight of each leg fills the usual two-sided card; anything
+  // beyond that (a multi-city trip with three hops) gets its own card below
+  const mainFlights = useMemo(() => {
+    const out = flights.find((f) => (f.direction ?? 'outbound') === 'outbound')
+    const ret = flights.find((f) => (f.direction ?? 'outbound') === 'return')
+    return [out, ret].filter(Boolean) as Flight[]
+  }, [flights])
+  const extraFlights = useMemo(() => flights.filter((f) => !mainFlights.includes(f)), [flights, mainFlights])
+  async function askDeleteFlight(f: Flight) {
+    if (!(await confirmDialog({ message: 'ลบไฟลต์นี้?', danger: true, confirmLabel: 'ลบ' }))) return
+    await deleteFlight(f.id)
+    await reload()
+    offerUndo('ลบไฟลต์แล้ว', [{ table: 'flights', rows: [f] }], reload)
+  }
   // the leg that has no flight yet, or null when both are filled in
   const missingFlightDir: FlightDirection | null =
     !flights.some((f) => (f.direction ?? 'outbound') === 'outbound') ? 'outbound'
@@ -732,21 +749,26 @@ export default function TripInfo() {
       </div>
 
       {/* Flights */}
-      {/* A trip holds one outbound and one return leg — once both are filled in
-          there is nothing left to add, and the button would only produce a
-          second copy of a leg the card can't show. */}
       <SectionHead title="Flights • ข้อมูลเที่ยวบิน"
-        action={canEdit && missingFlightDir ? (
-          <button onClick={() => { setNewFlightDir(missingFlightDir); setFlightEdit('new') }} className="btn-link flex items-center gap-1">
-            <IconPlus size={14} /> เพิ่มเที่ยวบิน{flights.length ? (missingFlightDir === 'return' ? 'ขากลับ' : 'ขาไป') : ''}
+        action={canEdit ? (
+          <button onClick={() => { setNewFlightDir(missingFlightDir ?? 'outbound'); setFlightEdit('new') }} className="btn-link flex items-center gap-1">
+            <IconPlus size={14} /> เพิ่มเที่ยวบิน
           </button>
         ) : undefined} />
       {flights.length === 0 ? (
         <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลไฟลต์</div>
       ) : (
-        <FlightCard flights={flights} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(f) => setFlightEdit(f)}
-          onAdd={(d) => { setNewFlightDir(d); setFlightEdit('new') }}
-          onDelete={async (f) => { if (await confirmDialog({ message: 'ลบไฟลต์นี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteFlight(f.id); await reload(); offerUndo('ลบไฟลต์แล้ว', [{ table: 'flights', rows: [f] }], reload) } }} />
+        <div className="space-y-2.5">
+          <FlightCard flights={mainFlights} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(f) => setFlightEdit(f)}
+            onAdd={(d) => { setNewFlightDir(d); setFlightEdit('new') }} onDelete={askDeleteFlight} />
+          {/* a trip can have more than the two usual legs — show each extra one
+              on its own card instead of hiding it behind the leg toggle */}
+          {extraFlights.map((f) => (
+            <FlightCard key={f.id} flights={[f]} lockDir={f.direction === 'return' ? 'return' : 'outbound'}
+              tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={() => setFlightEdit(f)}
+              onAdd={(d) => { setNewFlightDir(d); setFlightEdit('new') }} onDelete={askDeleteFlight} />
+          ))}
+        </div>
       )}
 
       {/* Trains */}
@@ -894,14 +916,9 @@ export default function TripInfo() {
         onSave={async (fields) => {
           const savedDir = fields.direction ?? 'outbound'
           const hadReturn = flights.some((f) => (f.direction ?? 'outbound') === 'return')
-          // the card shows one flight per leg, so a second copy of a leg would
-          // just disappear — write over the one that's there instead
-          const clash = (flightEdit === 'new' || !flightEdit)
-            ? flights.find((f) => (f.direction ?? 'outbound') === savedDir) ?? null
-            : null
-          const isNew = (flightEdit === 'new' || !flightEdit) && !clash
+          const isNew = flightEdit === 'new' || !flightEdit
           if (isNew) await addFlight(trip!.id, fields)
-          else await updateFlight(clash ? clash.id : (flightEdit as Flight).id, fields)
+          else await updateFlight(flightEdit.id, fields)
           await reload()
           // After adding a NEW outbound leg (and no return exists yet), offer to
           // add the return right away — swapping the editor to a prefilled return
