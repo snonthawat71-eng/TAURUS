@@ -32,6 +32,7 @@ import {
   addTrain, updateTrain, deleteTrain,
   addHotel, updateHotel, deleteHotel, updateProfile, syncProfileToTraveler,
 } from '@/lib/tripMutations'
+import type { FlightInput } from '@/lib/tripMutations'
 import type { Flight, Train, FlightDirection, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
 
 type EditState<T> = 'new' | T | null
@@ -495,6 +496,11 @@ export default function TripInfo() {
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
   const [flightEdit, setFlightEdit] = useState<EditState<Flight>>(null)
   const [newFlightDir, setNewFlightDir] = useState<FlightDirection>('outbound')
+  // the leg that has no flight yet, or null when both are filled in
+  const missingFlightDir: FlightDirection | null =
+    !flights.some((f) => (f.direction ?? 'outbound') === 'outbound') ? 'outbound'
+      : !flights.some((f) => (f.direction ?? 'outbound') === 'return') ? 'return'
+        : null
   const [trainEdit, setTrainEdit] = useState<EditState<Train>>(null)
   const [newTrainDir, setNewTrainDir] = useState<FlightDirection>('outbound')
   const [hotelEdit, setHotelEdit] = useState<EditState<Hotel>>(null)
@@ -726,8 +732,15 @@ export default function TripInfo() {
       </div>
 
       {/* Flights */}
+      {/* A trip holds one outbound and one return leg — once both are filled in
+          there is nothing left to add, and the button would only produce a
+          second copy of a leg the card can't show. */}
       <SectionHead title="Flights • ข้อมูลเที่ยวบิน"
-        action={canEdit ? <button onClick={() => { setNewFlightDir(flights.some((f) => (f.direction ?? 'outbound') === 'outbound') ? 'return' : 'outbound'); setFlightEdit('new') }} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มเที่ยวบิน</button> : undefined} />
+        action={canEdit && missingFlightDir ? (
+          <button onClick={() => { setNewFlightDir(missingFlightDir); setFlightEdit('new') }} className="btn-link flex items-center gap-1">
+            <IconPlus size={14} /> เพิ่มเที่ยวบิน{flights.length ? (missingFlightDir === 'return' ? 'ขากลับ' : 'ขาไป') : ''}
+          </button>
+        ) : undefined} />
       {flights.length === 0 ? (
         <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลไฟลต์</div>
       ) : (
@@ -864,22 +877,31 @@ export default function TripInfo() {
         initial={flightEdit && flightEdit !== 'new' ? flightEdit : null}
         defaultDirection={newFlightDir}
         prefillFrom={flights.find((f) => (f.direction ?? 'outbound') === 'outbound') ?? null}
-        onSwitchDirection={async (dir, current) => {
-          // save the leg being edited first, so switching tabs never loses its edits
-          if (flightEdit && flightEdit !== 'new') await updateFlight(flightEdit.id, current)
-          else if (current.airline || current.flight_no || current.dep_code || current.arr_code || current.flight_date) await addFlight(trip!.id, current)
-          await reload()
-          // toggle in the editor = jump to that leg's real flight, or an add form for it
-          const existing = flights.find((f) => (f.direction ?? 'outbound') === dir)
-          if (existing) setFlightEdit(existing)
-          else { setNewFlightDir(dir); setFlightEdit('new') }
-        }}
+        {...(flightEdit && flightEdit !== 'new' ? {
+          // EDITING a saved leg: the toggle jumps to the other leg's real flight
+          // (saving this one first). While ADDING, the toggle is left to the
+          // editor, which just flips the draft's direction — it used to jump
+          // into the flight already saved for that leg, so pressing "add" and
+          // then the other tab landed you in the one you'd already filled in.
+          onSwitchDirection: async (dir: FlightDirection, current: FlightInput) => {
+            await updateFlight(flightEdit.id, current)
+            await reload()
+            const existing = flights.find((f) => (f.direction ?? 'outbound') === dir)
+            if (existing) setFlightEdit(existing)
+            else { setNewFlightDir(dir); setFlightEdit('new') }
+          },
+        } : {})}
         onSave={async (fields) => {
-          const isNew = flightEdit === 'new' || !flightEdit
           const savedDir = fields.direction ?? 'outbound'
           const hadReturn = flights.some((f) => (f.direction ?? 'outbound') === 'return')
+          // the card shows one flight per leg, so a second copy of a leg would
+          // just disappear — write over the one that's there instead
+          const clash = (flightEdit === 'new' || !flightEdit)
+            ? flights.find((f) => (f.direction ?? 'outbound') === savedDir) ?? null
+            : null
+          const isNew = (flightEdit === 'new' || !flightEdit) && !clash
           if (isNew) await addFlight(trip!.id, fields)
-          else await updateFlight(flightEdit.id, fields)
+          else await updateFlight(clash ? clash.id : (flightEdit as Flight).id, fields)
           await reload()
           // After adding a NEW outbound leg (and no return exists yet), offer to
           // add the return right away — swapping the editor to a prefilled return
