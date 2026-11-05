@@ -13,6 +13,7 @@ export interface PopMenuItem {
 const SAFE_TOP = 12
 const SAFE_BOTTOM = 84
 const ITEM_H = 36 // h-9
+const MENU_W = 160 // w-40
 const PAD = 8 // p-1 top+bottom
 const GAP = 4 // gap between button and menu
 
@@ -27,7 +28,13 @@ export function PopMenu({ items, size = 28, buttonClassName = '' }: { items: Pop
     const r = btnRef.current?.getBoundingClientRect()
     if (!r) return
     const vh = window.innerHeight
-    const right = Math.max(8, window.innerWidth - r.right)
+    // right-align to the button, but never so far right that the menu's left
+    // edge leaves the screen — a trigger near the left edge (the ไฟล์จอง row)
+    // was pushing half the menu off-screen
+    const right = Math.min(
+      Math.max(8, window.innerWidth - r.right),
+      Math.max(8, window.innerWidth - MENU_W - 8),
+    )
     const wanted = items.length * ITEM_H + PAD // estimated full height
     const spaceBelow = vh - SAFE_BOTTOM - (r.bottom + GAP)
     const spaceAbove = r.top - GAP - SAFE_TOP
