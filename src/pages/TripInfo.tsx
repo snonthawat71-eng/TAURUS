@@ -32,7 +32,6 @@ import {
   addTrain, updateTrain, deleteTrain,
   addHotel, updateHotel, deleteHotel, updateProfile, syncProfileToTraveler,
 } from '@/lib/tripMutations'
-import type { FlightInput } from '@/lib/tripMutations'
 import type { Flight, Train, FlightDirection, Hotel, Traveler, TravelerFile } from '@/lib/database.types'
 
 type EditState<T> = 'new' | T | null
@@ -130,16 +129,13 @@ function autoLegDir<T>(legs: T[], nowStr: string, get: (l: T) => { dir: string; 
   return 'return'
 }
 
-function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd, lockDir }: {
+function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd }: {
   flights: Flight[]
   tripId: string
   canEdit: boolean
   onEdit: (f: Flight) => void
   onDelete: (f: Flight) => void
   onAdd: (dir: FlightDirection) => void
-  /** show this leg only, with no ขาไป/ขากลับ toggle — for a card that carries
-   *  a single extra flight rather than the trip's two main legs */
-  lockDir?: FlightDirection
 }) {
   const { travelers, trip } = useTrip()
   // default leg follows the trip's clock (ข้อ 1); a manual toggle overrides until collapse
@@ -147,7 +143,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd, lockDir
   const [manualDir, setManualDir] = useState<FlightDirection | null>(null)
   const [open, setOpen] = useState(false)
   const [logoFailed, setLogoFailed] = useState(false)
-  const dir = lockDir ?? manualDir ?? autoDir
+  const dir = manualDir ?? autoDir
   const f = flights.find((x) => (x.direction ?? 'outbound') === dir)
   const Icon = dir === 'return' ? IconPlaneArrival : IconPlaneDeparture
   const dirLabel = dir === 'return' ? 'ขากลับ' : 'ขาไป'
@@ -278,7 +274,7 @@ function FlightCard({ flights, tripId, canEdit, onEdit, onDelete, onAdd, lockDir
   }
 
   // ---- expanded: full details under the strip ----
-  const toggle = lockDir ? null : (
+  const toggle = (
     <div className="relative inline-flex rounded-full bg-surface-2 p-0.5 shrink-0">
       <span className="absolute top-0.5 bottom-0.5 rounded-full bg-brand transition-all duration-200"
         style={{ width: 'calc(50% - 2px)', left: dir === 'outbound' ? '2px' : 'calc(50%)' }} />
@@ -499,25 +495,6 @@ export default function TripInfo() {
   const [travelerEdit, setTravelerEdit] = useState<EditState<Traveler>>(null)
   const [flightEdit, setFlightEdit] = useState<EditState<Flight>>(null)
   const [newFlightDir, setNewFlightDir] = useState<FlightDirection>('outbound')
-  // the first flight of each leg fills the usual two-sided card; anything
-  // beyond that (a multi-city trip with three hops) gets its own card below
-  const mainFlights = useMemo(() => {
-    const out = flights.find((f) => (f.direction ?? 'outbound') === 'outbound')
-    const ret = flights.find((f) => (f.direction ?? 'outbound') === 'return')
-    return [out, ret].filter(Boolean) as Flight[]
-  }, [flights])
-  const extraFlights = useMemo(() => flights.filter((f) => !mainFlights.includes(f)), [flights, mainFlights])
-  async function askDeleteFlight(f: Flight) {
-    if (!(await confirmDialog({ message: 'ลบไฟลต์นี้?', danger: true, confirmLabel: 'ลบ' }))) return
-    await deleteFlight(f.id)
-    await reload()
-    offerUndo('ลบไฟลต์แล้ว', [{ table: 'flights', rows: [f] }], reload)
-  }
-  // the leg that has no flight yet, or null when both are filled in
-  const missingFlightDir: FlightDirection | null =
-    !flights.some((f) => (f.direction ?? 'outbound') === 'outbound') ? 'outbound'
-      : !flights.some((f) => (f.direction ?? 'outbound') === 'return') ? 'return'
-        : null
   const [trainEdit, setTrainEdit] = useState<EditState<Train>>(null)
   const [newTrainDir, setNewTrainDir] = useState<FlightDirection>('outbound')
   const [hotelEdit, setHotelEdit] = useState<EditState<Hotel>>(null)
@@ -750,25 +727,13 @@ export default function TripInfo() {
 
       {/* Flights */}
       <SectionHead title="Flights • ข้อมูลเที่ยวบิน"
-        action={canEdit ? (
-          <button onClick={() => { setNewFlightDir(missingFlightDir ?? 'outbound'); setFlightEdit('new') }} className="btn-link flex items-center gap-1">
-            <IconPlus size={14} /> เพิ่มเที่ยวบิน
-          </button>
-        ) : undefined} />
+        action={canEdit ? <button onClick={() => { setNewFlightDir(flights.some((f) => (f.direction ?? 'outbound') === 'outbound') ? 'return' : 'outbound'); setFlightEdit('new') }} className="btn-link flex items-center gap-1"><IconPlus size={14} /> เพิ่มเที่ยวบิน</button> : undefined} />
       {flights.length === 0 ? (
         <div className="card p-4 text-[12px] text-ink-3 text-center">ยังไม่มีข้อมูลไฟลต์</div>
       ) : (
-        <div className="space-y-2.5">
-          <FlightCard flights={mainFlights} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(f) => setFlightEdit(f)}
-            onAdd={(d) => { setNewFlightDir(d); setFlightEdit('new') }} onDelete={askDeleteFlight} />
-          {/* a trip can have more than the two usual legs — show each extra one
-              on its own card instead of hiding it behind the leg toggle */}
-          {extraFlights.map((f) => (
-            <FlightCard key={f.id} flights={[f]} lockDir={f.direction === 'return' ? 'return' : 'outbound'}
-              tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={() => setFlightEdit(f)}
-              onAdd={(d) => { setNewFlightDir(d); setFlightEdit('new') }} onDelete={askDeleteFlight} />
-          ))}
-        </div>
+        <FlightCard flights={flights} tripId={trip?.id ?? ''} canEdit={canEdit} onEdit={(f) => setFlightEdit(f)}
+          onAdd={(d) => { setNewFlightDir(d); setFlightEdit('new') }}
+          onDelete={async (f) => { if (await confirmDialog({ message: 'ลบไฟลต์นี้?', danger: true, confirmLabel: 'ลบ' })) { await deleteFlight(f.id); await reload(); offerUndo('ลบไฟลต์แล้ว', [{ table: 'flights', rows: [f] }], reload) } }} />
       )}
 
       {/* Trains */}
@@ -899,24 +864,20 @@ export default function TripInfo() {
         initial={flightEdit && flightEdit !== 'new' ? flightEdit : null}
         defaultDirection={newFlightDir}
         prefillFrom={flights.find((f) => (f.direction ?? 'outbound') === 'outbound') ?? null}
-        {...(flightEdit && flightEdit !== 'new' ? {
-          // EDITING a saved leg: the toggle jumps to the other leg's real flight
-          // (saving this one first). While ADDING, the toggle is left to the
-          // editor, which just flips the draft's direction — it used to jump
-          // into the flight already saved for that leg, so pressing "add" and
-          // then the other tab landed you in the one you'd already filled in.
-          onSwitchDirection: async (dir: FlightDirection, current: FlightInput) => {
-            await updateFlight(flightEdit.id, current)
-            await reload()
-            const existing = flights.find((f) => (f.direction ?? 'outbound') === dir)
-            if (existing) setFlightEdit(existing)
-            else { setNewFlightDir(dir); setFlightEdit('new') }
-          },
-        } : {})}
+        onSwitchDirection={async (dir, current) => {
+          // save the leg being edited first, so switching tabs never loses its edits
+          if (flightEdit && flightEdit !== 'new') await updateFlight(flightEdit.id, current)
+          else if (current.airline || current.flight_no || current.dep_code || current.arr_code || current.flight_date) await addFlight(trip!.id, current)
+          await reload()
+          // toggle in the editor = jump to that leg's real flight, or an add form for it
+          const existing = flights.find((f) => (f.direction ?? 'outbound') === dir)
+          if (existing) setFlightEdit(existing)
+          else { setNewFlightDir(dir); setFlightEdit('new') }
+        }}
         onSave={async (fields) => {
+          const isNew = flightEdit === 'new' || !flightEdit
           const savedDir = fields.direction ?? 'outbound'
           const hadReturn = flights.some((f) => (f.direction ?? 'outbound') === 'return')
-          const isNew = flightEdit === 'new' || !flightEdit
           if (isNew) await addFlight(trip!.id, fields)
           else await updateFlight(flightEdit.id, fields)
           await reload()
