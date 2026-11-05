@@ -6,7 +6,8 @@
 // — a "top 10" that is simply "everything we have" is worth nothing. Inside a
 // country the list carries every place, ranked; the page slices it per filter
 // (สถานที่ / ร้านอาหาร / คาเฟ่) so each filter gets a full ten of its own.
-import { canonicalCountry, cityKey, countryFlag, COUNTRIES } from './countries'
+import { canonicalCountry, countryFlag, COUNTRIES } from './countries'
+import { cityMatchKey, canonicalCity } from './cities'
 import { cityImage, tripCoverImage, countryImage, COUNTRY_IMAGES } from './cityImages'
 import { foodGroupKey } from './placeMeta'
 import type { ExplorePlace } from './database.types'
@@ -113,11 +114,11 @@ export function buildTopLists(
     for (const p of places) {
       const city = (p.city ?? '').trim()
       if (!city) continue
-      const cur = cityCount.get(cityKey(city))
+      const cur = cityCount.get(cityMatchKey(city))
       if (cur) cur.count++
       // the same photo the Explore city rail uses, so a city looks the same
       // in both places
-      else cityCount.set(cityKey(city), { name: city, count: 1, photo: cityImage(city) ?? p.photo_url ?? null })
+      else cityCount.set(cityMatchKey(city), { name: canonicalCity(city), count: 1, photo: cityImage(city) ?? p.photo_url ?? null })
     }
     const cities: TopCity[] = Array.from(cityCount.values())
       .map((v) => ({ name: v.name, photo: v.photo, count: v.count }))
@@ -183,6 +184,6 @@ export const TOP_LABEL = 'สถานที่ยอดฮิต'
  *  one. Returns them in display order. */
 export function topListsFor(all: TopList[], country: string, city: string): TopList[] {
   if (country && country !== 'all') return all.filter((l) => canonicalCountry(l.country) === canonicalCountry(country))
-  if (city && city !== 'all') return all.filter((l) => l.cities.some((c) => cityKey(c.name) === cityKey(city)))
+  if (city && city !== 'all') return all.filter((l) => l.cities.some((c) => cityMatchKey(c.name) === cityMatchKey(city)))
   return all
 }

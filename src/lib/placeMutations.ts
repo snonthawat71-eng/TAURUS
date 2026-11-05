@@ -248,6 +248,16 @@ export async function removeManyExploreCopies(exploreIds: string[], tripId: stri
 }
 
 /** Fetch the set of Explore ids already saved into any of my trips. */
+/** The Explore items saved into ONE trip.
+ *
+ *  The star on an Explore card is about the trip you're planning now, not every
+ *  trip you've ever made: starting a second trip to the same city used to find
+ *  everything already starred — and tapping the star offered to REMOVE it
+ *  rather than add it to the new trip. */
+export async function savedExploreIdsForTrip(tripId: string | null | undefined) {
+  return tripId ? savedExploreIds([tripId]) : new Set<string>()
+}
+
 export async function savedExploreIds(tripIds: string[]) {
   if (!tripIds.length) return new Set<string>()
   const { data, error } = await supabase.from('places').select('source_explore_id').in('trip_id', tripIds).not('source_explore_id', 'is', null)

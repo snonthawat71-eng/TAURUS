@@ -268,8 +268,11 @@ export interface TransitLeg {
   exit?: { label: string; note?: string }
   /** walking transfer shown AFTER this leg, before the next */
   transferAfter?: { walkMeters?: number; minutes?: number }
-  /** estimated cost of this leg, in the trip's currency */
+  /** estimated cost of this leg */
   fare?: number
+  /** currency the fare is in — a multi-city trip pays each leg in the money of
+   *  the city it's in, so this is per leg. Absent = the trip's own currency. */
+  fareCurrency?: string | null
 }
 
 export interface Transit {

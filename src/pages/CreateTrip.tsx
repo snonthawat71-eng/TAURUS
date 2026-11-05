@@ -9,6 +9,8 @@ import { useTrip } from '@/contexts/TripContext'
 import { supabase } from '@/lib/supabase'
 import { createTrip, updateTrip, addTraveler, claimTraveler } from '@/lib/tripMutations'
 import { updateDay } from '@/lib/mutations'
+import { Combobox } from '@/components/Combobox'
+import { canonicalCity, citySuggestions } from '@/lib/cities'
 import { CURRENCIES } from '@/lib/fx'
 import { TIMEZONES } from '@/lib/timezones'
 import { ORDER } from '@/lib/avatars'
@@ -37,7 +39,9 @@ const DESTS = [
 
 interface Seg { country: string; city: string; flag: string; currency: string; tz: string; until: string | null }
 const blankSeg = (): Seg => ({ country: '', city: '', flag: '🌍', currency: 'CNY', tz: '', until: null })
-const segName = (s: Seg) => s.city.trim() || s.country.trim()
+// the city as it will be stored: a name we know is folded onto its standard
+// spelling so filters and photos line up across trips
+const segName = (s: Seg) => canonicalCity(s.city) || s.country.trim()
 
 interface Person { nick: string; first: string; last: string }
 const fullOf = (p: Person) => [p.first.trim(), p.last.trim()].filter(Boolean).join(' ')
@@ -350,7 +354,8 @@ export default function CreateTrip() {
                 </select>
               </div>
               <div><div className={lbl}>เมืองที่จะไป</div>
-                <input className={field} value={seg.city} onChange={(e) => patchSeg({ city: e.target.value })}
+                <Combobox className={field} value={seg.city} onChange={(v) => patchSeg({ city: v })}
+                  options={citySuggestions(seg.country).map((c) => ({ value: c }))}
                   placeholder={seg.country === 'Japan' ? 'เช่น Tokyo, Osaka' : seg.country === 'China' ? 'เช่น Shanghai, Shenzhen' : 'พิมพ์ชื่อเมือง เช่น Hongkong'} />
               </div>
               <div className="grid grid-cols-2 gap-3">

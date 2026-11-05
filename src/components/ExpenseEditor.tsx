@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { IconTrash, IconPaperclip, IconLoader2, IconCheck, IconReceipt2, IconEye, IconScan, IconChevronDown, IconUser, IconTag, IconCoin, IconUsers, IconCategory, IconArrowLeft, IconUsersGroup, IconUserOff, IconCalendar } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
+import { Lightbox } from './Lightbox'
 import { useTrip } from '@/contexts/TripContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { uploadImage, getSignedUrl, isSampleFile } from '@/lib/files'
+import { uploadImage, isSampleFile, openPrivateFile } from '@/lib/files'
 import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import { EXPENSE_CATS } from '@/lib/expenseMeta'
@@ -45,6 +46,7 @@ export function ExpenseEditor({
   const [date, setDate] = useState('')
   const [split, setSplit] = useState<string[]>([])
   const [receipt, setReceipt] = useState<string | null>(null)
+  const [slipOpen, setSlipOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -97,12 +99,16 @@ export function ExpenseEditor({
     if (scanInput.current) scanInput.current.value = ''
   }
 
+  // same as the list: photos open in the app's viewer (a tab opened after the
+  // signed URL arrives is blocked on iOS), PDFs get a tab claimed on the tap
   async function viewSlip() {
     if (!receipt) return
     if (isSampleFile(receipt)) { toast.info('สลิปตัวอย่าง — อัปโหลดสลิปจริงเพื่อเปิดดู'); return }
-    if (/^https?:\/\//.test(receipt)) { window.open(receipt, '_blank', 'noopener,noreferrer'); return }
-    const url = await getSignedUrl(receipt)
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    if (/\.pdf($|\?)/i.test(receipt)) {
+      if (!(await openPrivateFile(receipt))) toast.error('เปิดสลิปไม่สำเร็จ — ลองใหม่อีกครั้ง')
+      return
+    }
+    setSlipOpen(true)
   }
 
   const perHead = split.length && total ? Number(total) / split.length : 0
@@ -322,6 +328,7 @@ export function ExpenseEditor({
           </div>
         </div>
       )}
+      {slipOpen && receipt && <Lightbox photos={[{ path: receipt }]} alt="สลิป" onClose={() => setSlipOpen(false)} />}
     </Drawer>
   )
 }

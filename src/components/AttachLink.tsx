@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { IconPaperclip, IconLoader2, IconFileCheck, IconEye, IconRefresh, IconTrash } from '@tabler/icons-react'
-import { uploadEntityFile, getSignedUrl, isSampleFile, removeEntityFile } from '@/lib/files'
+import { uploadEntityFile, isSampleFile, removeEntityFile, openPrivateFile } from '@/lib/files'
 import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import { useTrip } from '@/contexts/TripContext'
@@ -26,9 +26,9 @@ export function AttachLink({
     if (isSampleFile(storagePath)) { toast.info('ไฟล์ตัวอย่าง — อัปโหลดไฟล์จริงเพื่อเปิดดู'); return }
     if (!storagePath) return
     setBusy(true)
-    const url = await getSignedUrl(storagePath)
+    const ok = await openPrivateFile(storagePath)
     setBusy(false)
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    if (!ok) toast.error('เปิดไฟล์ไม่สำเร็จ — ลองใหม่อีกครั้ง')
   }
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]

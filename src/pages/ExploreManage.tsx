@@ -15,7 +15,7 @@ import {
   allPopularity, type PopStat,
 } from '@/lib/exploreMutations'
 import { allRatingStats } from '@/lib/exploreReviews'
-import { savedExploreIds, removeExploreCopiesDeep } from '@/lib/placeMutations'
+import { savedExploreIdsForTrip, removeExploreCopiesDeep } from '@/lib/placeMutations'
 import { toast } from '@/lib/toast'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { filterExplore, initialExploreFilter, type ExploreFilterState } from '@/lib/exploreFilter'
@@ -85,7 +85,7 @@ export default function ExploreManage() {
     setPop(p); setRatings(r)
   }
   async function refreshSaved() {
-    setSavedSet(await savedExploreIds(myTripIds))
+    setSavedSet(await savedExploreIdsForTrip(currentTrip?.id))
   }
   async function reloadItems() {
     if (!user) return
@@ -114,7 +114,7 @@ export default function ExploreManage() {
     else load()
     refreshStats()
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { refreshSaved() }, [myTripIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshSaved() }, [currentTrip?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // live engagement updates on my items
   useEffect(() => {
@@ -147,7 +147,7 @@ export default function ExploreManage() {
         message: `เอา "${e.name}" ออกจากทริปที่เซฟไว้? ถ้ามีจุดแวะของที่นี่ใน Itinerary จะถูกลบไปด้วย`,
         danger: true, confirmLabel: 'เอาออก',
       }))) return
-      const { stopsRemoved } = await removeExploreCopiesDeep(e.id, myTripIds)
+      const { stopsRemoved } = await removeExploreCopiesDeep(e.id, currentTrip ? [currentTrip.id] : [])
       refreshSaved()
       if (currentTrip && myTripIds.includes(currentTrip.id)) void reloadTrip()
       toast.success(stopsRemoved > 0 ? `เอาออกแล้ว · ลบจุดแวะใน Itinerary ${stopsRemoved} จุดด้วย` : 'เอาออกจากทริปแล้ว')

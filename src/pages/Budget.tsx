@@ -9,8 +9,9 @@ import { PopMenu } from '@/components/PopMenu'
 import { baht } from '@/lib/format'
 import { confirmDialog } from '@/lib/confirm'
 import { offerUndo } from '@/lib/undo'
+import { Lightbox } from '@/components/Lightbox'
 import { toast } from '@/lib/toast'
-import { getSignedUrl, isSampleFile } from '@/lib/files'
+import { isSampleFile, openPrivateFile } from '@/lib/files'
 import { settle, addExpense, updateExpense, deleteExpense } from '@/lib/budgetMutations'
 import { getRateToTHB, CURRENCIES } from '@/lib/fx'
 import { expenseCat, expenseCatLabel, EXPENSE_CATS } from '@/lib/expenseMeta'
@@ -274,14 +275,26 @@ function FilterChip({ on, onClick, color, bg, children }: { on: boolean; onClick
   )
 }
 
+const isPdfSlip = (p: string) => /\.pdf($|\?)/i.test(p)
+
 function SlipButton({ path }: { path: string | null }) {
+  const [open, setOpen] = useState(false)
   if (!path) return <span className="size-9 shrink-0" />
+  // A photo slip opens in the app's own viewer: a new tab opened after the
+  // signed URL came back was being swallowed by Safari, so the button did
+  // nothing. Only a PDF still needs a tab, and that one is claimed on the tap.
   async function view() {
-    if (isSampleFile(path)) { toast.info('สลิปตัวอย่าง — อัปโหลดสลิปจริงเพื่อเปิดดู'); return }
-    const url = await getSignedUrl(path!)
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    if (isSampleFile(path!)) { toast.info('สลิปตัวอย่าง — อัปโหลดสลิปจริงเพื่อเปิดดู'); return }
+    if (isPdfSlip(path!)) {
+      if (!(await openPrivateFile(path!))) toast.error('เปิดสลิปไม่สำเร็จ — ลองใหม่อีกครั้ง')
+      return
+    }
+    setOpen(true)
   }
   return (
-    <button onClick={view} className="btn-icon !size-9 shrink-0" aria-label="ดูสลิป"><IconPhoto size={16} /></button>
+    <>
+      <button onClick={view} className="btn-icon !size-9 shrink-0" aria-label="ดูสลิป"><IconPhoto size={16} /></button>
+      {open && <Lightbox photos={[{ path }]} alt="สลิป" onClose={() => setOpen(false)} />}
+    </>
   )
 }
