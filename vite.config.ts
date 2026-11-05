@@ -4,8 +4,19 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'node:path'
 
+// A version the user can read off the screen: the build's date and time in
+// Bangkok, e.g. 261105.2325. It changes on every deploy, so "did the app
+// actually update?" can be answered by looking rather than guessing.
+const BUILD_ID = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Bangkok', year: '2-digit', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+}).formatToParts(new Date()).reduce((o, x) => ({ ...o, [x.type]: x.value }), {} as Record<string, string>)
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __BUILD_ID__: JSON.stringify(`${BUILD_ID.year}${BUILD_ID.month}${BUILD_ID.day}.${BUILD_ID.hour}${BUILD_ID.minute}`),
+  },
   plugins: [
     react(),
     tailwindcss(),

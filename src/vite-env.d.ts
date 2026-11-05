@@ -9,3 +9,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/** build date-time in Bangkok, injected by vite.config.ts */
+declare const __BUILD_ID__: string

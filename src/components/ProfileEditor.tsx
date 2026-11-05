@@ -195,6 +195,9 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
             <div className="text-[12.5px] font-medium">{checking ? 'กำลังตรวจ…' : 'ตรวจหาอัปเดต'}</div>
             <div className="text-[10.5px] text-ink-3">ปกติแอปอัปเดตให้เองตอนเปิด — กดถ้าอยากเช็คเดี๋ยวนี้</div>
           </div>
+          {/* the running build, so you can see with your eyes whether the app
+              actually took the update */}
+          <div className="text-[10.5px] text-ink-3 shrink-0 tabular-nums">เวอร์ชัน {__BUILD_ID__}</div>
         </button>
 
         <div className="text-[11px] text-ink-3">อีเมล: {user?.email}</div>
