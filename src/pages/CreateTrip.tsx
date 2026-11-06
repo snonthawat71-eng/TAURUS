@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { createTrip, updateTrip, addTraveler, claimTraveler } from '@/lib/tripMutations'
 import { updateDay } from '@/lib/mutations'
 import { Combobox } from '@/components/Combobox'
-import { canonicalCity, citySuggestions } from '@/lib/cities'
+import { canonicalCity, regionSuggestions } from '@/lib/cities'
 import { CURRENCIES } from '@/lib/fx'
 import { TIMEZONES } from '@/lib/timezones'
 import { ORDER } from '@/lib/avatars'
@@ -353,10 +353,12 @@ export default function CreateTrip() {
                   {DESTS.map((d) => <option key={d.name} value={d.name}>{d.flag} {d.name}</option>)}
                 </select>
               </div>
-              <div><div className={lbl}>เมืองที่จะไป</div>
+              {/* the trip is named by the prefecture/region — the towns inside
+                  it (Sapporo, Otaru…) are chosen per place, not here */}
+              <div><div className={lbl}>จังหวัด / เมืองที่จะไป</div>
                 <Combobox className={field} value={seg.city} onChange={(v) => patchSeg({ city: v })}
-                  options={citySuggestions(seg.country).map((c) => ({ value: c }))}
-                  placeholder={seg.country === 'Japan' ? 'เช่น Tokyo, Osaka' : seg.country === 'China' ? 'เช่น Shanghai, Shenzhen' : 'พิมพ์ชื่อเมือง เช่น Hongkong'} />
+                  options={regionSuggestions(seg.country).map((c) => ({ value: c }))}
+                  placeholder={seg.country === 'Japan' ? 'เช่น Tokyo, Hokkaido' : seg.country === 'China' ? 'เช่น Shanghai, Shenzhen' : 'พิมพ์ชื่อเมือง เช่น Hongkong'} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><div className={lbl}>ค่าเงิน</div>

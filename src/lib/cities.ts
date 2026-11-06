@@ -18,6 +18,15 @@ export interface City {
   /** canonical country name (see canonicalCountry) */
   country: string
   aliases?: string[]
+  /**
+   * The prefecture/region travellers think of this town as part of, when that
+   * is a different word from the town itself — Sapporo and Otaru are both
+   * Hokkaido, while Tokyo and Osaka already name their own prefecture.
+   *
+   * Places keep their own town, so Sapporo and Otaru stay apart; the region is
+   * only how they're grouped for browsing and how a trip is named.
+   */
+  region?: string
 }
 
 export const CITIES: City[] = [
@@ -29,7 +38,17 @@ export const CITIES: City[] = [
   { name: 'Kobe', country: 'Japan', aliases: ['โกเบ', '神戸'] },
   { name: 'Nagoya', country: 'Japan', aliases: ['นาโกย่า', 'นาโงย่า', '名古屋'] },
   { name: 'Fukuoka', country: 'Japan', aliases: ['ฟุกุโอกะ', '福岡', 'Hakata', 'ฮากาตะ'] },
-  { name: 'Sapporo', country: 'Japan', aliases: ['ซัปโปโร', 'ซัปโปโร่', '札幌'] },
+  { name: 'Hokkaido', country: 'Japan', aliases: ['ฮอกไกโด', 'ฮอกไกโด้', '北海道'], region: 'Hokkaido' },
+  { name: 'Sapporo', country: 'Japan', aliases: ['ซัปโปโร', 'ซัปโปโร่', '札幌'], region: 'Hokkaido' },
+  { name: 'Otaru', country: 'Japan', aliases: ['โอตารุ', '小樽'], region: 'Hokkaido' },
+  { name: 'Furano', country: 'Japan', aliases: ['ฟุราโนะ', 'ฟูราโน่', '富良野'], region: 'Hokkaido' },
+  { name: 'Biei', country: 'Japan', aliases: ['บิเอะ', 'บิเอ', '美瑛'], region: 'Hokkaido' },
+  { name: 'Asahikawa', country: 'Japan', aliases: ['อาซาฮิกาวะ', 'อาซาฮิคาว่า', '旭川'], region: 'Hokkaido' },
+  { name: 'Hakodate', country: 'Japan', aliases: ['ฮาโกดาเตะ', 'ฮาโกดาเต้', '函館'], region: 'Hokkaido' },
+  { name: 'Noboribetsu', country: 'Japan', aliases: ['โนโบริเบ็ตสึ', '登別'], region: 'Hokkaido' },
+  { name: 'Niseko', country: 'Japan', aliases: ['นิเซโกะ', 'ニセコ'], region: 'Hokkaido' },
+  { name: 'Chitose', country: 'Japan', aliases: ['ชิโตเสะ', 'ชิโตเซ่', '千歳'], region: 'Hokkaido' },
+  { name: 'Toyako', country: 'Japan', aliases: ['โทยาโกะ', 'ทะเลสาบโทยะ', '洞爺湖'], region: 'Hokkaido' },
   { name: 'Nagano', country: 'Japan', aliases: ['นากาโน่', 'นางาโนะ', '長野'] },
   { name: 'Hakone', country: 'Japan', aliases: ['ฮาโกเน่', '箱根'] },
   { name: 'Okinawa', country: 'Japan', aliases: ['โอกินาว่า', 'โอกินาวะ', '沖縄'] },
@@ -83,6 +102,29 @@ export function canonicalCity(raw: string | null | undefined): string {
 /** The key two city names must share to count as the same place — folds
  *  spelling AND the aliases above, so "Kowloon" meets "Hongkong". */
 export const cityMatchKey = (raw: string | null | undefined) => cityKey(canonicalCity(raw))
+
+/** The prefecture/region a town is browsed under. A town with no region of its
+ *  own is its own group, so nothing changes for Tokyo, Osaka or Hongkong. */
+export function regionOf(raw: string | null | undefined): string {
+  const city = canonicalCity(raw)
+  if (!city) return ''
+  return BY_ALIAS.get(cityKey(city))?.region ?? city
+}
+
+/** The key two places must share to sit in the same group. */
+export const regionMatchKey = (raw: string | null | undefined) => cityKey(regionOf(raw))
+
+/** The names a TRIP is given: one per region, so a Hokkaido trip is called
+ *  Hokkaido rather than having to pick between Sapporo and Otaru. The towns
+ *  themselves are still chosen per place inside the trip. */
+export function regionSuggestions(country?: string | null): string[] {
+  const out: string[] = []
+  for (const name of citySuggestions(country)) {
+    const r = regionOf(name)
+    if (r && !out.includes(r)) out.push(r)
+  }
+  return out
+}
 
 /** Cities to offer while typing, for the country already chosen (every known
  *  city when there isn't one yet). */

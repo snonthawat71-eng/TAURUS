@@ -9,7 +9,7 @@ import { SignedImage } from './SignedImage'
 import { hscroll } from '@/lib/hscroll'
 import { cityImage, countryImage } from '@/lib/cityImages'
 import { canonicalCountry } from '@/lib/countries'
-import { cityMatchKey, canonicalCity } from '@/lib/cities'
+import { cityMatchKey, canonicalCity, regionOf, regionMatchKey } from '@/lib/cities'
 import { PLACE_TABS, FOOD_GROUPS, CATEGORY, type CategoryTab } from '@/lib/placeMeta'
 import type { ExploreFilterState } from '@/lib/exploreFilter'
 import type { ExplorePlace } from '@/lib/database.types'
@@ -164,9 +164,26 @@ export function ExploreFilters({ items, f, set, showSort = true, userId, belowSe
   }, [items, seen])
 
   const current = f.country === 'all' ? null : countries.find((c) => c.key === f.country) ?? null
-  // a country with one city has nothing to drill into — tapping its card filters
-  // straight to that city and the rail stays on countries
-  const drilled = !!current && current.cities.length > 1
+  // The middle rail shows REGIONS, not towns: Sapporo and Otaru are browsed
+  // under one Hokkaido card, while Tokyo (which names its own prefecture)
+  // looks exactly as before. Opening a region swaps the same rail to its
+  // towns, so there's no third row of cards.
+  const groupsOf = (c: typeof current) => {
+    if (!c) return []
+    const out: { name: string; photo: string | null | undefined; isNew: boolean; count: number; towns: typeof c.cities }[] = []
+    for (const city of c.cities) {
+      const r = regionOf(city.name)
+      const hit = out.find((g) => regionMatchKey(g.name) === regionMatchKey(r))
+      if (hit) { hit.count += city.count; hit.isNew = hit.isNew || city.isNew; hit.towns.push(city) }
+      else out.push({ name: r, photo: cityImage(r) ?? city.photo, isNew: city.isNew, count: city.count, towns: [city] })
+    }
+    return out
+  }
+  const groups = useMemo(() => groupsOf(current), [current]) // eslint-disable-line react-hooks/exhaustive-deps
+  const openRegion = f.region === 'all' ? null : groups.find((g) => regionMatchKey(g.name) === regionMatchKey(f.region)) ?? null
+  // a country with one group has nothing to drill into — tapping its card
+  // filters straight to it and the rail stays on countries
+  const drilled = !!current && (groups.length > 1 || !!openRegion)
   // hold the last opened country mounted so the city rail slides OUT with its
   // cards still in it, instead of emptying the instant you tap back
   const [lastKey, setLastKey] = useState<string | null>(null)
@@ -247,22 +264,22 @@ export function ExploreFilters({ items, f, set, showSort = true, userId, belowSe
           {/* countries */}
           <div className={['rail-layer slide-left', drilled ? 'is-hidden' : ''].join(' ')}>
             <div ref={hscroll} className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
-              <button onClick={() => set({ country: 'all', city: 'all' })}
+              <button onClick={() => set({ country: 'all', region: 'all', city: 'all' })}
                 className={cardCls} style={cardStyle(f.country === 'all')}>
                 <div className="h-20 grid place-items-center bg-surface-2"><IconWorldSearch size={24} className="text-ink-3" /></div>
                 <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">ทุกประเทศ</div>
               </button>
               {countries.map((c) => {
-                const solo = c.cities.length === 1
+                const solo = groupsOf(c).length === 1 && c.cities.length === 1
                 const on = f.country === c.key
                 return (
                   <button key={c.key}
                     onClick={() => {
-                      // one city → no drill-down, tap filters that city directly
-                      // (and tapping again clears it); many cities → open the rail
-                      if (!solo) { set({ country: c.key, city: 'all' }); return }
-                      if (on) { set({ country: 'all', city: 'all' }); return }
-                      set({ country: c.key, city: c.cities[0].name })
+                      // one town → no drill-down, tap filters that town directly
+                      // (and tapping again clears it); more → open the rail
+                      if (!solo) { set({ country: c.key, region: 'all', city: 'all' }); return }
+                      if (on) { set({ country: 'all', region: 'all', city: 'all' }); return }
+                      set({ country: c.key, region: 'all', city: c.cities[0].name })
                       markSeen(c.cities[0].name, c.cities[0].newestAt)
                     }}
                     className={cardCls} style={cardStyle(on)}>
@@ -286,10 +303,11 @@ export function ExploreFilters({ items, f, set, showSort = true, userId, belowSe
               until the first drill) so the class flip has something to animate */}
           <div className={['rail-layer slide-right absolute inset-0', drilled ? '' : 'is-hidden'].join(' ')}>
             {openCountry && (
-              <div key={openCountry.key} ref={hscroll} className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
-                {/* back to the country rail — carries the country's own name so
-                    there's no extra header row eating vertical space */}
-                <button onClick={() => set({ country: 'all', city: 'all' })}
+              <div key={`${openCountry.key}:${openRegion?.name ?? ''}`} ref={hscroll} className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+                {/* back one step: out of an opened region to its country's
+                    regions, else out to the countries. Carries the name of
+                    where it goes, so no extra header row is needed. */}
+                <button onClick={() => (openRegion ? set({ region: 'all', city: 'all' }) : set({ country: 'all', region: 'all', city: 'all' }))}
                   className="shrink-0 w-[68px] rounded-[12px] bg-surface flex flex-col items-center justify-center gap-1 text-ink-2 hover:bg-surface-2"
                   style={{ border: '1.5px solid var(--color-line)' }}>
                   <IconChevronLeft size={18} />
@@ -298,11 +316,21 @@ export function ExploreFilters({ items, f, set, showSort = true, userId, belowSe
                 <button onClick={() => set({ city: 'all' })}
                   className={cardCls} style={cardStyle(f.city === 'all')}>
                   <div className="h-20 grid place-items-center bg-surface-2"><IconWorldSearch size={24} className="text-ink-3" /></div>
-                  <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">ทุกเมือง</div>
+                  <div className="px-2 py-1.5 text-[12px] font-medium truncate text-center">{openRegion ? 'ทุกเมือง' : 'ทั้งหมด'}</div>
                 </button>
-                {openCountry.cities.map((c) => (
-                  <button key={c.name} onClick={() => { set({ city: c.name }); markSeen(c.name, c.newestAt) }}
-                    className={cardCls} style={cardStyle(f.city === c.name)}>
+                {(openRegion ? openRegion.towns : groups.map((g) => ({
+                  name: g.name, photo: g.photo, count: g.count, isNew: g.isNew,
+                  newestAt: g.towns[0].newestAt, towns: g.towns,
+                }))).map((c) => (
+                  <button key={c.name}
+                    onClick={() => {
+                      // a region with several towns opens into them; anything
+                      // else filters straight to it
+                      const g = !openRegion && groups.find((x) => x.name === c.name)
+                      if (g && g.towns.length > 1) { set({ region: g.name, city: 'all' }); return }
+                      set({ city: c.name }); markSeen(c.name, c.newestAt)
+                    }}
+                    className={cardCls} style={cardStyle(openRegion ? f.city === c.name : f.city === c.name || regionMatchKey(f.region) === regionMatchKey(c.name))}>
                     {c.isNew && (
                       <span className="absolute top-1.5 right-1.5 z-10 inline-flex items-center rounded-full bg-[#EF4444] text-white text-[9px] font-semibold leading-none px-1.5 py-1 shadow">
                         new

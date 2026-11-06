@@ -1,6 +1,6 @@
 import { catTabKey, FOOD_CATEGORIES } from './placeMeta'
 import { canonicalCountry } from './countries'
-import { cityMatchKey } from './cities'
+import { cityMatchKey, regionMatchKey } from './cities'
 import type { PopStat } from './exploreMutations'
 import type { ExplorePlace } from './database.types'
 
@@ -12,12 +12,15 @@ export interface ExploreFilterState {
    *  Doubles as the browser's drill-down state: a country other than 'all' means
    *  the city rail is showing that country's cities. */
   country: string
+  /** prefecture/region ('all' = every one). Towns that share a region — Sapporo
+   *  and Otaru — are browsed under it, and `city` narrows to one of them. */
+  region: string
   city: string
   sort: 'new' | 'old' | 'popular' | 'rating'
   q: string
 }
 
-export const initialExploreFilter: ExploreFilterState = { group: 'all', cat: 'all', country: 'all', city: 'all', sort: 'new', q: '' }
+export const initialExploreFilter: ExploreFilterState = { group: 'all', cat: 'all', country: 'all', region: 'all', city: 'all', sort: 'new', q: '' }
 
 /** Does an item match the chosen subcategory? Food filters by the *detailed*
  *  category (ร้านอาหาร, คาเฟ่, …); places by their category tab. */
@@ -41,6 +44,7 @@ export function filterExplore(
     .filter((e) => f.group === 'all' || e.group_type === f.group)
     .filter((e) => matchCat(e, f))
     .filter((e) => f.country === 'all' || canonicalCountry(e.country) === f.country)
+    .filter((e) => f.region === 'all' || regionMatchKey(e.city) === regionMatchKey(f.region))
     .filter((e) => f.city === 'all' || cityMatchKey(e.city) === cityMatchKey(f.city))
     .filter((e) => !q || [e.name, e.note, e.city, e.country].some((v) => (v ?? '').toLowerCase().includes(q)))
   if (f.sort === 'popular') return [...filtered].sort((a, b) => (pop.get(b.id)?.score ?? 0) - (pop.get(a.id)?.score ?? 0))

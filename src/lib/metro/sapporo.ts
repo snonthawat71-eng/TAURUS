@@ -20,8 +20,11 @@ const line = (prefix: string, names: string[]): SapporoStation[] =>
 
 export const SAPPORO: { match: string[]; lines: SapporoLine[] } = {
   // Otaru and Chitose ride the same two JR lines, so a place saved in either
-  // town finds them without the trip having to say "Sapporo"
-  match: ['sapporo', 'ซัปโปโร', 'ซัปโปโร่', 'ซับโปโร', '札幌', 'otaru', 'โอตารุ', '小樽', 'chitose', 'ชิโตเสะ', '千歳'],
+  // town finds them without the trip having to say "Sapporo". A trip named
+  // after the prefecture matches too — these are the only rails we carry for
+  // Hokkaido, and without the keyword it would fall back to every Japanese
+  // network, Tokyo and Osaka included.
+  match: ['sapporo', 'ซัปโปโร', 'ซัปโปโร่', 'ซับโปโร', '札幌', 'otaru', 'โอตารุ', '小樽', 'chitose', 'ชิโตเสะ', '千歳', 'hokkaido', 'ฮอกไกโด', '北海道'],
   lines: [
     {
       name: 'Namboku Line',
