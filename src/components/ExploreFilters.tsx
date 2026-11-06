@@ -180,7 +180,9 @@ export function ExploreFilters({ items, f, set, showSort = true, userId, belowSe
     return out
   }
   const groups = useMemo(() => groupsOf(current), [current]) // eslint-disable-line react-hooks/exhaustive-deps
-  const openRegion = f.region === 'all' ? null : groups.find((g) => regionMatchKey(g.name) === regionMatchKey(f.region)) ?? null
+  const openRegion = f.region === 'all'
+    ? null
+    : groups.find((g) => regionMatchKey(g.name) === regionMatchKey(f.region) && g.towns.length > 1) ?? null
   // a country with one group has nothing to drill into — tapping its card
   // filters straight to it and the rail stays on countries
   const drilled = !!current && (groups.length > 1 || !!openRegion)
@@ -324,10 +326,18 @@ export function ExploreFilters({ items, f, set, showSort = true, userId, belowSe
                 }))).map((c) => (
                   <button key={c.name}
                     onClick={() => {
-                      // a region with several towns opens into them; anything
-                      // else filters straight to it
-                      const g = !openRegion && groups.find((x) => x.name === c.name)
-                      if (g && g.towns.length > 1) { set({ region: g.name, city: 'all' }); return }
+                      // In the region rail, tapping always filters by the
+                      // REGION (its name is a prefecture, not a town, so
+                      // filtering by town would match nothing); a region with
+                      // several towns also opens into them. Tapping the one
+                      // already picked clears it.
+                      const g = openRegion ? null : groups.find((x) => x.name === c.name)
+                      if (g) {
+                        const on = regionMatchKey(f.region) === regionMatchKey(g.name)
+                        set({ region: on && g.towns.length === 1 ? 'all' : g.name, city: 'all' })
+                        if (g.towns.length === 1) markSeen(g.towns[0].name, g.towns[0].newestAt)
+                        return
+                      }
                       set({ city: c.name }); markSeen(c.name, c.newestAt)
                     }}
                     className={cardCls} style={cardStyle(openRegion ? f.city === c.name : f.city === c.name || regionMatchKey(f.region) === regionMatchKey(c.name))}>
