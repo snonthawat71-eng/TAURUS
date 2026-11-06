@@ -2,7 +2,7 @@
 // dialog and the "save the whole shortlist" one, so both offer the same trips
 // in the same order.
 import { canonicalCountry } from './countries'
-import { cityMatchKey } from './cities'
+import { cityMatchKey, regionOf } from './cities'
 import type { Trip } from './database.types'
 
 // folds case, spaces and punctuation, so a trip to "Guangzhou" still takes a
@@ -33,7 +33,9 @@ export function matchedTokens(t: Trip, placeTokens: string[]): string[] {
  *  "China". */
 export function placeTokens(places: { city?: string | null; country?: string | null }[]): string[] {
   return [...new Set(places
-    .flatMap((p) => [norm(p.city), norm(p.country), norm(canonicalCountry(p.country))])
+    // the town's region goes in too, so a place in Sapporo meets a trip called
+    // "Hokkaido" — that's how a multi-town trip is named now
+    .flatMap((p) => [norm(p.city), norm(regionOf(p.city)), norm(p.country), norm(canonicalCountry(p.country))])
     .filter(Boolean))]
 }
 
