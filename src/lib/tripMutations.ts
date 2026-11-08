@@ -145,6 +145,27 @@ export async function revokeAccess(trip_id: string, opts: { user_id?: string; em
   return { error }
 }
 
+/**
+ * Leave a trip someone else shared with you. Removes your OWN membership plus
+ * any invite carrying your email, so `accept_my_invites()` can't pull you back
+ * in on the next load — without that the trip just reappears on the dashboard.
+ *
+ * Owner-only trips aren't leavable (the owner deletes instead); the SQL
+ * function enforces that too. Falls back to a direct delete when
+ * supabase/leave_trip.sql hasn't been applied yet.
+ */
+export async function leaveTrip(trip_id: string, me?: { id?: string; email?: string | null }) {
+  const { error } = await supabase.rpc('leave_trip', { p_trip: trip_id })
+  if (error && /function|does not exist|schema cache|could not find/i.test(error.message)) {
+    if (!me?.id) return { error }
+    const res = await supabase.from('trip_members').delete().eq('trip_id', trip_id).eq('user_id', me.id)
+    if (res.error) return { error: res.error }
+    if (me.email) await supabase.from('trip_invites').delete().eq('trip_id', trip_id).eq('email', me.email.trim().toLowerCase())
+    return { error: null }
+  }
+  return { error }
+}
+
 // ---------- Profile (the logged-in user) ----------
 
 export async function updateProfile(id: string, fields: { nickname?: string | null; full_name?: string | null; avatar_color?: string | null; avatar_url?: string | null; avatar_focus?: string | null; year_goal?: Record<string, number> | null }) {

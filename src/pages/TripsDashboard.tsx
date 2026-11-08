@@ -20,7 +20,8 @@ import { WeatherBadge } from '@/components/WeatherBadge'
 import { countryFlag } from '@/lib/countries'
 import { tripFlag, tripActiveCity } from '@/lib/segments'
 import { CITY_IMAGES, TRIP_COVER_IMAGES, tripCoverImage } from '@/lib/cityImages'
-import { deleteTrip, duplicateTrip } from '@/lib/tripMutations'
+import { deleteTrip, duplicateTrip, leaveTrip } from '@/lib/tripMutations'
+import { toastResult } from '@/lib/toast'
 import { downloadItineraryPdf } from '@/lib/itineraryPdf'
 import type { Trip } from '@/lib/database.types'
 
@@ -246,7 +247,16 @@ export default function TripsDashboard() {
                           // (drafts go through the upgrade flow so dates can be added)
                           { label: 'แก้ไข', icon: <IconPencil size={15} />, onClick: () => navigate(t.start_date ? `/create?edit=${t.id}` : `/create?upgrade=${t.id}`) },
                           { label: 'ทำสำเนา', icon: busyId === t.id ? <IconLoader2 size={15} className="animate-spin" /> : <IconCopy size={15} />, onClick: () => duplicate(t) },
-                          ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : []),
+                          ...(isOwner ? [{ label: 'ลบทริป', icon: <IconTrash size={15} />, onClick: async () => { if (await confirmDialog({ title: 'ลบทริป', message: `ลบ "${t.name ?? 'ทริปนี้'}"? การลบนี้กู้คืนไม่ได้`, danger: true, confirmLabel: 'ลบ' })) { await deleteTrip(t.id); await reload() } }, danger: true }] : [
+                            // A shared trip can't be deleted (it isn't ours) — it is left
+                            // instead, which drops it off our dashboard and leaves the
+                            // trip itself untouched for everyone else.
+                            { label: 'ออกจากทริป', icon: <IconLogout size={15} />, onClick: async () => {
+                              if (!(await confirmDialog({ title: 'ออกจากทริป', message: `ออกจาก "${t.name ?? 'ทริปนี้'}"? ทริปจะหายไปจากหน้ารวมทริปของคุณ ข้อมูลในทริปไม่ถูกลบ และถ้าอยากกลับเข้ามาต้องให้เจ้าของทริปเชิญใหม่`, danger: true, confirmLabel: 'ออกจากทริป' }))) return
+                              const res = await leaveTrip(t.id, { id: user?.id, email: user?.email })
+                              if (toastResult(res, { success: 'ออกจากทริปแล้ว', fail: 'ออกจากทริปไม่สำเร็จ' })) await reload()
+                            }, danger: true },
+                          ]),
                         ]} buttonClassName="!bg-transparent !text-white hover:!bg-white/25" />
                       </div>
                     </div>
