@@ -47,7 +47,7 @@ export function TripSwitcher({ variant }: { variant: 'sidebar' | 'topbar' }) {
         </button>
       )}
 
-      <Drawer open={sheet} onClose={() => setSheet(false)} title="ทริปของฉัน">
+      <Drawer open={sheet} onClose={() => setSheet(false)} title="ทริปของฉัน" guard={false}>
         <div className="space-y-1.5">
           {trips.map((t) => {
             const active = t.id === trip?.id

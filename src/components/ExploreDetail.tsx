@@ -286,7 +286,7 @@ export function ExploreDetail({ e: eProp, open, saved, onClose, onFav, onOpenPla
     : (e.station_line || e.station_name) ? [{ line: e.station_line, color: e.station_color, station: e.station_name }] : []
 
   return (
-    <Drawer open={open} onClose={onClose} title="รายละเอียด">
+    <Drawer open={open} onClose={onClose} title="รายละเอียด" guard={false}>
       {/* cover (contained card so the drag handle stays usable) */}
       <div className="relative h-52 rounded-[14px] overflow-hidden mt-1 bg-surface-2">
         {gallery.length > 0

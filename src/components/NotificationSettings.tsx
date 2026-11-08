@@ -95,7 +95,7 @@ export function NotificationSettings() {
       )}
 
       {/* Ask-on-enable chooser */}
-      <Drawer open={choosing} onClose={() => setChoosing(false)} title="ตั้งค่าการแจ้งเตือนตามแพลน">
+      <Drawer open={choosing} onClose={() => setChoosing(false)} title="ตั้งค่าการแจ้งเตือนตามแพลน" guard={false}>
         <p className="text-[12px] text-ink-3 -mt-1 mb-3">อยากให้เด้งเตือนล่วงหน้ากี่นาทีก่อนถึงเวลากิจกรรม?</p>
         <div className="space-y-2">
           {LEADS.map((o) => (

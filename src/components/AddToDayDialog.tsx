@@ -61,7 +61,7 @@ export function AddToDayDialog({ place, open, onClose }: {
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="ใส่ลงวัน">
+    <Drawer open={open} onClose={onClose} title="ใส่ลงวัน" guard={false}>
       <div className="space-y-3">
         {/* which place (and branch) we're adding */}
         <div className="flex items-center gap-2 text-[13px]">

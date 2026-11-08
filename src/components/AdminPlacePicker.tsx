@@ -71,7 +71,7 @@ export function AdminPlacePicker({ open, title, pool, country, chosen, onClose, 
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title={`เพิ่มสถานที่ — ${title || 'ไม่มีชื่อ'}`}>
+    <Drawer open={open} onClose={onClose} title={`เพิ่มสถานที่ — ${title || 'ไม่มีชื่อ'}`} guard={false}>
       <div className="flex items-center gap-2 rounded-md hairline px-3 h-10 bg-surface mb-3">
         <IconSearch size={16} className="text-ink-3" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อสถานที่…"
