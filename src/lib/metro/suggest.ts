@@ -1,6 +1,7 @@
 // Autocomplete suggestions for the manual TransitEditor / ExploreEditor: line
 // names, station names and per-line station numbers, sourced from the built-in
-// networks (Osaka incl. JR West, Tokyo, Sapporo, Hong Kong, Shanghai, Beijing, Shenzhen,
+// networks (Osaka incl. JR West, Tokyo, Sapporo incl. the streetcar, Hong Kong
+// incl. the tram, Shanghai, Beijing, Shenzhen,
 // Guangzhou, Taipei + Taoyuan Airport MRT, Singapore). These power the
 // Combobox dropdowns so users can pick from known data without retyping — while
 // still being free to type any custom value (including stations not listed).
@@ -11,6 +12,7 @@
 // network simply gets no suggestions (users type their own values freely).
 import { OSAKA } from './osaka'
 import { HK_NETWORK } from './hkNetwork'
+import { HK_TRAM } from './hkTram'
 import { SHANGHAI } from './shanghai'
 import { BEIJING } from './beijing'
 import { SHENZHEN } from './shenzhen'
@@ -41,7 +43,10 @@ interface RawNetwork { match: string[]; broad?: string[]; lines: LineSuggest[] }
 const JAPAN = ['japan', 'ญี่ปุ่น', '日本']
 const NETWORKS: RawNetwork[] = [
   { match: OSAKA.match, broad: JAPAN, lines: OSAKA.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
-  { match: HK_MATCH, lines: HK_NETWORK.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
+  { match: HK_MATCH, lines: [
+    ...HK_NETWORK.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })),
+    ...HK_TRAM,
+  ] },
   { match: SHANGHAI.match, lines: SHANGHAI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: BEIJING.match, lines: BEIJING.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
   { match: SHENZHEN.match, lines: SHENZHEN.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s })) })) },
