@@ -22,7 +22,9 @@ import { SAPPORO } from './sapporo'
 import type { Trip } from '@/lib/database.types'
 
 export interface StationSuggest { name: string; num?: string }
-export interface LineSuggest { name: string; color: string; stations: StationSuggest[] }
+/** `mode` is the travel mode this line is ridden as — a tram line must not show
+ *  up under รถไฟฟ้า and vice versa. Networks that don't say default to metro. */
+export interface LineSuggest { name: string; color: string; mode?: string; stations: StationSuggest[] }
 export interface TransitSuggest {
   lines: LineSuggest[]
   /** de-duplicated, sorted list of every station name across all lines */
@@ -47,7 +49,7 @@ const NETWORKS: RawNetwork[] = [
   { match: TAIPEI.match, lines: TAIPEI.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: SINGAPORE.match, lines: SINGAPORE.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
   { match: TOKYO.match, broad: JAPAN, lines: TOKYO.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
-  { match: SAPPORO.match, broad: JAPAN, lines: SAPPORO.lines.map((l) => ({ name: l.name, color: l.color, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
+  { match: SAPPORO.match, broad: JAPAN, lines: SAPPORO.lines.map((l) => ({ name: l.name, color: l.color, mode: l.mode, stations: l.stations.map((s) => ({ name: s.name, num: s.num })) })) },
 ]
 
 /** Collect line/station suggestions only for the network(s) matching the given text. */
@@ -126,6 +128,17 @@ export function lineColorFor(line: string | null | undefined, where?: string | n
 function networksFor(where: string): RawNetwork[] {
   const h = ` ${where.toLowerCase()} `
   return NETWORKS.filter((n) => n.match.some((m) => h.includes(m.toLowerCase())))
+}
+
+/** The suggestions for ONE travel mode: a tram line belongs under รถราง, a
+ *  subway line under รถไฟฟ้า. A mode with no known lines returns empty, and the
+ *  editors fall back to plain text fields for it. */
+export function suggestFor(sug: TransitSuggest, mode: string | null | undefined): TransitSuggest {
+  const want = mode || 'metro'
+  const lines = sug.lines.filter((l) => (l.mode ?? 'metro') === want)
+  const set = new Set<string>()
+  for (const l of lines) for (const s of l.stations) set.add(s.name)
+  return { lines, stations: Array.from(set).sort() }
 }
 
 /** Find a suggested line by its (case-insensitive) name. */

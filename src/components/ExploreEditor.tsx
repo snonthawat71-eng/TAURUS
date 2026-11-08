@@ -10,7 +10,7 @@ import { PhotoCropper } from './PhotoCropper'
 import { ColorPicker } from './ColorPicker'
 import { Combobox, type ComboOption } from './Combobox'
 import { ModePicker } from './ModePicker'
-import { suggestionsFromText, findLine } from '@/lib/metro/suggest'
+import { suggestionsFromText, suggestFor, findLine, type LineSuggest } from '@/lib/metro/suggest'
 import { modeMeta } from '@/lib/transitModes'
 import { uploadPublicImage } from '@/lib/files'
 import { hscroll } from '@/lib/hscroll'
@@ -36,6 +36,16 @@ function emptyBranch(): PlaceBranch { return { label: '', map_url: '', line: '',
 const isPdfRef = (ref: string) => /\.pdf($|\?)/i.test(ref)
 
 type CardKey = 'where' | 'type' | 'info' | 'photos' | 'menu' | 'routes' | 'note'
+
+/** Every station across the given lines, de-duplicated, keeping its number. */
+function stationOptsOf(lines: LineSuggest[]): ComboOption[] {
+  const seen = new Set<string>(); const out: ComboOption[] = []
+  for (const l of lines) for (const s of l.stations) {
+    const k = s.name.trim().toLowerCase()
+    if (s.name.trim() && !seen.has(k)) { seen.add(k); out.push({ value: s.name, label: s.num }) }
+  }
+  return out
+}
 
 export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   open: boolean
@@ -122,14 +132,7 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     }
     return out
   }, [metroSug])
-  const allStationOptions = useMemo<ComboOption[]>(() => {
-    const seen = new Set<string>(); const out: ComboOption[] = []
-    for (const l of metroSug.lines) for (const s of l.stations) {
-      const k = s.name.trim().toLowerCase()
-      if (s.name.trim() && !seen.has(k)) { seen.add(k); out.push({ value: s.name, label: s.num }) }
-    }
-    return out
-  }, [metroSug])
+  const allStationOptions = useMemo<ComboOption[]>(() => stationOptsOf(metroSug.lines), [metroSug])
 
   useEffect(() => {
     if (!open) return
@@ -641,8 +644,12 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
           <div className="space-y-2">
             {routes.map((r, i) => {
               const mm = modeMeta(r.mode)
-              const known = mm.rail ? findLine(metroSug, r.line ?? '') : null
-              const stationOptions = known ? known.stations.map((s) => ({ value: s.name, label: s.num })) : allStationOptions
+              // offer only the lines ridden as THIS mode — the Sapporo
+              // streetcar belongs under รถราง, not รถไฟฟ้า
+              const rSug = suggestFor(metroSug, r.mode)
+              const pick = rSug.lines.length > 0
+              const known = pick ? findLine(rSug, r.line ?? '') : null
+              const stationOptions = known ? known.stations.map((s) => ({ value: s.name, label: s.num })) : stationOptsOf(rSug.lines)
               return (
                 <div key={i} className="rounded-[10px] hairline p-2.5 space-y-2 bg-canvas">
                   <div className="flex items-center justify-between">
@@ -654,13 +661,13 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
                   <ModePicker value={r.mode} onChange={(m) => patchRouteMode(i, m)} />
                   <div className="grid grid-cols-2 gap-2">
                     <Combobox className={field} value={r.line ?? ''} placeholder={mm.fields.line}
-                      options={mm.rail ? lineOptions : []}
+                      options={pick ? rSug.lines.map((l) => ({ value: l.name, color: l.color })) : []}
                       onChange={(v) => patchRoute(i, { line: v, ...(lineColorAll[v] ? { color: lineColorAll[v] } : {}) })} />
-                    <Combobox className={field} value={r.station ?? ''} placeholder={mm.rail ? 'สถานี เช่น Namba' : mm.fields.to}
-                      options={mm.rail ? stationOptions : []}
+                    <Combobox className={field} value={r.station ?? ''} placeholder={pick ? 'สถานี เช่น Namba' : mm.fields.to}
+                      options={pick ? stationOptions : []}
                       onChange={(v) => patchRoute(i, { station: v })} />
                   </div>
-                  {mm.rail && <ColorPicker value={r.color ?? '#185FA5'} onChange={(c) => patchRoute(i, { color: c })} />}
+                  {(mm.rail || pick) && <ColorPicker value={r.color ?? '#185FA5'} onChange={(c) => patchRoute(i, { color: c })} />}
                 </div>
               )
             })}

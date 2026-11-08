@@ -12,7 +12,7 @@ import { SingaporeMapViewer } from './SingaporeMapViewer'
 import { useTrip } from '@/contexts/TripContext'
 import { getNetworkForTrip, getNetworkForText } from '@/lib/metro'
 import { isSingapore } from '@/lib/metro/singaporeNetwork'
-import { suggestionsFromText, findLine, legBetween } from '@/lib/metro/suggest'
+import { suggestionsFromText, suggestFor, findLine, legBetween } from '@/lib/metro/suggest'
 import { modeMeta } from '@/lib/transitModes'
 import { CURRENCIES } from '@/lib/fx'
 import { cityMatchKey } from '@/lib/cities'
@@ -165,7 +165,7 @@ export function TransitEditor({
   }
   // line name → auto-fill the line color when it matches a known line
   function patchLine(i: number, value: string) {
-    const known = findLine(sug, value)
+    const known = findLine(suggestFor(sug, legs[i]?.mode), value)
     patch(i, { line: value, ...(known ? { color: known.color } : {}) })
   }
   // station fields → when both ends sit on a known line, auto-fill stop count + terminus
@@ -173,7 +173,7 @@ export function TransitEditor({
     setLegs((ls) => ls.map((l, idx) => {
       if (idx !== i) return l
       const merged: TransitLeg = { ...l, ...p }
-      const known = findLine(sug, merged.line)
+      const known = findLine(suggestFor(sug, merged.mode), merged.line)
       if (known && merged.from && merged.to) {
         const r = legBetween(known, merged.from, merged.to)
         if (r) { merged.stops = r.stops; merged.direction = `ปลายทาง ${r.terminus}` }
@@ -338,6 +338,11 @@ export function TransitEditor({
         {legs.map((leg, i) => {
           const mm = modeMeta(leg.mode)
           const rail = mm.rail
+          // Built-in lines for the mode this leg is travelled by — a Sapporo
+          // tram leg gets the streetcar, a metro leg the subway. A mode we
+          // carry no lines for (bus, boat, …) keeps the plain text fields.
+          const modeSug = suggestFor(sug, leg.mode)
+          const pick = modeSug.lines.length > 0
           const ModeIcon = mm.icon
           const legDone = !!(leg.line || leg.from || leg.to)
           const summary = [
@@ -367,21 +372,21 @@ export function TransitEditor({
                 {/* line / route + color */}
                 <div>
                   <div className={lbl}>{mm.fields.line}</div>
-                  {rail ? (
+                  {pick ? (
                     <Combobox className={field} value={leg.line} placeholder={mm.fields.linePlaceholder}
-                      options={sug.lines.map((l) => ({ value: l.name, color: l.color }))}
+                      options={modeSug.lines.map((l) => ({ value: l.name, color: l.color }))}
                       onChange={(v) => patchLine(i, v)} />
                   ) : (
                     <Field value={leg.line} placeholder={mm.fields.linePlaceholder}
                       onChange={(v) => patch(i, { line: v })} />
                   )}
-                  {/* colour applies to the metro line only */}
-                  {rail && <ColorPicker value={leg.color} onChange={(c) => patch(i, { color: c })} />}
+                  {/* colour applies to a line that has one (metro / tram) */}
+                  {(rail || pick) && <ColorPicker value={leg.color} onChange={(c) => patch(i, { color: c })} />}
                 </div>
 
-                {rail ? (() => {
-                  const known = findLine(sug, leg.line)
-                  const stations = known ? known.stations : sug.stations.map((name) => ({ name } as { name: string; num?: string }))
+                {pick ? (() => {
+                  const known = findLine(modeSug, leg.line)
+                  const stations = known ? known.stations : modeSug.stations.map((name) => ({ name } as { name: string; num?: string }))
                   const stationOpts = stations.map((s) => ({ value: s.name, label: s.num }))
                   return (
                     <div className="grid grid-cols-2 gap-2">

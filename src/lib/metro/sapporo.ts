@@ -18,7 +18,9 @@
 // Same shape as Taipei/Tokyo: no geometry, so there's no tappable map for
 // Sapporo yet — this powers the line/station autocomplete.
 interface SapporoStation { name: string; num: string }
-interface SapporoLine { name: string; color: string; stations: SapporoStation[] }
+/** `mode` marks a line that isn't a subway — it decides which travel mode the
+ *  line is offered under in the route editors. Omitted = metro. */
+interface SapporoLine { name: string; color: string; mode?: 'tram'; stations: SapporoStation[] }
 
 const line = (prefix: string, names: string[]): SapporoStation[] =>
   names.map((name, i) => ({ name, num: `${prefix}${String(i + 1).padStart(2, '0')}` }))
@@ -65,6 +67,7 @@ export const SAPPORO: { match: string[]; lines: SapporoLine[] } = {
       // list covers both directions.
       name: 'Sapporo Streetcar',
       color: '#B2B2B2',
+      mode: 'tram',
       stations: line('SC', [
         'Nishi-Yon-Chome', 'Nishi-Hatchome', 'Chuo-Kuyakusho-mae', 'Nishi-Jugo-Chome',
         'Nishisen-Rokujo', 'Nishisen-Kujo-Asahiyama-Koen-dori', 'Nishisen-Juichijo',
