@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { updateProfile, claimTraveler } from '@/lib/tripMutations'
 import { checkForUpdateNow } from '@/lib/pwa'
 import { toast } from '@/lib/toast'
+import { ClearableText } from './ClearableField'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
@@ -134,11 +135,11 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
       <div className="space-y-3">
         <div>
           <label className={lbl}>ชื่อเล่น (ชื่อที่แสดง)</label>
-          <input className={field} value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="เช่น Elf" />
+          <ClearableText className={field} value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="เช่น Elf" />
         </div>
         <div>
           <label className={lbl}>ชื่อ-นามสกุล</label>
-          <input className={field} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="เช่น Nuttaporn Saengthong" />
+          <ClearableText className={field} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="เช่น Nuttaporn Saengthong" />
         </div>
         <p className="text-[11px] text-ink-3 -mt-1">ชื่อ · สี · รูป จะซิงค์ให้ทุกทริปที่เป็นการ์ดของคุณโดยอัตโนมัติ</p>
 
@@ -150,7 +151,7 @@ export function ProfileEditor({ open, onClose, scope = 'trip' }: { open: boolean
           <div className="text-[11px] text-ink-3 mt-0.5 mb-2">ตั้งว่าปีนี้อยากไปกี่ทริป — แถบพาสปอร์ตจะเติมช่องตามทริปจริง</div>
           <div className="flex items-center gap-2">
             <button onClick={() => setGoal((g) => Math.max(0, g - 1))} className="size-9 rounded-full bg-surface hairline text-[18px] font-medium leading-none">−</button>
-            <input type="number" min={0} max={30} value={goal} onChange={(e) => setGoal(Math.max(0, Math.min(30, Number(e.target.value) || 0)))}
+            <ClearableText type="number" min={0} max={30} value={goal} onChange={(e) => setGoal(Math.max(0, Math.min(30, Number(e.target.value) || 0)))}
               className="hairline rounded-md text-[15px] font-semibold text-center h-10 w-16 bg-surface outline-none focus:border-brand" />
             <button onClick={() => setGoal((g) => Math.min(30, g + 1))} className="size-9 rounded-full bg-surface hairline text-[18px] font-medium leading-none">+</button>
             <span className="text-[12px] text-ink-3">ทริป</span>

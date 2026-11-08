@@ -19,6 +19,7 @@ import {
   type ReviewDraft, type MenuDraft, type AspectKey, type MenuRow,
 } from '@/lib/exploreReviews'
 import type { ExplorePlace, ExploreRating } from '@/lib/database.types'
+import { ClearableText } from './ClearableField'
 
 const BODY_MAX = 2000
 
@@ -384,7 +385,7 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
                   {menu.length > 4 && (
                     <div className="flex items-center gap-2 h-10 rounded-[10px] bg-surface-2 px-3 mb-2">
                       <IconSearch size={15} className="text-ink-3 shrink-0" />
-                      <input value={dishQuery} onChange={(ev) => setDishQuery(ev.target.value)} placeholder="ค้นหารายการ"
+                      <ClearableText value={dishQuery} onChange={(ev) => setDishQuery(ev.target.value)} placeholder="ค้นหารายการ"
                         className="flex-1 bg-transparent text-[13px] outline-none" />
                     </div>
                   )}
@@ -420,7 +421,7 @@ export function ReviewEditor({ e, open, mine, myTags, onClose, onSaved }: {
                   </div>
 
                   <div className="flex gap-2 mt-2">
-                    <input value={newDish} onChange={(ev) => setNewDish(ev.target.value)}
+                    <ClearableText value={newDish} onChange={(ev) => setNewDish(ev.target.value)}
                       onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); addDish() } }}
                       placeholder="พิมพ์ชื่อเมนูที่อยากแนะนำ…" maxLength={60}
                       className="flex-1 min-w-0 h-11 rounded-[10px] bg-surface-2 px-3 text-[13px] outline-none focus:ring-1 focus:ring-brand" />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Drawer } from './Drawer'
-import { ClearableField } from './ClearableField'
+import { ClearableField, ClearableText } from './ClearableField'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 
@@ -40,7 +40,7 @@ export function DayEditor({
         </div>
         <div>
           <label className="text-[11px] text-ink-3">หัวข้อวัน</label>
-          <input className={field} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="เช่น พระราชวัง · ใจกลางเมือง" />
+          <ClearableText className={field} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="เช่น พระราชวัง · ใจกลางเมือง" />
         </div>
         <button onClick={save} disabled={busy} className="btn-primary w-full h-10 disabled:opacity-50">
           {busy ? 'กำลังบันทึก...' : 'บันทึก'}

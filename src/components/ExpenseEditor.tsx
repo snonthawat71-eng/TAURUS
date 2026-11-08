@@ -13,6 +13,7 @@ import { scanReceipt } from '@/lib/receiptScan'
 import { tripCurrency } from '@/lib/segments'
 import type { Expense } from '@/lib/database.types'
 import type { ExpenseInput } from '@/lib/budgetMutations'
+import { ClearableText } from './ClearableField'
 
 const iconField = 'hairline rounded-[9px] text-[13px] h-11 pl-9 pr-3 bg-surface w-full outline-none focus:border-brand'
 const knownCat = (v?: string | null) => EXPENSE_CATS.some((c) => c.id === v)
@@ -175,7 +176,7 @@ export function ExpenseEditor({
   const nameBlock = (
     <div className="relative">
       <LeadIcon><IconTag size={15} /></LeadIcon>
-      <input className={iconField} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น มื้อค่ำ Haidilao" autoFocus={!editing} />
+      <ClearableText className={iconField} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น มื้อค่ำ Haidilao" autoFocus={!editing} />
     </div>
   )
 
@@ -195,7 +196,7 @@ export function ExpenseEditor({
         })}
       </div>
       {cat === 'other' && (
-        <input className="hairline rounded-[9px] text-[13px] h-11 px-3.5 bg-surface w-full outline-none focus:border-brand"
+        <ClearableText className="hairline rounded-[9px] text-[13px] h-11 px-3.5 bg-surface w-full outline-none focus:border-brand"
           value={customCat} onChange={(e) => setCustomCat(e.target.value)} placeholder="ระบุประเภท เช่น ค่าปรับ, ค่าทิป" autoFocus />
       )}
     </div>
@@ -204,7 +205,7 @@ export function ExpenseEditor({
   const priceBlock = (
     <div className="space-y-2">
       <div className="flex items-stretch gap-2">
-        <input type="number" inputMode="decimal"
+        <ClearableText type="number" inputMode="decimal"
           className="hairline rounded-[9px] text-[18px] font-semibold tabular-nums h-12 px-3.5 bg-surface flex-1 min-w-0 outline-none focus:border-brand"
           value={total} onChange={(e) => setTotal(e.target.value)} placeholder="0" aria-label="ราคา" autoFocus={!editing} />
         <div className="relative shrink-0">

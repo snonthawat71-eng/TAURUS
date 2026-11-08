@@ -10,6 +10,7 @@ import { catMeta } from '@/lib/placeMeta'
 import { planMapUrl, branchesOf, hasOwnLocation } from '@/lib/branches'
 import { nameFromMapUrl, resolveMapName, isMapLink } from '@/lib/geo'
 import type { StopInput } from '@/lib/mutations'
+import { ClearableText } from './ClearableField'
 
 // Flat form: what you fill in EVERY time (place, time) sits open under a small
 // label with no box around it — a filled field instead of an outlined one, so
@@ -301,7 +302,7 @@ export function StopEditor({
         {/* ── สถานที่ ────────────────────────────────────────── */}
         <div className="pb-4">
           <span className={groupLabel}>สถานที่</span>
-          <input className={field} value={place}
+          <ClearableText className={field} value={place}
             onChange={(e) => { setPlace(e.target.value); setAutoFilled(false) }}
             placeholder="ชื่อสถานที่ / กิจกรรม" />
 
@@ -362,7 +363,7 @@ export function StopEditor({
             summary={[mapUrl.trim() ? 'ใส่ลิงก์แล้ว' : '', LINK_MODE_LABEL[linkMode] ?? ''].filter(Boolean).join(' · ')}
             onToggle={() => setOpenCard((c) => (c === 'link' ? null : 'link'))}>
             <div className="space-y-2">
-              <input className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)}
+              <ClearableText className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)}
                 placeholder="วางลิงก์แผนที่ (ถ้ามี)" inputMode="url" />
               {linkState === 'busy' && (
                 <div className="flex items-center gap-1 text-[10.5px] font-medium text-ink-3">

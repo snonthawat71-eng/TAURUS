@@ -8,6 +8,7 @@ import { uploadPublicImage } from '@/lib/files'
 import { useAuth } from '@/contexts/AuthContext'
 import { completeOnboarding } from '@/lib/tripMutations'
 import { toast } from '@/lib/toast'
+import { ClearableText } from './ClearableField'
 
 /**
  * First-run screen shown ONCE to a brand-new signup (right after they confirm
@@ -95,7 +96,7 @@ export function ProfileSetup({ onDone }: { onDone: () => void }) {
         </div>
 
         <label className="text-[11px] text-ink-3">ชื่อเล่น (ชื่อที่แสดง)</label>
-        <input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="เช่น Elf" autoFocus
+        <ClearableText value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="เช่น Elf" autoFocus
           className="hairline rounded-md text-[14px] h-11 px-3 bg-surface w-full outline-none focus:border-brand mt-1" />
 
         <button onClick={start} disabled={busy || !nickname.trim()} className="btn-primary w-full h-11 mt-5 disabled:opacity-50">

@@ -7,6 +7,7 @@ import { toHexColor } from '@/lib/avatars'
 import { uploadPublicImage } from '@/lib/files'
 import { confirmDialog } from '@/lib/confirm'
 import type { Traveler } from '@/lib/database.types'
+import { ClearableText } from './ClearableField'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 
@@ -123,17 +124,17 @@ export function TravelerEditor({
       <div className="space-y-3">
         <div>
           <label className="text-[11px] text-ink-3">ชื่อเล่น</label>
-          <input className={field} value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="เช่น Elf" />
+          <ClearableText className={field} value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="เช่น Elf" />
         </div>
         {/* ชื่อจริง / นามสกุล แยกช่อง — ให้ตรงกับหน้าสร้างทริป */}
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="text-[11px] text-ink-3">ชื่อจริง</label>
-            <input className={field} value={first} onChange={(e) => setFirst(e.target.value)} placeholder="เช่น Nuttaporn" />
+            <ClearableText className={field} value={first} onChange={(e) => setFirst(e.target.value)} placeholder="เช่น Nuttaporn" />
           </div>
           <div>
             <label className="text-[11px] text-ink-3">นามสกุล</label>
-            <input className={field} value={last} onChange={(e) => setLast(e.target.value)} placeholder="เช่น Saengthong" />
+            <ClearableText className={field} value={last} onChange={(e) => setLast(e.target.value)} placeholder="เช่น Saengthong" />
           </div>
         </div>
         <button onClick={save} disabled={busy || !nickname.trim()} className="btn-primary w-full h-10 disabled:opacity-50">
