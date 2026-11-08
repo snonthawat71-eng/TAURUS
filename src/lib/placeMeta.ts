@@ -1,6 +1,6 @@
 import {
   IconBuildingMonument, IconMountain, IconBuildingCarousel,
-  IconMusic, IconBuildingArch, IconTorii, IconBuildingBank, IconShoppingBag, IconWalk,
+  IconMusic, IconBuildingArch, IconTorii, IconBuildingBank, IconShoppingBag, IconBuildingStore, IconWalk,
   IconToolsKitchen2, IconSoup, IconBowl, IconBurger,
   IconCoffee, IconCup, IconCake, IconBread, IconIceCream2,
   IconGlassCocktail, IconBeer, IconArmchair, IconGift,
@@ -25,6 +25,7 @@ export const CATEGORY: Record<string, CategoryMeta> = {
   shrine: { group: 'place', label: 'วัด/ศาลเจ้า', icon: IconTorii, bg: '#FBECE9', fg: '#C0432E' },
   museum: { group: 'place', label: 'พิพิธภัณฑ์', icon: IconBuildingBank, bg: '#ECEFF6', fg: '#4A5A86' },
   shopping: { group: 'place', label: 'ช้อปปิ้ง', icon: IconShoppingBag, bg: '#FDF0E6', fg: '#C56A1E' },
+  market: { group: 'place', label: 'ตลาดนัด', icon: IconBuildingStore, bg: '#FAF0DC', fg: '#A8761A' },
   walkingstreet: { group: 'place', label: 'ถนนคนเดิน', icon: IconWalk, bg: '#E9F3F4', fg: '#2E7E8C' },
   park: { group: 'place', label: 'สวนสาธารณะ', icon: IconTree, bg: '#EBF4E9', fg: '#3C8246' },
   // --- food: Food group ---
@@ -73,6 +74,7 @@ export const PLACE_TABS: CategoryTab[] = [
   { key: 'shrine', label: 'วัด/ศาลเจ้า' },
   { key: 'museum', label: 'พิพิธภัณฑ์' },
   { key: 'shopping', label: 'ช้อปปิ้ง' },
+  { key: 'market', label: 'ตลาดนัด' },
   { key: 'walkingstreet', label: 'ถนนคนเดิน' },
   { key: 'park', label: 'สวนสาธารณะ' },
   { key: 'other', label: 'อื่นๆ' },
@@ -107,5 +109,5 @@ export function catTabKey(category: string | null | undefined, group: 'place' | 
   return category && PLACE_CATEGORIES.includes(category) ? category : 'other'
 }
 
-export const PLACE_CATEGORIES = ['landmark', 'nature', 'themepark', 'entertainment', 'historic', 'shrine', 'museum', 'shopping', 'walkingstreet', 'park']
+export const PLACE_CATEGORIES = ['landmark', 'nature', 'themepark', 'entertainment', 'historic', 'shrine', 'museum', 'shopping', 'market', 'walkingstreet', 'park']
 export const FOOD_CATEGORIES = FOOD_GROUPS.flatMap((g) => g.cats)
