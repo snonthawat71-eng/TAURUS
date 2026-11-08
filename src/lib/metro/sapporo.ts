@@ -1,8 +1,9 @@
 // Sapporo Municipal Subway (lines, official colours, stations in order) for
-// transit suggestions. English names follow the signage, which writes the
-// numbered stations with numerals — "Kita 12 Jo", "Nishi 11 Chome" — not
-// spelled-out Japanese numbers. Station numbers (N01, T19, H07…) are the ones
-// printed on the platform signs, so the app can show the same roundel.
+// transit suggestions. English names follow the City of Sapporo's own station
+// list, which spells the numbers out the Japanese way — "Kita-Juni-Jo",
+// "Nishi-Juitchome", "Nango-Nana-Chome" — rather than writing them as digits.
+// Station numbers (N01, T19, H07…) are the ones printed on the platform signs,
+// so the app can show the same roundel.
 //
 // The two JR lines travellers actually use from Sapporo are here too — the
 // Chitose Line out to New Chitose Airport and the Hakodate Line over to Otaru
@@ -30,7 +31,7 @@ export const SAPPORO: { match: string[]; lines: SapporoLine[] } = {
       name: 'Namboku Line',
       color: '#088002',
       stations: line('N', [
-        'Asabu', 'Kita 34 Jo', 'Kita 24 Jo', 'Kita 18 Jo', 'Kita 12 Jo', 'Sapporo', 'Odori',
+        'Asabu', 'Kita-Sanjuyo-Jo', 'Kita-Nijuyo-Jo', 'Kita-Juhachi-Jo', 'Kita-Juni-Jo', 'Sapporo', 'Odori',
         'Susukino', 'Nakajima Koen', 'Horohirabashi', 'Nakanoshima', 'Hiragishi',
         'Minami-Hiragishi', 'Sumikawa', 'Jieitai-mae', 'Makomanai',
       ]),
@@ -39,9 +40,9 @@ export const SAPPORO: { match: string[]; lines: SapporoLine[] } = {
       name: 'Tozai Line',
       color: '#FF9900',
       stations: line('T', [
-        'Miyanosawa', 'Hassamu-Minami', 'Kotoni', 'Nijuyonken', 'Nishi 28 Chome', 'Maruyama Koen',
-        'Nishi 18 Chome', 'Nishi 11 Chome', 'Odori', 'Bus Center-mae', 'Kikusui', 'Higashi-Sapporo',
-        'Shiroishi', 'Nango 7 Chome', 'Nango 13 Chome', 'Nango 18 Chome', 'Oyachi', 'Hibarigaoka',
+        'Miyanosawa', 'Hassamu-Minami', 'Kotoni', 'Nijuyonken', 'Nishi-Nijuhatchome', 'Maruyama Koen',
+        'Nishi-Juhatchome', 'Nishi-Juitchome', 'Odori', 'Bus Center-mae', 'Kikusui', 'Higashi-Sapporo',
+        'Shiroishi', 'Nango-Nana-Chome', 'Nango-Jusan-Chome', 'Nango-Juhatchome', 'Oyachi', 'Hibarigaoka',
         'Shin-Sapporo',
       ]),
     },
@@ -50,7 +51,7 @@ export const SAPPORO: { match: string[]; lines: SapporoLine[] } = {
       color: '#0166CC',
       stations: line('H', [
         'Sakaemachi', 'Shindo-Higashi', 'Motomachi', 'Kanjo-dori-Higashi', 'Higashi-Kuyakusho-mae',
-        'Kita 13 Jo Higashi', 'Sapporo', 'Odori', 'Hosui-Susukino', 'Gakuen-mae', 'Toyohira-Koen',
+        'Kita-Jusan-Jo-Higashi', 'Sapporo', 'Odori', 'Hosui-Susukino', 'Gakuen-mae', 'Toyohira-Koen',
         'Misono', 'Tsukisamu-Chuo', 'Fukuzumi',
       ]),
     },
