@@ -100,7 +100,7 @@ export function PlaceDetail({
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="รายละเอียด">
+    <Drawer open={open} onClose={onClose} title="รายละเอียด" guard={false}>
       <div className="h-40 rounded-[14px] relative grid place-items-center overflow-hidden mt-1" style={{ background: meta.bg }}>
         {gallery.length > 0
           ? <PhotoCarousel photos={gallery} alt={place.name ?? ''} width={800} focus={place.photo_focus} onExpand={(i) => setLightbox(i)}

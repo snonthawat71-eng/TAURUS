@@ -128,7 +128,7 @@ export function SaveAllToTripDialog({ items, open, onClose, onChanged }: {
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="เซฟทั้งหมด">
+    <Drawer open={open} onClose={onClose} title="เซฟทั้งหมด" guard={false}>
       <div className="flex items-center gap-2 mb-3 text-[13px]">
         <IconHeartFilled size={15} className="text-brand" />
         <span className="font-medium">{items.length} ที่ในรายการนี้</span>

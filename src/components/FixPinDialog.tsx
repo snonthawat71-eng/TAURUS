@@ -198,7 +198,7 @@ export function FixPinDialog({ place, current, open, onClose, onFixed }: {
   const gotLink = cands.some((c) => c.source === 'link')
 
   return (
-    <Drawer open={open} onClose={onClose} title="ค้นหาพิกัดที่ถูกต้อง">
+    <Drawer open={open} onClose={onClose} title="ค้นหาพิกัดที่ถูกต้อง" guard={false}>
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-[13px]">
           <IconMapPin size={15} className="text-brand shrink-0" />

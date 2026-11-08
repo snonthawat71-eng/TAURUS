@@ -138,7 +138,7 @@ export function QuickExplorePicker({ open, onClose, onPicked, multi, initialGrou
   const toggle = (e: ExplorePlace) => (savedHere.has(e.id) ? unpick(e) : pick(e))
 
   return (
-    <Drawer open={open} onClose={onClose} title={title ?? 'เลือกด่วนจาก Explore'}>
+    <Drawer open={open} onClose={onClose} title={title ?? 'เลือกด่วนจาก Explore'} guard={false}>
       <div className="space-y-3">
         <p className="text-[12px] text-ink-3 -mt-1">
           {multi

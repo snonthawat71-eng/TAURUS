@@ -2,16 +2,27 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { IconX } from '@tabler/icons-react'
 import { lockScroll } from '@/lib/scrollLock'
+import { confirmDialog } from '@/lib/confirm'
 
 export function Drawer({
-  open, onClose, title, children,
+  open, onClose, title, children, guard = true,
 }: {
   open: boolean
   onClose: () => void
   title?: ReactNode
   children: ReactNode
+  /** Ask before an accidental close (✕ / backdrop / swipe / Esc) once the user
+   *  has typed or changed anything inside. Saving still closes straight away:
+   *  the save button calls the parent's onClose, not this guarded path.
+   *  Set false on pickers & detail sheets, where a search box or an
+   *  act-immediately control is not "unsaved work". */
+  guard?: boolean
 }) {
   const startY = useRef<number | null>(null)
+  // "something was typed/changed and not saved yet" — set by any input/change
+  // event bubbling out of the sheet body, cleared every time the sheet opens.
+  const dirty = useRef(false)
+  const asking = useRef(false)
   const [dy, setDy] = useState(0)
   const [dragging, setDragging] = useState(false)
   // On-screen keyboard height, derived from the visual viewport. We DON'T use
@@ -28,15 +39,37 @@ export function Drawer({
   useEffect(() => {
     if (!open) return
     setDy(0)
+    dirty.current = false
+    asking.current = false
     return lockScroll()
   }, [open])
 
+  // Every "I didn't mean to close this" gesture goes through here.
+  async function requestClose() {
+    if (!guard || !dirty.current) { onClose(); return }
+    if (asking.current) return
+    asking.current = true
+    setDy(0) // spring the sheet back up while the question is on screen
+    const discard = await confirmDialog({
+      title: 'ทิ้งข้อมูลที่กรอกไว้?',
+      message: 'ยังไม่ได้บันทึก ถ้าปิดตอนนี้ข้อมูลจะหายไป',
+      confirmLabel: 'ทิ้งเลย',
+      cancelLabel: 'กลับไปแก้ต่อ',
+      danger: true,
+    })
+    asking.current = false
+    if (discard) { dirty.current = false; onClose() }
+  }
+  // keep the key handler stable (it must not re-bind on every parent render)
+  const closeRef = useRef(requestClose)
+  closeRef.current = requestClose
+
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') void closeRef.current() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -68,7 +101,7 @@ export function Drawer({
   }
   function onTouchEnd() {
     if (startY.current == null) return
-    if (dy > 140) onClose(); else setDy(0)
+    if (dy > 140) void requestClose(); else setDy(0)
     startY.current = null
     setDragging(false)
   }
@@ -81,7 +114,7 @@ export function Drawer({
   //   706 Lightbox  ·  710 ConfirmHost  ·  720 Toaster
   return createPortal(
     <div className="fixed inset-0 z-[700]">
-      <div className="fixed inset-0 bg-black/30" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/30" onClick={() => void requestClose()} />
       {/* Mobile: a bottom sheet whose white surface runs all the way to the true
           screen bottom — so the strip the keyboard (and its translucent toolbar)
           overlays is simply the sheet's own white, seamless. Its content is
@@ -100,7 +133,7 @@ export function Drawer({
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
             <span className="h-1.5 w-10 rounded-full bg-line-2" />
           </div>
-          <button onClick={onClose} aria-label="ปิด"
+          <button onClick={() => void requestClose()} aria-label="ปิด"
             className="absolute top-3.5 right-3.5 size-8 rounded-full bg-surface-2 grid place-items-center text-ink-2 hover:bg-line z-10">
             <IconX size={16} />
           </button>
@@ -108,7 +141,9 @@ export function Drawer({
           {/* scrollable body: min-h-0 lets it shrink & scroll inside the capped
               sheet. It sits ABOVE the keyboard because the spacer below carries
               the sheet's surface down behind the keyboard. */}
-          <div className="min-h-0 overflow-y-auto px-5 pt-3 pb-5">
+          <div className="min-h-0 overflow-y-auto px-5 pt-3 pb-5"
+            onInput={() => { dirty.current = true }}
+            onChange={() => { dirty.current = true }}>
             {children}
           </div>
           {/* solid surface spacer that physically extends the sheet down behind

@@ -194,7 +194,7 @@ export function SaveToTripDialog({ place, open, sourceExploreId, onClose, onChan
   )
 
   return (
-    <Drawer open={open} onClose={onClose} title="เซฟสถานที่">
+    <Drawer open={open} onClose={onClose} title="เซฟสถานที่" guard={false}>
       <div className="flex items-center gap-2 mb-3 text-[13px]">
         <IconHeartFilled size={15} className="text-brand" />
         <span className="font-medium truncate">{place?.name}</span>
