@@ -17,6 +17,7 @@ import { uploadPublicImage } from '@/lib/files'
 import { optimizeImageUrl } from '@/lib/cloudinary'
 import { toast } from '@/lib/toast'
 import type { ExplorePlace, ExploreRoute, PlaceBranch, SuggestionKind } from '@/lib/database.types'
+import { ClearableText } from './ClearableField'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const area = 'hairline rounded-md text-[13px] px-3 py-2 bg-surface w-full outline-none focus:border-brand resize-none'
@@ -220,12 +221,12 @@ export function ExploreSuggestDialog({ place, open, onClose, onSubmitted }: {
           <div className="rounded-[10px] hairline p-2.5 space-y-2 bg-canvas">
             <div>
               <div className={lbl}><IconLink size={11} className="inline mr-1" />ลิงก์แผนที่ของสาขานี้</div>
-              <input className={field} value={branch.map_url ?? ''} onChange={(e) => setBranch((b) => ({ ...b, map_url: e.target.value }))} placeholder="วางลิงก์ Google/AMap แล้วเราเติมชื่อให้" inputMode="url" />
+              <ClearableText className={field} value={branch.map_url ?? ''} onChange={(e) => setBranch((b) => ({ ...b, map_url: e.target.value }))} placeholder="วางลิงก์ Google/AMap แล้วเราเติมชื่อให้" inputMode="url" />
               {linkNote}
             </div>
             <div>
               <div className={lbl}>ชื่อสาขา</div>
-              <input className={field} value={branch.label ?? ''} onChange={(e) => { setBranch((b) => ({ ...b, label: e.target.value })); setAutoFilled(false) }} placeholder="เช่น สาขาสีลม" />
+              <ClearableText className={field} value={branch.label ?? ''} onChange={(e) => { setBranch((b) => ({ ...b, label: e.target.value })); setAutoFilled(false) }} placeholder="เช่น สาขาสีลม" />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Combobox className={field} value={branch.line ?? ''} placeholder="สาย (ถ้ามี)" options={lineOptions}
@@ -242,12 +243,12 @@ export function ExploreSuggestDialog({ place, open, onClose, onSubmitted }: {
           <div className="space-y-2.5">
             <div>
               <div className={lbl}><IconLink size={11} className="inline mr-1" />ลิงก์แผนที่ (ช่วยเติมชื่อ)</div>
-              <input className={field} value={editMapUrl} onChange={(e) => setEditMapUrl(e.target.value)} placeholder="https://maps... (ไม่ใส่ก็ได้)" inputMode="url" />
+              <ClearableText className={field} value={editMapUrl} onChange={(e) => setEditMapUrl(e.target.value)} placeholder="https://maps... (ไม่ใส่ก็ได้)" inputMode="url" />
               {linkNote}
             </div>
             <div>
               <div className={lbl}>ชื่อที่ถูกต้อง</div>
-              <input className={field} value={name} onChange={(e) => { setName(e.target.value); setAutoFilled(false) }} placeholder={place?.name ?? 'ชื่อสถานที่'} />
+              <ClearableText className={field} value={name} onChange={(e) => { setName(e.target.value); setAutoFilled(false) }} placeholder={place?.name ?? 'ชื่อสถานที่'} />
             </div>
             <div>
               <div className={lbl}>รูปที่ถูกต้อง (ถ้ามี)</div>
@@ -272,7 +273,7 @@ export function ExploreSuggestDialog({ place, open, onClose, onSubmitted }: {
               )}
               <input id="sug-photo-input" type="file" accept="image/*" hidden
                 onChange={(e) => { if (e.target.files?.length) uploadFiles(e.target.files); e.target.value = '' }} />
-              <input className={`${field} mt-2`} value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="หรือวาง URL รูป" inputMode="url" />
+              <ClearableText className={`${field} mt-2`} value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="หรือวาง URL รูป" inputMode="url" />
             </div>
           </div>
         )}

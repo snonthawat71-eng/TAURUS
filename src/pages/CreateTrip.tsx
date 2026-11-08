@@ -15,7 +15,7 @@ import { CURRENCIES } from '@/lib/fx'
 import { TIMEZONES } from '@/lib/timezones'
 import { ORDER } from '@/lib/avatars'
 import { Avatar } from '@/components/Avatar'
-import { ClearableField } from '@/components/ClearableField'
+import { ClearableField, ClearableText } from '@/components/ClearableField'
 import { toast } from '@/lib/toast'
 import type { Traveler } from '@/lib/database.types'
 
@@ -311,7 +311,7 @@ export default function CreateTrip() {
             <h1 className="text-[18px] font-medium text-center mt-4">ตั้งชื่อทริปของคุณ</h1>
             <p className="text-[12px] text-ink-3 text-center mt-1.5">ชื่อนี้จะโชว์บนการ์ดทริปหน้าแรก — เปลี่ยนทีหลังได้เสมอ</p>
             <div className="mt-5"><div className={lbl}>ชื่อทริป</div>
-              <input className={field} autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Hongkong 2026" />
+              <ClearableText className={field} autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Hongkong 2026" />
             </div>
           </>
         )}
@@ -418,7 +418,7 @@ export default function CreateTrip() {
                         <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 shrink-0" style={{ background: 'var(--color-brand-soft)', color: 'var(--color-brand-dark)' }}>คุณ</span>
                       </div>
                     ) : (
-                      <input className={field + ' !h-9'} value={p.nick} placeholder="ชื่อเล่น *" autoFocus
+                      <ClearableText className={field + ' !h-9'} value={p.nick} placeholder="ชื่อเล่น *" autoFocus
                         onChange={(e) => setPeople((ps) => ps.map((x, idx) => (idx === i ? { ...x, nick: e.target.value } : x)))} />
                     )}
                     {i > 0 && (
@@ -428,9 +428,9 @@ export default function CreateTrip() {
                   </div>
                   {/* ชื่อจริง / นามสกุล แยกช่อง อ่านง่าย */}
                   <div className="grid grid-cols-2 gap-2 mt-2">
-                    <input className={field} value={p.first} placeholder="ชื่อจริง *"
+                    <ClearableText className={field} value={p.first} placeholder="ชื่อจริง *"
                       onChange={(e) => setPeople((ps) => ps.map((x, idx) => (idx === i ? { ...x, first: e.target.value } : x)))} />
-                    <input className={field} value={p.last} placeholder="นามสกุล *"
+                    <ClearableText className={field} value={p.last} placeholder="นามสกุล *"
                       onChange={(e) => setPeople((ps) => ps.map((x, idx) => (idx === i ? { ...x, last: e.target.value } : x)))} />
                   </div>
                 </div>

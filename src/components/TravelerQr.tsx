@@ -8,6 +8,7 @@ import { addTrainTicket, updateTrainTicket, deleteTrainTicket } from '@/lib/trip
 import { confirmDialog } from '@/lib/confirm'
 import { toast } from '@/lib/toast'
 import type { TrainTicket } from '@/lib/database.types'
+import { ClearableText } from './ClearableField'
 
 const qrRef = (path: string) => (/^https?:\/\//.test(path) ? { url: path } : { path })
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
@@ -372,19 +373,19 @@ function QrEditPage({ ticket, tripId, onPersist, onRemove, onBack }: {
         </select>
 
         {kind !== 'esim' && (
-          <input className={field} value={label} placeholder={meta.labelPh} onChange={(e) => setLabel(e.target.value)} onBlur={() => onPersist({ label: label.trim() || null })} />
+          <ClearableText className={field} value={label} placeholder={meta.labelPh} onChange={(e) => setLabel(e.target.value)} onBlur={() => onPersist({ label: label.trim() || null })} />
         )}
 
         {isBoarding(kind) ? (
           <>
             <div className="grid grid-cols-2 gap-2">
-              <input className={field} value={from} placeholder="สถานีต้นทาง" onChange={(e) => setFrom(e.target.value)} onBlur={() => onPersist({ from_station: from.trim() || null })} />
-              <input className={field} value={to} placeholder="สถานีปลายทาง" onChange={(e) => setTo(e.target.value)} onBlur={() => onPersist({ to_station: to.trim() || null })} />
+              <ClearableText className={field} value={from} placeholder="สถานีต้นทาง" onChange={(e) => setFrom(e.target.value)} onBlur={() => onPersist({ from_station: from.trim() || null })} />
+              <ClearableText className={field} value={to} placeholder="สถานีปลายทาง" onChange={(e) => setTo(e.target.value)} onBlur={() => onPersist({ to_station: to.trim() || null })} />
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <input className={field} value={car} placeholder="Car" onChange={(e) => setCar(e.target.value)} onBlur={() => onPersist({ car: car.trim() || null })} />
-              <input className={field} value={gate} placeholder="Gate" onChange={(e) => setGate(e.target.value)} onBlur={() => onPersist({ gate: gate.trim() || null })} />
-              <input className={field} value={seat} placeholder="Seat" onChange={(e) => setSeat(e.target.value)} onBlur={() => onPersist({ seat_no: seat.trim() || null })} />
+              <ClearableText className={field} value={car} placeholder="Car" onChange={(e) => setCar(e.target.value)} onBlur={() => onPersist({ car: car.trim() || null })} />
+              <ClearableText className={field} value={gate} placeholder="Gate" onChange={(e) => setGate(e.target.value)} onBlur={() => onPersist({ gate: gate.trim() || null })} />
+              <ClearableText className={field} value={seat} placeholder="Seat" onChange={(e) => setSeat(e.target.value)} onBlur={() => onPersist({ seat_no: seat.trim() || null })} />
             </div>
           </>
         ) : (

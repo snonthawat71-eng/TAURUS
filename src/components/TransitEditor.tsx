@@ -19,6 +19,7 @@ import { cityMatchKey } from '@/lib/cities'
 import { confirmDialog } from '@/lib/confirm'
 import { ModePicker } from './ModePicker'
 import type { Transit, TransitLeg, ExploreRoute, Place } from '@/lib/database.types'
+import { ClearableText } from './ClearableField'
 
 const field = 'hairline rounded-md text-[13px] h-9 px-2.5 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[10px] text-ink-3'
@@ -34,18 +35,8 @@ function Field({ value, onChange, type, placeholder, inputMode }: {
   inputMode?: 'decimal'
 }) {
   return (
-    <div className="relative">
-      <input type={type} inputMode={inputMode} className={field} value={value} placeholder={placeholder}
-        style={value ? { paddingRight: 26 } : undefined}
-        onChange={(e) => onChange(e.target.value)} />
-      {!!value && (
-        <button type="button" tabIndex={-1} aria-label="ล้างช่องนี้"
-          onMouseDown={(e) => { e.preventDefault(); onChange('') }}
-          className="absolute right-1 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 p-1">
-          <IconX size={14} />
-        </button>
-      )}
-    </div>
+    <ClearableText type={type} inputMode={inputMode} className={field} value={value} placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)} />
   )
 }
 
@@ -449,7 +440,7 @@ export function TransitEditor({
               <div className="rounded-[10px] bg-surface hairline px-3 py-2 flex items-center gap-2">
                 <IconCoin size={15} className="text-ink-3 shrink-0" />
                 <span className="text-[11.5px] text-ink-2 shrink-0">ราคาโดยประมาณ</span>
-                <input type="number" inputMode="decimal" className="flex-1 min-w-0 h-8 hairline rounded-md px-2 text-[12.5px] bg-surface outline-none focus:border-brand"
+                <ClearableText type="number" inputMode="decimal" className="flex-1 min-w-0 h-8 hairline rounded-md px-2 text-[12.5px] bg-surface outline-none focus:border-brand"
                   value={leg.fare ?? ''} autoFocus={leg.fare == null}
                   onChange={(e) => patch(i, { fare: e.target.value ? Number(e.target.value) : undefined })} placeholder="0" />
                 <select value={leg.fareCurrency ?? cityMoney} aria-label="สกุลเงินของราคานี้"

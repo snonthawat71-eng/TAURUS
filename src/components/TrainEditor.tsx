@@ -4,7 +4,7 @@ import {
   IconSofa, IconDoor, IconBoxMultiple, IconX,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
-import { ClearableField } from './ClearableField'
+import { ClearableField, ClearableText } from './ClearableField'
 import type { Train, FlightDirection } from '@/lib/database.types'
 import type { TrainInput } from '@/lib/tripMutations'
 import { confirmDialog } from '@/lib/confirm'
@@ -91,12 +91,12 @@ export function TrainEditor({
             </div>
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
-                <input className={stationField} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })}
+                <ClearableText className={stationField} value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })}
                   placeholder="ชื่อสถานี" aria-label="สถานีต้นทาง" />
               </div>
               <IconTrain size={18} className="text-brand shrink-0" />
               <div className="flex-1 min-w-0">
-                <input className={stationField} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })}
+                <ClearableText className={stationField} value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })}
                   placeholder="ชื่อสถานี" aria-label="สถานีปลายทาง" />
               </div>
             </div>
@@ -137,24 +137,24 @@ export function TrainEditor({
         {/* รายละเอียดขบวน — ช่องไอคอนนำหน้า placeholder เป็นป้ายในตัว */}
         <div className="grid grid-cols-2 gap-2">
           <div className="relative"><Lead><IconTrain size={15} /></Lead>
-            <input className={iconField} value={v.operator ?? ''} onChange={(e) => set({ operator: e.target.value })} placeholder="สายการเดินรถ JR / CR" aria-label="สายการเดินรถ" /></div>
+            <ClearableText className={iconField} value={v.operator ?? ''} onChange={(e) => set({ operator: e.target.value })} placeholder="สายการเดินรถ JR / CR" aria-label="สายการเดินรถ" /></div>
           <div className="relative"><Lead><IconHash size={15} /></Lead>
-            <input className={iconField} value={v.train_no ?? ''} onChange={(e) => set({ train_no: e.target.value })} placeholder="ขบวน เช่น G1234" aria-label="ขบวน" /></div>
+            <ClearableText className={iconField} value={v.train_no ?? ''} onChange={(e) => set({ train_no: e.target.value })} placeholder="ขบวน เช่น G1234" aria-label="ขบวน" /></div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="relative"><Lead><IconArmchair size={15} /></Lead>
-            <input className={iconField} value={v.seat_class ?? ''} onChange={(e) => set({ seat_class: e.target.value })} placeholder="ชั้น First / Second" aria-label="ชั้นโดยสาร" /></div>
+            <ClearableText className={iconField} value={v.seat_class ?? ''} onChange={(e) => set({ seat_class: e.target.value })} placeholder="ชั้น First / Second" aria-label="ชั้นโดยสาร" /></div>
           <div className="relative"><Lead><IconSofa size={15} /></Lead>
-            <input className={iconField} value={v.seat_no ?? ''} onChange={(e) => set({ seat_no: e.target.value })} placeholder="ที่นั่ง เช่น 11C, 11D" aria-label="ที่นั่ง" /></div>
+            <ClearableText className={iconField} value={v.seat_no ?? ''} onChange={(e) => set({ seat_no: e.target.value })} placeholder="ที่นั่ง เช่น 11C, 11D" aria-label="ที่นั่ง" /></div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="relative"><Lead><IconBoxMultiple size={15} /></Lead>
-            <input className={iconField} value={v.car ?? ''} onChange={(e) => set({ car: e.target.value })} placeholder="ตู้ที่ เช่น 5" aria-label="ตู้ที่" /></div>
+            <ClearableText className={iconField} value={v.car ?? ''} onChange={(e) => set({ car: e.target.value })} placeholder="ตู้ที่ เช่น 5" aria-label="ตู้ที่" /></div>
           <div className="relative"><Lead><IconDoor size={15} /></Lead>
-            <input className={iconField} value={v.gate ?? ''} onChange={(e) => set({ gate: e.target.value })} placeholder="ประตู เช่น B2" aria-label="ประตู" /></div>
+            <ClearableText className={iconField} value={v.gate ?? ''} onChange={(e) => set({ gate: e.target.value })} placeholder="ประตู เช่น B2" aria-label="ประตู" /></div>
         </div>
         <div className="relative"><Lead><IconTicket size={15} /></Lead>
-          <input className={iconField} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="รหัสจอง เช่น XKQP34" aria-label="รหัสจอง" /></div>
+          <ClearableText className={iconField} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="รหัสจอง เช่น XKQP34" aria-label="รหัสจอง" /></div>
 
         <button onClick={save} disabled={busy} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
         {initial && onDelete && (

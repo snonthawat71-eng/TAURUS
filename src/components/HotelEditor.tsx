@@ -5,7 +5,7 @@ import {
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
 import { SectionCard } from './SectionCard'
-import { ClearableField } from './ClearableField'
+import { ClearableField, ClearableText } from './ClearableField'
 import { HotelPhoto } from './HotelPhoto'
 import { uploadImage } from '@/lib/files'
 import { confirmDialog } from '@/lib/confirm'
@@ -198,7 +198,7 @@ export function HotelEditor({
               })}
             </div>
           )}
-          <input className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="พิมพ์ชื่อเมือง เช่น Beijing" />
+          <ClearableText className={field} value={city} onChange={(e) => setCity(e.target.value)} placeholder="พิมพ์ชื่อเมือง เช่น Beijing" />
         </SectionCard>
 
         {/* ลิงก์ (auto-fill ชื่อ) + ชื่อที่พัก */}
@@ -207,7 +207,7 @@ export function HotelEditor({
           <div className="space-y-2.5">
             <div>
               <div className={lbl}>ลิงก์แผนที่ (Google Maps / AMap)</div>
-              <input className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps..." inputMode="url" />
+              <ClearableText className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps..." inputMode="url" />
               {linkState === 'busy' && (
                 <div className="flex items-center gap-1 mt-1 text-[10.5px] font-medium text-ink-3">
                   <IconLoader2 size={12} className="animate-spin" /> กำลังอ่านชื่อจากลิงก์…
@@ -224,7 +224,7 @@ export function HotelEditor({
             </div>
             <div>
               <div className={lbl}>ชื่อที่พัก *</div>
-              <input className={field} value={name} onChange={(e) => { setName(e.target.value); setAutoFilled(false) }} placeholder="เช่น Beijing Wangfujing Grand Hotel" />
+              <ClearableText className={field} value={name} onChange={(e) => { setName(e.target.value); setAutoFilled(false) }} placeholder="เช่น Beijing Wangfujing Grand Hotel" />
             </div>
           </div>
         </SectionCard>
@@ -246,7 +246,7 @@ export function HotelEditor({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <div className={lbl}>จำนวนคืน</div>
-                <input type="number" className={field} value={nights}
+                <ClearableText type="number" className={field} value={nights}
                   onChange={(e) => { setNights(e.target.value); setNightsAuto(false) }} placeholder="4" />
                 {nightsAuto && nights && <div className="flex items-center gap-1 mt-1 text-[10.5px] font-medium" style={{ color: '#16A34A' }}><IconCheck size={12} /> คิดจากวันเข้า-ออกให้แล้ว</div>}
               </div>
@@ -254,7 +254,7 @@ export function HotelEditor({
                 <div className={lbl}>Booking ID</div>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none"><IconTicket size={15} /></span>
-                  <input className={`${field} !pl-9`} value={bookingId} onChange={(e) => setBookingId(e.target.value)} placeholder="BK-4892301" />
+                  <ClearableText className={`${field} !pl-9`} value={bookingId} onChange={(e) => setBookingId(e.target.value)} placeholder="BK-4892301" />
                 </div>
               </div>
             </div>
@@ -297,8 +297,8 @@ export function HotelEditor({
           <div className="space-y-2">
             {rooms.map((r, i) => (
               <div key={i} className="flex gap-2 items-center">
-                <input className={`${field} !w-24`} value={r.name} onChange={(e) => setRooms((rs) => rs.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} placeholder="Room 1" />
-                <input className={field} value={r.members.join(', ')} onChange={(e) => setRooms((rs) => rs.map((x, idx) => idx === i ? { ...x, members: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) } : x))} placeholder="ผู้เข้าพัก เช่น Elf, Nak" />
+                <ClearableText className={`${field} !w-24`} value={r.name} onChange={(e) => setRooms((rs) => rs.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} placeholder="Room 1" />
+                <ClearableText className={field} value={r.members.join(', ')} onChange={(e) => setRooms((rs) => rs.map((x, idx) => idx === i ? { ...x, members: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) } : x))} placeholder="ผู้เข้าพัก เช่น Elf, Nak" />
                 <button onClick={() => setRooms((rs) => rs.filter((_, idx) => idx !== i))} className="text-ink-3 hover:text-[#D85A30] shrink-0"><IconTrash size={15} /></button>
               </div>
             ))}

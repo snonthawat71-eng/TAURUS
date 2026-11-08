@@ -4,7 +4,7 @@ import {
   IconHash, IconCalendarEvent, IconTicket, IconArmchair, IconUsers, IconX,
 } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
-import { ClearableField } from './ClearableField'
+import { ClearableField, ClearableText } from './ClearableField'
 import type { Flight, FlightDirection } from '@/lib/database.types'
 import type { FlightInput } from '@/lib/tripMutations'
 import { confirmDialog } from '@/lib/confirm'
@@ -120,22 +120,22 @@ export function FlightEditor({
             </div>
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
-                <input className="hairline rounded-[11px] bg-surface w-full h-[52px] text-center text-[22px] font-bold tracking-[0.08em] outline-none focus:border-brand uppercase placeholder:text-ink-3/50 placeholder:font-medium"
+                <ClearableText className="hairline rounded-[11px] bg-surface w-full h-[52px] text-center text-[22px] font-bold tracking-[0.08em] outline-none focus:border-brand uppercase placeholder:text-ink-3/50 placeholder:font-medium"
                   value={v.dep_code ?? ''} onChange={(e) => setDepCode(e.target.value)} placeholder="XXX"
                   autoCapitalize="characters" maxLength={4} aria-label="รหัสสนามบินต้นทาง" />
               </div>
               <IconPlaneTilt size={18} className="text-brand shrink-0" />
               <div className="flex-1 min-w-0">
-                <input className="hairline rounded-[11px] bg-surface w-full h-[52px] text-center text-[22px] font-bold tracking-[0.08em] outline-none focus:border-brand uppercase placeholder:text-ink-3/50 placeholder:font-medium"
+                <ClearableText className="hairline rounded-[11px] bg-surface w-full h-[52px] text-center text-[22px] font-bold tracking-[0.08em] outline-none focus:border-brand uppercase placeholder:text-ink-3/50 placeholder:font-medium"
                   value={v.arr_code ?? ''} onChange={(e) => setArrCode(e.target.value)} placeholder="XXX"
                   autoCapitalize="characters" maxLength={4} aria-label="รหัสสนามบินปลายทาง" />
               </div>
             </div>
             <div className="flex items-center gap-2 mt-1.5">
-              <input className="flex-1 min-w-0 h-8 rounded-md bg-transparent text-center text-[11px] text-ink-2 outline-none placeholder:text-ink-3 focus:bg-surface-2"
+              <ClearableText className="flex-1 min-w-0 h-8 rounded-md bg-transparent text-center text-[11px] text-ink-2 outline-none placeholder:text-ink-3 focus:bg-surface-2"
                 value={v.dep_name ?? ''} onChange={(e) => set({ dep_name: e.target.value })} placeholder="ชื่อสนามบิน" aria-label="ชื่อสนามบินต้นทาง" />
               <span className="w-[18px] shrink-0" />
-              <input className="flex-1 min-w-0 h-8 rounded-md bg-transparent text-center text-[11px] text-ink-2 outline-none placeholder:text-ink-3 focus:bg-surface-2"
+              <ClearableText className="flex-1 min-w-0 h-8 rounded-md bg-transparent text-center text-[11px] text-ink-2 outline-none placeholder:text-ink-3 focus:bg-surface-2"
                 value={v.arr_name ?? ''} onChange={(e) => set({ arr_name: e.target.value })} placeholder="ชื่อสนามบิน" aria-label="ชื่อสนามบินปลายทาง" />
             </div>
           </div>
@@ -188,9 +188,9 @@ export function FlightEditor({
         {/* รายละเอียดไฟลต์ — ช่องไอคอนนำหน้า placeholder เป็นป้ายในตัว */}
         <div className="grid grid-cols-2 gap-2">
           <div className="relative"><Lead><IconPlane size={15} /></Lead>
-            <input className={iconField} value={v.airline ?? ''} onChange={(e) => set({ airline: e.target.value })} placeholder="สายการบิน" aria-label="สายการบิน" /></div>
+            <ClearableText className={iconField} value={v.airline ?? ''} onChange={(e) => set({ airline: e.target.value })} placeholder="สายการบิน" aria-label="สายการบิน" /></div>
           <div className="relative"><Lead><IconHash size={15} /></Lead>
-            <input className={iconField} value={v.flight_no ?? ''} onChange={(e) => set({ flight_no: e.target.value })} placeholder="เที่ยวบิน เช่น TG614" aria-label="เที่ยวบิน" /></div>
+            <ClearableText className={iconField} value={v.flight_no ?? ''} onChange={(e) => set({ flight_no: e.target.value })} placeholder="เที่ยวบิน เช่น TG614" aria-label="เที่ยวบิน" /></div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="relative"><Lead><IconArmchair size={15} /></Lead>
@@ -200,10 +200,10 @@ export function FlightEditor({
               {SEAT_CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select></div>
           <div className="relative"><Lead><IconUsers size={15} /></Lead>
-            <input type="number" className={iconField} value={v.seats ?? ''} onChange={(e) => set({ seats: e.target.value ? Number(e.target.value) : null })} placeholder="จำนวนที่นั่ง" aria-label="จำนวนที่นั่ง" /></div>
+            <ClearableText type="number" className={iconField} value={v.seats ?? ''} onChange={(e) => set({ seats: e.target.value ? Number(e.target.value) : null })} placeholder="จำนวนที่นั่ง" aria-label="จำนวนที่นั่ง" /></div>
         </div>
         <div className="relative"><Lead><IconTicket size={15} /></Lead>
-          <input className={iconField} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="รหัสจอง เช่น XKQP34" aria-label="รหัสจอง" /></div>
+          <ClearableText className={iconField} value={v.booking_ref ?? ''} onChange={(e) => set({ booking_ref: e.target.value })} placeholder="รหัสจอง เช่น XKQP34" aria-label="รหัสจอง" /></div>
 
         <button onClick={save} disabled={busy} className="btn-primary w-full h-10 disabled:opacity-50">{busy ? 'กำลังบันทึก...' : 'บันทึก'}</button>
         {initial && onDelete && (

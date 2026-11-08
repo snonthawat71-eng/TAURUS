@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { IconTrash, IconMoodSmile, IconPlus } from '@tabler/icons-react'
 import { Drawer } from './Drawer'
-import { ClearableField } from './ClearableField'
+import { ClearableField, ClearableText } from './ClearableField'
 import { CURRENCIES } from '@/lib/fx'
 import { confirmDialog } from '@/lib/confirm'
 import { TIMEZONES } from '@/lib/timezones'
@@ -72,7 +72,7 @@ export function TripEditor({
       <div className="space-y-3">
         <div>
           <div className={lbl}>ชื่อทริป</div>
-          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Beijing · Tianjin" />
+          <ClearableText className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Beijing · Tianjin" />
         </div>
 
         <div className="relative">
@@ -82,7 +82,7 @@ export function TripEditor({
               className="w-10 h-10 grid place-items-center hairline rounded-md shrink-0 text-[20px]">
               {flag && flag !== '🌍' ? flag : <IconMoodSmile size={18} className="text-ink-3" />}
             </button>
-            <input className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="พิมพ์ชื่อประเทศ เช่น China" />
+            <ClearableText className={field} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="พิมพ์ชื่อประเทศ เช่น China" />
           </div>
           {pickFlag && (
             <>
@@ -145,12 +145,12 @@ export function TripEditor({
             </div>
           </div>
           {!multi ? (
-            <input className={field} value={cities[0] ?? ''} onChange={(e) => setCity(0, e.target.value)} placeholder="เช่น Beijing" />
+            <ClearableText className={field} value={cities[0] ?? ''} onChange={(e) => setCity(0, e.target.value)} placeholder="เช่น Beijing" />
           ) : (
             <div className="space-y-2">
               {cities.map((c, i) => (
                 <div key={i} className="flex gap-2 items-center">
-                  <input className={field} value={c} onChange={(e) => setCity(i, e.target.value)} placeholder={`เมืองที่ ${i + 1}`} />
+                  <ClearableText className={field} value={c} onChange={(e) => setCity(i, e.target.value)} placeholder={`เมืองที่ ${i + 1}`} />
                   {cities.length > 1 && <button onClick={() => setCities((cs) => cs.filter((_, idx) => idx !== i))} className="text-ink-3 hover:text-[#D85A30] shrink-0"><IconTrash size={15} /></button>}
                 </div>
               ))}

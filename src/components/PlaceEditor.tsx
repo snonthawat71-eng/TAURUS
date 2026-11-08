@@ -20,6 +20,7 @@ import { catMeta, CATEGORY, PLACE_CATEGORIES, FOOD_CATEGORIES, FOOD_GROUPS } fro
 import type { Place, PlaceGroup, ExploreRoute, PlaceBranch } from '@/lib/database.types'
 import { buildBranchRemap } from '@/lib/placeMutations'
 import type { BranchRemap, PlaceInput } from '@/lib/placeMutations'
+import { ClearableText } from './ClearableField'
 
 const field = 'hairline rounded-md text-[13px] h-10 px-3 bg-surface w-full outline-none focus:border-brand'
 const lbl = 'text-[11px] text-ink-3'
@@ -286,7 +287,7 @@ export function PlaceEditor({
           <div className="space-y-2.5">
             <div>
               <div className={lbl}>ลิงก์แผนที่ (Google Maps / AMap)</div>
-              <input className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps..." inputMode="url" />
+              <ClearableText className={field} value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://maps..." inputMode="url" />
               {linkState === 'busy' && (
                 <div className="flex items-center gap-1 mt-1 text-[10.5px] font-medium text-ink-3">
                   <IconLoader2 size={12} className="animate-spin" /> กำลังอ่านชื่อจากลิงก์…
@@ -303,7 +304,7 @@ export function PlaceEditor({
             </div>
             <div>
               <div className={lbl}>{group === 'food' ? 'ชื่อร้าน *' : 'ชื่อสถานที่ *'}</div>
-              <input className={field} value={name} onChange={(e) => { setName(e.target.value); setAutoFilled(false) }} placeholder="เช่น Forbidden City" />
+              <ClearableText className={field} value={name} onChange={(e) => { setName(e.target.value); setAutoFilled(false) }} placeholder="เช่น Forbidden City" />
             </div>
             <div>
               <div className={lbl}>หมวด</div>
@@ -318,7 +319,7 @@ export function PlaceEditor({
                 <option value="other">อื่นๆ</option>
               </select>
               {category === 'other' && (
-                <input className={`${field} mt-2`} value={customCat} onChange={(e) => setCustomCat(e.target.value)} placeholder="ระบุหมวดเอง เช่น ตลาดน้ำ" />
+                <ClearableText className={`${field} mt-2`} value={customCat} onChange={(e) => setCustomCat(e.target.value)} placeholder="ระบุหมวดเอง เช่น ตลาดน้ำ" />
               )}
             </div>
             {/* หลายสาขา ต่อท้าย (เฉพาะร้านอาหาร) */}
@@ -340,7 +341,7 @@ export function PlaceEditor({
                 {multiBranch && (
                   <div className="mt-2.5">
                     <div className={lbl}>ชื่อสาขาของที่ตั้งด้านบน</div>
-                    <input className={field} value={branchLabel} onChange={(e) => setBranchLabel(e.target.value)}
+                    <ClearableText className={field} value={branchLabel} onChange={(e) => setBranchLabel(e.target.value)}
                       placeholder="เช่น สาขาสยาม (ที่ตั้ง/ลิงก์แผนที่ที่กรอกไว้ข้างบน)" />
                   </div>
                 )}
@@ -349,7 +350,7 @@ export function PlaceEditor({
                     {branches.map((b, i) => (
                       <div key={i} className="rounded-[10px] hairline p-2.5 space-y-2 bg-canvas">
                         <div className="flex items-center gap-2">
-                          <input className={field} value={b.label ?? ''} onChange={(e) => patchBranch(i, { label: e.target.value })} placeholder="ชื่อสาขา เช่น สาขาสยาม" />
+                          <ClearableText className={field} value={b.label ?? ''} onChange={(e) => patchBranch(i, { label: e.target.value })} placeholder="ชื่อสาขา เช่น สาขาสยาม" />
                           <button onClick={() => { setBranches((bs) => bs.filter((_, idx) => idx !== i)); setBranchFrom((o) => o.filter((_, idx) => idx !== i)) }} className="text-ink-3 hover:text-[#D85A30] shrink-0"><IconTrash size={15} /></button>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
@@ -360,7 +361,7 @@ export function PlaceEditor({
                             options={routeStationOpts(b.line ?? '')} onChange={(v) => patchBranch(i, { station: v })} />
                         </div>
                         <ColorPicker value={b.color ?? '#185FA5'} onChange={(c) => patchBranch(i, { color: c })} />
-                        <input className={field} value={b.map_url ?? ''} onChange={(e) => patchBranch(i, { map_url: e.target.value })} placeholder="ลิงก์แผนที่ของสาขานี้ https://maps..." />
+                        <ClearableText className={field} value={b.map_url ?? ''} onChange={(e) => patchBranch(i, { map_url: e.target.value })} placeholder="ลิงก์แผนที่ของสาขานี้ https://maps..." />
                       </div>
                     ))}
                   </div>
