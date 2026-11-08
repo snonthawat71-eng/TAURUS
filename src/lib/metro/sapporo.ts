@@ -10,9 +10,13 @@
 // — with JR Hokkaido's own station numbers (H01…, S01…, AP15). They are a
 // different railway from the subway, so they carry the JR name.
 //
+// The streetcar (札幌市電) is here as well — unlike the trams in the other
+// cities it is a single loop that visitors actually ride, out to the Mt. Moiwa
+// ropeway. Its stops carry the SC numbers and the grey the subway map prints
+// the loop in.
+//
 // Same shape as Taipei/Tokyo: no geometry, so there's no tappable map for
-// Sapporo yet — this powers the line/station autocomplete. The streetcar
-// (市電) is left out, like the trams in the other cities.
+// Sapporo yet — this powers the line/station autocomplete.
 interface SapporoStation { name: string; num: string }
 interface SapporoLine { name: string; color: string; stations: SapporoStation[] }
 
@@ -53,6 +57,22 @@ export const SAPPORO: { match: string[]; lines: SapporoLine[] } = {
         'Sakaemachi', 'Shindo-Higashi', 'Motomachi', 'Kanjo-dori-Higashi', 'Higashi-Kuyakusho-mae',
         'Kita-Jusan-Jo-Higashi', 'Sapporo', 'Odori', 'Hosui-Susukino', 'Gakuen-mae', 'Toyohira-Koen',
         'Misono', 'Tsukisamu-Chuo', 'Fukuzumi',
+      ]),
+    },
+    {
+      // 札幌市電 — one loop, listed the way the stop numbers run. Riding the
+      // other way round is the same stops in reverse, so a single ordered
+      // list covers both directions.
+      name: 'Sapporo Streetcar',
+      color: '#B2B2B2',
+      stations: line('SC', [
+        'Nishi-Yon-Chome', 'Nishi-Hatchome', 'Chuo-Kuyakusho-mae', 'Nishi-Jugo-Chome',
+        'Nishisen-Rokujo', 'Nishisen-Kujo-Asahiyama-Koen-dori', 'Nishisen-Juichijo',
+        'Nishisen-Juyonjo', 'Nishisen-Jurokujo', 'Ropeway Iriguchi', 'Densha-Jigyosho-mae',
+        'Chuo-Toshokan-mae', 'Ishiyama-dori', 'Higashi-Tonden-dori', 'Konan-Shogakko-mae',
+        'Yamahana-Jukyujo', 'Seishu-Gakuen-mae', 'Gyokei-dori', 'Nakajima-Koen-dori',
+        'Yamahana-Kujo', 'Higashi-Honganji-mae', 'Shiseikan-Shogakko-mae', 'Susukino',
+        'Tanukikoji',
       ]),
     },
     {
