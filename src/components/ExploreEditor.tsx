@@ -13,6 +13,7 @@ import { ModePicker } from './ModePicker'
 import { suggestionsFromText, suggestFor, findLine, type LineSuggest } from '@/lib/metro/suggest'
 import { modeMeta } from '@/lib/transitModes'
 import { uploadPublicImage } from '@/lib/files'
+import { photosFromLink } from '@/lib/linkPhotos'
 import { hscroll } from '@/lib/hscroll'
 import { cityImage } from '@/lib/cityImages'
 import { canonicalCountry } from '@/lib/countries'
@@ -84,6 +85,13 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
   const [photoFocus, setPhotoFocus] = useState<string | null>(null)
   const [cropping, setCropping] = useState(false)
   const [urlDraft, setUrlDraft] = useState('')
+  // "ดึงรูปจากลิงก์" — preview images the pasted link publishes about itself.
+  // null = not asked yet, [] = asked and the link offers none.
+  const [linkPhotos, setLinkPhotos] = useState<string[] | null>(null)
+  const [linkPhotoBusy, setLinkPhotoBusy] = useState(false)
+  // a declared preview image can still 404 or be hotlink-blocked — drop those
+  // thumbs rather than offering a photo that won't load on the card either
+  const [deadLinkPhotos, setDeadLinkPhotos] = useState<string[]>([])
   const [menuPaths, setMenuPaths] = useState<string[]>([])
   const [note, setNote] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -247,6 +255,18 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
     setPhotoFocus(null)
     setCropping(false)
   }
+  // a different link means different photos — clear what the last one gave
+  useEffect(() => { setLinkPhotos(null); setDeadLinkPhotos([]) }, [mapUrl])
+
+  async function grabLinkPhotos() {
+    const u = mapUrl.trim()
+    if (!u || linkPhotoBusy) return
+    setLinkPhotoBusy(true)
+    setDeadLinkPhotos([])
+    setLinkPhotos(await photosFromLink(u))
+    setLinkPhotoBusy(false)
+  }
+
   function addUrlPhoto() {
     const u = urlDraft.trim()
     if (!u) return
@@ -543,6 +563,40 @@ export function ExploreEditor({ open, onClose, initial, existing, onSave }: {
                     ))}
                   </div>
                   <button onClick={useAllChainPhotos} className="btn-link text-[11px] mt-1.5">ใช้ทั้งหมด</button>
+                </div>
+              )}
+              {/* รูปจากลิงก์ที่วางไว้ข้างบน — เว็บส่วนใหญ่ประกาศรูปตัวอย่างของตัวเอง
+                  ไว้ให้เอาไปโชว์ตอนแชร์อยู่แล้ว เลยหยิบรูปนั้นมาให้เลือก */}
+              {allPhotos.length < 4 && mapUrl.trim() && (
+                <div className="rounded-[10px] p-2 hairline" style={{ background: 'var(--color-canvas)' }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11.5px] font-medium text-ink-2 flex items-center gap-1 min-w-0">
+                      <IconLink size={13} className="shrink-0" /> <span className="truncate">ใช้รูปจากลิงก์ที่วางไว้</span>
+                    </span>
+                    <button onClick={grabLinkPhotos} disabled={linkPhotoBusy}
+                      className="btn-link text-[11.5px] font-semibold shrink-0 disabled:opacity-50 flex items-center gap-1">
+                      {linkPhotoBusy ? <><IconLoader2 size={12} className="animate-spin" /> กำลังดึง…</> : (linkPhotos ? 'ดึงใหม่' : 'ดึงรูปจากลิงก์')}
+                    </button>
+                  </div>
+                  {linkPhotos !== null && !linkPhotoBusy && (
+                    linkPhotos.some((u) => !deadLinkPhotos.includes(u)) ? (
+                      <>
+                        <div className="flex gap-1.5 overflow-x-auto mt-2 pb-0.5">
+                          {linkPhotos.filter((u) => !deadLinkPhotos.includes(u)).map((u) => (
+                            <button key={u} onClick={() => usePhoto(u)} title="ใช้รูปนี้"
+                              className="relative shrink-0 size-[54px] rounded-[8px] overflow-hidden bg-surface-2 hairline">
+                              <img src={optimizeImageUrl(u, 160) ?? u} alt="" className="w-full h-full object-cover"
+                                onError={() => setDeadLinkPhotos((d) => (d.includes(u) ? d : [...d, u]))} />
+                              <span className="absolute inset-x-0 bottom-0 text-[8.5px] font-bold text-white py-px" style={{ background: 'rgba(0,0,0,.45)' }}>ใช้รูปนี้</span>
+                            </button>
+                          ))}
+                        </div>
+                        <span className="block text-[10.5px] text-ink-3 mt-1">แตะรูปเพื่อใช้ — เลือกได้มากกว่า 1 รูป</span>
+                      </>
+                    ) : (
+                      <span className="block text-[10.5px] text-ink-3 mt-1.5">ลิงก์นี้ไม่มีรูปให้ดึง (บางเว็บอย่าง Google Maps ก็ไม่ยอมให้ดึง) — เลือกรูปจากเครื่องด้านล่างได้เลย</span>
+                    )
+                  )}
                 </div>
               )}
               {allPhotos.length < 4 && (
