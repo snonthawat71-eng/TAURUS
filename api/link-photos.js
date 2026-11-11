@@ -62,12 +62,41 @@ const META = [
 // every entry out of the array, not just the first.
 const LD_ARRAY = /"image"\s*:\s*\[([^\]]{0,2000})\]/gi
 
-/** Skip the sprites, spacers, tracking pixels and logos every page carries. */
+// A Google Maps place page declares a MAP of the place as its preview image —
+// a static map tile or a Street View frame — which is useless as a place photo
+// and is what this filter is mainly here for. Same for the sprites, spacers,
+// tracking pixels and logos every page carries.
+const MAPPY = /(staticmap|streetview|\/maps\/vt|mapbox|tile\.openstreetmap|cbk\d*\.google|maps\.googleapis\.com)/i
+// gstatic is Google's own asset host — map tiles, the "G" a consent wall
+// shows, UI chrome. Never a photo of a place.
+const GOOGLE_CHROME = /(gstatic\.com|googlelogo|googleg_)/i
+
 function usable(u) {
   if (!/^https?:\/\//i.test(u)) return false
   if (/\.svg(\?|$)/i.test(u)) return false
+  if (MAPPY.test(u) || GOOGLE_CHROME.test(u)) return false
   if (/(sprite|spacer|pixel|blank|1x1|favicon|logo_|_logo|placeholder|avatar_default)/i.test(u)) return false
   return true
+}
+
+// The place's OWN photos on a Google Maps page. Google serves them from its
+// photo CDN under a stable id, so the id is what we match; the "=w203-h152"
+// suffix on the copy embedded in the page is a thumbnail, so it is replaced
+// with a size worth showing on a card.
+const G_PHOTO = /https:\/\/(?:lh\d+\.googleusercontent\.com\/p|gps-cs-s\.googleusercontent\.com|gps-proxy\.googleusercontent\.com|streetviewpixels-pa\.googleapis\.com\/v1\/thumbnail)\/[A-Za-z0-9_\-]{20,}/g
+
+function googlePhotos(body) {
+  const out = []
+  const seen = new Set()
+  for (const m of body.matchAll(G_PHOTO)) {
+    const base = m[0]
+    if (/streetviewpixels/i.test(base)) continue // a Street View frame, not a photo of the place
+    if (seen.has(base)) continue
+    seen.add(base)
+    out.push(`${base}=w1000-h800-k-no`)
+    if (out.length >= 8) break
+  }
+  return out
 }
 
 function imagesFrom(body, baseUrl) {
@@ -82,6 +111,10 @@ function imagesFrom(body, baseUrl) {
     if (seen.has(k)) return
     seen.add(k)
     out.push(u)
+  }
+  // a Google Maps page's own photos first — its declared preview is a map
+  if (/google\.[a-z.]+\/maps|googleusercontent\.com\/p\//i.test(body.slice(0, 200000)) || /google\./i.test(baseUrl)) {
+    for (const u of googlePhotos(body)) add(u)
   }
   for (const re of META) { let m; re.lastIndex = 0; while ((m = re.exec(body))) add(m[1]) }
   LD_ARRAY.lastIndex = 0
